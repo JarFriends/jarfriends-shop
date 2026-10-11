@@ -4,7 +4,7 @@ const fs = require('fs');
 const R = String.raw;
 const changes = [
   ['api/help.js', R`  const hello = b.kind === 'hello';`, R`  const hello = b.kind === 'hello', join = b.kind === 'join';`],
-  ['api/help.js', R`  const topic = hello ? 'Saying hello' :`, R`  const topic = hello ? 'Saying hello' : join ? 'Joined the mailing list' :`],
+  ['api/help.js', R`  const topic = hello ? 'Saying hello' :`, R`  const topic = hello ? 'Saying hello' : join ? 'Subscribed' :`],
   ['api/help.js', R`  if (!topic || !issue) return`, R`  if (join) {
     // On the list: list/<email hash>.json. A hello typed with it goes on to the owner like any other message.
     try {
@@ -18,18 +18,18 @@ const changes = [
   }
   if (!topic || !issue) return`],
   ['api/help.js', R`kind: hello ? 'hello' : 'help',`, R`kind: join ? 'join' : hello ? 'hello' : 'help',`],
-  ['api/help.js', R`(hello ? 'Hello from ' : 'Help request from ')`, R`(join ? 'New on the mailing list, with a hello: ' : hello ? 'Hello from ' : 'Help request from ')`],
+  ['api/help.js', R`(hello ? 'Hello from ' : 'Help request from ')`, R`(join ? 'New subscriber, with a hello: ' : hello ? 'Hello from ' : 'Help request from ')`],
   ['public/help.html', R`  if (hello) {
     document.title = 'Say hello';`, R`  var join = /[?&]join=1/.test(location.search);
   if (join) {
-    document.title = 'Join the mailing list';
-    document.querySelector('h1').textContent = 'Join the mailing list';
+    document.title = 'Subscribe';
+    document.querySelector('h1').textContent = 'Subscribe';
     document.querySelector('.mono.gold').textContent = 'BE FIRST TO KNOW';
     $('lead').textContent = 'Get an email when a new safe unlocks and when new pieces arrive. Say hello too, if you like.';
     ['order', 'topic', 'fix', 'issue'].forEach(function (n) { F.elements[n].required = false; if (n !== 'issue') F.elements[n].closest('label').hidden = true; });
     F.elements.issue.closest('label').firstChild.textContent = 'Say hello (optional)';
-    $('go').textContent = 'Join the list';
-    document.querySelector('#done h2').textContent = 'You are on the list.';
+    $('go').textContent = 'Subscribe';
+    document.querySelector('#done h2').textContent = 'You are subscribed.';
     document.querySelector('#done .small').textContent = 'We will email you when a new safe unlocks. Every email has an unsubscribe link.';
   }
   if (hello) {

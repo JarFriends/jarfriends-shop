@@ -99,7 +99,7 @@ async function safes(now, mail) {
     const l1 = n >= total ? 'Every safe before it has been claimed, so The Vault is open right now.' : 'Safe ' + (n - 1) + ' was just claimed, so safe ' + n + ' is unlocked.';
     const l2 = n >= total ? 'This is the last and biggest one. Have you seen what is inside?' : 'Have you checked what is inside the new safe?';
     const l3 = n >= total ? '' : 'We are getting closer to The Vault: ' + (left === 1 ? 'it is the very next safe to open.' : left + ' more safes to go before it opens.');
-    const lines = [first(who[e]), '', l1, l2].concat(l3 ? ['', l3] : [], ['', 'See it here:', HOST + '/#deal', '', 'You are getting this because you ordered from JarFriends or joined our mailing list.' + (addr ? ' JarFriends, ' + addr + '.' : ''), 'Unsubscribe: ' + stop]);
+    const lines = [first(who[e]), '', l1, l2].concat(l3 ? ['', l3] : [], ['', 'See it here:', HOST + '/#deal', '', 'You are getting this because you ordered from JarFriends or subscribed.' + (addr ? ' JarFriends, ' + addr + '.' : ''), 'Unsubscribe: ' + stop]);
     const html = '<div style="background:#0B1712;padding:28px 16px;font-family:Arial,Helvetica,sans-serif;color:#E6EFE9"><div style="max-width:520px;margin:0 auto">' +
       '<div style="font-size:13px;letter-spacing:2px;color:#C9A45C">DEAL OF THE DAY</div>' +
       '<h1 style="font-size:26px;margin:8px 0 14px;color:#8FD3AE">' + esc(subject.replace(' at JarFriends', '')) + '</h1>' +
@@ -108,7 +108,7 @@ async function safes(now, mail) {
       '<p style="margin:18px 0"><a href="' + HOST + '/#deal" style="background:#C9A45C;color:#0B1712;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:24px;display:inline-block">' + (n >= total ? 'Open The Vault' : 'See what is in safe ' + n) + '</a></p>' +
       (l3 ? '<p style="font-size:16px;line-height:1.5;margin:0 0 12px">' + esc(l3) + '</p>' : '') +
       '<a href="' + HOST + '/#deal"><img src="' + HOST + '/photos/vault.jpg" alt="The Vault" width="360" style="max-width:100%;height:auto;border:0;border-radius:10px;display:block"></a>' +
-      '<p style="font-size:12px;line-height:1.5;color:#8FA89A;margin:22px 0 0">You are getting this because you ordered from JarFriends or joined our mailing list.' + (addr ? ' JarFriends, ' + esc(addr) + '.' : '') + ' <a href="' + stop + '" style="color:#8FA89A">Unsubscribe</a></p></div></div>';
+      '<p style="font-size:12px;line-height:1.5;color:#8FA89A;margin:22px 0 0">You are getting this because you ordered from JarFriends or subscribed.' + (addr ? ' JarFriends, ' + esc(addr) + '.' : '') + ' <a href="' + stop + '" style="color:#8FA89A">Unsubscribe</a></p></div></div>';
     const out = await mail(e, subject, lines, 'safe-' + n + '-' + hashOf(e), html).catch(() => 'failed');
     if (out === 'sent' || out === 'duplicate') log.done[hashOf(e)] = 1;
     await new Promise((r) => setTimeout(r, 550));
