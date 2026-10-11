@@ -6,6 +6,14 @@ const changes = [
   ['api/order.js', R`  const tax = !isNft && (st === 'il' || st === 'ill' || st === 'illinois') ? Math.round((list - cut) * taxPct() / 100) : 0;`, R`  // Crypto discount: 1% off the pieces after any promo code or accepted offer.
   const cd = !cash && !card ? Math.round((list - cut) * 1 / 100) : 0;
   const tax = !isNft && (st === 'il' || st === 'ill' || st === 'illinois') ? Math.round((list - cut - cd) * taxPct() / 100) : 0;`],
+  // JAR10 is the first-order code from the checkout reminder email: it only works for an email with no order yet.
+  ['api/order.js', R`  if (promo && deal) return res.status(400).json({ error: 'A promo code cannot be added to an accepted offer. Remove the code to continue.' });`, R`  if (promo && deal) return res.status(400).json({ error: 'A promo code cannot be added to an accepted offer. Remove the code to continue.' });
+  if (promo && promo.code === 'JAR10') {
+    const led = require('./_store');
+    let before = false;
+    try { before = (await Promise.all((await led.sales()).map((s) => led.read(s.path)))).some((d) => d && String(d.email || '').trim().toLowerCase() === email.toLowerCase()); } catch (e) { before = false; }
+    if (before) return res.status(400).json({ error: 'JAR10 is for first orders only. Remove the code to continue.' });
+  }`],
   ['api/order.js', R`  const total = list - cut + ship + tax + fee;`, R`  const total = list - cut - cd + ship + tax + fee;`],
   ['api/order.js', R`promo ? { pc: promo.code, pd: cut } : {}, `, R`promo ? { pc: promo.code, pd: cut } : {}, cd ? { cd: cd } : {}, `],
   ['api/_offline.js', R`const costRows = (inv) => (inv.pc ? [['Promo code', esc(promoLine(inv))]] : []).concat(`, R`const costRows = (inv) => (inv.pc ? [['Promo code', esc(promoLine(inv))]] : []).concat(inv.cd ? [['Crypto discount (1%)', esc('-' + money(inv.cd))]] : [], `],

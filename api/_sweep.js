@@ -24,7 +24,7 @@ async function carts(now, mail) {
     if (left <= 0) continue;
     if (!buyers[c.pid]) buyers[c.pid] = (await Promise.all(sales.filter((s) => s.pid === c.pid).map((s) => store.read(s.path)))).map((d) => String((d && d.email) || '').trim().toLowerCase());
     if (buyers[c.pid].indexOf(c.email) >= 0) continue;
-    const out = await mail(c.email, 'Still thinking about ' + c.product + '?', [first(c.name), '', 'You started checking out ' + c.product + ' at JarFriends but did not finish.', left === 1 ? 'There is only 1 left, so do not miss out.' : left <= 5 ? 'There are only ' + left + ' left, so do not miss out.' : 'Do not miss out.', '', 'Finish your order here:', HOST + '/order.html?product=' + encodeURIComponent(c.pid), '', 'If you are no longer interested, ignore this email. We will not send another reminder.'], 'cart-' + c.path.slice(6, -5)).catch(() => 'failed');
+    const out = await mail(c.email, 'Still thinking about ' + c.product + '?', [first(c.name), '', 'You started checking out ' + c.product + ' at JarFriends but did not finish.', left === 1 ? 'There is only 1 left, so do not miss out.' : left <= 5 ? 'There are only ' + left + ' left, so do not miss out.' : 'Do not miss out.', '', 'If this is your first order, take 10% off with promo code JAR10 at checkout.', '', 'Finish your order here:', HOST + '/order.html?product=' + encodeURIComponent(c.pid), '', 'If you are no longer interested, ignore this email. We will not send another reminder.'], 'cart-' + c.path.slice(6, -5)).catch(() => 'failed');
     if (out === 'sent' || out === 'duplicate') { const path = c.path; delete c.path; await store.write(path, Object.assign(c, { sent: Date.now(), auto: true })); }
   }
 }
@@ -65,7 +65,9 @@ async function unpaid(now, mail) {
 // One-time changes the owner asked for. Each is done once, then never again, so later edits in the back office stand.
 const ONCE = [
   ['lava5', 'LAVAJACK', { stock: 5 }],
-  ['koala125', 'DEAL2', { price: 125, shipping: 'free' }]
+  ['koala125', 'DEAL2', { price: 125, shipping: 'free' }],
+  // The first-order promo code named in the checkout reminder email: 10% off shop and Deal of the day pieces.
+  ['jar10', 'promo:JAR10', { on: true, pct: 10, for: ['shop', 'deal'] }]
 ];
 let once = false;
 async function oneOff() {
@@ -73,7 +75,8 @@ async function oneOff() {
   once = true;
   for (const o of ONCE) {
     if (await store.read('sweep/' + o[0] + '.json')) continue;
-    await require('./_edits').save(o[1], o[2]);
+    if (o[1].indexOf('promo:') === 0) await require('./_offline').savePromo(o[1].slice(6), o[2]);
+    else await require('./_edits').save(o[1], o[2]);
     await store.write('sweep/' + o[0] + '.json', { at: Date.now() });
   }
 }
