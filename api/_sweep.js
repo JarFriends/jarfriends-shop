@@ -42,8 +42,8 @@ async function offers(now, mail) {
 }
 
 // 3. An order placed to be paid by hand (Zelle, Venmo, Cash App, cash) that is still unpaid: a payment reminder every
-// four hours, at most six (the first day), until it is marked paid or cancelled.
-const EVERY = 4 * 3600000, MOST = 6;
+// four hours, at most two, until it is marked paid or cancelled.
+const EVERY = 4 * 3600000, MOST = 2;
 async function unpaid(now, mail) {
   const WAYS = require('./_offline').WAYS || {};
   const recent = (await store.sales()).filter((s) => !s.gone && now - s.at < 3 * 86400000 && now - s.at >= EVERY);
