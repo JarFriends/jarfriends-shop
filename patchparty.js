@@ -2,7 +2,9 @@
 const fs = require('fs');
 const f = 'api/_party.js';
 let s = fs.readFileSync(f, 'utf8');
-[["ends: Date.parse('2026-10-14T23:00:00-05:00'),", "ends: Date.parse('2026-10-11T22:35:00-05:00'),"], ["endsText: 'Wednesday, October 14 at 11:00 PM Central',", "endsText: 'Sunday, October 11 at 10:35 PM Central',"]].forEach((c) => {
+[["ends: Date.parse('2026-10-14T23:00:00-05:00'),", "ends: Date.parse('2026-10-11T22:35:00-05:00'),"], ["endsText: 'Wednesday, October 14 at 11:00 PM Central',", "endsText: 'Sunday, October 11 at 10:35 PM Central',"],
+  // The top level (33% off for everyone) is reached once 8 of the 11 are sold, not all 11.
+  ["tiers: [[25, 5], [50, 10], [100, 33]]", "tiers: [[25, 5], [50, 10], [72.7, 33]]"]].forEach((c) => {
   if (s.split(c[0]).length !== 2) throw new Error('patchparty: expected one match for ' + c[0]);
   s = s.replace(c[0], () => c[1]);
 });
