@@ -41,8 +41,20 @@ async function offers(now, mail) {
   }
 }
 
+// One-time change asked for by the owner on October 11, 2026: Lava Jack-O stock is 5. Done once, then never again,
+// so later edits in the back office stand.
+let once = false;
+async function oneOff() {
+  if (once) return;
+  once = true;
+  if (await store.read('sweep/lava5.json')) return;
+  await require('./_edits').save('LAVAJACK', { stock: 5 });
+  await store.write('sweep/lava5.json', { at: Date.now() });
+}
+
 async function run() {
   const now = Date.now();
+  if (process.env.VERCEL_ENV === 'production' && store.on()) await oneOff().catch((e) => { once = false; console.error('ONEOFF_FAIL', String(e && e.message || e)); });
   if (process.env.VERCEL_ENV !== 'production' || !store.on() || now - last < GAP) return;
   last = now;
   const was = (await store.read('sweep/last.json')) || {};
