@@ -107,7 +107,19 @@
     if (editing !== p.id) {
       var ed = el('button', 'Edit', 'ghost'); ed.type = 'button'; ed.style.cssText = 'align-self:flex-start;padding:8px 18px';
       ed.addEventListener('click', function () { editing = p.id; draw(); });
-      c.appendChild(ed); return c;
+      // One press to take a piece off the site, or put it back. Everything else about it stays as it is.
+      var hb = el('button', p.hidden ? 'Show on site' : 'Hide from site', p.hidden ? 'solid' : 'ghost'); hb.type = 'button'; hb.style.cssText = 'padding:8px 18px';
+      hb.addEventListener('click', function () {
+        if (!p.hidden && !confirm('Hide "' + p.name + '" from the site? Nobody will be able to see or order it until you press Show on site.')) return;
+        hb.disabled = true; hb.textContent = 'Saving...';
+        get('&edit=' + encodeURIComponent(p.id) + '&name=' + encodeURIComponent(p.name) + '&desc=' + encodeURIComponent(p.desc || '') + '&price=' + encodeURIComponent(p.price) + '&stock=' + encodeURIComponent(p.start) + '&shipping=' + encodeURIComponent(p.shipping || 0) + '&section=' + encodeURIComponent(p.section || '') + '&deal=' + encodeURIComponent(p.deal || '0') + '&shelf=' + (p.onShelf ? '1' : '0') + '&hidden=' + (p.hidden ? '0' : '1')).then(function (r) {
+          if (r.error) { hb.disabled = false; hb.textContent = p.hidden ? 'Show on site' : 'Hide from site'; alert(r.error); return; }
+          load(p.hidden ? 'Back on the site. The shop shows the change within about a minute.' : 'Hidden. The shop shows the change within about a minute.');
+        }, function () { hb.disabled = false; hb.textContent = p.hidden ? 'Show on site' : 'Hide from site'; alert('Could not reach the site. Try again.'); });
+      });
+      var acts = el('div'); acts.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px';
+      ed.style.alignSelf = ''; acts.appendChild(ed); acts.appendChild(hb);
+      c.appendChild(acts); return c;
     }
     var row = el('div'); row.style.cssText = 'display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end';
     var name = field('Name', p.name, 'text', '100%'), desc = field('Description (shown on the home page when the piece is opened)', p.desc || '', 'area', '100%');
