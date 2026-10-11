@@ -55,7 +55,7 @@
       var g = el('td'), tag = el('b', CATS[r.cat]); tag.style.color = r.cat === 'paid' ? '#C9A45C' : r.cat === 'due' ? '#8FD3AE' : '#A8BFB1';
       g.appendChild(tag); if (r.detail) g.appendChild(el('div', r.detail, 'small')); tr.appendChild(g);
       var msg = el('td'); msg.style.cssText = 'max-width:420px;overflow-wrap:anywhere;white-space:normal';
-      msg.appendChild(el('b', m.kind === 'hello' ? 'Said hello' : 'Help: ' + (m.topic || '')));
+      msg.appendChild(el('b', m.kind === 'hello' ? 'Said hello' : m.kind === 'join' ? 'Joined the mailing list' : 'Help: ' + (m.topic || '')));
       msg.appendChild(el('div', m.issue || ''));
       if (m.fix) msg.appendChild(el('div', 'Wants: ' + m.fix, 'small'));
       if (m.order) msg.appendChild(el('div', 'Order number given: ' + m.order, 'small'));

@@ -62,6 +62,54 @@ async function unpaid(now, mail) {
   }
 }
 
+// 4. A new Deal of the day safe has unlocked (the one before it was claimed): everyone who has ordered or joined the mailing list gets
+// one email about it, with a picture of the vault. Twelve go out per check, so a long list takes a few checks.
+const esc = (v) => String(v == null ? '' : v).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const hashOf = (e) => require('crypto').createHash('sha1').update(String(e).toLowerCase()).digest('hex').slice(0, 20);
+async function safes(now, mail) {
+  const lib = require('./_lib'), dl = await require('./_offline').deals(await lib.getInventory());
+  const open = ((dl.slots || []).filter((x) => x.state === 'open')[0] || {}).n || 0;
+  const was = await store.read('sweep/safe.json');
+  // The first time this runs it only notes which safe is open. Nothing is sent for a safe that was already open.
+  if (!was) { await store.write('sweep/safe.json', { open: open, pending: 0 }); return; }
+  let st = was;
+  if (open && open > (was.open || 0)) { st = { open: open, pending: open, at: now }; await store.write('sweep/safe.json', st); }
+  if (!st.pending) return;
+  const n = st.pending, total = (dl.slots || []).length || 5, left = total - n;
+  const sales = await store.sales(), who = {}, owner = (process.env.OWNER_EMAIL || '').trim().toLowerCase();
+  // The owner gets it first, to see what went out.
+  if (owner) who[owner] = '';
+  (await Promise.all(sales.map((x) => store.read(x.path)))).forEach((d) => { const e = String((d && d.email) || '').trim().toLowerCase(); if (/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e) && !(e in who)) who[e] = d.buyer || ''; });
+  // And everyone who joined the mailing list (help.html?join=1).
+  (await Promise.all((await files('list/')).map((p) => store.read(p)))).forEach((d) => { const e = String((d && d.email) || '').trim().toLowerCase(); if (/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e) && !(e in who)) who[e] = d.name || ''; });
+  const log = (await store.read('sweep/blast-' + n + '.json')) || { done: {} };
+  const todo = Object.keys(who).filter((e) => !log.done[hashOf(e)]);
+  if (!todo.length) { await store.write('sweep/safe.json', { open: st.open, pending: 0 }); return; }
+  const addr = (process.env.RETURN_ADDRESS || '').replace(/\s*\n\s*/g, ', ').trim();
+  const subject = n >= total ? 'The Vault is open at JarFriends' : 'Safe ' + n + ' just unlocked at JarFriends';
+  for (const e of todo.slice(0, 12)) {
+    if (await store.read('unsub/' + hashOf(e) + '.json')) { log.done[hashOf(e)] = 1; continue; }
+    const stop = HOST + '/api/unsub?t=' + lib.sign({ un: 1, e: e });
+    const l1 = n >= total ? 'Every safe before it has been claimed, so The Vault is open right now.' : 'Safe ' + (n - 1) + ' was just claimed, so safe ' + n + ' is unlocked.';
+    const l2 = n >= total ? 'This is the last and biggest one. Have you seen what is inside?' : 'Have you checked what is inside the new safe?';
+    const l3 = n >= total ? '' : 'We are getting closer to The Vault: ' + (left === 1 ? 'it is the very next safe to open.' : left + ' more safes to go before it opens.');
+    const lines = [first(who[e]), '', l1, l2].concat(l3 ? ['', l3] : [], ['', 'See it here:', HOST + '/#deal', '', 'You are getting this because you ordered from JarFriends or joined our mailing list.' + (addr ? ' JarFriends, ' + addr + '.' : ''), 'Unsubscribe: ' + stop]);
+    const html = '<div style="background:#0B1712;padding:28px 16px;font-family:Arial,Helvetica,sans-serif;color:#E6EFE9"><div style="max-width:520px;margin:0 auto">' +
+      '<div style="font-size:13px;letter-spacing:2px;color:#C9A45C">DEAL OF THE DAY</div>' +
+      '<h1 style="font-size:26px;margin:8px 0 14px;color:#8FD3AE">' + esc(subject.replace(' at JarFriends', '')) + '</h1>' +
+      '<p style="font-size:16px;line-height:1.5;margin:0 0 10px">' + esc(first(who[e])) + '</p>' +
+      '<p style="font-size:16px;line-height:1.5;margin:0 0 10px">' + esc(l1) + ' <b>' + esc(l2) + '</b></p>' +
+      '<p style="margin:18px 0"><a href="' + HOST + '/#deal" style="background:#C9A45C;color:#0B1712;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:24px;display:inline-block">' + (n >= total ? 'Open The Vault' : 'See what is in safe ' + n) + '</a></p>' +
+      (l3 ? '<p style="font-size:16px;line-height:1.5;margin:0 0 12px">' + esc(l3) + '</p>' : '') +
+      '<a href="' + HOST + '/#deal"><img src="' + HOST + '/photos/vault.jpg" alt="The Vault" width="360" style="max-width:100%;height:auto;border:0;border-radius:10px;display:block"></a>' +
+      '<p style="font-size:12px;line-height:1.5;color:#8FA89A;margin:22px 0 0">You are getting this because you ordered from JarFriends or joined our mailing list.' + (addr ? ' JarFriends, ' + esc(addr) + '.' : '') + ' <a href="' + stop + '" style="color:#8FA89A">Unsubscribe</a></p></div></div>';
+    const out = await mail(e, subject, lines, 'safe-' + n + '-' + hashOf(e), html).catch(() => 'failed');
+    if (out === 'sent' || out === 'duplicate') log.done[hashOf(e)] = 1;
+    await new Promise((r) => setTimeout(r, 550));
+  }
+  await store.write('sweep/blast-' + n + '.json', log);
+}
+
 // One-time changes the owner asked for. Each is done once, then never again, so later edits in the back office stand.
 const ONCE = [
   ['lava5', 'LAVAJACK', { stock: 5 }],
@@ -93,5 +141,6 @@ async function run() {
   await carts(now, mail).catch((e) => console.error('SWEEP_CARTS_FAIL', String(e && e.message || e)));
   await offers(now, mail).catch((e) => console.error('SWEEP_OFFERS_FAIL', String(e && e.message || e)));
   await unpaid(now, mail).catch((e) => console.error('SWEEP_UNPAID_FAIL', String(e && e.message || e)));
+  await safes(now, mail).catch((e) => console.error('SWEEP_SAFES_FAIL', String(e && e.message || e)));
 }
 module.exports = { run };
