@@ -3,4 +3,4 @@
 const fs = require('fs');
 const f = 'api/_products.js', s = fs.readFileSync(f, 'utf8'), at = "deal: 4, nft: 'yes', section: 'NFTs' }";
 if (s.split(at).length !== 2) throw new Error('patchvault: expected one match in ' + f);
-fs.writeFileSync(f, s.replace(at, () => at + ",\n  { id: 'VAULT5', name: 'Eager Eagle 1st (Pure .999 Fine Silver) + Motivated Monster Comic + Adventurous Astronaut Comic', price: 206, min: 1, stock: 1, shipping: 'free', deal: 5, weight_oz: 10 },\n  { id: 'LAVAJACK', name: 'Lava Jack-O', price: 152, min: 1, stock: 5, shipping: 5.57, section: 'Comics', shelf: true }"));
+fs.writeFileSync(f, s.replace(at, () => at + ",\n  { id: 'VAULT5', name: 'Eager Eagle 1st (Pure .999 Fine Silver) + Motivated Monster Comic + Adventurous Astronaut Comic', price: 206, min: 1, stock: 1, shipping: 'free', deal: 5, weight_oz: 10 },\n  { id: 'LAVAJACK', name: 'Lava Jack-O', price: 152, min: 1, stock: 5, shipping: 5.57, section: 'Comics', shelf: true },\n  { id: 'ALIENNFT', name: 'Aspiring Alien NFT (VeeFriends)', price: 700, min: 1, stock: 1, shipping: 'free', nft: 'yes', section: 'NFTs', shelf: true }"));
