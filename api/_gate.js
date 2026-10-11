@@ -28,10 +28,24 @@ async function isBuyer(email) {
   memo.set(email, { at: Date.now(), v: v });
   return v;
 }
+// Paid orders by email, for every customer at once: { email: count }. Cancelled orders are not in the ledger.
+async function paidByEmail() {
+  const out = {};
+  if (!store.on()) return out;
+  await Promise.all((await store.sales()).map(async (s) => {
+    const d = (await store.read(s.path)) || {}, e = String(d.email || '').trim().toLowerCase();
+    if (!e) return;
+    let paid = !/payment due/i.test(d.status || '');
+    if (!paid) paid = !!((await store.read('meta/' + s.n + '.json')) || {}).paidAt;
+    out[e] = out[e] || { n: 0, name: d.buyer || '' };
+    if (paid) out[e].n++;
+  }));
+  return out;
+}
 // Product ids the owner has marked buyers only.
 async function gated() {
   const out = {};
   try { (await require('./_edits').apply(require('./_products'), { all: true })).forEach((p) => { if (p.buyers) out[p.id] = true; }); } catch (e) { /* none */ }
   return out;
 }
-module.exports = { emailOf, isBuyer, gated };
+module.exports = { emailOf, isBuyer, gated, paidByEmail };

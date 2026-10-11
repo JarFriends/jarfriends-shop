@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My jars</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&family=IBM+Plex+Mono:wght@400;500&family=Playfair+Display:wght@600;700;800&display=swap">
+<link rel="stylesheet" href="/site.css">
+<style>
+[hidden]{display:none!important}
+.jars{display:flex;flex-wrap:wrap;gap:10px}
+.jar{width:44px;height:56px;border-radius:8px 8px 12px 12px;border:2px solid #4E7A63;position:relative;box-sizing:border-box;background:#0B1A13}
+.jar:before{content:"";position:absolute;left:6px;right:6px;top:-8px;height:8px;border-radius:3px;background:#4E7A63}
+.jar.full{border-color:#C9A45C;background:linear-gradient(180deg,#0B1A13 0 22%,#C9A45C 22% 100%)}
+.jar.full:before{background:#C9A45C}
+.safe{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:14px 0;border-top:1px solid #244536}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap bar"><a class="brand" href="/" style="text-decoration:none">JarFriends</a><span style="display:flex;align-items:center;gap:20px"><span class="mono dim">MY JARS</span><a class="home" href="/">Home</a></span></div></header>
+<main class="wrap page">
+  <div class="stack-s">
+    <div class="mono gold">ONE JAR FOR EVERY ORDER</div>
+    <h1 id="head">My jars</h1>
+    <div class="small" id="lead">Loading your jars...</div>
+  </div>
+  <section class="card" id="box" hidden>
+    <div class="jars" id="row"></div>
+    <div class="small" id="how" style="margin-top:14px"></div>
+    <div id="safes" style="margin-top:8px"></div>
+    <div class="small" id="msg" role="status"></div>
+  </section>
+  <a class="solid" id="signin" href="/account.html" hidden style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center;align-self:flex-start">Sign in</a>
+  <a class="home" href="/">Back to the shop</a>
+</main>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var el = function (tag, text, cls) { var e = document.createElement(tag); if (text != null) e.textContent = text; if (cls) e.className = cls; return e; };
+  var tok = ''; try { tok = localStorage.getItem('acct_token') || ''; } catch (e) { tok = ''; }
+  if (!tok) { $('lead').textContent = 'Sign in with the email you ordered with to see your jars.'; $('signin').hidden = false; return; }
+  function draw(r) {
+    $('lead').textContent = 'Signed in as ' + r.email + '.';
+    $('box').hidden = false; $('row').textContent = '';
+    for (var i = 0; i < Math.max(r.need, r.jars); i++) $('row').appendChild(el('div', null, 'jar' + (i < r.jars ? ' full' : '')));
+    var left = r.need - r.jars;
+    $('how').textContent = 'You have ' + r.jars + (r.jars === 1 ? ' jar' : ' jars') + '. Every paid order earns one. ' + (left > 0 ? left + ' more and you can open a locked safe early.' : 'That is enough to open a locked safe early. Opening one uses ' + r.need + ' jars; you still pay for the piece inside.');
+    $('safes').textContent = '';
+    if (!r.safes.length) { $('safes').appendChild(el('div', 'There are no locked safes right now.', 'small')); return; }
+    r.safes.forEach(function (s) {
+      var row = el('div', null, 'safe'), t = el('div');
+      t.appendChild(el('b', 'Safe ' + s.n + (s.open ? ': ' + s.name : '')));
+      t.appendChild(el('div', s.open ? 'Opened with your jars. It is yours to buy.' : 'Locked. What is inside stays secret until you open it.', 'small'));
+      row.appendChild(t);
+      if (s.open) { var a = el('a', 'Go to checkout', 'solid'); a.href = '/order.html?product=' + encodeURIComponent(s.pid) + '&qty=1'; a.style.cssText = 'text-decoration:none;display:inline-flex;align-items:center;justify-content:center'; row.appendChild(a); }
+      else {
+        var b = el('button', 'Use ' + r.need + ' jars to open', r.jars >= r.need ? 'solid' : 'ghost'); b.type = 'button'; b.disabled = r.jars < r.need;
+        b.addEventListener('click', function () {
+          if (!confirm('Use ' + r.need + ' jars to open safe ' + s.n + '? You cannot undo this.')) return;
+          b.disabled = true; $('msg').textContent = 'Opening...';
+          fetch('/api/jars', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ t: tok, n: s.n }) }).then(function (x) { return x.json(); }).then(function (x) {
+            if (x.error) { b.disabled = false; $('msg').textContent = x.error; return; }
+            $('msg').textContent = ''; draw(x);
+          }, function () { b.disabled = false; $('msg').textContent = 'Could not reach the site. Try again.'; });
+        });
+        row.appendChild(b);
+      }
+      $('safes').appendChild(row);
+    });
+  }
+  fetch('/api/jars?t=' + encodeURIComponent(tok), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (r) {
+    if (r.error) { $('lead').textContent = r.error; $('signin').hidden = false; return; }
+    draw(r);
+  }, function () { $('lead').textContent = 'Could not reach the site. Reload the page.'; });
+})();
+</script>
+</body>
+</html>
