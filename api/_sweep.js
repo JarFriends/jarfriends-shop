@@ -41,6 +41,27 @@ async function offers(now, mail) {
   }
 }
 
+// 3. An order placed to be paid by hand (Zelle, Venmo, Cash App, cash) that is still unpaid: a payment reminder every
+// four hours, at most six (the first day), until it is marked paid or cancelled.
+const EVERY = 4 * 3600000, MOST = 6;
+async function unpaid(now, mail) {
+  const WAYS = require('./_offline').WAYS || {};
+  const recent = (await store.sales()).filter((s) => !s.gone && now - s.at < 3 * 86400000 && now - s.at >= EVERY);
+  for (const s of recent) {
+    const d = (await store.read(s.path)) || {}, m = (await store.read('meta/' + s.n + '.json')) || {};
+    const sent = m.reminders || 0;
+    if (!d.email || !/payment due/i.test(d.status || '') || m.paidAt || m.cancelledAt || sent >= MOST) continue;
+    if (now - (d.at || s.at) < EVERY || now - (m.remindedAt || 0) < EVERY) continue;
+    const w = Object.keys(WAYS).filter((k) => WAYS[k].label === d.pay)[0];
+    const to = w && WAYS[w].env ? (process.env[WAYS[w].env] || '').trim() : '';
+    const out = await mail(d.email, 'Reminder: payment due for order ' + s.n, [first(d.buyer), '', 'Your order ' + s.n + ' (' + (d.product || 'your order') + ' x ' + s.q + ') is waiting for payment. We are holding it for you.', 'Total due: $' + String(d.total || '').replace(/^\$/, ''), to ? 'Send your ' + d.pay + ' payment to ' + to + '.' : 'Reply to this email and we will send payment details.', '', 'Already paid? Reply to this email and we will mark it paid.', 'Changed your mind? Reply and we will cancel the order.'], 'unpaid-' + s.n + '-' + (sent + 1)).catch(() => 'failed');
+    if (out === 'sent' || out === 'duplicate') {
+      const fresh = (await store.read('meta/' + s.n + '.json')) || {};
+      await store.write('meta/' + s.n + '.json', Object.assign(fresh, { reminders: sent + 1, remindedAt: Date.now() }));
+    }
+  }
+}
+
 // One-time change asked for by the owner on October 11, 2026: Lava Jack-O stock is 5. Done once, then never again,
 // so later edits in the back office stand.
 let once = false;
@@ -63,5 +84,6 @@ async function run() {
   const mail = require('./_lib').mail;
   await carts(now, mail).catch((e) => console.error('SWEEP_CARTS_FAIL', String(e && e.message || e)));
   await offers(now, mail).catch((e) => console.error('SWEEP_OFFERS_FAIL', String(e && e.message || e)));
+  await unpaid(now, mail).catch((e) => console.error('SWEEP_UNPAID_FAIL', String(e && e.message || e)));
 }
 module.exports = { run };
