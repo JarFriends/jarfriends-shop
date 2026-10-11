@@ -8,11 +8,31 @@ const store = require('./_store');
 // Pieces from the starting list that are on the shelf unless the owner says otherwise.
 const SHELF = ['MONSTER', 'HARPIK', 'ASTRO'];
 let memo = null;
+// Each save of a product is its own new file: catalog/e/<product id>/<time>.json, holding everything saved for it.
+// A new file name is never served stale, and the newest one wins, so an edit shows at once and two edits made close
+// together cannot undo each other. catalog/edits.json is the older single file, still read underneath.
+async function versions() {
+  const { list } = await import('@vercel/blob');
+  const by = {};
+  let cursor;
+  do {
+    const r = await list({ prefix: 'catalog/e/', cursor: cursor, limit: 1000 });
+    (r.blobs || []).forEach((b) => {
+      const m = /^catalog\/e\/([A-Za-z0-9_-]+)\/(\d+)\.json$/.exec(b.pathname);
+      if (m) (by[m[1]] = by[m[1]] || []).push({ t: Number(m[2]), path: b.pathname, url: b.url });
+    });
+    cursor = r.hasMore ? r.cursor : null;
+  } while (cursor);
+  Object.keys(by).forEach((k) => by[k].sort((x, y) => y.t - x.t));
+  return by;
+}
 async function read() {
   if (!store.on()) return { e: {}, added: [] };
-  if (memo && Date.now() - memo.at < 10000) return memo.v;
-  const both = await Promise.all([store.read('catalog/edits.json'), store.read('catalog/added.json')]);
-  const v = { e: both[0] || {}, added: Array.isArray(both[1]) ? both[1] : [] };
+  if (memo && Date.now() - memo.at < 4000) return memo.v;
+  const got = await Promise.all([store.read('catalog/edits.json'), store.read('catalog/added.json'), versions().catch((err) => { console.error('EDITS_LIST_FAIL', String(err && err.message || err)); return {}; })]);
+  const e = Object.assign({}, got[0] || {}), by = got[2];
+  await Promise.all(Object.keys(by).map(async (id) => { const v = await store.read(by[id][0].path); if (v) e[id] = Object.assign({}, e[id], v); }));
+  const v = { e: e, added: Array.isArray(got[1]) ? got[1] : [], by: by };
   memo = { at: Date.now(), v: v };
   return v;
 }
@@ -25,10 +45,13 @@ async function apply(list, opts) {
   return opts && opts.all ? full : full.filter((p) => !p.hidden);
 }
 async function save(id, fields) {
-  const e = Object.assign({}, (await store.read('catalog/edits.json')) || {});
-  e[id] = Object.assign({}, e[id], fields);
-  await store.write('catalog/edits.json', e);
   memo = null;
+  const now = await read();
+  await store.write('catalog/e/' + id + '/' + Date.now() + '.json', Object.assign({}, now.e[id], fields));
+  memo = null;
+  // Keep the last three saves of a product and clear out the rest.
+  const old = ((now.by || {})[id] || []).slice(2).map((x) => x.url).filter(Boolean);
+  if (old.length) { try { const { del } = await import('@vercel/blob'); await del(old); } catch (err) { console.error('EDITS_PRUNE_FAIL', String(err && err.message || err)); } }
 }
 // A new product. Its id is made here: a letter and the time, so it never clashes with another.
 async function add(fields) {
@@ -41,3 +64,5 @@ async function add(fields) {
   return p;
 }
 module.exports = { read, apply, save, add };
+// The back office asks for the saved state afresh, never a remembered copy.
+module.exports.fresh = () => { memo = null; };

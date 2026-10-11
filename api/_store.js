@@ -38,7 +38,7 @@ async function write(path, data) {
 async function read(path) {
   const { get } = await lib();
   let r = null;
-  try { r = await get(path, { access: 'private' }); } catch (e) { return null; }
+  try { r = await get(path, { access: 'private', useCache: false }); } catch (e) { return null; }
   if (!r || r.statusCode !== 200 || !r.stream) return null;
   try { return JSON.parse(await new Response(r.stream).text()); } catch (e) { return null; }
 }
