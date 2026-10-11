@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>New invoice</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&family=IBM+Plex+Mono:wght@400;500&family=Playfair+Display:wght@600;700;800&display=swap">
+<link rel="stylesheet" href="/site.css">
+</head>
+<body>
+<header class="top"><div class="wrap bar"><a class="brand" href="/" style="text-decoration:none">Collectors Page</a><span style="display:flex;align-items:center;gap:20px"><span class="mono dim">OWNER ONLY</span><a class="home" href="/">Home</a></span></div></header>
+<main class="wrap page">
+  <div class="stack-s">
+    <div class="mono gold">CRYPTO PAYMENT</div>
+    <h1>New invoice</h1>
+    <div class="small">Fill this in to lock the amount, wallet and deadline, then send the payment link to your customer.</div>
+  </div>
+
+  <section class="card">
+    <form id="f">
+      <label>Owner passcode<input name="passcode" type="password" required autocomplete="current-password"></label>
+      <div class="two">
+        <label>Invoice number<input name="no" maxlength="40" placeholder="1001"></label>
+        <label>Total in US dollars<input name="usd" type="number" min="1" step="0.01" required inputmode="decimal"></label>
+      </div>
+      <div class="two">
+        <label>Product<input name="item" maxlength="120"></label>
+        <label>Quantity<input name="qty" maxlength="20"></label>
+      </div>
+      <div class="two">
+        <label>Buyer company<input name="buyer" maxlength="120"></label>
+        <label>Customer email <span class="hint">gets the automated confirmation</span><input name="email" type="email" maxlength="160"></label>
+      </div>
+      <div class="two">
+        <label>Delivery terms<input name="terms" maxlength="160"></label>
+        <label>Hours to pay <span class="hint">shorter means less price movement</span><input name="hours" type="number" min="0.25" max="168" step="0.25" value="24" required></label>
+      </div>
+      <button class="solid" type="submit" id="go">Create payment link</button>
+      <div class="small" id="msg" role="status"></div>
+    </form>
+  </section>
+
+  <section class="card" id="out" hidden>
+    <div class="stack-s">
+      <h2>Payment link</h2>
+      <div class="addr" id="link"></div>
+      <div class="pills"><button type="button" class="ghost" id="copy">Copy link</button><a class="ghost" id="open" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center">Open it</a></div>
+      <div class="rows" id="amts"></div>
+      <div class="small" id="skip"></div>
+    </div>
+  </section>
+</main>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  $('f').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var data = {}; new FormData($('f')).forEach(function (v, k) { data[k] = v; });
+    $('msg').textContent = 'Fetching live prices and locking amounts...'; $('go').disabled = true;
+    fetch('/api/invoice', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(data) })
+      .then(function (r) { return r.json(); })
+      .then(function (r) {
+        $('go').disabled = false;
+        if (r.error) { $('msg').textContent = r.error; return; }
+        $('msg').textContent = 'Done. Pay by ' + new Date(r.deadline * 1000).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) + '.';
+        $('link').textContent = r.link; $('open').href = r.link;
+        var box = $('amts'); box.textContent = '';
+        Object.keys(r.amounts).forEach(function (c) {
+          var row = document.createElement('div'); row.className = 'row';
+          var a = document.createElement('span'); a.textContent = c;
+          var b = document.createElement('span'); b.textContent = r.amounts[c];
+          row.appendChild(a); row.appendChild(b); box.appendChild(row);
+        });
+        $('skip').textContent = r.skipped.length ? 'Not offered on this invoice (no wallet set, or no price available): ' + r.skipped.join(', ') + '.' : '';
+        $('out').hidden = false;
+      }, function () { $('go').disabled = false; $('msg').textContent = 'Could not reach the site. Try again.'; });
+  });
+  $('copy').addEventListener('click', function () {
+    if (navigator.clipboard) navigator.clipboard.writeText($('link').textContent).then(function () {
+      $('copy').textContent = 'Copied'; setTimeout(function () { $('copy').textContent = 'Copy link'; }, 1600);
+    });
+  });
+})();
+</script>
+</body>
+</html>

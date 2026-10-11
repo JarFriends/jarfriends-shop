@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Send payment</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&family=IBM+Plex+Mono:wght@400;500&family=Playfair+Display:wght@600;700;800&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<link rel="stylesheet" href="/site.css">
+</head>
+<body>
+<header class="top"><div class="wrap bar"><a class="brand" href="/" style="text-decoration:none">Collectors Page</a><span style="display:flex;align-items:center;gap:20px"><span class="mono dim">CRYPTO PAYMENT</span><a class="home" href="/">Home</a></span></div></header>
+
+<main class="wrap page">
+  <div class="stack-s">
+    <div class="mono gold" id="invNo">INVOICE</div>
+    <h1>Send payment</h1>
+  </div>
+
+  <div id="problem" class="alert" role="alert" hidden></div>
+
+  <div id="expired" class="alert" role="alert" hidden>
+    <div class="alert-t">This payment window has closed</div>
+    <div>Do not send funds to this address. Ask us for a fresh invoice and a new deadline.</div>
+  </div>
+
+  <div id="body" class="cols" hidden>
+    <section class="card side">
+      <h2>Order</h2>
+      <div class="rows">
+        <div class="row"><span id="oItem"></span></div>
+        <div class="row"><span class="dim">Buyer</span><span id="oBuyer"></span></div>
+        <div class="row"><span class="dim">Delivery</span><span id="oTerms"></span></div>
+        <div class="row" id="rOrder" hidden><span class="dim">Order total</span><span id="oOrder"></span></div>
+        <div class="row" id="rBal" hidden><span class="dim">Balance on delivery</span><span id="oBal"></span></div>
+        <div class="row total"><span id="lTotal">Total due</span><span id="oTotal"></span></div>
+      </div>
+      <div class="deadline">
+        <div class="label">TIME LEFT TO PAY</div>
+        <div class="clock" id="clock">--:--:--</div>
+        <div class="small">Pay by <span id="by"></span>. A payment that arrives late is not matched to this order.</div>
+      </div>
+    </section>
+
+    <section class="card main">
+      <div class="stack-s">
+        <h2>1. Choose a coin</h2>
+        <div class="pills" id="pills"></div>
+        <div class="small">Network: <strong id="net"></strong>. Sending on a different network loses the funds.</div>
+      </div>
+
+      <div class="stack-s" id="payBox">
+        <h2>2. Send this exact amount</h2>
+        <div class="pay">
+          <div class="qr" id="qr" aria-label="QR code of the wallet address"></div>
+          <div class="payinfo">
+            <div>
+              <div class="label">AMOUNT</div>
+              <div class="amount"><span id="amt"></span> <span id="sym"></span></div>
+              <button type="button" class="ghost" id="copyAmt">Copy amount</button>
+            </div>
+            <div>
+              <div class="label">TO WALLET</div>
+              <div class="addr" id="addr"></div>
+              <button type="button" class="ghost" id="copyAddr">Copy address</button>
+            </div>
+          </div>
+        </div>
+        <div class="small">Send from any wallet or exchange. Send the amount exactly as shown, to the last digit: that exact figure is how your payment is matched to this invoice. If your exchange takes its fee out of the amount, add the fee so the full amount arrives.</div>
+      </div>
+
+      <div class="stack-s">
+        <h2>3. We watch the chain</h2>
+        <div id="steps"></div>
+        <div class="small" id="note" aria-live="polite"></div>
+        <div id="paid" class="paid" hidden>
+          <div class="alert-t">Payment confirmed</div>
+          <div class="mono wrapany">TX <span id="txHash"></span><span id="txBlock"></span></div>
+          <a id="txLink" target="_blank" rel="noopener">View proof on the block explorer</a>
+          <div id="mailLine"></div>
+        </div>
+        <button type="button" class="solid" id="checkNow">I have sent it, check now</button>
+        <div class="small" id="keepOpen">Keep this page open after you send. It keeps checking by itself, and you can reopen this link any time to check again.</div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var token = new URLSearchParams(location.search).get('inv');
+  var inv = null, coin = null, skew = 0, done = false, busy = false, seen = false, lastTx = null, timer = null;
+
+  function fail(msg) { $('problem').textContent = msg; $('problem').hidden = false; $('body').hidden = true; }
+  if (!token) { location.replace('/order.html'); return; }
+
+  function api(c) {
+    return fetch('/api/status?inv=' + encodeURIComponent(token) + (c ? '&coin=' + c : ''), { cache: 'no-store' })
+      .then(function (r) { return r.json(); });
+  }
+
+  function copy(btn, text, label) {
+    btn.addEventListener('click', function () {
+      var ok = function () { btn.textContent = 'Copied'; setTimeout(function () { btn.textContent = label; }, 1600); };
+      if (navigator.clipboard) navigator.clipboard.writeText(text()).then(ok, function () {});
+    });
+  }
+  copy($('copyAmt'), function () { return inv.coins[coin].amount; }, 'Copy amount');
+  copy($('copyAddr'), function () { return inv.coins[coin].address; }, 'Copy address');
+
+  function drawQR(text) {
+    var box = $('qr');
+    box.textContent = '';
+    try {
+      var q = qrcode(0, 'M'); q.addData(text); q.make();
+      box.innerHTML = q.createSvgTag({ cellSize: 4, margin: 2, scalable: true });
+    } catch (e) { box.textContent = 'QR unavailable'; }
+  }
+
+  function steps(status, tx) {
+    var c = inv.coins[coin];
+    var at = { awaiting: 0, unknown: 0, expired: 0, detected: 1, confirmed: 3 }[status] || 0;
+    var defs = [
+      ['Waiting for your payment', 'Nothing matching this amount seen at this address yet.'],
+      ['Seen on the network', tx && status === 'detected'
+        ? 'Transaction found. ' + tx.confs + ' of ' + c.confsNeeded + ' confirmation' + (c.confsNeeded > 1 ? 's' : '') + ' so far.'
+        : 'We wait for ' + c.confsNeeded + ' confirmation' + (c.confsNeeded > 1 ? 's' : '') + '.'],
+      ['Confirmed', 'Amount, address and time all match this invoice.']
+    ];
+    var box = $('steps'); box.textContent = '';
+    defs.forEach(function (d, i) {
+      var isDone = i < at, now = i === at;
+      var row = document.createElement('div'); row.className = 'step' + (isDone ? ' done' : now ? ' now' : '');
+      var dot = document.createElement('div'); dot.className = 'dot'; dot.textContent = isDone ? 'OK' : String(i + 1);
+      var txt = document.createElement('div');
+      var t = document.createElement('div'); t.className = 'step-t'; t.textContent = d[0];
+      var s = document.createElement('div'); s.className = 'small dim'; s.textContent = d[1];
+      txt.appendChild(t); txt.appendChild(s); row.appendChild(dot); row.appendChild(txt);
+      box.appendChild(row);
+    });
+  }
+
+  function show(r) {
+    var status = r.status || 'awaiting';
+    if (seen && status !== 'detected' && status !== 'confirmed') {
+      $('note').textContent = 'Still confirming. Checking again in a few seconds.';
+      return;
+    }
+    if (status === 'detected') {
+      if (lastTx && r.tx.confs < lastTx.confs) r.tx.confs = lastTx.confs;
+      seen = true; lastTx = r.tx;
+      $('clock').textContent = 'SEEN';
+      $('payBox').hidden = true;
+      $('keepOpen').textContent = 'Your payment was found. Keep this page open while it confirms. Do not send again.';
+    }
+    steps(status, r.tx);
+    $('note').textContent = r.note || '';
+    if (status === 'confirmed') {
+      done = true;
+      $('paid').hidden = false; $('checkNow').hidden = true; $('keepOpen').hidden = true; $('payBox').hidden = true;
+      $('txHash').textContent = r.tx.hash;
+      $('txBlock').textContent = r.tx.block ? ' / BLOCK ' + r.tx.block : '';
+      $('txLink').href = r.tx.explorer;
+      $('mailLine').textContent = r.email === 'sent' || r.email === 'earlier'
+        ? 'A confirmation email has been sent to ' + inv.email + '. We will reach out soon.'
+        : 'We will reach out soon about your order.';
+      $('clock').textContent = 'PAID';
+    } else if (status === 'expired') {
+      done = true;
+      $('expired').hidden = false; $('payBox').hidden = true; $('checkNow').hidden = true; $('keepOpen').hidden = true;
+    }
+  }
+
+  function idle() {
+    busy = false;
+    $('checkNow').disabled = false; $('checkNow').textContent = 'I have sent it, check now';
+    clearTimeout(timer);
+    if (!done) timer = setTimeout(check, seen ? 6000 : 15000);
+  }
+  function check() {
+    if (done || busy || !coin) return;
+    busy = true; var asked = coin;
+    clearTimeout(timer);
+    $('checkNow').disabled = true; $('checkNow').textContent = 'Checking...';
+    api(asked).then(function (r) {
+      if (asked === coin && !r.error) {
+        skew = r.now - Math.floor(Date.now() / 1000);
+        show(r);
+      }
+      idle();
+      if (asked !== coin) check();
+    }, function () { $('note').textContent = 'Could not check just now. Trying again shortly.'; idle(); });
+  }
+
+  function pick(c) {
+    if (done || seen) return;
+    coin = c;
+    var d = inv.coins[c];
+    Array.prototype.forEach.call($('pills').children, function (b) { b.setAttribute('aria-pressed', b.dataset.c === c ? 'true' : 'false'); });
+    $('net').textContent = d.network;
+    $('amt').textContent = d.amount; $('sym').textContent = d.symbol || c;
+    $('addr').textContent = d.address;
+    drawQR(d.address);
+    steps('awaiting', null); $('note').textContent = '';
+    check();
+  }
+
+  function tick() {
+    if (done || seen) return;
+    var left = inv.deadline - (Math.floor(Date.now() / 1000) + skew);
+    if (left < 0) left = 0;
+    var p = function (n) { return String(n).padStart(2, '0'); };
+    $('clock').textContent = p(Math.floor(left / 3600)) + ':' + p(Math.floor(left / 60) % 60) + ':' + p(left % 60);
+  }
+
+  api(null).then(function (r) {
+    if (r.error) { fail(r.error); return; }
+    if (r.invoice.method === 'card') { location.replace('/card.html?inv=' + encodeURIComponent(token)); return; }
+    inv = r.invoice; skew = r.now - Math.floor(Date.now() / 1000);
+    $('invNo').textContent = 'INVOICE ' + inv.no;
+    $('oItem').textContent = (inv.item || 'Order') + (inv.qty ? ' x ' + inv.qty : '');
+    $('oBuyer').textContent = inv.buyer || '-';
+    $('oTerms').textContent = inv.terms || '-';
+    $('oTotal').textContent = '$' + Number(inv.usd).toLocaleString('en-US', { minimumFractionDigits: 2 }) + ' USD';
+    if (inv.plan === 'dep') {
+      var usd = function (v) { return '$' + Number(v).toLocaleString('en-US', { minimumFractionDigits: 2 }) + ' USD'; };
+      $('rOrder').hidden = false; $('rBal').hidden = false;
+      $('oOrder').textContent = usd(inv.total); $('oBal').textContent = usd(inv.balance);
+      $('lTotal').textContent = 'Deposit due now';
+    }
+    $('by').textContent = new Date(inv.deadline * 1000).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+    var names = Object.keys(inv.coins);
+    names.forEach(function (c) {
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'pill'; b.dataset.c = c; b.textContent = inv.coins[c].label || c;
+      b.addEventListener('click', function () { pick(c); });
+      $('pills').appendChild(b);
+    });
+    $('body').hidden = false;
+    $('checkNow').addEventListener('click', check);
+    pick(names.indexOf('USDC') >= 0 ? 'USDC' : names[0]);
+    tick(); setInterval(tick, 1000);
+  }, function () { fail('Could not load this invoice. Check your connection and reload.'); });
+})();
+</script>
+</body>
+</html>

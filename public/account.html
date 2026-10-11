@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>My orders</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&family=IBM+Plex+Mono:wght@400;500&family=Playfair+Display:wght@600;700;800&display=swap">
+<link rel="stylesheet" href="/site.css">
+<style>
+.order{gap:14px}
+.ohead{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;align-items:flex-start}
+.stat{font-family:'IBM Plex Mono',monospace;font-size:13px;letter-spacing:.06em;background:#C9A45C;color:#101726;padding:6px 12px;font-weight:500}
+.list{display:flex;flex-direction:column;gap:16px;max-width:760px}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap bar"><a class="brand" href="/" style="text-decoration:none">Collectors Page</a><span style="display:flex;align-items:center;gap:20px"><span class="mono dim">MY ORDERS</span><a class="home" href="/">Home</a></span></div></header>
+<main class="wrap page">
+  <div class="stack-s">
+    <div class="mono gold" id="who">YOUR ACCOUNT</div>
+    <h1 id="head">My orders</h1>
+    <div class="small" id="lead">Sign in with the Google account for the email you used to order, to see your orders and their status.</div>
+  </div>
+
+  <section class="card" id="signin" hidden style="gap:18px">
+    <div id="gbtn"></div>
+    <div class="small" id="msg" role="status"></div>
+  </section>
+
+  <div class="list" id="list" hidden></div>
+  <div id="foot" hidden style="display:flex;flex-wrap:wrap;gap:10px">
+    <a class="solid" href="/order.html" style="text-decoration:none;display:inline-flex;align-items:center">Place a new order</a>
+    <button type="button" class="ghost" id="out">Sign out</button>
+  </div>
+</main>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var KEY = 'acct_token', token = null;
+  var qs = new URLSearchParams(location.search);
+  try {
+    if (qs.get('t')) { localStorage.setItem(KEY, qs.get('t')); history.replaceState(null, '', location.pathname); }
+    token = localStorage.getItem(KEY);
+  } catch (e) { token = qs.get('t'); }
+
+  var gReady = false;
+  function googleButton() {
+    if (gReady) return; gReady = true;
+    fetch('/api/google', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (c) {
+      if (!c.clientId) return;
+      var sc = document.createElement('script'); sc.src = 'https://accounts.google.com/gsi/client'; sc.async = true;
+      sc.onload = function () {
+        window.google.accounts.id.initialize({ client_id: c.clientId, callback: function (resp) {
+          $('msg').textContent = 'Signing you in...';
+          fetch('/api/google', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ credential: resp.credential }) })
+            .then(function (r) { return r.json(); })
+            .then(function (r) {
+              if (r.error) { $('msg').textContent = r.error; return; }
+              token = r.token; try { localStorage.setItem(KEY, token); } catch (e) {}
+              $('msg').textContent = ''; load();
+            }, function () { $('msg').textContent = 'Could not sign in. Try again.'; });
+        } });
+        window.google.accounts.id.renderButton($('gbtn'), { theme: 'filled_black', size: 'large', text: 'signin_with', shape: 'rectangular' });
+      };
+      document.head.appendChild(sc);
+    }, function () {});
+  }
+  function signedOut(note) {
+    googleButton();
+    $('signin').hidden = false; $('list').hidden = true; $('foot').hidden = true; $('foot').style.display = 'none';
+    $('who').textContent = 'YOUR ACCOUNT';
+    if (note) $('msg').textContent = note;
+  }
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  function row(label, value) { var r = el('div', 'row'); r.appendChild(el('span', 'dim', label)); r.appendChild(el('span', null, value)); return r; }
+  function money(v) { return v === '' ? '-' : '$' + Number(v).toLocaleString('en-US', { minimumFractionDigits: 2 }); }
+
+  function show(data) {
+    $('signin').hidden = true;
+    $('who').textContent = data.email.toUpperCase();
+    $('lead').textContent = data.orders.length ? 'Every order placed with this email, newest first. The status updates as your order moves.' : 'No orders have been placed with this email yet.';
+    var list = $('list'); list.textContent = '';
+    if (data.signed === true || data.signed === false) {
+      var ag = el('section', 'card order'), ah = el('div', 'ohead'), al = el('div');
+      al.appendChild(el('div', 'label', 'AGREEMENTS'));
+      al.appendChild(el('h2', null, 'NDA and non-compete'));
+      ah.appendChild(al); ah.appendChild(el('div', 'stat', data.signed ? 'SIGNED' : 'NOT SIGNED'));
+      ag.appendChild(ah);
+      if (!data.signed) { var sa = el('a', null, 'Read and sign now'); sa.href = '/sign.html?email=' + encodeURIComponent(data.email) + '&next=' + encodeURIComponent('/account.html'); ag.appendChild(sa); }
+      list.appendChild(ag);
+    }
+    data.orders.forEach(function (o) {
+      var card = el('section', 'card order');
+      var head = el('div', 'ohead'), left = el('div');
+      left.appendChild(el('div', 'label', 'INVOICE ' + o.invoice));
+      left.appendChild(el('h2', null, o.product + ' x ' + o.units));
+      head.appendChild(left); head.appendChild(el('div', 'stat', (o.status || 'Received').toUpperCase()));
+      card.appendChild(head);
+      var rows = el('div', 'rows');
+      rows.appendChild(row('Placed', o.placed));
+      rows.appendChild(row('Payment plan', o.plan));
+      rows.appendChild(row('Order total', money(o.total)));
+      rows.appendChild(row('Paid so far', money(o.paid)));
+      rows.appendChild(row('Balance due', money(o.balance)));
+      card.appendChild(rows);
+      if (o.proof) { var a = el('a', null, 'View proof of payment'); a.href = o.proof; a.target = '_blank'; a.rel = 'noopener'; card.appendChild(a); }
+      list.appendChild(card);
+    });
+    list.hidden = false; $('foot').hidden = false; $('foot').style.display = 'flex';
+  }
+
+  $('out').addEventListener('click', function () {
+    try { localStorage.removeItem(KEY); } catch (e) {}
+    token = null; $('lead').textContent = 'You are signed out.'; signedOut('');
+  });
+
+  function load() {
+    fetch('/api/orders?t=' + encodeURIComponent(token), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (r) {
+      if (r.error) { if (/expired/.test(r.error)) { try { localStorage.removeItem(KEY); } catch (e) {} } signedOut(r.error); return; }
+      show(r);
+    }, function () { signedOut('Could not load your orders. Check your connection and reload.'); });
+  }
+  if (!token) { signedOut(''); return; }
+  load();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Request received</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&family=IBM+Plex+Mono:wght@400;500&family=Playfair+Display:wght@600;700;800&display=swap">
+<link rel="stylesheet" href="/site.css">
+</head>
+<body>
+<header class="top"><div class="wrap bar"><a class="brand" href="/" style="text-decoration:none">Collectors Page</a><span style="display:flex;align-items:center;gap:20px"><span class="mono dim">CURATOR</span><a class="home" href="/">Home</a></span></div></header>
+<main class="wrap page">
+  <div class="stack-s">
+    <div class="mono gold" id="tag">REQUEST RECEIVED</div>
+    <h1 id="head">We have your details</h1>
+    <div class="small" id="body">Thanks. Your answers reached us and we will reach out soon. You can close this tab.</div>
+  </div>
+</main>
+<script>
+(function () {
+  var s = new URLSearchParams(location.search).get('s');
+  var set = function (t, h, b) { document.getElementById('tag').textContent = t; document.getElementById('head').textContent = h; document.getElementById('body').textContent = b; };
+  if (s === 'missing') set('NOT SENT', 'Name and phone are needed', 'Go back to the chat, answer the name and phone questions, then send again.');
+  else if (s !== 'ok') set('NOT SENT', 'Something went wrong', 'We could not record your request. Go back to the chat and tap Send to us again, or contact us directly.');
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Help</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&family=IBM+Plex+Mono:wght@400;500&family=Playfair+Display:wght@600;700;800&display=swap">
+<link rel="stylesheet" href="/site.css">
+<style>
+textarea{font-family:inherit;font-size:17px;line-height:1.5;padding:12px 14px;min-height:110px;background:#0B1A13;border:1px solid #4E7A63;color:#F7F2E6;border-radius:2px;resize:vertical;width:100%;box-sizing:border-box}
+.hp{position:absolute;left:-9999px}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap bar"><a class="brand" href="/" style="text-decoration:none">JarFriends</a><span style="display:flex;align-items:center;gap:20px"><span class="mono dim">HELP</span><a class="home" href="/">Home</a></span></div></header>
+<main class="wrap page">
+  <div class="stack-s">
+    <div class="mono gold">WE ARE HERE TO HELP</div>
+    <h1>How can we help?</h1>
+    <div class="small" id="lead">Answer these three questions and we will email you back.</div>
+  </div>
+  <section class="card" id="box">
+    <form id="f">
+      <div class="two">
+        <label>Your name<input name="name" maxlength="80" required autocomplete="name"></label>
+        <label><span>Email <span class="hint">(we answer here)</span></span><input name="email" type="email" maxlength="160" required autocomplete="email"></label>
+      </div>
+      <label style="max-width:320px"><span>Order number <span class="hint">(optional)</span></span><input name="order" maxlength="40" autocomplete="off"></label>
+      <label>What do you need help with?<input name="topic" maxlength="200" required placeholder="An order, a payment, shipping, a piece..."></label>
+      <label>What is the issue?<textarea name="issue" maxlength="2000" required></textarea></label>
+      <label>How would you like us to resolve it?<textarea name="fix" maxlength="1000"></textarea></label>
+      <label class="hp" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off"></label>
+      <button class="solid" type="submit" id="go">Send to JarFriends</button>
+      <div class="small" id="msg" role="status"></div>
+    </form>
+  </section>
+  <section class="card" id="done" hidden>
+    <h2>Got it. Thank you.</h2>
+    <div class="small">Your message is on its way to us. We will answer at the email you gave.</div>
+    <a class="home" href="/">Back to the shop</a>
+  </section>
+  <div class="small">Rather write to us directly? <a href="mailto:jarvisfriends@gmail.com">jarvisfriends@gmail.com</a></div>
+</main>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  $('f').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var data = {}; new FormData($('f')).forEach(function (v, k) { data[k] = v; });
+    $('go').disabled = true; $('msg').textContent = 'Sending...';
+    fetch('/api/help', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(data) })
+      .then(function (r) { return r.json(); })
+      .then(function (r) {
+        if (r.error) { $('go').disabled = false; $('msg').textContent = r.error; return; }
+        $('box').hidden = true; $('done').hidden = false; $('lead').textContent = '';
+      }, function () { $('go').disabled = false; $('msg').textContent = 'Could not reach the site. Try again, or email jarvisfriends@gmail.com.'; });
+  });
+})();
+</script>
+</body>
+</html>

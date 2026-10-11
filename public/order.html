@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Place an order</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&family=IBM+Plex+Mono:wght@400;500&family=Playfair+Display:wght@600;700;800&display=swap">
+<link rel="stylesheet" href="/site.css">
+<style>
+select{font-family:inherit;font-size:17px;padding:0 14px;height:46px;background:#101726;border:1px solid #5A6788;color:#F7F2E6;border-radius:2px}
+.hp{position:absolute;left:-9999px}
+fieldset{border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+legend{font-size:15px;font-weight:700;padding:0 0 8px}
+.plan{flex-direction:row;align-items:flex-start;gap:12px;border:1px solid #5A6788;padding:14px 16px;cursor:pointer;font-weight:400;font-size:15px;color:#DADDE8}
+.plan[hidden]{display:none}
+.plan input{min-height:0;width:20px;height:20px;margin:3px 0 0;padding:0;flex-shrink:0;accent-color:#C9A45C}
+.plan strong{display:block;font-size:17px;color:#F7F2E6}
+.plan.on{border-color:#C9A45C;background:#101726}
+.sums{font-size:15px;max-width:460px}
+fieldset[hidden]{display:none}
+.offering #methods,.offering #promoBox,.offering .sums,.offering #shipBox,.offering #nftBox,.offering #go,.offering #msg{display:none!important}
+.offering main{display:flex;flex-direction:column}
+.sums .row.total span:last-child{color:#C9A45C}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap bar"><a class="brand" href="/" style="text-decoration:none">Collectors Page</a><span style="display:flex;align-items:center;gap:20px"><span class="mono dim">COLLECTOR ORDER</span><a class="home" href="/">Home</a></span></div></header>
+<main class="wrap page">
+  <div class="stack-s">
+    <div class="mono gold">ORDER ONLINE</div>
+    <h1 id="h1">Place an order</h1>
+    <div class="small" id="lead">Choose your piece, quantity and how you want to pay. We email you the invoice.</div>
+  </div>
+  <section class="card">
+    <form id="f">
+      <div class="two">
+        <label>Item<select name="product" id="product" required></select></label>
+        <label>Quantity in units<input name="qty" id="qty" type="number" step="1" value="1" required inputmode="numeric"></label>
+      </div>
+      <div class="small" id="unit"></div>
+      <fieldset id="methods">
+        <legend>How do you want to pay?</legend>
+        <label class="plan" data-m="card" id="mCard" hidden><input type="radio" name="method" value="card"><span><strong>Credit or debit card <span id="feeTag" style="font-weight:400;font-size:14px;color:#C9A45C"></span></strong><span>Pay online now. <span id="feeNote"></span>Your card is taken on a secure payment page on the next screen.</span></span></label>
+        <label class="plan" data-m="zelle" id="mZelle" hidden><input type="radio" name="method" value="zelle"><span><strong>Zelle</strong><span>Send it from your bank app. We show you where to send it on the next screen.</span></span></label>
+        <label class="plan" data-m="venmo" id="mVenmo" hidden><input type="radio" name="method" value="venmo"><span><strong>Venmo</strong><span>Send it from the Venmo app. We show you where to send it on the next screen.</span></span></label>
+        <label class="plan" data-m="cashapp" id="mCashapp" hidden><input type="radio" name="method" value="cashapp"><span><strong>Cash App</strong><span>Send it from Cash App. We show you where to send it on the next screen.</span></span></label>
+        <label class="plan on" data-m="crypto"><input type="radio" name="method" value="crypto" checked><span><strong>Crypto</strong><span>Pay online now with Ethereum, USDC or USDT.</span></span></label>
+        <label class="plan" data-m="cash"><input type="radio" name="method" value="cash"><span><strong>Cash or ACH</strong><span>Nothing is paid online. We confirm your order when your cash or bank transfer arrives.</span></span></label>
+      </fieldset>
+      <div id="promoBox" hidden style="display:flex;flex-direction:column;gap:8px">
+        <label style="max-width:320px"><span>Promo code <span class="hint">(optional)</span></span><input id="promo" maxlength="20" autocomplete="off" autocapitalize="characters" spellcheck="false"></label>
+        <button type="button" class="ghost" id="promoGo" style="align-self:flex-start">Apply code</button>
+        <div class="small" id="promoMsg" role="status"></div>
+      </div>
+      <div class="rows sums">
+        <div class="row"><span class="dim" id="sItem">Order</span><span id="sList"></span></div>
+        <div class="row" id="rPromo" hidden><span class="dim" id="sAdjL"></span><span id="sAdj"></span></div>
+        <div class="row" id="rShip"><span class="dim">Shipping</span><span id="sShip"></span></div>
+        <div class="row" id="rFee" hidden><span class="dim" id="sFeeL">Card fee</span><span id="sFee"></span></div>
+        <div class="row total"><span id="sNowL">Total due</span><span id="sTotal"></span></div>
+      </div>
+      <div class="two">
+        <label>Your name<input name="name" maxlength="80" required autocomplete="name"></label>
+        <label><span>Company <span class="hint">(optional)</span></span><input name="company" maxlength="120" autocomplete="organization"></label>
+      </div>
+      <label><span>Email <span class="hint">(your invoice goes here)</span></span><input name="email" type="email" maxlength="160" required autocomplete="email"></label>
+      <fieldset id="shipBox">
+        <legend>Where should we ship it?</legend>
+        <div class="two">
+          <label>Street address<input name="street" maxlength="120" required autocomplete="address-line1"></label>
+          <label><span>Apt or unit <span class="hint">(optional)</span></span><input name="line2" maxlength="60" autocomplete="address-line2"></label>
+        </div>
+        <div class="two">
+          <label>City<input name="city" maxlength="60" required autocomplete="address-level2"></label>
+          <label>State<input name="state" maxlength="30" required autocomplete="address-level1"></label>
+        </div>
+        <label style="max-width:220px">ZIP code<input name="zip" maxlength="10" required autocomplete="postal-code" inputmode="numeric" pattern="[0-9]{5}(-[0-9]{4})?"></label>
+      </fieldset>
+      <fieldset id="nftBox" hidden>
+        <legend>Where should we send the NFT?</legend>
+        <label>Your wallet address<input name="wallet" id="wallet" maxlength="64" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="0x..."></label>
+        <div class="small">This piece is an NFT. You need your own wallet that works with OpenSea. We send the NFT to this address once your payment is confirmed.</div>
+      </fieldset>
+      <label class="hp" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off"></label>
+      <button class="solid" type="submit" id="go">Place order</button>
+      <div class="small" id="msg" role="status"></div>
+    </form>
+  </section>
+  <section class="card" id="offerBox" hidden>
+    <form id="of">
+      <h2 id="oHead">Or make an offer</h2>
+      <div class="small">Name your price for the item and quantity chosen above. Fill in your name and email above so we can answer you.</div>
+      <label style="max-width:260px">Your offer per unit, in USD<input id="oPrice" type="number" min="0.01" step="0.01" required inputmode="decimal"></label>
+      <label style="max-width:260px">How would you pay?<select id="oPay" required><option value="">Choose one</option></select></label>
+      <button class="ghost" type="submit" id="oGo">Send offer</button>
+      <div class="small" id="oMsg" role="status"></div>
+      <a class="home" id="oBack" hidden>Or check out at the listed price</a>
+    </form>
+  </section>
+</main>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var products = [], promo = null, feePct = 0, feeFix = 0, feeRate = '';
+  // Ways to pay the amount due now. Paid by hand = nothing is charged online.
+  var HOW = { crypto: 'in crypto', card: 'by card', cash: 'by cash or ACH', zelle: 'by Zelle', venmo: 'by Venmo', cashapp: 'by Cash App' };
+  var BY_HAND = { cash: 1, zelle: 1, venmo: 1, cashapp: 1 };
+  var usd = function (cents) { return '$' + (cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+  function cur() { return products.filter(function (p) { return p.id === $('product').value; })[0]; }
+  function method() { var r = document.querySelector('input[name="method"]:checked'); return r && HOW[r.value] ? r.value : 'crypto'; }
+  function total() {
+    var p = cur(); if (!p) return;
+    var q = Math.max(0, Math.floor(Number($('qty').value) || 0));
+    var list = Math.round(Number(p.price) * 100) * q;
+    // A promo code takes a percent or a dollar amount off. It never stacks on an accepted offer.
+    var cut = promo && !deal ? (promo.pct ? Math.round(list * promo.pct / 100) : promo.off) : 0;
+    cut = Math.max(0, Math.min(cut, list - 1));
+    // Shipping is set per piece and charged once per order.
+    var ship = Math.round(Number(p.ship || 0) * 100);
+    // An NFT asks for a wallet in place of a mailing address, and has no shipping line.
+    var nft = !!p.nft, fe = $('f').elements;
+    $('shipBox').hidden = nft; $('nftBox').hidden = !nft; $('rShip').hidden = nft;
+    ['street', 'city', 'state', 'zip'].forEach(function (k) { fe[k].required = !nft; });
+    $('wallet').required = nft;
+    $('qty').min = p.min; $('qty').max = p.stock;
+    $('unit').textContent = '$' + p.price + ' per unit. ' + (p.stock > 0 ? p.stock + (p.stock === 1 ? ' unit' : ' units') + ' in stock' : 'Sold out') + '. Minimum order ' + p.min + '.';
+    var m = method();
+    Array.prototype.forEach.call(document.querySelectorAll('#methods .plan'), function (el) { el.className = 'plan' + (el.dataset.m === m ? ' on' : ''); });
+    $('sItem').textContent = p.name + ' x ' + q;
+    $('sList').textContent = usd(list);
+    $('rPromo').hidden = !cut;
+    $('sAdjL').textContent = promo ? 'Promo code ' + promo.code : '';
+    $('sAdj').textContent = '-' + usd(cut);
+    $('sNowL').textContent = 'Total due ' + HOW[m];
+    $('sShip').textContent = ship > 0 ? usd(ship) : 'Free';
+    // Paying by card adds the card fee: the full amount the card company takes. Every other way to pay has none.
+    var base = list - cut + ship;
+    var fee = m === 'card' && (feePct || feeFix) ? Math.ceil((base + feeFix) / (1 - feePct / 100) - 1e-9) - base : 0;
+    $('rFee').hidden = !fee; $('sFeeL').textContent = 'Credit card fee (' + feeRate + ')'; $('sFee').textContent = '+' + usd(fee);
+    $('sTotal').textContent = usd(list - cut + ship + fee) + ' USD';
+    $('go').textContent = BY_HAND[m] ? 'Place order' : 'Place order and pay';
+    var bad = p.stock < p.min || q > p.stock;
+    $('go').disabled = bad;
+    $('msg').textContent = p.stock < p.min ? 'This product is sold out right now.' : q > p.stock ? 'Only ' + p.stock + (p.stock === 1 ? ' unit is' : ' units are') + ' in stock right now.' : '';
+  }
+  function applyPromo() {
+    var code = $('promo').value.trim();
+    if (!code) { promo = null; $('promoMsg').textContent = ''; total(); return; }
+    $('promoGo').disabled = true; $('promoMsg').textContent = 'Checking...';
+    fetch('/api/order?promo=' + encodeURIComponent(code), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (r) {
+      $('promoGo').disabled = false;
+      promo = r.promo || null;
+      $('promoMsg').textContent = promo ? 'Code ' + promo.code + ' applied: ' + (promo.pct ? promo.pct + '% off' : usd(promo.off) + ' off') + '.' : (r.error || 'That promo code is not valid.');
+      total();
+    }, function () { $('promoGo').disabled = false; $('promoMsg').textContent = 'Could not check the code. Try again.'; });
+  }
+  // A checkout link from an accepted offer carries ?offer=... and locks the item, quantity and price.
+  var offerTok = new URLSearchParams(location.search).get('offer'), deal = null;
+  var dealP = offerTok ? fetch('/api/offer?a=' + encodeURIComponent(offerTok), { cache: 'no-store' }).then(function (r) { return r.json(); }).catch(function () { return {}; }) : Promise.resolve({});
+  Promise.all([fetch('/api/order', { cache: 'no-store' }).then(function (r) { return r.json(); }), dealP]).then(function (both) {
+    var r = both[0], d = both[1].deal;
+    if (r.error) { $('msg').textContent = r.error; $('go').disabled = true; return; }
+    products = r.products || [];
+    if (r.card) $('mCard').hidden = false;
+    feePct = Number(r.cardFee) || 0; feeFix = Number(r.cardFeeFixed) || 0;
+    feeRate = feePct + '%' + (feeFix ? ' + ' + usd(feeFix) : '');
+    if (feePct || feeFix) { $('feeTag').textContent = '(credit cards: + ' + feeRate + ' fee)'; $('feeNote').textContent = 'Credit cards carry a card fee of ' + feeRate + ', added to your total. It covers what the card company charges. Debit cards have no fee: if you pay with a debit card, the fee is refunded right after you pay. Every other way to pay has no fee. '; }
+    if (r.ways && r.ways.zelle) $('mZelle').hidden = false;
+    if (r.ways && r.ways.venmo) $('mVenmo').hidden = false;
+    if (r.ways && r.ways.cashapp) $('mCashapp').hidden = false;
+    var dp = d && !d.expired ? products.filter(function (p) { return p.id === d.product; })[0] : null;
+    if (dp) { deal = d; dp.price = d.price; }
+    if (r.offers && !deal) $('offerBox').hidden = false;
+    // Every way to pay that is open, for the buyer to name with an offer.
+    [['Zelle', r.ways && r.ways.zelle], ['Venmo', r.ways && r.ways.venmo], ['Cash App', r.ways && r.ways.cashapp], ['Cash or ACH', true], ['Ethereum', true], ['USDC', true], ['USDT', true], ['Card', r.card]].forEach(function (w) {
+      if (!w[1]) return;
+      var op = document.createElement('option'); op.value = w[0]; op.textContent = w[0]; $('oPay').appendChild(op);
+    });
+    // ?make=offer opens the page as an offer form: item, quantity, name, email and the price offered.
+    if (r.offers && !deal && new URLSearchParams(location.search).get('make') === 'offer') {
+      document.body.className += ' offering';
+      $('h1').textContent = 'Make an offer'; $('oHead').textContent = 'Your offer';
+      $('lead').textContent = 'Name your price. If I accept, you get an email with a link to check out at that price.';
+      var back = new URLSearchParams(location.search); back.delete('make');
+      $('oBack').href = '/order.html?' + back.toString(); $('oBack').hidden = false;
+    }
+    if (r.promos && !deal) $('promoBox').hidden = false;
+    products.forEach(function (p) {
+      var o = document.createElement('option'); o.value = p.id; o.textContent = 'Item ' + p.id + ': ' + p.name; $('product').appendChild(o);
+    });
+    if (products[0]) $('qty').value = products[0].min;
+    var qs = new URLSearchParams(location.search);
+    var want = products.filter(function (p) { return p.id === qs.get('product'); })[0];
+    if (want) {
+      $('product').value = want.id;
+      var n = Math.floor(Number(qs.get('qty')));
+      $('qty').value = n >= want.min ? n : want.min;
+    }
+    // An accepted-offer link opens on the way to pay the buyer named.
+    var pm = document.querySelector('input[name="method"][value="' + (HOW[qs.get('method')] ? qs.get('method') : '') + '"]');
+    if (pm && !pm.parentNode.hidden) pm.checked = true;
+    if (deal) {
+      $('product').value = deal.product; $('qty').value = deal.qty;
+      $('product').disabled = true; $('qty').readOnly = true;
+      $('lead').textContent = 'Your offer was accepted. The price below is your offer price.';
+    } else if (offerTok) {
+      $('lead').textContent = 'That accepted offer has run out or is not valid, so this shows the listed price.';
+    }
+    ['name', 'company', 'email'].forEach(function (k) { var v = qs.get(k); if (v) $('f').elements[k].value = v; });
+    if (!products.length) { $('msg').textContent = 'No products are available right now.'; $('go').disabled = true; return; }
+    total();
+  }, function () { $('msg').textContent = 'Could not load products. Reload the page.'; $('go').disabled = true; });
+  Array.prototype.forEach.call(document.querySelectorAll('input[name="method"]'), function (el) { el.addEventListener('change', total); });
+  $('product').addEventListener('change', total);
+  $('promoGo').addEventListener('click', applyPromo);
+  $('promo').addEventListener('change', applyPromo);
+  $('promo').addEventListener('keydown', function (ev) { if (ev.key === 'Enter') { ev.preventDefault(); applyPromo(); } });
+  $('qty').addEventListener('input', total);
+  $('f').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    if ($('go').disabled) return;
+    var data = {}; new FormData($('f')).forEach(function (v, k) { data[k] = v; });
+    data.product = $('product').value; data.qty = Number($('qty').value);
+    if (deal) data.offer = offerTok;
+    data.promo = promo && !deal ? promo.code : '';
+    $('go').disabled = true; $('msg').textContent = 'Placing your order...';
+    fetch('/api/order', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(data) })
+      .then(function (r) { return r.json(); })
+      .then(function (r) {
+        if (r.error) { $('go').disabled = false; $('msg').textContent = r.error; return; }
+        $('msg').textContent = r.emailed === 'sent' ? 'Invoice emailed. Opening your order...' : 'Opening your order...';
+        location.href = r.link;
+      }, function () { $('go').disabled = false; $('msg').textContent = 'Could not reach the site. Try again.'; });
+  });
+  $('of').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var f = $('f').elements;
+    $('oGo').disabled = true; $('oMsg').textContent = 'Sending your offer...';
+    fetch('/api/offer', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ product: $('product').value, qty: Number($('qty').value), offer: $('oPrice').value, pay: $('oPay').value, name: f.name.value, email: f.email.value, website: f.website.value }) })
+      .then(function (r) { return r.json(); })
+      .then(function (r) { $('oGo').disabled = r.status === 'sent'; $('oMsg').textContent = r.error || r.message || ''; },
+        function () { $('oGo').disabled = false; $('oMsg').textContent = 'Could not reach the site. Try again.'; });
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>JarFriends back office</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&family=IBM+Plex+Mono:wght@400;500&family=Playfair+Display:wght@600;700;800&display=swap">
+<link rel="stylesheet" href="/site.css">
+<style>
+.tabs{display:flex;flex-wrap:wrap;gap:8px}
+.tabs button[aria-pressed="true"]{background:#C9A45C;color:#101726;border-color:#C9A45C}
+.tiles{display:flex;flex-wrap:wrap;gap:12px}
+.tile{flex:1 1 150px;border:1px solid #5A6788;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.tile b{font-size:24px;color:#C9A45C}
+.scroll{overflow-x:auto;border:1px solid #5A6788}
+table{border-collapse:collapse;width:100%;font-size:14px;min-width:760px}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid #5A6788;vertical-align:top}
+th{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#DADDE8;white-space:nowrap}
+td.num,th.num{text-align:right;white-space:nowrap}
+td small{display:block;color:#DADDE8}
+#find{max-width:340px}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap bar"><a class="brand" href="/" style="text-decoration:none">JarFriends</a><span class="mono dim">OWNER ONLY</span></div></header>
+<main class="wrap page">
+  <div class="stack-s">
+    <div class="mono gold">YOUR SHOP</div>
+    <h1>Back office</h1>
+    <div class="small" id="lead">Loading...</div>
+  </div>
+  <section id="ask" hidden class="card side" style="max-width:520px">
+    <form id="passForm" class="side" style="display:flex;flex-direction:column;gap:10px">
+      <label>Passcode<input id="pass" type="password" autocomplete="current-password" required></label>
+      <button type="submit" class="solid" id="passGo">Sign in</button>
+      <div class="small" id="passMsg" role="status"></div>
+    </form>
+    <div class="small">No passcode, or forgot it? We can email a sign-in link to the shop owner's address instead.</div>
+    <button type="button" class="ghost" id="send">Email me my link</button>
+    <div class="small" id="sendMsg" role="status"></div>
+  </section>
+  <section id="main" hidden style="display:flex;flex-direction:column;gap:20px">
+    <div class="tiles" id="tiles"></div>
+    <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between">
+      <div class="tabs">
+        <button type="button" class="ghost" id="tOrders" aria-pressed="true">Orders</button>
+        <button type="button" class="ghost" id="tPeople" aria-pressed="false">Customers</button>
+        <button type="button" class="ghost" id="tItems" aria-pressed="false">Products</button>
+        <button type="button" class="ghost" id="out">Sign out</button>
+      </div>
+      <label style="flex:1 1 220px;max-width:340px">Search<input id="find" type="search" placeholder="Name, email, invoice or item" autocomplete="off"></label>
+      <button type="button" class="ghost" id="csv">Download as a spreadsheet</button>
+    </div>
+    <div class="small" id="none" hidden>Nothing matches.</div>
+    <div class="scroll" id="wOrders"><table><thead><tr><th>Placed</th><th>Invoice</th><th>Customer</th><th>Item</th><th class="num">Units</th><th>Paid with</th><th class="num">Total</th><th>Status</th><th>Ship to</th><th>Links</th></tr></thead><tbody id="bOrders"></tbody></table></div>
+    <div class="scroll" id="wPeople" hidden><table><thead><tr><th>Customer</th><th>Email</th><th class="num">Orders</th><th class="num">Units</th><th class="num">Total</th><th>Last order</th><th>Ships to</th><th>Paid with</th></tr></thead><tbody id="bPeople"></tbody></table></div>
+    <div id="wItems" hidden style="display:flex;flex-direction:column;gap:14px">
+      <div class="card small" id="partyBox"></div>
+      <div class="scroll"><table><thead><tr><th>Product</th><th>Where it shows</th><th class="num">Price</th><th class="num">Shipping</th><th class="num">Started with</th><th class="num">Sold</th><th class="num">Left</th><th>Status</th></tr></thead><tbody id="bItems"></tbody></table></div>
+      <div class="small">Deal of the day safes open in order. A safe only unlocks once every unit in the safe before it has sold. To change a price, a count or a product, ask Claude; this page is for viewing.</div>
+    </div>
+    <div class="small">Orders appear here once they are placed (pay by hand) or paid (card and crypto). Orders from before October 10, 2026 are not listed.</div>
+  </section>
+</main>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var usd = function (n) { return '$' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+  var when = function (ms) { return ms ? new Date(ms).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) : ''; };
+  var el = function (tag, text, cls) { var e = document.createElement(tag); if (text != null) e.textContent = text; if (cls) e.className = cls; return e; };
+  // The key comes in the emailed link once, then stays on this device.
+  var key = new URLSearchParams(location.search).get('k') || '';
+  try { if (key) localStorage.setItem('adminKey', key); else key = localStorage.getItem('adminKey') || ''; } catch (e) { /* no storage */ }
+  if (new URLSearchParams(location.search).get('k')) { try { history.replaceState(null, '', '/admin.html'); } catch (e) { /* keep the address */ } }
+  var orders = [], items = [], party = null, tab = 'orders';
+  $('passForm').addEventListener('submit', function (ev) {
+    ev.preventDefault(); $('passGo').disabled = true; $('passMsg').textContent = 'Checking...';
+    fetch('/api/admin', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pass: $('pass').value }) }).then(function (r) { return r.json(); }).then(function (r) {
+      $('passGo').disabled = false;
+      if (!r.k) { $('passMsg').textContent = r.error || 'Could not sign in.'; return; }
+      key = r.k; try { localStorage.setItem('adminKey', key); } catch (e) { /* no storage */ }
+      $('pass').value = ''; $('passMsg').textContent = ''; $('ask').hidden = true; $('lead').textContent = 'Loading...'; load();
+    }, function () { $('passGo').disabled = false; $('passMsg').textContent = 'Could not reach the site. Try again.'; });
+  });
+  $('out').addEventListener('click', function () { key = ''; try { localStorage.removeItem('adminKey'); } catch (e) { /* no storage */ } ask('Signed out.'); });
+
+  function ask(text) { $('lead').textContent = text; $('ask').hidden = false; $('main').hidden = true; }
+  $('send').addEventListener('click', function () {
+    $('send').disabled = true; $('sendMsg').textContent = 'Sending...';
+    fetch('/api/admin?send=1', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (r) {
+      $('sendMsg').textContent = r.error || 'Check the shop owner\'s inbox for the link. If it was sent in the last ten minutes, use that email.';
+      $('send').disabled = false;
+    }, function () { $('sendMsg').textContent = 'Could not reach the site. Try again.'; $('send').disabled = false; });
+  });
+
+  function people(list) {
+    var by = {}, out = [];
+    list.forEach(function (o) {
+      var id = (o.email || o.buyer || '?').toLowerCase();
+      var p = by[id] || (by[id] = { name: o.buyer || '', email: o.email || '', orders: 0, units: 0, total: 0, last: 0, ships: [], pays: [] });
+      p.orders++; p.units += Number(o.q) || 0; p.total += Number(o.total) || 0;
+      if (o.at > p.last) { p.last = o.at; if (o.buyer) p.name = o.buyer; }
+      if (o.ship && p.ships.indexOf(o.ship) < 0) p.ships.push(o.ship);
+      if (o.pay && p.pays.indexOf(o.pay) < 0) p.pays.push(o.pay);
+    });
+    Object.keys(by).forEach(function (k) { out.push(by[k]); });
+    return out.sort(function (a, b) { return b.total - a.total; });
+  }
+  function match(text) { var q = $('find').value.trim().toLowerCase(); return !q || text.toLowerCase().indexOf(q) >= 0; }
+
+  function draw() {
+    var shown = 0;
+    $('tOrders').setAttribute('aria-pressed', tab === 'orders'); $('tPeople').setAttribute('aria-pressed', tab === 'people');
+    $('tItems').setAttribute('aria-pressed', tab === 'items');
+    $('wOrders').hidden = tab !== 'orders'; $('wPeople').hidden = tab !== 'people'; $('wItems').hidden = tab !== 'items'; $('csv').hidden = tab === 'items';
+    var bi = $('bItems'); bi.textContent = '';
+    var rank = { 'Shop': 0, 'Party pricing': 1, 'Deal of the day': 2 };
+    items.slice().sort(function (a, b) { return (a.test - b.test) || (rank[a.where] - rank[b.where]) || (a.deal - b.deal); }).forEach(function (p) {
+      if (!match([p.id, p.name, p.where, p.section, p.state].join(' '))) return;
+      if (tab === 'items') shown++;
+      var tr = el('tr');
+      var n = el('td', p.name); n.appendChild(el('small', 'ID ' + p.id + (p.nft ? ' · NFT' : '') + (p.test ? ' · placeholder' : ''))); tr.appendChild(n);
+      var w = el('td', p.where + (p.deal ? ', safe ' + p.deal : '')); if (p.section) w.appendChild(el('small', p.section)); tr.appendChild(w);
+      tr.appendChild(el('td', usd(p.price), 'num'));
+      tr.appendChild(el('td', p.shipping ? usd(p.shipping) : 'Free', 'num'));
+      tr.appendChild(el('td', String(p.start), 'num'));
+      tr.appendChild(el('td', String(p.sold), 'num'));
+      tr.appendChild(el('td', String(p.left), 'num'));
+      tr.appendChild(el('td', p.state || (p.left > 0 ? 'For sale' : 'Sold out')));
+      bi.appendChild(tr);
+    });
+    if (party) $('partyBox').textContent = 'Party pricing: ' + party.sold + ' of ' + party.total + ' sold, ' + party.off + '% off in place. ' + (party.ended ? 'The party has ended.' : (party.next ? (party.next.need - party.sold) + ' more to reach ' + party.next.off + '% off. ' : '') + 'Ends ' + party.endsText + '.');
+    $('partyBox').hidden = !party;
+    var bo = $('bOrders'), bp = $('bPeople'); bo.textContent = ''; bp.textContent = '';
+    orders.forEach(function (o) {
+      if (!match([o.n, o.buyer, o.email, o.product, o.pid, o.ship, o.status].join(' '))) return;
+      if (tab === 'orders') shown++;
+      var tr = el('tr');
+      tr.appendChild(el('td', when(o.at)));
+      tr.appendChild(el('td', o.n, 'mono'));
+      var c = el('td', o.buyer || '-'); c.appendChild(el('small', o.email || '')); tr.appendChild(c);
+      var it = el('td', o.product || o.pid); if (o.promo) it.appendChild(el('small', 'Promo ' + o.promo)); tr.appendChild(it);
+      tr.appendChild(el('td', String(o.q), 'num'));
+      tr.appendChild(el('td', o.pay || '-'));
+      var t = el('td', usd(o.total), 'num'); t.appendChild(el('small', 'Items ' + usd(o.items) + ', shipping ' + usd(o.shipping))); tr.appendChild(t);
+      var st = el('td', o.status || '-');
+      if (o.tracking) st.appendChild(el('small', (o.testLabel ? 'Test label made. ' : 'Shipped. ') + 'Tracking ' + o.tracking));
+      if (o.due) {
+        var mk = el('button', 'Mark as paid', 'ghost'); mk.type = 'button'; mk.style.cssText = 'margin-top:6px;padding:6px 12px;font-size:13px';
+        mk.addEventListener('click', function () {
+          if (!confirm('Mark order ' + o.n + ' as paid? The buyer gets an email saying the payment arrived.')) return;
+          mk.disabled = true; mk.textContent = 'Saving...';
+          fetch('/api/admin?k=' + encodeURIComponent(key) + '&paid=' + encodeURIComponent(o.n), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (r) {
+            if (r.error) { mk.disabled = false; mk.textContent = 'Mark as paid'; alert(r.error); return; }
+            load();
+          }, function () { mk.disabled = false; mk.textContent = 'Mark as paid'; alert('Could not reach the site. Try again.'); });
+        });
+        st.appendChild(mk);
+      }
+      tr.appendChild(st);
+      tr.appendChild(el('td', o.ship || '-'));
+      var l = el('td');
+      [['Shipping label', o.label], ['Payment proof', /^https:\/\//.test(o.proof || '') ? o.proof : '']].forEach(function (x) {
+        if (!/^https:\/\//.test(x[1] || '')) return;
+        var a = el('a', x[0]); a.href = x[1]; a.target = '_blank'; a.rel = 'noopener'; a.style.display = 'block'; l.appendChild(a);
+      });
+      tr.appendChild(l);
+      bo.appendChild(tr);
+    });
+    people(orders).forEach(function (p) {
+      if (!match([p.name, p.email, p.ships.join(' ')].join(' '))) return;
+      if (tab === 'people') shown++;
+      var tr = el('tr');
+      tr.appendChild(el('td', p.name || '-'));
+      var e = el('td'); if (p.email) { var a = el('a', p.email); a.href = 'mailto:' + p.email; e.appendChild(a); } tr.appendChild(e);
+      tr.appendChild(el('td', String(p.orders), 'num'));
+      tr.appendChild(el('td', String(p.units), 'num'));
+      tr.appendChild(el('td', usd(p.total), 'num'));
+      tr.appendChild(el('td', when(p.last)));
+      tr.appendChild(el('td', p.ships.join(' / ') || '-'));
+      tr.appendChild(el('td', p.pays.join(', ') || '-'));
+      bp.appendChild(tr);
+    });
+    $('none').hidden = shown > 0;
+    $('none').textContent = orders.length || tab === 'items' ? 'Nothing matches.' : 'No orders yet. They will show here as they come in.';
+  }
+
+  function tiles() {
+    var total = 0, units = 0;
+    orders.forEach(function (o) { total += Number(o.total) || 0; units += Number(o.q) || 0; });
+    var box = $('tiles'); box.textContent = '';
+    [['Orders', String(orders.length)], ['Customers', String(people(orders).length)], ['Units sold', String(units)], ['Order totals', usd(total)]].forEach(function (x) {
+      var d = el('div', null, 'tile'); d.appendChild(el('span', x[0], 'small')); d.appendChild(el('b', x[1])); box.appendChild(d);
+    });
+  }
+
+  function csv() {
+    var cell = function (v) { v = String(v == null ? '' : v); if (/^[=+\-@]/.test(v)) v = "'" + v; return '"' + v.replace(/"/g, '""') + '"'; };
+    var rows = tab === 'orders'
+      ? [['Placed', 'Invoice', 'Customer', 'Email', 'Item', 'Units', 'Paid with', 'Items', 'Shipping', 'Total', 'Status', 'Tracking', 'Promo', 'Ship to']].concat(orders.map(function (o) { return [when(o.at), o.n, o.buyer, o.email, o.product || o.pid, o.q, o.pay, o.items, o.shipping, o.total, o.status, o.tracking, o.promo, o.ship]; }))
+      : [['Customer', 'Email', 'Orders', 'Units', 'Total', 'Last order', 'Ships to', 'Paid with']].concat(people(orders).map(function (p) { return [p.name, p.email, p.orders, p.units, p.total.toFixed(2), when(p.last), p.ships.join(' / '), p.pays.join(', ')]; }));
+    var blob = new Blob([rows.map(function (r) { return r.map(cell).join(','); }).join('\r\n')], { type: 'text/csv' });
+    var a = el('a'); a.href = URL.createObjectURL(blob); a.download = (tab === 'orders' ? 'orders' : 'customers') + '.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+  }
+
+  $('tOrders').addEventListener('click', function () { tab = 'orders'; draw(); });
+  $('tPeople').addEventListener('click', function () { tab = 'people'; draw(); });
+  $('tItems').addEventListener('click', function () { tab = 'items'; draw(); });
+  $('find').addEventListener('input', draw);
+  $('csv').addEventListener('click', csv);
+
+  function load() {
+    fetch('/api/admin?k=' + encodeURIComponent(key), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (r) {
+      if (r.error) { try { localStorage.removeItem('adminKey'); } catch (e) { /* no storage */ } ask(r.error); return; }
+      orders = r.orders || []; items = r.products || []; party = r.party || null;
+      $('lead').textContent = r.note || 'Your orders, customers and products in one place.';
+      $('main').hidden = false;
+      tiles(); draw();
+    }, function () { $('lead').textContent = 'Could not load your orders. Check your connection and reload.'; });
+  }
+  if (!key) ask('Sign in to see your orders, customers and products.'); else load();
+})();
+</script>
+</body>
+</html>

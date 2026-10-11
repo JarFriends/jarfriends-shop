@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Review offer</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&family=IBM+Plex+Mono:wght@400;500&family=Playfair+Display:wght@600;700;800&display=swap">
+<link rel="stylesheet" href="/site.css">
+</head>
+<body>
+<header class="top"><div class="wrap bar"><a class="brand" href="/" style="text-decoration:none">Collectors Page</a><span class="mono dim">OWNER ONLY</span></div></header>
+<main class="wrap page">
+  <div class="stack-s">
+    <div class="mono gold" id="no">OFFER</div>
+    <h1 id="head">Review this offer</h1>
+    <div class="small" id="lead"></div>
+  </div>
+  <section class="card side" id="box" hidden style="max-width:520px">
+    <h2 id="item"></h2>
+    <div class="rows">
+      <div class="row"><span class="dim">Listed price</span><span id="list"></span></div>
+      <div class="row"><span class="dim">Their offer</span><span id="offer"></span></div>
+      <div class="row"><span class="dim">Quantity</span><span id="qty"></span></div>
+      <div class="row total"><span>Offer total</span><span id="total"></span></div>
+      <div class="row"><span class="dim">Wants to pay with</span><span id="pay"></span></div>
+      <div class="row"><span class="dim">From</span><span id="buyer" style="text-align:right;overflow-wrap:anywhere"></span></div>
+    </div>
+    <div id="acts" style="display:flex;flex-wrap:wrap;gap:10px">
+      <button type="button" class="solid" id="yes">Accept offer</button>
+      <button type="button" class="ghost" id="nope">Decline</button>
+    </div>
+    <div class="small" id="msg" role="status"></div>
+  </section>
+</main>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var token = new URLSearchParams(location.search).get('t');
+  var usd = function (v) { return '$' + Number(v).toLocaleString('en-US', { minimumFractionDigits: 2 }); };
+  function fail(t) { $('head').textContent = 'Offer not found'; $('lead').textContent = t || 'This link is not valid.'; }
+  if (!token) { fail(); return; }
+  fetch('/api/offer?t=' + encodeURIComponent(token), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (r) {
+    if (r.error || !r.offer) { fail(r.error); return; }
+    var o = r.offer;
+    $('no').textContent = 'OFFER ' + o.no;
+    $('lead').textContent = 'Accept and the buyer gets a checkout link at this price, good for 48 hours. Decline and they get a polite no.';
+    $('item').textContent = o.item;
+    $('list').textContent = usd(o.list) + ' each';
+    $('offer').textContent = usd(o.offer) + ' each';
+    $('qty').textContent = o.qty;
+    $('total').textContent = usd(o.total);
+    $('pay').textContent = o.pay || 'Not said';
+    $('buyer').textContent = o.buyer + ' / ' + o.email;
+    $('box').hidden = false;
+    function act(what) {
+      $('yes').disabled = true; $('nope').disabled = true; $('msg').textContent = 'Working...';
+      fetch('/api/offer', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ t: token, do: what }) })
+        .then(function (x) { return x.json(); })
+        .then(function (x) {
+          if (x.error) { $('yes').disabled = false; $('nope').disabled = false; $('msg').textContent = x.error; return; }
+          $('acts').style.display = 'none';
+          $('head').textContent = x.done === 'accepted' ? 'Offer accepted' : 'Offer declined';
+          $('msg').textContent = x.emailed === 'sent' ? 'The buyer has been emailed.' : 'Saved, but the email to the buyer did not go out. Contact them at ' + o.email + '.';
+        }, function () { $('yes').disabled = false; $('nope').disabled = false; $('msg').textContent = 'Could not reach the site. Try again.'; });
+    }
+    $('yes').addEventListener('click', function () { act('accept'); });
+    $('nope').addEventListener('click', function () { act('decline'); });
+  }, function () { fail('Could not load this offer. Check your connection and reload.'); });
+})();
+</script>
+</body>
+</html>

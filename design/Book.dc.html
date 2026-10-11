@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>JarFriends: schedule a call</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&amp;display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0;background:#0B1A13}
+a{color:#C9A45C}a:hover{color:#E3C685}
+button{font-family:inherit;cursor:pointer}
+</style>
+</helmet>
+<div style="background: #0B1A13; color: #F7F2E6; font-family: 'Archivo', system-ui, sans-serif; font-size: 17px; line-height: 1.55; min-height: 100vh">
+
+<header style="border-bottom: 1px solid #244536">
+<div style="max-width: 1200px; margin: 0 auto; padding: 18px 24px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px">
+<a href="Main.dc.html" style="color: #F7F2E6; text-decoration: none; font-weight: 800; font-size: 20px; letter-spacing: 0.04em; font-stretch: 115%; padding: 10px 0">JarFriends</a>
+<a href="Main.dc.html" style="padding: 12px 0; font-size: 15px">Back to site</a>
+</div>
+</header>
+
+<main style="max-width: 1200px; margin: 0 auto; padding: 56px 24px 88px; display: flex; flex-direction: column; gap: 36px">
+<div style="display: flex; flex-direction: column; gap: 12px">
+<div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 0.14em; color: #C9A45C">SCHEDULE A CALL WITH US</div>
+<h1 style="margin: 0; font-size: clamp(34px, 5vw, 60px); line-height: 1; font-weight: 700; font-family: 'Playfair Display', Georgia, serif; letter-spacing: 0.01em; text-transform: uppercase">Talk to the Curator</h1>
+<p style="margin: 0; color: #D6E2DA; max-width: 600px">The Curator is our order assistant. It asks a few quick questions, you pick a time, and we confirm your call.</p>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
+
+<div style="flex: 2 1 460px; min-width: 0">
+<dc-import name="OrderOarChat" hint-size="100%,640px"></dc-import>
+</div>
+
+<aside style="flex: 1 1 280px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+<div style="border-top: 3px solid #C9A45C; padding: 18px 0; display: flex; flex-direction: column; gap: 6px">
+<div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #A8BFB1">STEP 1</div>
+<div style="font-size: 20px; font-weight: 700; font-family: 'Playfair Display', Georgia, serif; letter-spacing: 0.01em; text-transform: uppercase">Answer the Curator</div>
+<div style="color: #D6E2DA">Your name, how to reach you, what you collect and the piece you have your eye on.</div>
+</div>
+<div style="border-top: 3px solid #C9A45C; padding: 18px 0; display: flex; flex-direction: column; gap: 6px">
+<div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #A8BFB1">STEP 2</div>
+<div style="font-size: 20px; font-weight: 700; font-family: 'Playfair Display', Georgia, serif; letter-spacing: 0.01em; text-transform: uppercase">Pick a date</div>
+<div style="color: #D6E2DA">Tell us your deliver-by date if you are ordering now, or the best day to call if you want to talk first.</div>
+</div>
+<div style="border-top: 3px solid #C9A45C; padding: 18px 0; display: flex; flex-direction: column; gap: 6px">
+<div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #A8BFB1">STEP 3</div>
+<div style="font-size: 20px; font-weight: 700; font-family: 'Playfair Display', Georgia, serif; letter-spacing: 0.01em; text-transform: uppercase">We confirm</div>
+<div style="color: #D6E2DA">Your answers are sent to us automatically when you finish. You get a confirmation on screen, and we reach out soon.</div>
+</div>
+</aside>
+
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1300}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

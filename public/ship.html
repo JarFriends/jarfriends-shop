@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Shipping label</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&family=IBM+Plex+Mono:wght@400;500&family=Playfair+Display:wght@600;700;800&display=swap">
+<link rel="stylesheet" href="/site.css">
+</head>
+<body>
+<header class="top"><div class="wrap bar"><a class="brand" href="/" style="text-decoration:none">Collectors Page</a><span class="mono dim">OWNER ONLY</span></div></header>
+<main class="wrap page">
+  <div class="stack-s">
+    <div class="mono gold" id="no">SHIPPING LABEL</div>
+    <h1 id="head">Buy the USPS label</h1>
+    <div class="small" id="lead">Pricing the label...</div>
+  </div>
+  <section class="card side" id="box" hidden style="max-width:560px">
+    <h2 id="item"></h2>
+    <div class="rows">
+      <div class="row"><span class="dim">Ship to</span><span id="to" style="text-align:right;white-space:pre-line"></span></div>
+      <div class="row"><span class="dim">Ship from</span><span id="from" style="text-align:right;white-space:pre-line"></span></div>
+      <div class="row"><span class="dim">Package</span><span id="pkg"></span></div>
+      <div class="row" id="rSvc" hidden><span class="dim">Service</span><span id="svc" style="text-align:right"></span></div>
+      <div class="row total" id="rCost" hidden><span>Postage</span><span id="cost"></span></div>
+    </div>
+    <div id="acts" style="display:flex;flex-wrap:wrap;gap:10px">
+      <button type="button" class="solid" id="buy" hidden>Buy and print label</button>
+      <a class="ghost" id="plain" style="text-decoration:none;display:inline-flex;align-items:center">Print address only</a>
+    </div>
+    <div id="done" hidden style="display:flex;flex-direction:column;gap:10px">
+      <a class="solid" id="pdf" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center">Open label to print</a>
+      <div class="small" id="trk"></div>
+    </div>
+    <div class="small" id="msg" role="status"></div>
+  </section>
+</main>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var qs = new URLSearchParams(location.search), inv = qs.get('inv'), k = qs.get('k');
+  var rate = null, again = false;
+  var addr = function (a) { return [a.name, a.company, a.street || a.street1, a.line2 || a.street2, a.city + ', ' + a.state + ' ' + a.zip].filter(Boolean).join('\n'); };
+  $('plain').href = '/label.html?inv=' + encodeURIComponent(inv || '');
+  if (!inv || !k) { $('head').textContent = 'Label link not valid'; $('lead').textContent = 'Use the link from your new-order email.'; return; }
+  function showOrder(o) {
+    $('no').textContent = 'INVOICE ' + o.no;
+    $('item').textContent = (o.item || 'Order') + (o.qty ? ' x ' + o.qty : '');
+    $('to').textContent = addr(o.to); $('from').textContent = addr(o.from);
+    $('pkg').textContent = o.pkg || (o.parcel.length + ' x ' + o.parcel.width + ' x ' + o.parcel.height + ' in, ' + o.parcel.weight + ' oz');
+    $('box').hidden = false;
+  }
+  fetch('/api/label?inv=' + encodeURIComponent(inv) + '&k=' + encodeURIComponent(k), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (r) {
+    if (r.order) showOrder(r.order);
+    if (r.error || !r.rate) { $('head').textContent = r.order ? 'Label not priced' : 'Label link not valid'; $('lead').textContent = r.error || 'Could not price the label.'; return; }
+    rate = r.rate;
+    $('svc').textContent = rate.carrier + ' ' + rate.service + (rate.days ? ' (about ' + rate.days + (rate.days === 1 ? ' day)' : ' days)') : '');
+    $('cost').textContent = '$' + rate.amount;
+    $('rSvc').hidden = false; $('rCost').hidden = false; $('buy').hidden = false;
+    $('lead').textContent = r.order.test
+      ? 'Test mode: this makes a free sample label that cannot be mailed. Nothing is charged.'
+      : 'Buying charges $' + rate.amount + ' to your Shippo account. Check the address first.';
+  }, function () { $('head').textContent = 'Label not priced'; $('lead').textContent = 'Could not reach the site. Reload to try again.'; });
+  $('buy').addEventListener('click', function () {
+    if (!rate) return;
+    $('buy').disabled = true; $('msg').textContent = 'Buying the label...';
+    fetch('/api/label', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ inv: inv, k: k, rate: rate.id, again: again }) })
+      .then(function (r) { return r.json(); })
+      .then(function (r) {
+        if (r.error) {
+          $('buy').disabled = false; $('msg').textContent = r.error;
+          if (r.again) { again = true; $('buy').textContent = 'Buy a replacement label'; }
+          return;
+        }
+        $('acts').style.display = 'none'; $('done').hidden = false; $('msg').textContent = '';
+        $('head').textContent = r.test ? 'Test label ready' : 'Label bought';
+        $('lead').textContent = r.test ? 'This is a sample label. It cannot be mailed.' : 'Print it and stick it on the package.' + (r.emailed === 'sent' ? ' The buyer has been emailed the tracking number.' : '');
+        $('pdf').href = r.label;
+        $('trk').textContent = r.tracking ? 'Tracking number: ' + r.tracking : '';
+      }, function () { $('buy').disabled = false; $('msg').textContent = 'Could not reach the site. Check your Shippo account before trying again, in case the label was bought.'; });
+  });
+})();
+</script>
+</body>
+</html>

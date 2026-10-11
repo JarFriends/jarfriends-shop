@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Payment</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&amp;display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0;background:#0B1A13}
+a{color:#C9A45C}a:hover{color:#E3C685}
+button{font-family:inherit;cursor:pointer}
+</style>
+</helmet>
+<div style="background: #0B1A13; color: #F7F2E6; font-family: 'Archivo', system-ui, sans-serif; font-size: 17px; line-height: 1.55; min-height: 100vh">
+
+<header style="border-bottom: 1px solid #244536">
+<div style="max-width: 1200px; margin: 0 auto; padding: 18px 24px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px">
+<a href="Main.dc.html" style="color: #F7F2E6; text-decoration: none; font-weight: 800; font-size: 20px; letter-spacing: 0.04em; font-stretch: 115%; padding: 10px 0">JarFriends</a>
+<a href="Main.dc.html" style="padding: 12px 0; font-size: 15px">Back to site</a>
+</div>
+</header>
+
+<main style="max-width: 1200px; margin: 0 auto; padding: 56px 24px 88px; display: flex; flex-direction: column; gap: 36px">
+<div style="display: flex; flex-direction: column; gap: 12px">
+<div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 0.14em; color: #C9A45C">INVOICE [NO.]</div>
+<h1 style="margin: 0; font-size: clamp(34px, 5vw, 60px); line-height: 1; font-weight: 700; font-family: 'Playfair Display', Georgia, serif; letter-spacing: 0.01em; text-transform: uppercase">Send payment</h1>
+</div>
+
+<sc-if value="{{expired}}" hint-placeholder-val="{{false}}">
+<div role="alert" style="border: 2px solid #F7F2E6; padding: 18px 20px; display: flex; flex-direction: column; gap: 4px">
+<div style="font-weight: 700; font-size: 20px; text-transform: uppercase; font-family: 'Playfair Display', Georgia, serif; letter-spacing: 0.01em">This payment window has closed</div>
+<div style="color: #D6E2DA">Do not send funds to this address. Ask us for a fresh invoice and a new deadline.</div>
+</div>
+</sc-if>
+
+<div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
+
+<section style="flex: 1 1 320px; min-width: 0; background: #11261C; border: 1px solid #244536; padding: 24px; display: flex; flex-direction: column; gap: 16px">
+<h2 style="margin: 0; font-size: 20px; font-weight: 700; font-family: 'Playfair Display', Georgia, serif; letter-spacing: 0.01em; text-transform: uppercase">Order</h2>
+<div style="display: flex; flex-direction: column; font-size: 15px">
+<div style="display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid #244536"><span>[PRODUCT NAME] x [QTY]</span><span>[LINE TOTAL]</span></div>
+<div style="display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid #244536"><span style="color: #A8BFB1">Buyer</span><span>[BUYER COMPANY]</span></div>
+<div style="display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid #244536"><span style="color: #A8BFB1">Delivery</span><span>[TERMS]</span></div>
+<div style="display: flex; justify-content: space-between; gap: 12px; padding: 14px 0; border-top: 1px solid #4E7A63; font-size: 19px; font-weight: 800"><span>Total due</span><span>[ORDER TOTAL]</span></div>
+</div>
+<div style="border-top: 1px solid #244536; padding-top: 16px; display: flex; flex-direction: column; gap: 4px">
+<div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.14em; color: #A8BFB1">TIME LEFT TO PAY</div>
+<div style="font-family: 'IBM Plex Mono', monospace; font-size: 44px; line-height: 1.1; color: #C9A45C">{{timeLeft}}</div>
+<div style="font-size: 15px; color: #D6E2DA">Pay by [DEADLINE DATE AND TIME]. A payment that arrives late is not matched to this order.</div>
+</div>
+</section>
+
+<section style="flex: 2 1 460px; min-width: 0; background: #11261C; border: 1px solid #244536; padding: 24px; display: flex; flex-direction: column; gap: 22px">
+<div style="display: flex; flex-direction: column; gap: 10px">
+<h2 style="margin: 0; font-size: 20px; font-weight: 700; font-family: 'Playfair Display', Georgia, serif; letter-spacing: 0.01em; text-transform: uppercase">1. Choose how to pay</h2>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<sc-for list="{{coins}}" as="c" hint-placeholder-count="5">
+<button type="button" onClick="{{c.pick}}" aria-pressed="{{c.on}}" style="border: 1px solid #4E7A63; border-radius: 999px; padding: 11px 20px; font-size: 16px; font-weight: 700; background: {{c.bg}}; color: {{c.fg}}">{{c.label}}</button>
+</sc-for>
+</div>
+<sc-if value="{{isCrypto}}" hint-placeholder-val="{{true}}">
+<div style="font-size: 15px; color: #D6E2DA">Network: {{network}}. Sending on a different network loses the funds.</div>
+</sc-if>
+</div>
+
+<sc-if value="{{isCrypto}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; flex-direction: column; gap: 22px">
+<div style="display: flex; flex-direction: column; gap: 10px">
+<h2 style="margin: 0; font-size: 20px; font-weight: 700; font-family: 'Playfair Display', Georgia, serif; letter-spacing: 0.01em; text-transform: uppercase">2. Send this exact amount</h2>
+<div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: stretch">
+<div style="width: 148px; height: 148px; flex-shrink: 0; border: 1px dashed #4E7A63; background: #0B1A13; display: flex; align-items: center; justify-content: center; text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #A8BFB1">[QR CODE]</div>
+<div style="flex: 1 1 260px; min-width: 0; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 2px">
+<div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.14em; color: #A8BFB1">AMOUNT</div>
+<div style="font-family: 'IBM Plex Mono', monospace; font-size: 28px">[AMOUNT] {{coin}}</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.14em; color: #A8BFB1">TO WALLET</div>
+<div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center">
+<div style="flex: 1 1 220px; min-width: 0; overflow-wrap: anywhere; font-family: 'IBM Plex Mono', monospace; font-size: 15px; background: #0B1A13; border: 1px solid #244536; padding: 12px 14px">[YOUR {{coin}} WALLET ADDRESS]</div>
+<button type="button" onClick="{{copy}}" style="border: 1px solid #F7F2E6; background: transparent; color: #F7F2E6; font-weight: 700; font-size: 15px; padding: 12px 18px; border-radius: 2px">{{copyLabel}}</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px">
+<h2 style="margin: 0; font-size: 20px; font-weight: 700; font-family: 'Playfair Display', Georgia, serif; letter-spacing: 0.01em; text-transform: uppercase">3. We watch the chain</h2>
+<div style="display: flex; flex-direction: column">
+<sc-for list="{{steps}}" as="s" hint-placeholder-count="3">
+<div style="display: flex; gap: 14px; padding: 14px 0; border-top: 1px solid #244536; align-items: flex-start">
+<div style="width: 26px; height: 26px; flex-shrink: 0; border-radius: 999px; border: 2px solid {{s.line}}; background: {{s.fill}}; color: #0B1A13; display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 500">{{s.mark}}</div>
+<div style="display: flex; flex-direction: column; gap: 2px; min-width: 0">
+<div style="font-weight: 700; color: {{s.fg}}">{{s.title}}</div>
+<div style="font-size: 15px; color: #A8BFB1">{{s.text}}</div>
+</div>
+</div>
+</sc-for>
+</div>
+<sc-if value="{{confirmed}}" hint-placeholder-val="{{false}}">
+<div style="background: #C9A45C; color: #0B1A13; padding: 16px 20px; display: flex; flex-direction: column; gap: 4px">
+<div style="font-weight: 700; font-size: 22px; text-transform: uppercase; font-family: 'Playfair Display', Georgia, serif; letter-spacing: 0.01em">Payment confirmed</div>
+<div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; overflow-wrap: anywhere">TX [TRANSACTION HASH] / BLOCK [NO.] / <a href="#" style="color: #0B1A13">View on block explorer</a></div>
+</div>
+</sc-if>
+<sc-if value="{{canAdvance}}" hint-placeholder-val="{{true}}">
+<button type="button" onClick="{{advance}}" style="align-self: flex-start; border: 0; background: #C9A45C; color: #0B1A13; font-weight: 700; font-size: 16px; padding: 14px 22px; border-radius: 2px">I have sent it, check now</button>
+</sc-if>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{isCard}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column; gap: 22px">
+<div style="display: flex; flex-direction: column; gap: 10px">
+<h2 style="margin: 0; font-size: 20px; font-weight: 700; font-family: 'Playfair Display', Georgia, serif; letter-spacing: 0.01em; text-transform: uppercase">2. Enter your card</h2>
+<div style="display: flex; flex-direction: column; gap: 2px">
+<div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.14em; color: #A8BFB1">AMOUNT CHARGED</div>
+<div style="font-family: 'IBM Plex Mono', monospace; font-size: 28px">[ORDER TOTAL] USD</div>
+</div>
+<div style="border: 1px dashed #4E7A63; background: #0B1A13; padding: 22px 16px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #A8BFB1">[SECURE CARD FORM BY SQUARE]</div>
+<div style="color: #D6E2DA">Your card is taken by Square, our card processor. The card number never touches this site.</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 10px">
+<h2 style="margin: 0; font-size: 20px; font-weight: 700; font-family: 'Playfair Display', Georgia, serif; letter-spacing: 0.01em; text-transform: uppercase">3. Paid on the spot</h2>
+<div style="color: #D6E2DA">Square confirms the charge in seconds. Your order is marked paid and the receipt is emailed to you.</div>
+<a href="https://collectors-page.vercel.app/order.html" target="_blank" rel="noopener" style="align-self: flex-start; background: #C9A45C; color: #0B1A13; text-decoration: none; font-weight: 700; font-size: 16px; padding: 14px 22px; border-radius: 2px">Place an order</a>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{isCash}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column; gap: 22px">
+<div style="display: flex; flex-direction: column; gap: 10px">
+<h2 style="margin: 0; font-size: 20px; font-weight: 700; font-family: 'Playfair Display', Georgia, serif; letter-spacing: 0.01em; text-transform: uppercase">2. Pay by cash or bank transfer</h2>
+<div style="display: flex; flex-direction: column; gap: 2px">
+<div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.14em; color: #A8BFB1">AMOUNT DUE</div>
+<div style="font-family: 'IBM Plex Mono', monospace; font-size: 28px">[ORDER TOTAL] USD</div>
+</div>
+<div style="color: #D6E2DA">Nothing is paid online. [HOW TO PAY: where to send a bank transfer, or how to pay in cash]</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 10px">
+<h2 style="margin: 0; font-size: 20px; font-weight: 700; font-family: 'Playfair Display', Georgia, serif; letter-spacing: 0.01em; text-transform: uppercase">3. We record it</h2>
+<div style="color: #D6E2DA">We confirm your order when your payment arrives, and email you a receipt.</div>
+<a href="Book.dc.html" style="align-self: flex-start; background: #C9A45C; color: #0B1A13; text-decoration: none; font-weight: 700; font-size: 16px; padding: 14px 22px; border-radius: 2px">Ask us a question</a>
+</div>
+</div>
+</sc-if>
+</section>
+
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"status":{"editor":"enum","options":["awaiting","detected","confirmed","expired"],"default":"awaiting"},"$preview":{"width":1280,"height":1150}}'>
+class Component extends DCLogic {
+componentDidMount() {
+this.end = Date.now() + 24 * 3600 * 1000 - 1000;
+this.timer = setInterval(() => this.forceUpdate(), 1000);
+}
+componentWillUnmount() { clearInterval(this.timer); }
+renderVals() {
+const st = this.state || {};
+const order = ["awaiting", "detected", "confirmed"];
+const status = st.status || this.props.status || "awaiting";
+const expired = status === "expired";
+const at = order.indexOf(status);
+const coin = st.coin || "USDC";
+const nets = { USDC: "[Ethereum or Solana, owner picks]", USDT: "[Ethereum or Solana, owner picks]", BTC: "Bitcoin", ETH: "Ethereum", SOL: "Solana" };
+const coins = ["CARD", "USDC", "USDT", "BTC", "ETH", "SOL", "USD"].map((id) => ({
+id: id, label: id === "USD" ? "Cash or bank transfer" : id === "CARD" ? "Credit card" : id, on: coin === id,
+bg: coin === id ? "#F7F2E6" : "transparent",
+fg: coin === id ? "#0B1A13" : "#F7F2E6",
+pick: () => this.setState({ coin: id, copied: false })
+}));
+const defs = [
+["Waiting for your payment", "Nothing seen at this address yet."],
+["Seen on the network", "Transaction found. Waiting for [N] confirmations."],
+["Confirmed", "Amount, address and time all match this invoice."]
+];
+const steps = defs.map((d, i) => {
+const done = !expired && i < at || (!expired && at === 2 && i === 2);
+const now = !expired && i === at && !done;
+return {
+title: d[0], text: d[1],
+mark: done ? "OK" : String(i + 1),
+fill: done ? "#C9A45C" : "transparent",
+line: done || now ? "#C9A45C" : "#4E7A63",
+fg: done || now ? "#F7F2E6" : "#A8BFB1"
+};
+});
+let timeLeft = "24:00:00";
+if (expired) timeLeft = "00:00:00";
+else if (this.end) {
+const t = Math.max(0, Math.floor((this.end - Date.now()) / 1000));
+const p = (n) => String(n).padStart(2, "0");
+timeLeft = p(Math.floor(t / 3600)) + ":" + p(Math.floor(t / 60) % 60) + ":" + p(t % 60);
+}
+return {
+coin: coin, coins: coins, isCash: coin === "USD", isCard: coin === "CARD", isCrypto: coin !== "USD" && coin !== "CARD", network: nets[coin], steps: steps,
+expired: expired,
+confirmed: status === "confirmed",
+canAdvance: !expired && at < 2,
+advance: () => this.setState({ status: order[Math.min(2, at + 1)] }),
+copy: () => this.setState({ copied: true }),
+copyLabel: st.copied ? "Copied" : "Copy",
+timeLeft: timeLeft
+};
+}
+}
+</script>
+</body>
+</html>

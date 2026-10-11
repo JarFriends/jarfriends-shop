@@ -1,0 +1,6 @@
+// Build step: products added to the shop's list. The bundle in safe 5 (the vault) of the Deal of the day,
+// and the Lava Jack-O on the store shelf.
+const fs = require('fs');
+const f = 'api/_products.js', s = fs.readFileSync(f, 'utf8'), at = "deal: 4, nft: 'yes', section: 'NFTs' }";
+if (s.split(at).length !== 2) throw new Error('patchvault: expected one match in ' + f);
+fs.writeFileSync(f, s.replace(at, () => at + ",\n  { id: 'VAULT5', name: 'Eager Eagle 1st (Pure .999 Fine Silver) + Motivated Monster Comic + Adventurous Astronaut Comic', price: 206, min: 1, stock: 1, shipping: 'free', deal: 5, weight_oz: 10 },\n  { id: 'LAVAJACK', name: 'Lava Jack-O', price: 152, min: 1, stock: 1, shipping: 5.57, section: 'Comics', shelf: true }"));

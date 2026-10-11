@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Order placed</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&family=IBM+Plex+Mono:wght@400;500&family=Playfair+Display:wght@600;700;800&display=swap">
+<link rel="stylesheet" href="/site.css">
+</head>
+<body>
+<header class="top"><div class="wrap bar"><a class="brand" href="/" style="text-decoration:none">Collectors Page</a><span style="display:flex;align-items:center;gap:20px"><span class="mono dim" id="tag">ORDER</span><a class="home" href="/">Home</a></span></div></header>
+<main class="wrap page">
+  <div class="stack-s">
+    <div class="mono gold" id="invNo">ORDER</div>
+    <h1 id="head">Order placed</h1>
+    <div class="small" id="lead"></div>
+  </div>
+  <section class="card side" id="box" hidden style="max-width:520px">
+    <h2>Order</h2>
+    <div class="rows">
+      <div class="row"><span id="oItem"></span><span id="oList"></span></div>
+      <div class="row"><span class="dim">Buyer</span><span id="oBuyer"></span></div>
+      <div class="row" id="rPromo" hidden><span class="dim" id="lPromo"></span><span id="oPromo"></span></div>
+      <div class="row" id="rShip"><span class="dim">Shipping</span><span id="oShip"></span></div>
+      <div class="row" id="rFee" hidden><span class="dim" id="lFee">Card fee</span><span id="oFee"></span></div>
+      <div class="row total"><span id="lNow">Total due</span><span id="oTotal"></span></div>
+    </div>
+    <div class="small" id="how" hidden style="white-space:pre-line"></div>
+    <div class="small" id="mail"></div>
+  </section>
+</main>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var token = new URLSearchParams(location.search).get('inv');
+  var usd = function (v) { return '$' + Number(v).toLocaleString('en-US', { minimumFractionDigits: 2 }) + ' USD'; };
+  function fail() { $('head').textContent = 'Order not found'; $('lead').textContent = 'This link is not valid. Place the order again, or contact us.'; }
+  if (!token) { fail(); return; }
+  fetch('/api/status?inv=' + encodeURIComponent(token), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (r) {
+    if (r.error || !r.invoice || !r.invoice.total) { fail(); return; }
+    var inv = r.invoice;
+    // By-hand payments: cash or ACH, or an app (Zelle, Venmo, Cash App).
+    var app = !!inv.way && inv.way !== 'cash';
+    var by = app ? inv.wayLabel : 'cash or ACH';
+    $('invNo').textContent = 'INVOICE ' + inv.no;
+    $('tag').textContent = by.toUpperCase();
+    $('oItem').textContent = (inv.item || 'Order') + (inv.qty ? ' x ' + inv.qty : '');
+    $('oList').textContent = usd(inv.list);
+    $('oBuyer').textContent = inv.buyer || '-';
+    if (inv.promo) { $('lPromo').textContent = 'Promo code ' + inv.promo.code; $('oPromo').textContent = '-' + usd(inv.promo.off); $('rPromo').hidden = false; }
+    $('oShip').textContent = Number(inv.ship) > 0 ? usd(inv.ship) : 'Free';
+    $('rShip').hidden = !!inv.wallet;
+    if (Number(inv.fee) > 0) { $('lFee').textContent = 'Card fee' + (inv.feePct ? ' (' + inv.feePct + '%)' : ''); $('oFee').textContent = '+' + usd(inv.fee); $('rFee').hidden = false; }
+    $('lead').textContent = 'The full amount is due now by ' + by + '.' + (inv.howToPay ? '' : ' We will reach out with payment details.');
+    $('lNow').textContent = 'Due now by ' + by;
+    $('oTotal').textContent = usd(inv.total);
+    // Back from the card page after paying.
+    if (inv.method === 'card' && new URLSearchParams(location.search).get('paid') === '1') {
+      $('tag').textContent = 'CARD'; $('head').textContent = 'Payment received';
+      $('lead').textContent = 'Thank you. Your card payment went through and your order is confirmed.'; $('lNow').textContent = 'Paid by card';
+      if (new URLSearchParams(location.search).get('feeback') === '1') { $('lead').textContent += ' You paid with a debit card, so the card fee is being refunded to your card.'; }
+    }
+    if (inv.howToPay) { $('how').textContent = 'How to pay: ' + inv.howToPay + '\nPut invoice ' + inv.no + ' ' + (app ? 'in the payment note' : 'on the payment') + ' so we can match it.'; $('how').hidden = false; }
+    var s = inv.shipTo;
+    $('mail').textContent = (inv.wallet ? 'Your NFT will be sent to wallet ' + inv.wallet + ' once your payment is confirmed. ' : '') + (s ? 'Shipping to ' + [s.street, s.line2, s.city + ', ' + s.state + ' ' + s.zip].filter(Boolean).join(', ') + '. ' : '') + (inv.email ? 'An invoice has been emailed to ' + inv.email + '.' : '');
+    $('box').hidden = false;
+  }, fail);
+})();
+</script>
+</body>
+</html>

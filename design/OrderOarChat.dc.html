@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Checkout helper chat</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&amp;display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<section aria-label="Talk to Root Boy" style="box-sizing: border-box; width: 100%; height: {{boxH}}; transition: height 0.25s ease; overflow: hidden; background: #11261C; border: 1px solid #244536; border-radius: 18px; display: flex; flex-direction: column; font-family: 'Archivo', system-ui, sans-serif; font-size: 17px; line-height: 1.5; color: #F7F2E6">
+
+<div style="flex: 0 0 auto; padding: 8px 16px; border-bottom: 1px solid #244536; display: flex; align-items: center; justify-content: space-between; gap: 12px">
+<div style="display: flex; align-items: center; gap: 12px; min-width: 0">
+<div style="width: 36px; height: 36px; flex-shrink: 0; border-radius: 999px; background: #C9A45C; color: #0B1A13; display: flex; align-items: center; justify-content: center">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M8.5 14.5c1 1.2 2.1 1.8 3.5 1.8s2.5-.6 3.5-1.8"></path><path d="M9 9.5v.5"></path><path d="M15 9.5v.5"></path></svg>
+</div>
+<div style="display: flex; flex-direction: column; min-width: 0">
+<div style="font-weight: 800; font-size: 18px; line-height: 1.2">Talk to Root Boy</div>
+<div style="font-size: 14px; color: #A8BFB1">Tell me what you want. I'll bring it right up.</div>
+</div>
+</div>
+<button type="button" onClick="{{restart}}" style="font-family: inherit; cursor: pointer; flex-shrink: 0; border: 1px solid #4E7A63; background: transparent; color: #F7F2E6; font-size: 14px; font-weight: 600; padding: 11px 16px; border-radius: 999px">Start over</button>
+</div>
+
+<div aria-live="polite" ref="{{setMsgEl}}" style="flex: 1 1 0; min-height: 0; overflow-y: auto; padding: 12px 16px; display: flex; flex-direction: column; gap: 10px">
+<sc-for list="{{messages}}" as="m" hint-placeholder-count="1">
+<div data-turn="{{m.who}}" style="flex-shrink: 0; display: flex; flex-direction: column; gap: 10px">
+<div style="align-self: {{m.align}}; max-width: 86%; padding: 12px 16px; border-radius: {{m.radius}}; background: {{m.bg}}; color: {{m.fg}}; border: 1px solid {{m.line}}; overflow-wrap: anywhere">{{m.text}}</div>
+<sc-for list="{{m.cards}}" as="c" hint-placeholder-count="0">
+<div style="background: #0B1A13; border: 1px solid #C9A45C; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px">
+<sc-if value="{{c.hasPhoto}}" hint-placeholder-val="{{false}}">
+<img src="{{c.photo}}" alt="" loading="lazy" style="flex: 0 0 auto; display: block; width: 58px; height: 78px; object-fit: contain; border-radius: 6px; background: #132A20; border: 1px solid #244536">
+</sc-if>
+<div style="flex: 1 1 auto; min-width: 0; font-family: 'Playfair Display', Georgia, serif; font-weight: 700; font-size: 21px; line-height: 1.15; overflow-wrap: anywhere">{{c.name}}</div>
+<div style="flex-shrink: 0; font-weight: 800; font-size: 18px; color: #C9A45C">{{c.price}}</div>
+</div>
+<div style="font-size: 14px; color: #A8BFB1">{{c.meta}}</div>
+<sc-if value="{{c.canOrder}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px">
+<div style="display: flex; align-items: center; gap: 6px">
+<button type="button" onClick="{{c.less}}" aria-label="One fewer" style="font-family: inherit; cursor: pointer; width: 44px; height: 44px; border-radius: 999px; border: 1px solid #4E7A63; background: transparent; color: #F7F2E6; font-size: 22px; font-weight: 600; line-height: 1">−</button>
+<div aria-label="Quantity" style="min-width: 30px; text-align: center; font-weight: 800; font-size: 18px">{{c.qty}}</div>
+<button type="button" onClick="{{c.more}}" aria-label="One more" style="font-family: inherit; cursor: pointer; width: 44px; height: 44px; border-radius: 999px; border: 1px solid #4E7A63; background: transparent; color: #F7F2E6; font-size: 22px; font-weight: 600; line-height: 1">+</button>
+</div>
+<button type="button" onClick="{{c.checkout}}" style="font-family: inherit; cursor: pointer; flex: 1 1 170px; min-height: 48px; border: 0; border-radius: 999px; background: #C9A45C; color: #0B1A13; font-weight: 800; font-size: 16px; padding: 0 18px">{{c.cta}}</button>
+<button type="button" onClick="{{c.offer}}" style="font-family: inherit; cursor: pointer; flex: 1 1 100%; min-height: 46px; border: 1px solid #C9A45C; border-radius: 999px; background: transparent; color: #F7F2E6; font-weight: 800; font-size: 16px; padding: 0 18px">Make an offer</button>
+</div>
+</sc-if>
+<sc-if value="{{c.sold}}" hint-placeholder-val="{{false}}">
+<a href="Book.dc.html" style="align-self: flex-start; border: 1px solid #F7F2E6; color: #F7F2E6; text-decoration: none; font-weight: 700; font-size: 16px; padding: 12px 20px; border-radius: 999px">Ask about this piece</a>
+</sc-if>
+</div>
+</sc-for>
+</div>
+</sc-for>
+</div>
+
+<div style="flex: 0 0 auto; padding: 10px 16px 12px; border-top: 1px solid #244536; display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<sc-for list="{{chips}}" as="h" hint-placeholder-count="2">
+<button type="button" onClick="{{h.pick}}" style="font-family: inherit; cursor: pointer; border: 1px solid #4E7A63; background: transparent; color: #F7F2E6; font-size: 14px; font-weight: 600; min-height: 44px; padding: 0 16px; border-radius: 999px">{{h.label}}</button>
+</sc-for>
+</div>
+<form onSubmit="{{submit}}" style="margin: 0; display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; flex-wrap: wrap; gap: 10px">
+<input id="oo-answer" aria-label="What are you looking for?" type="text" value="{{draft}}" onChange="{{onDraft}}" autocomplete="off" placeholder="Type a piece, or just say hi" style="font-family: inherit; flex: 1 1 200px; min-width: 0; box-sizing: border-box; height: 48px; padding: 0 16px; font-size: 16px; background: #0B1A13; color: #F7F2E6; border: 1px solid #4E7A63; border-radius: 999px; color-scheme: dark">
+<button type="submit" style="font-family: inherit; cursor: pointer; border: 0; background: #C9A45C; color: #0B1A13; font-weight: 800; font-size: 16px; padding: 0 26px; height: 48px; border-radius: 999px">Send</button>
+</div>
+</form>
+</div>
+
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":560,"height":340}}'>
+class Component extends DCLogic {
+componentDidMount() {
+fetch("https://collectors-page.vercel.app/api/order").then((r) => r.json()).then((j) => {
+if (j && j.products && j.products.length) this.setState({ shop: j.products });
+}).catch(() => {});
+}
+componentDidUpdate() {
+const n = ((this.state && this.state.msgs) || []).length;
+if (n === this.lastN) return;
+this.lastN = n;
+const box = this.msgEl;
+if (!box) return;
+const turns = box.querySelectorAll("[data-turn]");
+const last = turns.length ? turns[turns.length - 1] : null;
+if (!last || n === 0) { box.scrollTop = 0; return; }
+box.scrollTop += last.getBoundingClientRect().top - box.getBoundingClientRect().top - 72;
+}
+catalog() {
+const shop = this.state && this.state.shop;
+if (shop) return shop.map((x) => ({ id: String(x.id), name: String(x.name), cents: Math.round(Number(x.price) * 100), min: Math.max(1, Number(x.min) || 1), stock: x.stock === null || x.stock === undefined ? null : Number(x.stock), sections: x.sections || [], deal: !!x.deal, nft: !!x.nft, shelf: x.shelf }));
+return ["A", "B", "C", "D", "E", "F"].map((x) => ({ id: x, name: "Sample Piece " + x, cents: null, min: 1, stock: null }));
+}
+isSold(c) { return c.stock !== null && c.stock < c.min; }
+norm(s) { return " " + String(s).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim() + " "; }
+reply(text) {
+const t = this.norm(text);
+// The Deal of the day stays a surprise: the chat never names it. It sends the visitor to the safe on this page.
+const dealNow = this.catalog().filter((c) => c.deal && !this.isSold(c))[0];
+// The chat only offers what is on the home page shelf: no party listing, no deal. The back office decides what
+// is on the shelf; if the shop does not say, the built-in list is used.
+const SHOWN = ["MONSTER", "HARPIK", "ASTRO"];
+const cat = this.catalog().filter((c) => !c.deal && (typeof c.shelf === "boolean" ? c.shelf : SHOWN.indexOf(c.id) >= 0));
+if (/ (deal|deals|safe|safes|vault|daily|special) /.test(t)) {
+if (!dealNow) return { text: "Every Deal of the day safe has been claimed. New deals are on the way.", ids: [] };
+setTimeout(() => { try { const el = document.getElementById("deal"); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); } catch (e) { /* stay put */ } }, 900);
+return { text: "The Deal of the day is locked in a safe, and I can't tell you what's inside. Go to Deal of the day on this page (right below this chat) and open the safe to see it and claim it.", ids: [] };
+}
+const stop = { a: 1, an: 1, the: 1, i: 1, im: 1, id: 1, me: 1, my: 1, you: 1, your: 1, do: 1, have: 1, got: 1, is: 1, are: 1, it: 1, of: 1, to: 1, for: 1, on: 1, in: 1, and: 1, or: 1, with: 1, want: 1, wanna: 1, need: 1, like: 1, would: 1, looking: 1, look: 1, find: 1, buy: 1, get: 1, order: 1, purchase: 1, take: 1, grab: 1, please: 1, pls: 1, some: 1, any: 1, that: 1, this: 1, those: 1, can: 1, could: 1, show: 1, see: 1, hi: 1, hey: 1, hello: 1, thanks: 1, thank: 1, one: 1, piece: 1, pieces: 1, product: 1, products: 1, item: 1, items: 1, there: 1, what: 1, whats: 1, s: 1, m: 1, d: 1, ll: 1 };
+const words = t.trim().split(" ").filter((w) => w && !stop[w]);
+const scored = cat.map((c) => {
+// A section name (comics, watches...) finds the pieces in it too.
+const nm = this.norm(c.name + " " + (c.sections || []).join(" "));
+const id = c.id.toLowerCase();
+let s = 0;
+if (nm.trim().length > 2 && t.indexOf(nm) >= 0) s += 10;
+if (new RegExp(" (product|item|piece|no|number|lot) " + id.replace(/[^a-z0-9]/g, "") + " ").test(t) || t.trim() === id) s += 6;
+words.forEach((w) => {
+if (nm.indexOf(" " + w + " ") >= 0) s += 3;
+else if (w.length >= 3 && nm.indexOf(w) >= 0) s += 2;
+else if (w.length >= 4 && w.charAt(w.length - 1) === "s" && nm.indexOf(w.slice(0, -1)) >= 0) s += 2;
+});
+return { c: c, s: s };
+}).filter((x) => x.s > 0).sort((a, b) => b.s - a.s);
+let hits = scored;
+if (hits.length > 1 && hits[0].s >= hits[1].s * 2) hits = [hits[0]];
+if (hits.length > 1) hits = hits.filter((x) => x.s >= hits[0].s * 0.6);
+const cap = 5;
+if (hits.length === 1) {
+const c = hits[0].c;
+const nm = this.norm(c.name);
+const names = { two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, couple: 2, pair: 2 };
+let q = 0;
+t.trim().split(" ").forEach((w) => {
+if (q) return;
+if (/^[0-9]{1,2}$/.test(w) && nm.indexOf(" " + w + " ") < 0) q = parseInt(w, 10);
+else if (names[w]) q = names[w];
+});
+if (this.isSold(c)) return { text: "I found " + c.name + ", but that one has already found a home. Tap below and we can talk about what is coming next.", ids: [c.id] };
+const out = { text: "Found it! Here is " + c.name + ". Tap Check out whenever you are ready.", ids: [c.id] };
+if (q > 0) {
+let n = Math.max(c.min, q);
+if (c.stock !== null) n = Math.min(n, c.stock);
+out.qtys = {}; out.qtys[c.id] = n;
+out.text = n === q ? "You got it, " + n + " of " + c.name + ". Tap Check out whenever you are ready." : "I can do " + n + " of " + c.name + " right now. Tap Check out whenever you are ready.";
+}
+return out;
+}
+if (hits.length > 1) return { text: "Nice choice. I have a few that fit, take a look:", ids: hits.slice(0, cap).map((x) => x.c.id) };
+const open = cat.filter((c) => !this.isSold(c));
+const some = (list) => list.slice(0, cap).map((c) => c.id);
+const more = (list) => (list.length > cap ? " Here are " + cap + " of the " + list.length + ". The rest are in the collection just below." : "");
+if (/ (call|phone|talk|speak|human|person|someone|owner) /.test(t)) return { text: "Happy to connect you. Tap Schedule a call just under this chat and we will find a time.", ids: [] };
+if (/ (pay|payment|card|crypto|cash|bitcoin|usdc|invoice|ship|shipping|deliver|delivery) /.test(t)) return { text: "Good question. You choose how to pay on the next screen: card, Zelle, Venmo, Cash App or crypto, and your shipping address goes there too. Tell me which piece you want and I will take you straight to it.", ids: [] };
+if (/ (available|stock|left|in stock) /.test(t)) return open.length ? { text: "Here is what is ready to go right now." + more(open), ids: some(open) } : { text: "Everything is spoken for at the moment. Schedule a call and we will let you know what is coming next.", ids: [] };
+if (/ (everything|all|list|catalog|collection|options|show|whatcha|what) /.test(t)) return { text: "Happy to! Here is what I have." + more(cat), ids: some(cat) };
+if (/ (thanks|thank|thx|appreciate) /.test(t)) return { text: "Anytime! If something else catches your eye, just type it in.", ids: [] };
+if (/ (hi|hey|hello|yo|howdy|morning|afternoon|evening) /.test(t) && words.length === 0) return { text: "Hey, good to see you! What are you hoping to find today?", ids: [] };
+return { text: "Hmm, I am not finding “" + text + "”. Here is what I do have, see if anything catches your eye." + more(cat), ids: some(cat) };
+}
+say(text) {
+const v = String(text || "").trim();
+if (!v) return;
+const st = this.state || {};
+const r = this.reply(v);
+const msgs = (st.msgs || []).concat([{ who: "me", text: v, ids: [] }, { who: "bot", text: r.text, ids: r.ids || [] }]).slice(-30);
+this.setState({ msgs: msgs, qtys: Object.assign({}, st.qtys || {}, r.qtys || {}), draft: "" });
+}
+renderVals() {
+if (!this.setMsgEl) this.setMsgEl = (el) => { this.msgEl = el; };
+const st = this.state || {};
+const qtys = st.qtys || {};
+const paySite = "https://collectors-page.vercel.app";
+const money = (cents) => "$" + (cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const PICS = ["MONSTER", "MPARTY", "HARPIK", "ASTRO", "JACKO", "DEAL1", "DEAL2", "DEAL3"];
+const byId = {};
+this.catalog().forEach((c) => { byId[c.id] = c; });
+const card = (id) => {
+const c = byId[id];
+if (!c) return null;
+const sold = this.isSold(c);
+let q = Math.max(c.min, Math.floor(Number(qtys[c.id])) || c.min);
+if (c.stock !== null && !sold) q = Math.min(q, c.stock);
+const setQ = (n) => {
+let v = Math.max(c.min, n);
+if (c.stock !== null) v = Math.min(v, c.stock);
+const next = Object.assign({}, qtys); next[c.id] = v;
+this.setState({ qtys: next });
+};
+const stock = sold ? "Sold" : c.stock === null ? "" : c.stock === 1 ? "One of a kind" : c.stock <= 3 ? "Only " + c.stock + " left" : c.stock + " available";
+// A small picture: the one uploaded in the back office, or the shop's own photo of an original piece.
+const raw = ((this.state && this.state.shop) || []).filter((x) => x.id === c.id)[0];
+const pic = (raw && raw.photo) || (PICS.indexOf(c.id) >= 0 ? "https://jarfriends.com/photos/" + (c.id === "MPARTY" ? "MONSTER" : c.id) + ".jpg" : "");
+return {
+name: c.name, photo: pic, hasPhoto: !!pic,
+price: c.cents === null ? "" : money(c.cents),
+meta: (c.deal ? "Deal of the day · " : "") + (c.nft ? "NFT, sent to your OpenSea wallet" : "Item no. " + c.id + (stock ? " · " + stock : "")),
+canOrder: !sold, sold: sold,
+qty: String(q),
+less: () => setQ(q - 1),
+more: () => setQ(q + 1),
+cta: (c.deal ? "Claim this deal" : "Check out") + (c.cents === null ? "" : " · " + money(c.cents * q)),
+offer: () => ((url) => {
+let w = null;
+try { w = window.open(url, "_blank"); } catch (e) { w = null; }
+if (w) return;
+try { window.top.location.href = url; } catch (e) { window.location.href = url; }
+})(paySite + "/order.html?product=" + encodeURIComponent(c.id) + "&qty=" + q + "&make=offer"),
+checkout: () => {
+const url = paySite + "/order.html?product=" + encodeURIComponent(c.id) + "&qty=" + q;
+let w = null;
+try { w = window.open(url, "_blank"); } catch (e) { w = null; }
+if (w) return;
+try { window.top.location.href = url; } catch (e) { window.location.href = url; }
+}
+};
+};
+const bubble = (m) => m.who === "me"
+? { who: "me", text: m.text, align: "flex-end", bg: "#F7F2E6", fg: "#0B1A13", line: "#F7F2E6", radius: "18px 18px 4px 18px", cards: [] }
+: { who: "bot", text: m.text, align: "flex-start", bg: "#0B1A13", fg: "#F7F2E6", line: "#244536", radius: "18px 18px 18px 4px", cards: (m.ids || []).map(card).filter(Boolean) };
+const intro = { who: "bot", text: "Hi, I am Root Boy. Ask me for the Deal of the day, or tell me what you are after.", ids: [] };
+return {
+setMsgEl: this.setMsgEl,
+// The chat starts compact and grows once someone has asked for something.
+boxH: (st.msgs || []).length ? "640px" : "340px",
+messages: [intro].concat(st.msgs || []).map(bubble),
+chips: ["Deal of the day", "Show me everything", "What is still available?"].map((label) => ({ label: label, pick: () => this.say(label) })),
+draft: st.draft || "",
+onDraft: (e) => this.setState({ draft: e.target.value }),
+submit: (e) => { e.preventDefault(); this.say(st.draft); },
+restart: () => this.setState({ msgs: [], qtys: {}, draft: "" })
+};
+}
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Pay by card</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&family=IBM+Plex+Mono:wght@400;500&family=Playfair+Display:wght@600;700;800&display=swap">
+<link rel="stylesheet" href="/site.css">
+</head>
+<body>
+<header class="top"><div class="wrap bar"><a class="brand" href="/" style="text-decoration:none">Collectors Page</a><span style="display:flex;align-items:center;gap:20px"><span class="mono dim">CARD PAYMENT</span><a class="home" href="/">Home</a></span></div></header>
+
+<main class="wrap page">
+  <div class="stack-s">
+    <div class="mono gold" id="invNo">INVOICE</div>
+    <h1>Pay by card</h1>
+  </div>
+
+  <div id="problem" class="alert" role="alert" hidden></div>
+
+  <div id="expired" class="alert" role="alert" hidden>
+    <div class="alert-t">This payment window has closed</div>
+    <div>Your card has not been charged. <a href="/order.html">Place the order again</a> to get a fresh one.</div>
+  </div>
+
+  <div id="body" class="cols" hidden>
+    <section class="card side">
+      <h2>Order</h2>
+      <div class="rows">
+        <div class="row"><span id="oItem"></span></div>
+        <div class="row"><span class="dim">Buyer</span><span id="oBuyer"></span></div>
+        <div class="row" id="rOrder" hidden><span class="dim">Order total</span><span id="oOrder"></span></div>
+        <div class="row" id="rBal" hidden><span class="dim">Balance on delivery</span><span id="oBal"></span></div>
+        <div class="row total"><span id="lTotal">Total due</span><span id="oTotal"></span></div>
+      </div>
+      <div class="deadline" id="deadline">
+        <div class="label">TIME LEFT TO PAY</div>
+        <div class="clock" id="clock">--:--:--</div>
+        <div class="small">Pay by <span id="by"></span>. After that the order is released and has to be placed again.</div>
+      </div>
+    </section>
+
+    <section class="card main">
+      <div class="stack-s" id="payBox">
+        <h2>1. Enter your card</h2>
+        <div class="cardbox off" id="card">Loading the secure card form...</div>
+        <div class="small">Your card is taken by Square, our card processor. The card number never touches this site.</div>
+        <button type="button" class="solid" id="payNow" disabled>Pay now</button>
+        <div class="small" id="note" role="status" aria-live="polite"></div>
+      </div>
+
+      <div class="stack-s" id="doneBox" hidden>
+        <h2>Payment received</h2>
+        <div class="paid">
+          <div class="alert-t" id="paidHead">Paid</div>
+          <div id="paidLine"></div>
+          <a id="receipt" target="_blank" rel="noopener" hidden>View your card receipt</a>
+          <div id="mailLine"></div>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var token = new URLSearchParams(location.search).get('inv');
+  var inv = null, skew = 0, done = false, busy = false, card = null;
+  var usd = function (v) { return '$' + Number(v).toLocaleString('en-US', { minimumFractionDigits: 2 }) + ' USD'; };
+
+  function fail(msg) { $('problem').textContent = msg; $('problem').hidden = false; $('body').hidden = true; }
+  if (!token) { location.replace('/order.html'); return; }
+  var get = function (url) { return fetch(url, { cache: 'no-store' }).then(function (r) { return r.json(); }); };
+
+  function paid(r) {
+    done = true;
+    $('payBox').hidden = true; $('doneBox').hidden = false; $('deadline').hidden = true;
+    $('paidHead').textContent = inv.plan === 'dep' ? 'Deposit paid' : 'Paid in full';
+    $('paidLine').textContent = usd(inv.usd) + ' charged to your card' + (r.card ? ' (' + r.card + ')' : '') + '.'
+      + (inv.plan === 'dep' ? ' The balance of ' + usd(inv.balance) + ' is due on delivery.' : '');
+    if (r.receipt) { $('receipt').href = r.receipt; $('receipt').hidden = false; }
+    $('mailLine').textContent = r.email === 'sent'
+      ? 'A confirmation email has been sent to ' + inv.email + '. We will reach out soon.'
+      : 'We will reach out soon about your order.';
+  }
+
+  function expire() { done = true; $('expired').hidden = false; $('payBox').hidden = true; $('deadline').hidden = true; }
+
+  function tick() {
+    if (done) return;
+    var left = inv.deadline - (Math.floor(Date.now() / 1000) + skew);
+    if (left <= 0) { if (!busy) expire(); left = 0; }
+    var p = function (n) { return String(n).padStart(2, '0'); };
+    $('clock').textContent = p(Math.floor(left / 3600)) + ':' + p(Math.floor(left / 60) % 60) + ':' + p(left % 60);
+  }
+
+  function idle(msg) { busy = false; $('payNow').disabled = false; $('payNow').textContent = 'Pay ' + usd(inv.usd); $('note').textContent = msg || ''; }
+
+  function pay() {
+    if (done || busy || !card) return;
+    busy = true; $('payNow').disabled = true; $('payNow').textContent = 'Paying...'; $('note').textContent = 'Checking your card. Do not close this page.';
+    card.tokenize().then(function (t) {
+      if (t.status !== 'OK') {
+        var first = (t.errors || [])[0];
+        idle(first && first.message ? first.message : 'Check your card details and try again.');
+        return;
+      }
+      return fetch('/api/square', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ inv: token, sourceId: t.token }) })
+        .then(function (r) { return r.json(); })
+        .then(function (r) {
+          if (r.status === 'paid') { busy = false; paid(r); return; }
+          idle(r.error || 'The card payment did not go through. You have not been charged.');
+        });
+    }).catch(function () { idle('Could not reach the card processor. Reload this page before trying again: it will show whether the payment went through.'); });
+  }
+
+  function load(src) {
+    return new Promise(function (ok, bad) {
+      var s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = bad; document.head.appendChild(s);
+    });
+  }
+
+  function setup(cfg) {
+    load(cfg.sdk).then(function () {
+      if (!window.Square) throw new Error('no sdk');
+      return window.Square.payments(cfg.appId, cfg.locationId).card();
+    }).then(function (c) {
+      $('card').textContent = ''; $('card').className = 'cardbox';
+      return c.attach('#card').then(function () { card = c; idle(''); });
+    }).catch(function () {
+      $('card').textContent = 'The card form could not load. Reload the page, or contact us to pay another way.';
+    });
+  }
+
+  get('/api/status?inv=' + encodeURIComponent(token)).then(function (r) {
+    if (r.error || !r.invoice) { fail(r.error || 'This invoice link is not valid.'); return; }
+    if (r.invoice.method !== 'card') { location.replace('/pay.html?inv=' + encodeURIComponent(token)); return; }
+    inv = r.invoice; skew = r.now - Math.floor(Date.now() / 1000);
+    $('invNo').textContent = 'INVOICE ' + inv.no;
+    $('oItem').textContent = (inv.item || 'Order') + (inv.qty ? ' x ' + inv.qty : '');
+    $('oBuyer').textContent = inv.buyer || '-';
+    $('oTotal').textContent = usd(inv.usd);
+    if (inv.plan === 'dep') {
+      $('rOrder').hidden = false; $('rBal').hidden = false;
+      $('oOrder').textContent = usd(inv.total); $('oBal').textContent = usd(inv.balance);
+      $('lTotal').textContent = 'Deposit due now';
+    }
+    $('by').textContent = new Date(inv.deadline * 1000).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+    $('payNow').textContent = 'Pay ' + usd(inv.usd);
+    $('payNow').addEventListener('click', pay);
+    $('body').hidden = false;
+    return get('/api/square?inv=' + encodeURIComponent(token)).then(function (s) {
+      if (s.status === 'paid') { paid(s); return; }
+      if (s.error) { $('card').textContent = s.error; return; }
+      if (s.status === 'expired') { expire(); return; }
+      tick(); setInterval(tick, 1000);
+      setup(s);
+    });
+  }).catch(function () { fail('Could not load this invoice. Check your connection and reload.'); });
+})();
+</script>
+</body>
+</html>
