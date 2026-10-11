@@ -62,15 +62,20 @@ async function unpaid(now, mail) {
   }
 }
 
-// One-time change asked for by the owner on October 11, 2026: Lava Jack-O stock is 5. Done once, then never again,
-// so later edits in the back office stand.
+// One-time changes the owner asked for. Each is done once, then never again, so later edits in the back office stand.
+const ONCE = [
+  ['lava5', 'LAVAJACK', { stock: 5 }],
+  ['koala125', 'DEAL2', { price: 125, shipping: 'free' }]
+];
 let once = false;
 async function oneOff() {
   if (once) return;
   once = true;
-  if (await store.read('sweep/lava5.json')) return;
-  await require('./_edits').save('LAVAJACK', { stock: 5 });
-  await store.write('sweep/lava5.json', { at: Date.now() });
+  for (const o of ONCE) {
+    if (await store.read('sweep/' + o[0] + '.json')) continue;
+    await require('./_edits').save(o[1], o[2]);
+    await store.write('sweep/' + o[0] + '.json', { at: Date.now() });
+  }
 }
 
 async function run() {
