@@ -18,9 +18,12 @@ async function carts(now, mail) {
   if (!due.length) return;
   const products = await require('./_edits').apply(require('./_products'), { all: true });
   const sold = await store.soldBy(), sales = await store.sales(), buyers = {};
+  // Pieces held for an accepted offer are not available either.
+  let held = {};
+  try { held = await require('./_holds').byProduct(); } catch (e) { held = {}; }
   for (const c of due) {
     const p = products.filter((x) => x.id === c.pid)[0];
-    const left = p && !p.hidden ? Number(p.stock) - (sold[c.pid] || 0) : 0;
+    const left = p && !p.hidden ? Number(p.stock) - (sold[c.pid] || 0) - (held[c.pid] || 0) : 0;
     if (left <= 0) continue;
     if (!buyers[c.pid]) buyers[c.pid] = (await Promise.all(sales.filter((s) => s.pid === c.pid).map((s) => store.read(s.path)))).map((d) => String((d && d.email) || '').trim().toLowerCase());
     if (buyers[c.pid].indexOf(c.email) >= 0) continue;
