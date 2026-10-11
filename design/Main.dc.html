@@ -30,6 +30,7 @@ button{font-family:inherit;cursor:pointer}
 .vault-dial:hover{filter:brightness(1.15)}
 @keyframes vaultShake{0%,100%{transform:translate(0,0)}25%{transform:translate(-2px,1px)}50%{transform:translate(2px,-1px)}75%{transform:translate(-1px,-1px)}}
 .vault-shake{animation:vaultShake .28s linear 1}
+@media (max-width:560px){.m-safein{min-height:480px!important;margin-left:6px!important;padding:14px!important}.m-hinge{flex-basis:50px!important}.m-minis{gap:6px!important;justify-content:space-between}.m-mini{zoom:.74}}
 @media (prefers-reduced-motion: reduce){.safe-wheel,.safe-reveal,.safe-door,.vault-beam,.vault-sun,.vault-fade,.vault-coin,.vault-shake{transition:none!important;animation:none!important}}
 </style>
 </helmet>
@@ -77,13 +78,13 @@ button{font-family:inherit;cursor:pointer}
 <div aria-hidden="true" style="position: absolute; top: 5px; right: 5px; width: 8px; height: 8px; border-radius: 999px; background: radial-gradient(circle at 35% 35%, #D6E2DA, #4E7A63)"></div>
 <div aria-hidden="true" style="position: absolute; bottom: 5px; left: 5px; width: 8px; height: 8px; border-radius: 999px; background: radial-gradient(circle at 35% 35%, #D6E2DA, #4E7A63)"></div>
 <div aria-hidden="true" style="position: absolute; bottom: 5px; right: 5px; width: 8px; height: 8px; border-radius: 999px; background: radial-gradient(circle at 35% 35%, #D6E2DA, #4E7A63)"></div>
-<div style="flex: 0 0 78px; position: relative; border-radius: 10px 4px 4px 10px; border: 2px solid #6F8A7B; background: linear-gradient(90deg, #1A2B23 0%, #3F584C 55%, #52705F 100%); box-shadow: inset 0 0 0 3px #1A2B23, inset -6px 0 10px rgba(0, 0, 0, 0.45); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px">
+<div class="m-hinge" style="flex: 0 0 78px; position: relative; border-radius: 10px 4px 4px 10px; border: 2px solid #6F8A7B; background: linear-gradient(90deg, #1A2B23 0%, #3F584C 55%, #52705F 100%); box-shadow: inset 0 0 0 3px #1A2B23, inset -6px 0 10px rgba(0, 0, 0, 0.45); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px">
 <div style="width: 44px; height: 44px; border-radius: 999px; border: 3px solid #C9A45C; background: radial-gradient(circle, #C9A45C 0 9%, #0B1A13 10% 52%, transparent 53%), repeating-conic-gradient(#C9A45C 0deg 3deg, #1A2B23 3deg 18deg); box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6); transform: rotate({{dialTurn}}); transition: transform 1.5s cubic-bezier(0.3, 0.1, 0.2, 1)"></div>
 <div aria-hidden="true" style="width: 16px; height: 46px; border-radius: 8px; border: 2px solid #C9A45C; background: linear-gradient(90deg, #6F8A7B, #2B3F35); box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6)"></div>
 <div style="position: absolute; right: -7px; top: 18%; width: 12px; height: 26px; border-radius: 3px; background: linear-gradient(90deg, #6F8A7B, #2B3F35); border: 1px solid #1A2B23"></div>
 <div style="position: absolute; right: -7px; bottom: 18%; width: 12px; height: 26px; border-radius: 3px; background: linear-gradient(90deg, #6F8A7B, #2B3F35); border: 1px solid #1A2B23"></div>
 </div>
-<div style="position: relative; perspective: 1100px; flex: 1 1 300px; min-width: 0; min-height: 430px; box-sizing: border-box; margin-left: 10px; border-radius: 6px; border: 2px solid #C9A45C; background: radial-gradient(circle at 50% 25%, #4A3D18, #0B1A13 75%); box-shadow: inset 0 0 0 3px #0B1A13, inset 0 0 24px rgba(0, 0, 0, 0.8); padding: 16px; display: flex; flex-direction: column; gap: 12px">
+<div class="m-safein" style="position: relative; perspective: 1100px; flex: 1 1 300px; min-width: 0; min-height: 430px; box-sizing: border-box; margin-left: 10px; border-radius: 6px; border: 2px solid #C9A45C; background: radial-gradient(circle at 50% 25%, #4A3D18, #0B1A13 75%); box-shadow: inset 0 0 0 3px #0B1A13, inset 0 0 24px rgba(0, 0, 0, 0.8); padding: 16px; display: flex; flex-direction: column; gap: 12px">
 <sc-if value="{{safeShut}}" hint-placeholder-val="{{false}}">
 <div aria-hidden="true" style="height: 1px"></div>
 </sc-if>
@@ -217,9 +218,9 @@ button{font-family:inherit;cursor:pointer}
 <sc-if value="{{allClaimed}}" hint-placeholder-val="{{false}}">
 <p style="margin: 0; font-size: 18px; color: #D6E2DA">Every safe has been cracked. New deals are on the way.</p>
 </sc-if>
-<div style="display: flex; flex-wrap: wrap; gap: 12px">
+<div class="m-minis" style="display: flex; flex-wrap: wrap; gap: 12px">
 <sc-for list="{{safes}}" as="s" hint-placeholder-count="10">
-<div style="flex: 0 0 84px; display: flex; flex-direction: column; align-items: center; gap: 6px">
+<div class="m-mini" style="flex: 0 0 84px; display: flex; flex-direction: column; align-items: center; gap: 6px">
 <div style="position: relative; width: 84px; height: 88px">
 <div aria-hidden="true" style="position: absolute; left: 10px; bottom: 0; width: 14px; height: 7px; border-radius: 0 0 3px 3px; background: #0A1410; border: 1px solid {{s.line}}; border-top: 0"></div>
 <div aria-hidden="true" style="position: absolute; right: 10px; bottom: 0; width: 14px; height: 7px; border-radius: 0 0 3px 3px; background: #0A1410; border: 1px solid {{s.line}}; border-top: 0"></div>
@@ -569,13 +570,14 @@ if (sold) { p.badge = "Sold"; p.stockText = "Sold"; }
 p.isOpen = open === c.id;
 p.toggle = () => { if (open !== c.id) this.track(c.id, "view"); this.setState({ open: open === c.id ? "" : c.id }); };
 p.desc = c.desc || ""; p.hasDesc = !!c.desc;
-p.flex = p.isOpen ? "1 1 340px" : "1 1 170px";
-p.maxw = p.isOpen ? "460px" : "250px";
+const narrow = typeof window !== "undefined" && window.innerWidth < 560;
+p.flex = p.isOpen ? "1 1 340px" : narrow ? "1 1 140px" : "1 1 170px";
+p.maxw = p.isOpen ? "460px" : narrow ? "calc(50% - 8px)" : "250px";
 p.edge = p.isOpen ? "#C9A45C" : "#244536";
 // A photo uploaded in the back office wins over the one built into this page.
 p.photo = c.photo || PHOTOS[c.id] || "";
 p.hasPhoto = !!p.photo; p.noPhoto = !p.photo;
-p.photoH = p.isOpen ? "340px" : "190px";
+p.photoH = p.isOpen ? "340px" : narrow ? "150px" : "190px";
 p.hint = sold ? "Sold" : s === "limited" ? (c.stock === 1 ? "One of a kind" : "Few left") : p.isOpen ? "Close" : "Details";
 if (!sold) {
 const raw = qtys[c.id];
