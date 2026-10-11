@@ -69,6 +69,12 @@ const hashOf = (e) => require('crypto').createHash('sha1').update(String(e).toLo
 async function safes(now, mail) {
   const lib = require('./_lib'), dl = await require('./_offline').deals(await lib.getInventory());
   const open = ((dl.slots || []).filter((x) => x.state === 'open')[0] || {}).n || 0;
+  // One time, asked for by the owner on October 11, 2026: safe 3 was already open when these emails were added,
+  // so its email goes out now, once.
+  if (open === 3 && !(await store.read('sweep/blast3-go.json'))) {
+    await store.write('sweep/blast3-go.json', { at: now });
+    await store.write('sweep/safe.json', { open: 3, pending: 3, at: now });
+  }
   const was = await store.read('sweep/safe.json');
   // The first time this runs it only notes which safe is open. Nothing is sent for a safe that was already open.
   if (!was) { await store.write('sweep/safe.json', { open: open, pending: 0 }); return; }
