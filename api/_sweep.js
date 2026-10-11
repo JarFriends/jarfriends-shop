@@ -119,6 +119,69 @@ async function safes(now, mail) {
   await store.write('sweep/blast-' + n + '.json', log);
 }
 
+// 5. A new piece is on the shop shelf: everyone who has ordered or subscribed gets one email with its picture and
+// price. A piece is announced once it has been up for half an hour, so there is time to fix its name, price or photo
+// first; pieces that appear together go out in one email. Deal of the day pieces are left to the safe emails.
+const HOLD = 30 * 60000;
+async function everyone() {
+  const who = {}, owner = (process.env.OWNER_EMAIL || '').trim().toLowerCase(), ok = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+  if (owner) who[owner] = '';
+  (await Promise.all((await store.sales()).map((x) => store.read(x.path)))).forEach((d) => { const e = String((d && d.email) || '').trim().toLowerCase(); if (ok.test(e) && !(e in who)) who[e] = d.buyer || ''; });
+  (await Promise.all((await files('list/')).map((p) => store.read(p)))).forEach((d) => { const e = String((d && d.email) || '').trim().toLowerCase(); if (ok.test(e) && !(e in who)) who[e] = d.name || ''; });
+  return who;
+}
+async function arrivals(now, mail) {
+  const lib = require('./_lib');
+  const r = await fetch(HOST + '/api/order', { signal: AbortSignal.timeout(8000), headers: { 'cache-control': 'no-store' } });
+  const shop = ((await r.json()).products || []).filter((p) => p && p.id && !p.deal && p.shelf);
+  if (!shop.length) return;
+  const st = await store.read('sweep/known.json');
+  // The first time this runs every piece already on the shelf is noted as known. Nothing is sent for those.
+  if (!st) { const seen = {}; shop.forEach((p) => { seen[p.id] = 1; }); await store.write('sweep/known.json', { seen: seen, wait: {}, batch: null }); return; }
+  st.seen = st.seen || {}; st.wait = st.wait || {};
+  let changed = false;
+  shop.forEach((p) => { if (!st.seen[p.id] && !st.wait[p.id]) { st.wait[p.id] = now; changed = true; } });
+  // Start a batch when nothing is going out and a piece has waited long enough. Everything waiting goes with it.
+  if (!st.batch && Object.keys(st.wait).some((id) => now - st.wait[id] >= HOLD)) {
+    const ids = Object.keys(st.wait); st.batch = { key: 'new-' + now.toString(36), ids: ids };
+    ids.forEach((id) => { st.seen[id] = 1; }); st.wait = {}; changed = true;
+  }
+  if (changed) await store.write('sweep/known.json', st);
+  if (!st.batch) return;
+  // Only pieces that can still be bought are shown.
+  const items = st.batch.ids.map((id) => shop.filter((p) => p.id === id)[0]).filter((p) => p && Number(p.stock) > 0);
+  const who = items.length ? await everyone() : {}, log = (await store.read('sweep/' + st.batch.key + '.json')) || { done: {} };
+  const todo = Object.keys(who).filter((e) => !log.done[hashOf(e)]);
+  if (!todo.length) { st.batch = null; await store.write('sweep/known.json', st); return; }
+  const addr = (process.env.RETURN_ADDRESS || '').replace(/\s*\n\s*/g, ', ').trim();
+  const subject = items.length === 1 ? 'New at JarFriends: ' + items[0].name : items.length + ' new pieces at JarFriends';
+  const cost = (p) => '$' + p.price + (p.eth ? ' (about ' + p.eth + ' ETH)' : '') + (p.nft ? '' : Number(p.ship) > 0 ? ' + $' + p.ship + ' shipping' : ', free shipping');
+  const tip = 'Pay with crypto and take 1% off. There is no wallet to connect and nothing to sign: you just send the payment to the address shown.';
+  for (const e of todo.slice(0, 12)) {
+    if (await store.read('unsub/' + hashOf(e) + '.json')) { log.done[hashOf(e)] = 1; continue; }
+    const stop = HOST + '/api/unsub?t=' + lib.sign({ un: 1, e: e });
+    const lines = [first(who[e]), '', items.length === 1 ? 'A new piece just landed in the shop:' : 'New pieces just landed in the shop:', ''];
+    items.forEach((p) => { lines.push(p.name, cost(p), HOST + '/order.html?product=' + encodeURIComponent(p.id), ''); });
+    lines.push(tip, '', 'You are getting this because you ordered from JarFriends or subscribed.' + (addr ? ' JarFriends, ' + addr + '.' : ''), 'Unsubscribe: ' + stop);
+    const html = '<div style="background:#0B1712;padding:28px 16px;font-family:Arial,Helvetica,sans-serif;color:#E6EFE9"><div style="max-width:520px;margin:0 auto">' +
+      '<div style="font-size:13px;letter-spacing:2px;color:#C9A45C">NEW IN THE SHOP</div>' +
+      '<h1 style="font-size:26px;margin:8px 0 14px;color:#8FD3AE">' + (items.length === 1 ? 'A new piece just landed' : 'New pieces just landed') + '</h1>' +
+      '<p style="font-size:16px;line-height:1.5;margin:0 0 16px">' + esc(first(who[e])) + '</p>' +
+      items.map((p) => { const link = HOST + '/order.html?product=' + encodeURIComponent(p.id); return '<div style="border:1px solid #2C4A3B;border-radius:10px;padding:16px;margin:0 0 16px">' +
+        (p.photo ? '<a href="' + link + '"><img src="' + esc(p.photo) + '" alt="' + esc(p.name) + '" width="480" style="max-width:100%;height:auto;border:0;border-radius:8px;display:block;margin:0 0 12px"></a>' : '') +
+        '<div style="font-size:18px;font-weight:bold;line-height:1.35">' + esc(p.name) + '</div>' +
+        '<div style="font-size:22px;font-weight:bold;color:#C9A45C;margin:8px 0 4px">' + esc(cost(p)) + '</div>' +
+        (p.desc ? '<div style="font-size:14px;line-height:1.5;color:#B9CCC0;margin:6px 0 0">' + esc(p.desc) + '</div>' : '') +
+        '<p style="margin:14px 0 0"><a href="' + link + '" style="background:#C9A45C;color:#0B1712;text-decoration:none;font-weight:bold;padding:11px 20px;border-radius:24px;display:inline-block">Get it</a></p></div>'; }).join('') +
+      '<p style="font-size:15px;line-height:1.5;margin:0 0 10px;background:#12261D;border-radius:8px;padding:12px 14px">' + esc(tip) + '</p>' +
+      '<p style="font-size:12px;line-height:1.5;color:#8FA89A;margin:22px 0 0">You are getting this because you ordered from JarFriends or subscribed.' + (addr ? ' JarFriends, ' + esc(addr) + '.' : '') + ' <a href="' + stop + '" style="color:#8FA89A">Unsubscribe</a></p></div></div>';
+    const out = await mail(e, subject, lines, st.batch.key + '-' + hashOf(e), html).catch(() => 'failed');
+    if (out === 'sent' || out === 'duplicate') log.done[hashOf(e)] = 1;
+    await new Promise((res) => setTimeout(res, 550));
+  }
+  await store.write('sweep/' + st.batch.key + '.json', log);
+}
+
 // One-time changes the owner asked for. Each is done once, then never again, so later edits in the back office stand.
 const ONCE = [
   ['lava5', 'LAVAJACK', { stock: 5 }],
@@ -151,5 +214,6 @@ async function run() {
   await offers(now, mail).catch((e) => console.error('SWEEP_OFFERS_FAIL', String(e && e.message || e)));
   await unpaid(now, mail).catch((e) => console.error('SWEEP_UNPAID_FAIL', String(e && e.message || e)));
   await safes(now, mail).catch((e) => console.error('SWEEP_SAFES_FAIL', String(e && e.message || e)));
+  await arrivals(now, mail).catch((e) => console.error('SWEEP_ARRIVALS_FAIL', String(e && e.message || e)));
 }
 module.exports = { run };
