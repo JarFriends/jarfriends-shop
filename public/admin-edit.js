@@ -97,7 +97,7 @@
     head.appendChild(pic);
     var t = el('b', p.name); t.style.cssText = 'flex:1 1 260px;min-width:0;overflow-wrap:anywhere';
     head.appendChild(t);
-    head.appendChild(el('span', (p.hidden ? 'HIDDEN · ' : '') + p.where + (!p.deal && p.where === 'Shop' ? (p.onShelf ? ' · on the shelf' : ' · not on the shelf') : '') + (p.deal ? ', safe ' + p.deal : '') + (p.section ? ' · ' + p.section : '') + ' · ' + (p.hidden ? 'Off the site' : p.state || (p.left > 0 ? 'For sale' : 'Sold out')), 'small'));
+    head.appendChild(el('span', (p.hidden ? 'HIDDEN · ' : '') + (p.buyers ? 'BUYERS ONLY · ' : '') + p.where + (!p.deal && p.where === 'Shop' ? (p.onShelf ? ' · on the shelf' : ' · not on the shelf') : '') + (p.deal ? ', safe ' + p.deal : '') + (p.section ? ' · ' + p.section : '') + ' · ' + (p.hidden ? 'Off the site' : p.state || (p.left > 0 ? 'For sale' : 'Sold out')), 'small'));
     c.appendChild(head);
     var stats = el('div'); stats.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px 22px';
     [['Price', usd(p.price)], ['Shipping', p.shipping ? usd(p.shipping) : 'Free'], ['Left', p.left + ' of ' + p.start], ['Sold', String(p.sold)], ['On hold', String(p.held || 0)], ['Looked at', p.views + (p.viewsToday ? ' (' + p.viewsToday + ' today)' : '')], ['Checkout clicks', String(p.checkouts)]].forEach(function (x) { stats.appendChild(stat(x[0], x[1])); });
@@ -126,16 +126,16 @@
     var price = field('Price, $', Number(p.price).toFixed(2), 'number', '120px'), stock = field('Started with', p.start, 'number', '120px'), ship = field('Shipping, $ (0 = free)', Number(p.shipping).toFixed(2), 'number', '160px');
     var sec = p.deal ? null : field('Section', p.section, 'text', '180px');
     var safe = field('Deal of the day safe (0 = none)', p.deal || 0, 'number', '200px');
-    var onShelf = tick('Show on the shop shelf and in the chat', p.onShelf), hide = tick('Hide from the site (it cannot be seen or ordered)', p.hidden);
+    var onShelf = tick('Show on the shop shelf and in the chat', p.onShelf), hide = tick('Hide from the site (it cannot be seen or ordered)', p.hidden), buyers = tick('Buyers only (shows as a locked safe; only a signed-in past buyer can open and order it)', p.buyers);
     var photo = photoField('New photo (optional)');
-    [name, desc, price, stock, ship, sec, safe, photo, onShelf, hide].forEach(function (f) { if (f) row.appendChild(f.box); });
+    [name, desc, price, stock, ship, sec, safe, photo, onShelf, hide, buyers].forEach(function (f) { if (f) row.appendChild(f.box); });
     var save = el('button', 'Save', 'solid'); save.type = 'button'; row.appendChild(save);
     var cancel = el('button', 'Cancel', 'ghost'); cancel.type = 'button'; row.appendChild(cancel);
     var msg = el('div', '"Started with" is the total you began with; the site takes sold units off it, so to add 3 more, raise it by 3. Sections: Comics, Cards, NFTs, Graded, Pokemon, Watches.', 'small'); msg.setAttribute('role', 'status');
     cancel.addEventListener('click', function () { editing = ''; draw(); });
     save.addEventListener('click', function () {
       save.disabled = true; msg.textContent = 'Saving...';
-      get('&edit=' + encodeURIComponent(p.id) + '&name=' + encodeURIComponent(name.input.value) + '&desc=' + encodeURIComponent(desc.input.value) + '&price=' + encodeURIComponent(price.input.value) + '&stock=' + encodeURIComponent(stock.input.value) + '&shipping=' + encodeURIComponent(ship.input.value) + '&section=' + encodeURIComponent(sec ? sec.input.value : '') + '&deal=' + encodeURIComponent(safe.input.value || '0') + '&shelf=' + (onShelf.input.checked ? '1' : '0') + '&hidden=' + (hide.input.checked ? '1' : '0')).then(function (r) {
+      get('&edit=' + encodeURIComponent(p.id) + '&name=' + encodeURIComponent(name.input.value) + '&desc=' + encodeURIComponent(desc.input.value) + '&price=' + encodeURIComponent(price.input.value) + '&stock=' + encodeURIComponent(stock.input.value) + '&shipping=' + encodeURIComponent(ship.input.value) + '&section=' + encodeURIComponent(sec ? sec.input.value : '') + '&deal=' + encodeURIComponent(safe.input.value || '0') + '&shelf=' + (onShelf.input.checked ? '1' : '0') + '&hidden=' + (hide.input.checked ? '1' : '0') + '&buyers=' + (buyers.input.checked ? '1' : '0')).then(function (r) {
         if (r.error) { save.disabled = false; msg.textContent = r.error; return; }
         var fin = function (ok, why) { save.disabled = false; if (!ok) { msg.textContent = 'Saved, but the photo did not go up: ' + why; return; } editing = ''; load('Saved. The shop shows the change within about a minute.'); };
         if (photo.input.files && photo.input.files[0]) { msg.textContent = 'Sending the photo...'; sendPhoto(p.id, photo.input.files[0], fin); } else fin(true);

@@ -83,7 +83,7 @@ body{margin:0}
 class Component extends DCLogic {
 componentDidMount() {
 fetch("https://collectors-page.vercel.app/api/order").then((r) => r.json()).then((j) => {
-if (j && j.products && j.products.length) this.setState({ shop: j.products });
+if (j && j.products && j.products.length) this.setState({ shop: j.products.filter((x) => !x.locked) });
 }).catch(() => {});
 }
 componentDidUpdate() {

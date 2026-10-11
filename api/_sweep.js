@@ -133,7 +133,7 @@ async function everyone() {
 async function arrivals(now, mail) {
   const lib = require('./_lib');
   const r = await fetch(HOST + '/api/order', { signal: AbortSignal.timeout(8000), headers: { 'cache-control': 'no-store' } });
-  const shop = ((await r.json()).products || []).filter((p) => p && p.id && !p.deal && p.shelf);
+  const shop = ((await r.json()).products || []).filter((p) => p && p.id && !p.deal && p.shelf && !p.locked);
   if (!shop.length) return;
   const st = await store.read('sweep/known.json');
   // The first time this runs every piece already on the shelf is noted as known. Nothing is sent for those.

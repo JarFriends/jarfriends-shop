@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Buyers-only safe</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&family=IBM+Plex+Mono:wght@400;500&family=Playfair+Display:wght@600;700;800&display=swap">
+<link rel="stylesheet" href="/site.css">
+<style>
+[hidden]{display:none!important}
+.stage{position:relative;width:min(100%,440px);aspect-ratio:1/1;margin:0 auto;perspective:1400px}
+.inside{position:absolute;inset:5% 6% 6% 6%;border-radius:10px;background:radial-gradient(circle at 50% 40%,#FFF3C4 0%,#E9C46A 22%,#7A5A1E 60%,#1A1408 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:18px;box-sizing:border-box;text-align:center;opacity:0;transition:opacity 1.2s ease 1.4s;overflow:hidden}
+.inside img{max-width:78%;max-height:58%;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.55);background:#0B1A13}
+.inside .nm{font-weight:800;color:#1A1408;font-size:17px;line-height:1.3;text-shadow:0 1px 0 rgba(255,255,255,.35)}
+.inside .pr{font-weight:900;color:#0B1A13;font-size:24px}
+.door{position:absolute;inset:0;transform-origin:2% 50%;transition:transform 2.6s cubic-bezier(.45,.05,.2,1) .9s;transform-style:preserve-3d;z-index:2}
+.door img{width:100%;height:100%;display:block;border-radius:12px;box-shadow:0 24px 60px rgba(0,0,0,.6);backface-visibility:hidden}
+.stage.shake .door{animation:shake .55s ease 2}
+.stage.open .door{transform:rotateY(-112deg)}
+.stage.open .inside{opacity:1}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-3px) rotate(-.4deg)}75%{transform:translateX(3px) rotate(.4deg)}}
+.center{display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap bar"><a class="brand" href="/" style="text-decoration:none">JarFriends</a><span style="display:flex;align-items:center;gap:20px"><span class="mono dim">BUYERS ONLY</span><a class="home" href="/">Home</a></span></div></header>
+<main class="wrap page">
+  <div class="stack-s center">
+    <div class="mono gold">FOR PAST BUYERS</div>
+    <h1 id="head">The buyers-only safe</h1>
+    <div class="small" id="lead">Checking the lock...</div>
+  </div>
+  <div class="stage" id="stage">
+    <div class="inside" id="inside">
+      <img id="pic" alt="" hidden>
+      <div class="nm" id="nm"></div>
+      <div class="pr" id="pr"></div>
+    </div>
+    <div class="door"><img src="/photos/vault.jpg" alt="A steel safe, locked"></div>
+  </div>
+  <div class="center">
+    <button class="solid" type="button" id="open" hidden>Open the safe</button>
+    <a class="solid" id="buy" hidden style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center">Get it</a>
+    <a class="solid" id="signin" href="/account.html" hidden style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center">Sign in to open</a>
+    <div class="small" id="desc"></div>
+    <a class="home" href="/">Back to the shop</a>
+  </div>
+</main>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var id = new URLSearchParams(location.search).get('product') || '', tok = '';
+  try { tok = localStorage.getItem('acct_token') || ''; } catch (e) { tok = ''; }
+  fetch('/api/order' + (tok ? '?t=' + encodeURIComponent(tok) : ''), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (j) {
+    var p = (j.products || []).filter(function (x) { return x.id === id; })[0];
+    if (!p) { $('head').textContent = 'This safe is not here'; $('lead').textContent = 'It may have been claimed already. Have a look at the shop.'; return; }
+    if (p.locked) {
+      if (p.gate === 'buyer') {
+        $('lead').textContent = 'You are signed in, but there is no paid order under this email yet. Buy any piece in the shop and this safe opens for you.';
+      } else {
+        $('lead').textContent = 'This safe opens only for past buyers. Sign in with the email you ordered with, then come back here.';
+        $('signin').hidden = false;
+      }
+      return;
+    }
+    if (!p.buyersOnly) { location.replace('/order.html?product=' + encodeURIComponent(id) + '&qty=1'); return; }
+    if (!(Number(p.stock) > 0)) { $('head').textContent = 'Already claimed'; $('lead').textContent = 'Another buyer got to this safe first.'; return; }
+    $('lead').textContent = 'Welcome back. You have the key.';
+    $('nm').textContent = p.name; $('pr').textContent = '$' + p.price + (p.eth ? ' (about ' + p.eth + ' ETH)' : '');
+    if (p.photo) { $('pic').src = p.photo; $('pic').hidden = false; }
+    $('open').hidden = false;
+    $('open').addEventListener('click', function () {
+      $('open').hidden = true; $('lead').textContent = '';
+      $('stage').className = 'stage shake';
+      setTimeout(function () { $('stage').className = 'stage open'; }, 1100);
+      setTimeout(function () {
+        $('head').textContent = p.name;
+        $('desc').textContent = (p.desc ? p.desc + ' ' : '') + (p.nft ? '' : Number(p.ship) > 0 ? 'Shipping $' + p.ship + '.' : 'Free shipping.');
+        $('buy').href = '/order.html?product=' + encodeURIComponent(id) + '&qty=' + (p.min || 1); $('buy').hidden = false;
+      }, 4300);
+    });
+  }, function () { $('lead').textContent = 'Could not reach the shop. Reload the page.'; });
+})();
+</script>
+</body>
+</html>
