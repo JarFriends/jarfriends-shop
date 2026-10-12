@@ -146,6 +146,11 @@
   fetch('/api/order?s=1' + (tok ? '&t=' + encodeURIComponent(tok) : '') + (ak ? '&ak=' + encodeURIComponent(ak) : ''), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (j) {
     var p = (j.products || []).filter(function (x) { return x.id === id; })[0];
     if (!p) { $('head').textContent = 'This safe is not here'; $('lead').textContent = 'It may have been claimed already. Have a look at the shop.'; return; }
+    if (p.soon || (p.locked && !(Number(p.stock) > 0))) {
+      $('eyebrow').textContent = 'CUSTOMER LOYALTY'; $('head').textContent = 'Coming soon';
+      $('lead').textContent = 'Someone already claimed this Customer Loyalty reward. A new one is coming soon, so check back.';
+      return;
+    }
     if (p.locked) {
       if (p.gate === 'buyer') {
         $('lead').textContent = 'You are signed in, but there is no paid order under this email yet. Buy any piece in the shop and this safe opens for you.';
@@ -156,7 +161,7 @@
       return;
     }
     if (!p.buyersOnly) { location.replace('/order.html?product=' + encodeURIComponent(id) + '&qty=1'); return; }
-    if (!(Number(p.stock) > 0)) { $('head').textContent = 'Already claimed'; $('lead').textContent = 'Another buyer got to this safe first.'; return; }
+    if (!(Number(p.stock) > 0)) { $('head').textContent = 'Coming soon'; $('lead').textContent = 'Someone already claimed this Customer Loyalty reward. A new one is coming soon, so check back.'; return; }
     $('pr').textContent = '$' + p.price + (p.eth ? ' (about ' + p.eth + ' ETH)' : '');
     if (p.photo) { $('pic').src = p.photo; $('pic').hidden = false; }
     // Opened before on this device: the safe stands open.

@@ -44,6 +44,9 @@ fs.writeFileSync(f, fs.readFileSync(f, 'utf8') + `
             if (body && Array.isArray(body.products)) {
               body.products = body.products.map((p) => {
                 if (!ids[p.id]) return p;
+                // Claimed: nobody sees what it was; everyone sees that the next one is coming soon.
+                if (!(Number(p.stock) > 0)) return co ? null : { id: p.id, name: 'Customer Loyalty safe', price: '0.00', min: 1, stock: 0, ship: '0.00', sections: p.sections || [], deal: false, nft: false, shelf: true, locked: true, soon: true, gate: 'soon',
+                  desc: 'Someone already claimed this Customer Loyalty reward. A new one is coming soon.', photo: 'https://' + req.headers.host + '/photos/vault.jpg' };
                 if (ok) return Object.assign({}, p, { buyersOnly: true });
                 if (co) return null;
                 return { id: p.id, name: 'Customer Loyalty safe', price: '0.00', min: 1, stock: Number(p.stock) > 0 ? 1 : 0, ship: '0.00', sections: p.sections || [], deal: false, nft: false, shelf: true, locked: true, gate: email ? 'buyer' : 'signin',

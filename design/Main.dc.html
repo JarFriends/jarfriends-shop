@@ -807,7 +807,7 @@ const all = slots.map((s, i) => {
 const c = catalog[i];
 const sold = c.stock !== null && c.stock < c.min;
 const p = Object.assign({ status: s, deal: !!c.deal, cents: c.cents, sections: c.sections, lot: c.id, name: c.name, price: c.locked ? "Customer Loyalty" : "$" + (c.cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + (c.eth ? " (≈ " + c.eth + " ETH)" : ""), stockText: c.stock === null ? "Shown at checkout" : c.stock === 1 ? "One of a kind" : c.stock + " available", canOrder: !sold, noOrder: sold }, badges[s]);
-if (sold) { p.badge = "Sold"; p.stockText = "Sold"; }
+if (sold) { p.badge = c.locked ? "Coming soon" : "Sold"; p.stockText = c.locked ? "Coming soon" : "Sold"; if (c.locked) p.price = "Coming soon"; }
 // Each piece is a small tile; tapping it opens its details and the check out button.
 p.isOpen = open === c.id;
 p.toggle = () => { if (open !== c.id) this.track(c.id, "view"); this.setState({ open: open === c.id ? "" : c.id }); };
@@ -820,7 +820,7 @@ p.edge = p.isOpen ? "#C9A45C" : "#244536";
 p.photo = c.photo || PHOTOS[c.id] || "";
 p.hasPhoto = !!p.photo; p.noPhoto = !p.photo;
 p.photoH = p.isOpen ? "340px" : narrow ? "150px" : "190px";
-p.hint = sold ? "Sold" : s === "limited" ? (c.stock === 1 ? "One of a kind" : "Few left") : p.isOpen ? "Close" : "Details";
+p.hint = sold ? (c.locked ? "Coming soon" : "Sold") : s === "limited" ? (c.stock === 1 ? "One of a kind" : "Few left") : p.isOpen ? "Close" : "Details";
 if (!sold) {
 const raw = qtys[c.id];
 let q = Math.max(c.min, Math.floor(Number(raw)) || c.min);

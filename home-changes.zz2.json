@@ -38,5 +38,13 @@
  [
   "soonName: (pt && pt.name || \"\").replace(/: Party Pricing$/, \"\"), soonText: \"Opens \" + (pt && pt.startsText || \"soon\") + \". The price is revealed the moment it opens.\",",
   "soonName: \"Something is coming. Doors open soon.\", soonText: \"Opens \" + (pt && pt.startsText || \"soon\") + \". What it is and the price stay a secret until the doors open.\","
+ ],
+ [
+  "if (sold) { p.badge = \"Sold\"; p.stockText = \"Sold\"; }",
+  "if (sold) { p.badge = c.locked ? \"Coming soon\" : \"Sold\"; p.stockText = c.locked ? \"Coming soon\" : \"Sold\"; if (c.locked) p.price = \"Coming soon\"; }"
+ ],
+ [
+  "p.hint = sold ? \"Sold\" : s === \"limited\"",
+  "p.hint = sold ? (c.locked ? \"Coming soon\" : \"Sold\") : s === \"limited\""
  ]
 ]
