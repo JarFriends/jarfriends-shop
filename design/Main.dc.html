@@ -765,7 +765,10 @@ if (j && j.products && j.products.length) this.setState({ shop: j });
 if (!this.setTimerEl) this.setTimerEl = (el) => { this.timerEl = el; };
 this.partyTick = setInterval(() => {
 const pt = this.state && this.state.party;
-if (this.timerEl && pt && pt.ends) this.timerEl.textContent = this.clockText(Number(pt.upcoming ? pt.starts : pt.ends) - Date.now());
+const pv = this.previewPt;
+// The preview counts down the real party window: the full 12 hours until it opens, then the time left.
+if (this.timerEl && pv) this.timerEl.textContent = this.clockText(Math.min(Number(pv.ends) - Date.now(), Number(pv.ends) - Number(pv.starts)));
+else if (this.timerEl && pt && pt.ends) this.timerEl.textContent = this.clockText(Number(pt.upcoming ? pt.starts : pt.ends) - Date.now());
 // At the opening the party is read again, so the price and levels appear.
 if (pt && pt.upcoming && Date.now() >= Number(pt.starts) + 2000 && !this.partyReload) { this.partyReload = true; fetch("https://collectors-page.vercel.app/api/party").then((r) => r.json()).then((j) => { this.partyReload = false; if (j && j.pid) this.setState({ party: j }); }).catch(() => { this.partyReload = false; }); }
 // The open deal's clock, when that deal has an end time. At zero the shop is read again so the next safe shows.
@@ -892,7 +895,8 @@ if (vaultPreview && dp && openSlot.n !== 5) Object.assign(deal, { tag: "SAFE 5 /
 let partyPreview = false;
 try { partyPreview = /[?&]party=1/.test(window.location.search) || /[?&]party=1/.test(window.top.location.search); } catch (e) { /* not allowed to look: no preview */ }
 const livePt = (this.state && this.state.party) || null;
-const pt = partyPreview && !(livePt && livePt.on && !livePt.ended && !livePt.upcoming) ? { on: true, ended: false, upcoming: false, pid: "MPARTY2", name: "Motivated Monster Comic Pack (Issue 05): Party Pricing", price: "29.60", onePrice: "29.60", oneOff: 0, sold: 0, total: 8, left: 8, off: 0, tiers: [[2, "$27.80"], [4, "$26.00"], [6, "$24.20"], [8, "$22.40"]].map((t) => ({ need: t[0], price: t[1], off: (2960 - Math.round(Number(t[1].slice(1)) * 100)) / 29.6, reached: false })), next: { need: 2, off: 180 / 29.6 }, ends: Date.now() + 43200000, endsText: "tonight, Monday, October 12 at midnight Central" } : livePt;
+const pt = partyPreview && !(livePt && livePt.on && !livePt.ended && !livePt.upcoming) ? { on: true, ended: false, upcoming: false, pid: "MPARTY2", name: "Motivated Monster Comic Pack (Issue 05): Party Pricing", price: "29.60", onePrice: "29.60", oneOff: 0, sold: 0, total: 8, left: 8, off: 0, tiers: [[2, "$27.80"], [4, "$26.00"], [6, "$24.20"], [8, "$22.40"]].map((t) => ({ need: t[0], price: t[1], off: (2960 - Math.round(Number(t[1].slice(1)) * 100)) / 29.6, reached: false })), next: { need: 2, off: 180 / 29.6 }, starts: (livePt && livePt.starts) || Date.now(), ends: (livePt && livePt.ends) || Date.now() + 43200000, endsText: (livePt && livePt.endsText) || "tonight at midnight Central", preStart: livePt && livePt.upcoming ? livePt.startsText : "" } : livePt;
+this.previewPt = partyPreview && pt !== livePt ? pt : null;
 const usdP = (n) => "$" + Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const partyVals = pt && pt.on && !pt.ended && !pt.upcoming ? {
 show: true, name: pt.name, tag: "PARTY PRICE / OPEN NOW",
@@ -904,7 +908,7 @@ nextText: pt.next ? (pt.next.need - pt.sold) + " more sold and the price drops t
 tiers: pt.tiers.map((t) => ({ off: t.price || t.off + "% off", when: t.need === pt.total ? "if all " + pt.total + " sell" : "once " + t.need + " are sold", each: usdP(Number(pt.price) * (100 - t.off) / 100) + " each", line: t.reached ? "#C9A45C" : "#4E7A63", bg: t.reached ? "rgba(201, 164, 92, 0.16)" : "transparent", fg: t.reached ? "#C9A45C" : "#F7F2E6" })),
 endsText: "Ends " + pt.endsText + ", or sooner if it sells out. " + pt.left + " left.",
 // The deadline, said plainly, with a clock that counts down every second (see componentDidMount).
-deadline: "Party pricing ends " + pt.endsText + ".",
+deadline: (pt.preStart ? "Opens " + pt.preStart + ". " : "") + "Party pricing ends " + pt.endsText + ".",
 setTimer: this.setTimerEl || (this.setTimerEl = (el) => { this.timerEl = el; }), clock: this.clockText(Number(pt.ends) - Date.now()),
 cta: partyPreview ? "Join the party (preview)" : "Join the party",
 ...(() => {
