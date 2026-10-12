@@ -217,6 +217,72 @@ async function oneOff() {
   }
 }
 
+// 7. Price drops. When a piece in the shop (or the open Deal of the day) gets cheaper, everyone on the list hears
+// about it, with the old and new price. A drop waits 30 minutes first, so a few quick edits go out as one email,
+// and nothing is sent if the price goes back up in the meantime. Price rises send nothing.
+async function repriced(now, mail) {
+  const lib = require('./_lib');
+  const r = await fetch(HOST + '/api/order', { signal: AbortSignal.timeout(8000), headers: { 'cache-control': 'no-store' } });
+  const shop = ((await r.json()).products || []).filter((p) => p && p.id && (p.shelf || p.deal) && !p.locked && !/^MPARTY/.test(p.id));
+  if (!shop.length) return;
+  let st = await store.read('sweep/prices.json');
+  // The first time, today's prices are noted. Nothing is sent for them.
+  if (!st) { const lastP = {}; shop.forEach((p) => { lastP[p.id] = Number(p.price); }); await store.write('sweep/prices.json', { last: lastP, wait: {}, batch: null }); return; }
+  st.last = st.last || {}; st.wait = st.wait || {};
+  let changed = false;
+  shop.forEach((p) => {
+    const cur = Number(p.price), prev = st.last[p.id];
+    if (!(cur > 0)) return;
+    if (prev === undefined) { st.last[p.id] = cur; changed = true; return; }
+    if (cur < prev - 0.004) {
+      const w = st.wait[p.id];
+      st.wait[p.id] = { from: w ? w.from : prev, to: cur, at: w ? w.at : now };
+      st.last[p.id] = cur; changed = true;
+    } else if (cur > prev + 0.004) {
+      st.last[p.id] = cur; changed = true;
+      if (st.wait[p.id] && cur >= st.wait[p.id].from - 0.004) delete st.wait[p.id];
+    }
+  });
+  if (!st.batch && Object.keys(st.wait).some((id) => now - st.wait[id].at >= HOLD)) {
+    st.batch = { key: 'drop-' + now.toString(36), items: st.wait }; st.wait = {}; changed = true;
+  }
+  if (changed) await store.write('sweep/prices.json', st);
+  if (!st.batch) return;
+  // Only pieces still for sale, still at the lower price, are shown.
+  const items = Object.keys(st.batch.items).map((id) => { const p = shop.filter((x) => x.id === id)[0], w = st.batch.items[id]; return p && Number(p.stock) > 0 && Number(p.price) < w.from - 0.004 ? Object.assign({}, p, { was: w.from }) : null; }).filter(Boolean);
+  const who = items.length ? await everyone() : {}, log = (await store.read('sweep/' + st.batch.key + '.json')) || { done: {} };
+  const todo = Object.keys(who).filter((e) => !log.done[hashOf(e)]);
+  if (!todo.length) { st.batch = null; await store.write('sweep/prices.json', st); return; }
+  const addr = (process.env.RETURN_ADDRESS || '').replace(/\s*\n\s*/g, ', ').trim();
+  const usd = (n) => '$' + Number(n).toFixed(2);
+  const subject = items.length === 1 ? 'Price drop: ' + items[0].name + ' is now ' + usd(items[0].price) : items.length + ' price drops at JarFriends';
+  const ship = (p) => (p.nft ? '' : Number(p.ship) > 0 ? ' + $' + p.ship + ' shipping' : ', free shipping');
+  const tip = 'Pay with crypto and take 1% off. There is no wallet to connect and nothing to sign: you just send the payment to the address shown.';
+  for (const e of todo.slice(0, 12)) {
+    if (await store.read('unsub/' + hashOf(e) + '.json')) { log.done[hashOf(e)] = 1; continue; }
+    const stop = HOST + '/api/unsub?t=' + lib.sign({ un: 1, e: e });
+    const lines = [first(who[e]), '', items.length === 1 ? 'A price just dropped at JarFriends:' : 'Prices just dropped at JarFriends:', ''];
+    items.forEach((p) => { lines.push(p.name, 'Was ' + usd(p.was) + ', now ' + usd(p.price) + (p.eth ? ' (about ' + p.eth + ' ETH)' : '') + ship(p), HOST + '/order.html?product=' + encodeURIComponent(p.id), ''); });
+    lines.push(tip, '', 'You are getting this because you ordered from JarFriends or subscribed.' + (addr ? ' JarFriends, ' + addr + '.' : ''), 'Unsubscribe: ' + stop);
+    const html = '<div style="background:#0B1712;padding:28px 16px;font-family:Arial,Helvetica,sans-serif;color:#E6EFE9"><div style="max-width:520px;margin:0 auto">' +
+      '<div style="font-size:13px;letter-spacing:2px;color:#C9A45C">PRICE DROP</div>' +
+      '<h1 style="font-size:26px;margin:8px 0 14px;color:#8FD3AE">' + (items.length === 1 ? 'A price just dropped' : 'Prices just dropped') + '</h1>' +
+      '<p style="font-size:16px;line-height:1.5;margin:0 0 16px">' + esc(first(who[e])) + '</p>' +
+      items.map((p) => { const link = HOST + '/order.html?product=' + encodeURIComponent(p.id); return '<div style="border:1px solid #2C4A3B;border-radius:10px;padding:16px;margin:0 0 16px">' +
+        (p.photo ? '<a href="' + link + '"><img src="' + esc(p.photo) + '" alt="' + esc(p.name) + '" width="480" style="max-width:100%;height:auto;border:0;border-radius:8px;display:block;margin:0 0 12px"></a>' : '') +
+        '<div style="font-size:18px;font-weight:bold;line-height:1.35">' + esc(p.name) + '</div>' +
+        '<div style="margin:8px 0 4px"><span style="font-size:16px;color:#8FA89A;text-decoration:line-through">' + usd(p.was) + '</span> <span style="font-size:24px;font-weight:bold;color:#C9A45C">' + usd(p.price) + '</span> <span style="font-size:14px;color:#8FD3AE">' + Math.round((1 - Number(p.price) / p.was) * 100) + '% off</span></div>' +
+        '<div style="font-size:13px;color:#B9CCC0">' + esc([p.eth ? 'About ' + p.eth + ' ETH' : '', p.nft ? '' : Number(p.ship) > 0 ? 'Plus $' + p.ship + ' shipping' : 'Free shipping'].filter(Boolean).join(' · ')) + '</div>' +
+        '<p style="margin:14px 0 0"><a href="' + link + '" style="background:#C9A45C;color:#0B1712;text-decoration:none;font-weight:bold;padding:11px 20px;border-radius:24px;display:inline-block">Get it</a></p></div>'; }).join('') +
+      '<p style="font-size:15px;line-height:1.5;margin:0 0 10px;background:#12261D;border-radius:8px;padding:12px 14px">' + esc(tip) + '</p>' +
+      '<p style="font-size:12px;line-height:1.5;color:#8FA89A;margin:22px 0 0">You are getting this because you ordered from JarFriends or subscribed.' + (addr ? ' JarFriends, ' + esc(addr) + '.' : '') + ' <a href="' + stop + '" style="color:#8FA89A">Unsubscribe</a></p></div></div>';
+    const out = await mail(e, subject, lines, st.batch.key + '-' + hashOf(e), html).catch(() => 'failed');
+    if (out === 'sent' || out === 'duplicate') log.done[hashOf(e)] = 1;
+    await new Promise((res) => setTimeout(res, 550));
+  }
+  await store.write('sweep/' + st.batch.key + '.json', log);
+}
+
 async function run() {
   const now = Date.now();
   if (process.env.VERCEL_ENV === 'production' && store.on()) await oneOff().catch((e) => { once = false; console.error('ONEOFF_FAIL', String(e && e.message || e)); });
@@ -231,5 +297,6 @@ async function run() {
   await unpaid(now, mail).catch((e) => console.error('SWEEP_UNPAID_FAIL', String(e && e.message || e)));
   await safes(now, mail).catch((e) => console.error('SWEEP_SAFES_FAIL', String(e && e.message || e)));
   await arrivals(now, mail).catch((e) => console.error('SWEEP_ARRIVALS_FAIL', String(e && e.message || e)));
+  await repriced(now, mail).catch((e) => console.error('SWEEP_PRICES_FAIL', String(e && e.message || e)));
 }
 module.exports = { run };
