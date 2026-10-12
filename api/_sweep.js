@@ -187,6 +187,8 @@ const ONCE = [
   ['lava5', 'LAVAJACK', { stock: 5 }],
   // October 12: the party is 5 comics, not 11.
   ['party5', 'MPARTY2', { stock: 5 }],
+  // Later on October 12: 8 comics.
+  ['party8', 'MPARTY2', { stock: 8 }],
   ['koala125', 'DEAL2', { price: 125, shipping: 'free' }],
   // The first-order promo code named in the checkout reminder email: 10% off shop and Deal of the day pieces.
   ['jar10', 'promo:JAR10', { on: true, pct: 10, for: ['shop', 'deal'] }]
