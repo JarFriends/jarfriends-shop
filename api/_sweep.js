@@ -189,6 +189,8 @@ const ONCE = [
   ['party5', 'MPARTY2', { stock: 5 }],
   // Later on October 12: 8 comics.
   ['party8', 'MPARTY2', { stock: 8 }],
+  // Starts at $26.00 and ends at $18.80 if all 8 sell.
+  ['party26', 'MPARTY2', { price: 26 }],
   ['koala125', 'DEAL2', { price: 125, shipping: 'free' }],
   // The first-order promo code named in the checkout reminder email: 10% off shop and Deal of the day pieces.
   ['jar10', 'promo:JAR10', { on: true, pct: 10, for: ['shop', 'deal'] }]
