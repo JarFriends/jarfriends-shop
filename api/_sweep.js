@@ -336,7 +336,8 @@ async function auctions(now, mail) {
     if (changed) await store.write('auction/' + p.id + '/state.json', st);
   }
   async function offerTo(p, bid, at, first) {
-    const pay = HOST + '/order.html?offer=' + lib.sign({ oa: 1, n: 'AUC-' + p.id, pid: p.id, q: 1, c: bid.amt, x: Math.floor(at / 1000) + 24 * 3600 });
+    const pref = (await store.read('bidder/' + require('crypto').createHash('sha1').update(String(bid.e).toLowerCase()).digest('hex').slice(0, 20) + '.json')) || {};
+    const pay = HOST + '/order.html?offer=' + lib.sign({ oa: 1, n: 'AUC-' + p.id, pid: p.id, q: 1, c: bid.amt, x: Math.floor(at / 1000) + 24 * 3600 }) + (pref.method ? '&method=' + encodeURIComponent(pref.method) : '') + '&email=' + encodeURIComponent(bid.e);
     const body = first ? ['You won the auction for ' + p.name + ' with your bid of $' + A.usd(bid.amt) + '.', 'Pay within 24 hours to claim it. If it is not paid in time, it goes to the next bidder.']
       : ['Good news: the winner of the auction for ' + p.name + ' did not pay, so it is yours for your bid of $' + A.usd(bid.amt) + '.', 'Pay within 24 hours to claim it.'];
     await mail(bid.e, (first ? 'You won: ' : 'It is yours: ') + p.name, body.concat(['', 'Pay here:', pay]), 'auc-win-' + p.id + '-' + hashOf(bid.e), box(first ? 'You won the auction' : 'It is yours', body, pay, 'Pay $' + A.usd(bid.amt))).catch(() => null);

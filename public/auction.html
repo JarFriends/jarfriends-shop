@@ -8,64 +8,139 @@
 <link rel="stylesheet" href="/site.css">
 <style>
 [hidden]{display:none!important}
-.wrapA{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:28px;align-items:start}
-@media (max-width:760px){.wrapA{grid-template-columns:1fr}}
-.pic{width:100%;border-radius:12px;display:block;box-shadow:0 18px 40px rgba(0,0,0,.5)}
-.big{font-weight:900;font-size:40px;line-height:1.05;color:#C9A45C}
-.clock{font-family:'IBM Plex Mono',monospace;font-size:24px;letter-spacing:.04em;background:#0B1A13;color:#F7F2E6;padding:8px 14px;border-radius:8px;display:inline-block;font-variant-numeric:tabular-nums}
-.box{display:flex;flex-direction:column;gap:14px}
-.bidrow{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
-.bidrow label{flex:1 1 160px}
-.hist{display:flex;flex-direction:column;gap:6px;font-size:14px}
-.hist div{display:flex;justify-content:space-between;gap:10px;border-top:1px solid rgba(255,255,255,.08);padding-top:6px}
+.grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:32px;align-items:start}
+@media (max-width:820px){.grid{grid-template-columns:1fr;gap:20px}}
+.pic{width:100%;border-radius:14px;display:block;box-shadow:0 18px 40px rgba(0,0,0,.5)}
+.panel{display:flex;flex-direction:column;gap:16px;padding:22px;border-radius:16px;border:1px solid rgba(201,164,92,.45);background:linear-gradient(160deg,rgba(255,255,255,.04),rgba(0,0,0,.18))}
 .tag{align-self:flex-start;font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.12em;border:1px solid #C9A45C;color:#C9A45C;border-radius:999px;padding:3px 10px}
-.win{background:#C9A45C;color:#0B1A13;border-radius:12px;padding:14px 16px;font-weight:700}
+.title{margin:0;font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:clamp(24px,2.6vw,32px);line-height:1.15;text-transform:none;letter-spacing:0}
+.sub{font-size:14px;opacity:.75;margin-top:4px}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.stat{border-radius:12px;background:rgba(0,0,0,.28);padding:12px 14px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.stat .k{font-size:13px;opacity:.75}
+.stat .v{font-weight:900;font-size:30px;line-height:1.05;color:#C9A45C}
+.stat .clock{font-family:'IBM Plex Mono',monospace;font-size:21px;font-weight:500;line-height:1.3;color:#F7F2E6;font-variant-numeric:tabular-nums;white-space:nowrap}
+.stat .s{font-size:12.5px;opacity:.75}
+.note{border-radius:12px;padding:12px 14px;font-weight:700;font-size:15px}
+.note.lead{background:#C9A45C;color:#0B1A13}
+.note.out{background:rgba(232,90,90,.16);border:1px solid rgba(232,90,90,.55)}
+.bigbtn{width:100%;font-size:19px;font-weight:800;padding:16px 18px;border:0;border-radius:999px;background:#C9A45C;color:#0B1A13;cursor:pointer}
+.bigbtn:disabled{opacity:.6;cursor:default}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{flex:1 1 0;min-width:0;font-size:15px;font-weight:700;padding:10px 8px;border-radius:999px;border:1px solid rgba(201,164,92,.6);background:transparent;color:inherit;cursor:pointer}
+.chip.on{background:rgba(201,164,92,.18);border-color:#C9A45C}
+.stack{display:flex;flex-direction:column;gap:10px}
+.stack input{width:100%;box-sizing:border-box}
+.small2{font-size:13.5px;line-height:1.5;opacity:.8}
+.hist{display:flex;flex-direction:column;gap:0;font-size:14px}
+.hist div{display:flex;justify-content:space-between;gap:10px;border-top:1px solid rgba(255,255,255,.08);padding:8px 0}
+/* The bid steps open over the page. */
+.veil{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px}
+.sheet{width:100%;max-width:440px;max-height:92vh;overflow:auto;border-radius:18px;background:#13211B;border:1px solid rgba(201,164,92,.5);box-shadow:0 30px 70px rgba(0,0,0,.6);padding:22px;display:flex;flex-direction:column;gap:16px;box-sizing:border-box}
+.sheet h2{margin:0;font-family:'Playfair Display',Georgia,serif;font-size:24px;text-transform:none;letter-spacing:0}
+.steps{font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.12em;color:#C9A45C}
+.amt{font-weight:900;font-size:44px;color:#C9A45C;line-height:1}
+.rows{display:flex;flex-direction:column}
+.rows div{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-top:1px solid rgba(255,255,255,.08);font-size:15px}
+.ways{display:flex;flex-direction:column;gap:8px}
+.way{display:flex!important;flex-direction:row!important;gap:12px;align-items:center;padding:12px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.15);cursor:pointer;font-weight:400;margin:0}
+.way .dot{flex:0 0 18px;width:18px;height:18px;border-radius:50%;border:2px solid rgba(255,255,255,.5);box-sizing:border-box}
+.way.on .dot{border-color:#C9A45C;background:radial-gradient(circle,#C9A45C 0 45%,transparent 50%)}
+.way.on{border-color:#C9A45C;background:rgba(201,164,92,.12)}
+.way input{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none}
+.way b{display:block}
+.way span{font-size:13px;opacity:.8}
+.btnrow{display:flex;gap:10px}
+.btnrow button{flex:1 1 0;padding:13px 14px;border-radius:999px;font-weight:800;font-size:16px;cursor:pointer}
+.ghostb{background:transparent;color:inherit;border:1px solid rgba(255,255,255,.3)}
+.goldb{background:#C9A45C;color:#0B1A13;border:0}
+.linkb{background:none;border:0;color:#C9A45C;text-decoration:underline;cursor:pointer;font:inherit;padding:0}
+@media (max-width:480px){.stats{grid-template-columns:1fr}.panel{padding:18px}.stat .clock{font-size:20px}}
 </style>
 </head>
 <body>
 <header class="top"><div class="wrap bar"><a class="brand" href="/" style="text-decoration:none">JarFriends</a><span style="display:flex;align-items:center;gap:20px"><span class="mono dim">AUCTION</span><a class="home" href="/">Home</a></span></div></header>
 <main class="wrap page">
-  <div class="wrapA">
-    <div class="box">
+  <div class="grid">
+    <div class="stack" style="gap:14px">
       <img class="pic" id="pic" alt="" hidden>
-      <div class="small" id="desc"></div>
+      <div class="small2" id="desc"></div>
     </div>
-    <div class="box">
+    <div class="panel">
       <span class="tag" id="tag">AUCTION</span>
-      <h1 id="name" style="margin:0;font-size:clamp(24px,3vw,34px);line-height:1.15">Loading the auction...</h1>
-      <div><div class="small dim" id="curLabel">Current bid</div><div class="big" id="cur">-</div><div class="small" id="count"></div></div>
-      <div><div class="small dim" id="clockLabel">Time left</div><span class="clock" id="clock">-</span></div>
-      <div class="small" id="ship"></div>
-      <div class="win" id="status" hidden></div>
-      <form id="bidForm" class="box" hidden>
-        <div class="bidrow">
-          <label>Your bid, in USD<input id="amount" type="number" inputmode="decimal" step="0.01" min="0.01" required></label>
-          <button class="solid" type="submit" id="bidGo">Place bid</button>
+      <div><h1 class="title" id="name">Loading the auction...</h1><div class="sub" id="sub"></div></div>
+      <div class="stats">
+        <div class="stat"><span class="k" id="curLabel">Current bid</span><span class="v" id="cur">-</span><span class="s" id="count"></span></div>
+        <div class="stat"><span class="k" id="clockLabel">Time left</span><span class="clock" id="clock">-</span><span class="s" id="endsAt"></span></div>
+      </div>
+      <div class="note" id="status" hidden></div>
+      <div class="stack" id="bidBox" hidden>
+        <button class="bigbtn" type="button" id="bidBtn">Bid</button>
+        <div class="chips" id="chips"></div>
+        <div class="stack" id="otherBox" hidden>
+          <label>Your bid, in USD<input id="amount" type="number" inputmode="decimal" step="0.01" min="0.01"></label>
         </div>
-        <div class="small" id="minNote"></div>
-        <div class="small" id="bidMsg" role="status"></div>
+        <div class="small2" id="minNote"></div>
+      </div>
+      <form class="stack" id="signForm" hidden>
+        <div class="small2">Sign in to bid. Enter your email and we will send you a link that brings you right back here, ready to bid.</div>
+        <input id="mailIn" type="email" required autocomplete="email" placeholder="you@example.com" aria-label="Your email">
+        <button class="bigbtn" type="submit" id="mailGo">Email me a sign-in link</button>
+        <div class="small2" id="mailMsg" role="status"></div>
       </form>
-      <form id="signForm" class="box" hidden>
-        <div class="small">Sign in to bid. Enter your email and we will send you a link that brings you right back here.</div>
-        <div class="bidrow">
-          <label>Your email<input id="mailIn" type="email" required autocomplete="email" placeholder="you@example.com"></label>
-          <button class="solid" type="submit" id="mailGo">Email me a link</button>
-        </div>
-        <div class="small" id="mailMsg" role="status"></div>
-      </form>
-      <div class="small dim">How it works: the highest bid when the clock runs out wins. A bid in the last 2 minutes adds 2 more minutes. The winner gets an email with a link to pay within 24 hours; if it is not paid, it goes to the next bidder.</div>
+      <div class="small2" id="ship"></div>
+      <div class="small2">The highest bid when the clock runs out wins. A bid in the last 2 minutes adds 2 more minutes. The winner gets an email with a link to pay within 24 hours.</div>
       <div>
-        <div class="mono gold" style="font-size:12px;letter-spacing:.12em;margin-bottom:6px">BIDS</div>
-        <div class="hist" id="hist"><span class="small dim">No bids yet. Be the first.</span></div>
+        <div class="mono gold" style="font-size:12px;letter-spacing:.12em;margin-bottom:4px">BIDS</div>
+        <div class="hist" id="hist"><span class="small2">No bids yet. Be the first.</span></div>
       </div>
     </div>
   </div>
 </main>
+
+<div class="veil" id="veil" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sTitle">
+    <!-- Step 1: the amount -->
+    <div class="stack" id="s1" style="gap:16px">
+      <div class="steps" id="s1n">STEP 1</div>
+      <h2 id="sTitle">Confirm your bid</h2>
+      <div class="amt" id="s1amt">$0.00</div>
+      <div class="small2" id="s1item"></div>
+      <div class="btnrow"><button type="button" class="ghostb" data-close>Cancel</button><button type="button" class="goldb" id="s1go">Continue</button></div>
+    </div>
+    <!-- Step 2: how they will pay if they win (asked once) -->
+    <div class="stack" id="s2" style="gap:16px" hidden>
+      <div class="steps" id="s2n">STEP 2</div>
+      <h2>How will you pay if you win?</h2>
+      <div class="small2">We remember this, so you only choose once. Nothing is charged now.</div>
+      <div class="ways" id="ways"></div>
+      <div class="btnrow"><button type="button" class="ghostb" id="s2back">Back</button><button type="button" class="goldb" id="s2go">Continue</button></div>
+    </div>
+    <!-- Step 3: last check -->
+    <div class="stack" id="s3" style="gap:16px" hidden>
+      <div class="steps" id="s3n">STEP 3</div>
+      <h2>Place your bid?</h2>
+      <div class="rows">
+        <div><span>Your bid</span><b id="s3amt"></b></div>
+        <div><span>If you win, pay with</span><span><b id="s3way"></b> · <button type="button" class="linkb" id="s3change">change</button></span></div>
+        <div><span>Shipping</span><span id="s3ship"></span></div>
+      </div>
+      <div class="small2" id="s3note"></div>
+      <div class="small2" id="s3msg" role="status"></div>
+      <div class="btnrow"><button type="button" class="ghostb" data-close>Cancel</button><button type="button" class="goldb" id="s3go">Place my bid</button></div>
+    </div>
+  </div>
+</div>
+
 <script>
 (function () {
   var $ = function (id) { return document.getElementById(id); };
-  var id = new URLSearchParams(location.search).get('id') || '', tok = '', A = null;
+  var id = new URLSearchParams(location.search).get('id') || '', tok = '', A = null, P = null, pick = 0, way = '', chosen = 0;
   try { tok = localStorage.getItem('acct_token') || ''; } catch (e) { tok = ''; }
+  var WAYS = { card: ['Credit or debit card', 'Pay online with your card.'], crypto: ['Crypto', 'Ethereum, USDC or USDT. Take 1% off.'], zelle: ['Zelle', 'From your bank app.'], venmo: ['Venmo', 'From the Venmo app.'], cashapp: ['Cash App', 'From Cash App.'], cash: ['Cash or ACH', 'Bank transfer or cash.'] };
+  var open = ['crypto', 'cash'];
+  var money = function (c) { return '$' + (c / 100).toFixed(2); };
+  var cents = function (v) { return Math.round(Number(String(v || '').replace(/[^0-9.]/g, '')) * 100); };
   var clockText = function (ms) {
     if (ms <= 0) return '0d 00h 00m 00s';
     var s = Math.floor(ms / 1000), d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60), x = s % 60;
@@ -73,66 +148,139 @@
     return d + 'd ' + p(h) + 'h ' + p(m) + 'm ' + p(x) + 's';
   };
   var when = function (t) { return new Date(t).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); };
-  // The piece itself (name, picture, description, shipping) comes from the shop's list.
+  // The piece itself, and which ways to pay are open, come from the shop's list.
   fetch('/api/order', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (j) {
-    var p = (j.products || []).filter(function (x) { return x.id === id; })[0];
-    if (!p) return;
-    document.title = 'Auction: ' + p.name.replace(/^Auction:\s*/, '');
-    if (p.photo) { $('pic').src = p.photo; $('pic').alt = p.name; $('pic').hidden = false; }
-    $('desc').textContent = p.desc || '';
-    $('ship').textContent = Number(p.ship) > 0 ? 'Shipping $' + p.ship + '.' : 'Free shipping.';
+    open = (j.card ? ['card'] : []).concat(['crypto'], ['zelle', 'venmo', 'cashapp'].filter(function (w) { return j.ways && j.ways[w]; }), ['cash']);
+    P = (j.products || []).filter(function (x) { return x.id === id; })[0];
+    if (!P) return;
+    if (P.photo) { $('pic').src = P.photo; $('pic').alt = P.name; $('pic').hidden = false; }
+    $('desc').textContent = P.desc || '';
+    $('ship').textContent = Number(P.ship) > 0 ? 'Shipping $' + P.ship + '.' : 'Free shipping.';
   }).catch(function () {});
+  function title(n) {
+    n = String(n || '').replace(/^Auction:\s*/, '');
+    var i = n.indexOf(' (');
+    return i > 0 ? [n.slice(0, i), n.slice(i + 2).replace(/\)$/, '')] : [n, ''];
+  }
+  function chipsFor(a) {
+    var next = cents(a.next), box = $('chips'); box.textContent = '';
+    var opts = [next, next + 100, next + 500].map(function (c, i) { return { c: c, label: i === 0 ? money(c) : '+' + money(c - next).replace('.00', '') }; });
+    opts.forEach(function (o) {
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'chip' + (pick === o.c && !$('otherBox').hidden === false ? ' on' : ''); b.textContent = o.label;
+      b.addEventListener('click', function () { pick = o.c; $('otherBox').hidden = true; drawBtn(); chipsFor(A); });
+      if (pick === o.c && $('otherBox').hidden) b.className = 'chip on';
+      box.appendChild(b);
+    });
+    var other = document.createElement('button'); other.type = 'button'; other.className = 'chip' + ($('otherBox').hidden ? '' : ' on'); other.textContent = 'Other';
+    other.addEventListener('click', function () { $('otherBox').hidden = false; $('amount').value = (Math.max(pick, next) / 100).toFixed(2); $('amount').focus(); chipsFor(A); drawBtn(); });
+    box.appendChild(other);
+  }
+  function drawBtn() {
+    var next = A ? cents(A.next) : 0;
+    if (!$('otherBox').hidden) pick = cents($('amount').value);
+    if (pick < next && $('otherBox').hidden) pick = next;
+    $('bidBtn').textContent = 'Bid ' + money(pick);
+    $('bidBtn').disabled = !(pick >= next);
+    $('minNote').textContent = pick < next ? 'Bid ' + money(next) + ' or more.' : 'Next bid must be ' + money(next) + ' or more.';
+  }
   function draw(a) {
     A = a;
-    $('name').textContent = String(a.name || '').replace(/^Auction:\s*/, '');
+    var t = title(a.name); $('name').textContent = t[0]; $('sub').textContent = t[1];
+    document.title = 'Auction: ' + t[0];
     $('cur').textContent = '$' + a.current;
     $('curLabel').textContent = a.bids ? (a.ended ? 'Winning bid' : 'Current bid') : (a.ended ? 'No bids' : 'Starting bid');
-    $('count').textContent = a.bids ? a.bids + (a.bids === 1 ? ' bid' : ' bids') + ' from ' + a.bidders + (a.bidders === 1 ? ' person' : ' people') + (a.leader ? ' · top bidder ' + a.leader : '') : '';
-    $('clockLabel').textContent = a.ended ? 'Ended ' + when(a.ends) : 'Ends ' + when(a.ends);
+    $('count').textContent = a.bids ? a.bids + (a.bids === 1 ? ' bid' : ' bids') + ' · ' + a.bidders + (a.bidders === 1 ? ' bidder' : ' bidders') : 'No bids yet';
+    $('clockLabel').textContent = a.ended ? 'Ended' : 'Time left';
+    $('endsAt').textContent = (a.ended ? 'Ended ' : 'Ends ') + when(a.ends);
     var hist = $('hist'); hist.textContent = '';
-    if (!a.history || !a.history.length) { var e = document.createElement('span'); e.className = 'small dim'; e.textContent = a.ended ? 'No bids were placed.' : 'No bids yet. Be the first.'; hist.appendChild(e); }
+    if (!a.history || !a.history.length) { var e = document.createElement('span'); e.className = 'small2'; e.textContent = a.ended ? 'No bids were placed.' : 'No bids yet. Be the first.'; hist.appendChild(e); }
     (a.history || []).forEach(function (b, i) {
       var row = document.createElement('div');
-      var l = document.createElement('span'); l.textContent = (i === 0 ? (a.ended ? 'Winner ' : 'Top ') : '') + b.who + ' · ' + when(b.at);
+      var l = document.createElement('span'); l.textContent = (i === 0 ? (a.ended ? 'Winner · ' : 'Top · ') : '') + b.who + ' · ' + when(b.at);
       var r = document.createElement('b'); r.textContent = '$' + b.amount;
       row.appendChild(l); row.appendChild(r); hist.appendChild(row);
     });
-    var st = $('status'); st.hidden = true;
+    if (a.me && a.me.method) way = a.me.method;
+    var st = $('status'); st.hidden = true; st.className = 'note';
     if (a.ended) {
-      $('bidForm').hidden = true; $('signForm').hidden = true; $('tag').textContent = 'AUCTION ENDED';
-      if (a.me && a.me.won) { st.textContent = 'You won! Check your email for the link to pay your bid of $' + a.current + '. You have 24 hours.'; st.hidden = false; }
+      $('bidBox').hidden = true; $('signForm').hidden = true; $('tag').textContent = 'AUCTION ENDED';
+      if (a.me && a.me.won) { st.textContent = 'You won! Check your email for the link to pay $' + a.current + '. You have 24 hours.'; st.className = 'note lead'; st.hidden = false; }
       return;
     }
-    if (!tok) { $('signForm').hidden = false; $('bidForm').hidden = true; return; }
-    $('signForm').hidden = true; $('bidForm').hidden = false;
-    if (a.me && a.me.leading) { st.textContent = 'You have the highest bid: $' + a.me.best + '.'; st.hidden = false; }
-    else if (a.me && a.me.best) { st.textContent = 'You have been outbid. Your best bid was $' + a.me.best + '.'; st.hidden = false; }
-    var amt = $('amount');
-    amt.min = a.next;
-    if (!amt.value || Number(amt.value) < Number(a.next)) amt.value = a.next;
-    $('minNote').textContent = 'Bid $' + a.next + ' or more.';
+    if (!tok) { $('signForm').hidden = false; $('bidBox').hidden = true; return; }
+    $('signForm').hidden = true; $('bidBox').hidden = false;
+    if (a.me && a.me.leading) { st.textContent = 'You have the highest bid: $' + a.me.best + '.'; st.className = 'note lead'; st.hidden = false; }
+    else if (a.me && a.me.best) { st.textContent = 'You have been outbid. Your best bid was $' + a.me.best + '.'; st.className = 'note out'; st.hidden = false; }
+    var next = cents(a.next);
+    if (!pick || pick < next) pick = next;
+    chipsFor(a); drawBtn();
+    $('bidBtn').disabled = !!(a.me && a.me.leading) || !(pick >= next);
+    if (a.me && a.me.leading) $('minNote').textContent = 'You are on top. You can bid again if someone beats you.';
   }
   function load() {
     fetch('/api/auction?id=' + encodeURIComponent(id) + (tok ? '&t=' + encodeURIComponent(tok) : ''), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (a) {
       if (a.error) { $('name').textContent = a.error; return; }
-      draw(a);
+      if ($('veil').hidden) draw(a); else A = a;
     }).catch(function () {});
   }
   load();
   setInterval(load, 6000);
   setInterval(function () { if (A) $('clock').textContent = clockText(Number(A.ends) - Date.now()); }, 1000);
-  $('bidForm').addEventListener('submit', function (ev) {
-    ev.preventDefault();
-    var v = $('amount').value;
-    if (!confirm('Place a bid of $' + Number(v).toFixed(2) + '? If you win, you agree to pay this amount.')) return;
-    $('bidGo').disabled = true; $('bidMsg').textContent = 'Placing your bid...';
-    fetch('/api/auction', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: id, amount: v, t: tok }) }).then(function (r) { return r.json(); }).then(function (r) {
-      $('bidGo').disabled = false;
-      if (r.error) { $('bidMsg').textContent = r.error; if (/sign in/i.test(r.error)) { tok = ''; try { localStorage.removeItem('acct_token'); } catch (e) {} } load(); return; }
-      $('bidMsg').textContent = 'Your bid is in. You are the highest bidder.';
-      $('amount').value = '';
+  $('amount').addEventListener('input', drawBtn);
+
+  // The bid steps: amount, then how to pay (first time only), then one last check.
+  function step(n) {
+    ['s1', 's2', 's3'].forEach(function (s, i) { $(s).hidden = i + 1 !== n; });
+    var total = way ? 2 : 3;
+    $('s1n').textContent = 'STEP 1 OF ' + total; $('s2n').textContent = 'STEP 2 OF 3'; $('s3n').textContent = 'STEP ' + total + ' OF ' + total;
+  }
+  function showWays() {
+    var box = $('ways'); box.textContent = '';
+    if (!chosen) chosen = way || open[0];
+    open.forEach(function (w) {
+      var l = document.createElement('label'); l.className = 'way' + (chosen === w ? ' on' : '');
+      var r = document.createElement('input'); r.type = 'radio'; r.name = 'way'; r.value = w; r.checked = chosen === w;
+      var dot = document.createElement('span'); dot.className = 'dot'; l.appendChild(dot);
+      var t = document.createElement('div'); var b = document.createElement('b'); b.textContent = WAYS[w][0]; var s = document.createElement('span'); s.textContent = WAYS[w][1];
+      t.appendChild(b); t.appendChild(s); l.appendChild(r); l.appendChild(t);
+      r.addEventListener('change', function () { chosen = w; showWays(); });
+      box.appendChild(l);
+    });
+  }
+  function final() {
+    $('s3amt').textContent = money(pick);
+    $('s3way').textContent = WAYS[way] ? WAYS[way][0] : way;
+    $('s3ship').textContent = P && Number(P.ship) > 0 ? '$' + P.ship : 'Free';
+    $('s3note').textContent = 'If you win, you agree to pay ' + money(pick) + '. We email you a link to pay within 24 hours.';
+    $('s3msg').textContent = ''; $('s3go').disabled = false; $('s3go').textContent = 'Place my bid';
+    step(3);
+  }
+  $('bidBtn').addEventListener('click', function () {
+    if (!A) return;
+    drawBtn();
+    if (!(pick >= cents(A.next))) return;
+    $('s1amt').textContent = money(pick);
+    $('s1item').textContent = title(A.name)[0];
+    step(1); $('veil').hidden = false;
+  });
+  $('s1go').addEventListener('click', function () { if (way) final(); else { showWays(); step(2); } });
+  $('s2back').addEventListener('click', function () { step(1); });
+  $('s2go').addEventListener('click', function () { way = chosen || open[0]; final(); });
+  $('s3change').addEventListener('click', function () { chosen = way; showWays(); step(2); });
+  Array.prototype.forEach.call(document.querySelectorAll('[data-close]'), function (b) { b.addEventListener('click', function () { $('veil').hidden = true; if (A) draw(A); }); });
+  $('veil').addEventListener('click', function (ev) { if (ev.target === $('veil')) { $('veil').hidden = true; if (A) draw(A); } });
+  $('s3go').addEventListener('click', function () {
+    $('s3go').disabled = true; $('s3go').textContent = 'Placing...'; $('s3msg').textContent = '';
+    fetch('/api/auction', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: id, amount: (pick / 100).toFixed(2), method: way, t: tok }) }).then(function (r) { return r.json(); }).then(function (r) {
+      if (r.error) {
+        $('s3go').disabled = false; $('s3go').textContent = 'Place my bid'; $('s3msg').textContent = r.error;
+        if (/sign in/i.test(r.error)) { tok = ''; try { localStorage.removeItem('acct_token'); } catch (e) {} }
+        load(); return;
+      }
+      $('veil').hidden = true; pick = 0;
+      draw(Object.assign({}, A, r, { name: A.name }));
       load();
-    }, function () { $('bidGo').disabled = false; $('bidMsg').textContent = 'Could not reach the site. Try again.'; });
+    }, function () { $('s3go').disabled = false; $('s3go').textContent = 'Place my bid'; $('s3msg').textContent = 'Could not reach the site. Try again.'; });
   });
   $('signForm').addEventListener('submit', function (ev) {
     ev.preventDefault(); $('mailGo').disabled = true; $('mailMsg').textContent = 'Sending...';
