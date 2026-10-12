@@ -46,5 +46,9 @@
  [
   "p.hint = sold ? \"Sold\" : s === \"limited\"",
   "p.hint = sold ? (c.locked ? \"Coming soon\" : \"Sold\") : s === \"limited\""
+ ],
+ [
+  "<sc-if value=\"{{allClaimed}}\" hint-placeholder-val=\"{{false}}\">\n<p style=\"margin: 0; font-size: 18px; color: #D6E2DA\">Every safe has been cracked. New deals are on the way.</p>\n</sc-if>",
+  "<sc-if value=\"{{allClaimed}}\" hint-placeholder-val=\"{{false}}\">\n<div style=\"align-self: flex-start; display: flex; flex-direction: column; gap: 10px; max-width: 560px; padding: 18px 22px; border-radius: 14px; background: #C9A45C; color: #0B1A13\">\n<span style=\"align-self: flex-start; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500; letter-spacing: 0.1em; border: 1px solid #0B1A13; border-radius: 999px; padding: 3px 10px\">DEAL OF THE DAY</span>\n<span style=\"font-weight: 800; font-size: 30px; line-height: 1.15\">Coming soon</span>\n<span style=\"font-size: 15px; line-height: 1.45\">Every safe has been cracked. A new round of Deal of the day safes is coming soon. Subscribe and you will get an email the moment the first one opens.</span>\n<a href=\"https://jarfriends.com/help.html?join=1\" target=\"_top\" style=\"align-self: flex-start; background: #0B1A13; color: #F7F2E6; text-decoration: none; font-weight: 700; padding: 10px 20px; border-radius: 999px\">Subscribe</a>\n</div>\n</sc-if>"
  ]
 ]

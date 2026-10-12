@@ -71,7 +71,7 @@ const esc = (v) => String(v == null ? '' : v).replace(/[&<>"]/g, (c) => ({ '&': 
 const hashOf = (e) => require('crypto').createHash('sha1').update(String(e).toLowerCase()).digest('hex').slice(0, 20);
 async function safes(now, mail) {
   const lib = require('./_lib'), dl = await require('./_offline').deals(await lib.getInventory());
-  const open = ((dl.slots || []).filter((x) => x.state === 'open')[0] || {}).n || 0;
+  const openSlot = (dl.slots || []).filter((x) => x.state === 'open')[0] || {}, open = openSlot.n || 0, openId = openSlot.id || '';
   // One time, asked for by the owner on October 11, 2026: safe 3 was already open when these emails were added,
   // so its email goes out now, once.
   if (open === 3 && !(await store.read('sweep/blast3-go.json'))) {
@@ -80,9 +80,12 @@ async function safes(now, mail) {
   }
   const was = await store.read('sweep/safe.json');
   // The first time this runs it only notes which safe is open. Nothing is sent for a safe that was already open.
-  if (!was) { await store.write('sweep/safe.json', { open: open, pending: 0 }); return; }
+  if (!was) { await store.write('sweep/safe.json', { open: open, id: openId, pending: 0 }); return; }
   let st = was;
-  if (open && open > (was.open || 0)) { st = { open: open, pending: open, at: now }; await store.write('sweep/safe.json', st); }
+  // Notes which piece is in the open safe, the first time, without sending anything for it.
+  if (open && open === was.open && was.id === undefined) { st = Object.assign({}, was, { id: openId }); await store.write('sweep/safe.json', st); }
+  // A new safe opened: the next one in this round, or safe 1 of a brand new round of deals.
+  else if (open && (open !== was.open || (was.id !== undefined && openId !== was.id))) { st = { open: open, id: openId, pending: open, key: 'blast-' + open + '-' + openId, at: now }; await store.write('sweep/safe.json', st); }
   if (!st.pending) return;
   const n = st.pending, total = (dl.slots || []).length || 5, left = total - n;
   const sales = await store.sales(), who = {}, owner = (process.env.OWNER_EMAIL || '').trim().toLowerCase();
@@ -91,15 +94,15 @@ async function safes(now, mail) {
   (await Promise.all(sales.map((x) => store.read(x.path)))).forEach((d) => { const e = String((d && d.email) || '').trim().toLowerCase(); if (/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e) && !(e in who)) who[e] = d.buyer || ''; });
   // And everyone who joined the mailing list (help.html?join=1).
   (await Promise.all((await files('list/')).map((p) => store.read(p)))).forEach((d) => { const e = String((d && d.email) || '').trim().toLowerCase(); if (/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e) && !(e in who)) who[e] = d.name || ''; });
-  const log = (await store.read('sweep/blast-' + n + '.json')) || { done: {} };
+  const logKey = st.key || ('blast-' + n), log = (await store.read('sweep/' + logKey + '.json')) || { done: {} };
   const todo = Object.keys(who).filter((e) => !log.done[hashOf(e)]);
-  if (!todo.length) { await store.write('sweep/safe.json', { open: st.open, pending: 0 }); return; }
+  if (!todo.length) { await store.write('sweep/safe.json', { open: st.open, id: st.id, pending: 0 }); return; }
   const addr = (process.env.RETURN_ADDRESS || '').replace(/\s*\n\s*/g, ', ').trim();
-  const subject = n >= total ? 'The Vault is open at JarFriends' : 'Safe ' + n + ' just unlocked at JarFriends';
+  const subject = n >= total ? 'The Vault is open at JarFriends' : n === 1 ? 'New Deal of the day: safe 1 is open at JarFriends' : 'Safe ' + n + ' just unlocked at JarFriends';
   for (const e of todo.slice(0, 12)) {
     if (await store.read('unsub/' + hashOf(e) + '.json')) { log.done[hashOf(e)] = 1; continue; }
     const stop = HOST + '/api/unsub?t=' + lib.sign({ un: 1, e: e });
-    const l1 = n >= total ? 'Every safe before it has been claimed, so The Vault is open right now.' : 'Safe ' + (n - 1) + ' was just claimed, so safe ' + n + ' is unlocked.';
+    const l1 = n >= total ? 'Every safe before it has been claimed, so The Vault is open right now.' : n === 1 ? 'A new round of Deal of the day safes just started, and safe 1 is open.' : 'Safe ' + (n - 1) + ' was just claimed, so safe ' + n + ' is unlocked.';
     const l2 = n >= total ? 'This is the last and biggest one. Have you seen what is inside?' : 'Have you checked what is inside the new safe?';
     const l3 = n >= total ? '' : 'We are getting closer to The Vault: ' + (left === 1 ? 'it is the very next safe to open.' : left + ' more safes to go before it opens.');
     const lines = [first(who[e]), '', l1, l2].concat(l3 ? ['', l3] : [], ['', 'See it here:', HOST + '/#deal', '', 'You are getting this because you ordered from JarFriends or subscribed.' + (addr ? ' JarFriends, ' + addr + '.' : ''), 'Unsubscribe: ' + stop]);
@@ -116,7 +119,7 @@ async function safes(now, mail) {
     if (out === 'sent' || out === 'duplicate') log.done[hashOf(e)] = 1;
     await new Promise((r) => setTimeout(r, 550));
   }
-  await store.write('sweep/blast-' + n + '.json', log);
+  await store.write('sweep/' + logKey + '.json', log);
 }
 
 // 5. A new piece is on the shop shelf: everyone who has ordered or subscribed gets one email with its picture and
