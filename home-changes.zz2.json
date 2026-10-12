@@ -34,5 +34,9 @@
  [
   "deadline: \"Party pricing ends \" + pt.endsText + \".\",",
   "deadline: (pt.preStart ? \"Opens \" + pt.preStart + \". \" : \"\") + \"Party pricing ends \" + pt.endsText + \".\","
+ ],
+ [
+  "soonName: (pt && pt.name || \"\").replace(/: Party Pricing$/, \"\"), soonText: \"Opens \" + (pt && pt.startsText || \"soon\") + \". The price is revealed the moment it opens.\",",
+  "soonName: \"Something is coming. Doors open soon.\", soonText: \"Opens \" + (pt && pt.startsText || \"soon\") + \". What it is and the price stay a secret until the doors open.\","
  ]
 ]

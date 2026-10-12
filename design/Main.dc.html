@@ -936,7 +936,7 @@ this.setState({ partyDoor: "open" });
 };
 })(),
 join: () => { if (partyPreview && !(livePt && livePt.on && !livePt.upcoming && !livePt.ended)) return; go(paySite + "/order.html?product=" + pt.pid + "&qty=1"); }
-} : { show: false, tiers: [], over: !!(pt && pt.on && pt.ended), soon: !!(pt && pt.on && pt.upcoming), soonName: (pt && pt.name || "").replace(/: Party Pricing$/, ""), soonText: "Opens " + (pt && pt.startsText || "soon") + ". The price is revealed the moment it opens.", setTimer: this.setTimerEl || (this.setTimerEl = (el) => { this.timerEl = el; }), clock: this.clockText(Number(pt && pt.starts) - Date.now()) };
+} : { show: false, tiers: [], over: !!(pt && pt.on && pt.ended), soon: !!(pt && pt.on && pt.upcoming), soonName: "Something is coming. Doors open soon.", soonText: "Opens " + (pt && pt.startsText || "soon") + ". What it is and the price stay a secret until the doors open.", setTimer: this.setTimerEl || (this.setTimerEl = (el) => { this.timerEl = el; }), clock: this.clockText(Number(pt && pt.starts) - Date.now()) };
 const safeLook = {
 sold: { label: "Claimed", bg: "#0B1A13", line: "#244536", dial: "#244536", fg: "#6F8A7B" },
 open: { label: "Open now", bg: "radial-gradient(circle, #5A4A1E, #1A2B23)", line: "#C9A45C", dial: "#C9A45C", fg: "#F7F2E6" },

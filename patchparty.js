@@ -31,7 +31,7 @@ const changes = [
   { id: 'MPARTY2', name: 'Motivated Monster Comic Pack (Issue 05): Party Pricing', price: 29.6, min: 1, stock: 8, shipping: 6.2 },`],
   // Before the opening the party gives away nothing but the time it opens.
   ['api/party.js', R`  const st = await party.state(cents);`, R`  const st = await party.state(cents);
-  if (!(req.query && req.query.settle) && st.upcoming) return res.json({ pid: st.pid, on: st.on, upcoming: true, ended: false, starts: st.starts, startsText: st.startsText, ends: st.ends, endsText: st.endsText, total: st.total, name: p.name });`],
+  if (!(req.query && req.query.settle) && st.upcoming) return res.json({ pid: st.pid, on: st.on, upcoming: true, ended: false, starts: st.starts, startsText: st.startsText, ends: st.ends, endsText: st.endsText, total: st.total });`],
   ['api/party.js', R`    // The party price for an order of this many units.`, R`    out.oneOffText = out.oneOff ? money(cents - each(out.oneOff)) + ' off' : '';
     // The party price for an order of this many units.`]
 ];
