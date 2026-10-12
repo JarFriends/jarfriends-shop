@@ -193,6 +193,18 @@ let once = false;
 async function oneOff() {
   if (once) return;
   once = true;
+  // Asked for by the owner on October 12, 2026: take the freed Jolly Jack-O copy off, so safe 1 counts as claimed
+  // and the next safe opens again. Done once.
+  if (!(await store.read('sweep/jacko-pull.json'))) {
+    const ed = require('./_edits'), p = (await ed.apply(require('./_products'), { all: true })).filter((x) => x.id === 'JACKO')[0];
+    if (p) {
+      let held = 0;
+      try { held = (await require('./_holds').byProduct())['JACKO'] || 0; } catch (e) { held = 0; }
+      const left = Number(p.stock) - ((await store.soldBy())['JACKO'] || 0) - held;
+      if (left > 0) await ed.save('JACKO', { stock: Number(p.stock) - left });
+    }
+    await store.write('sweep/jacko-pull.json', { at: Date.now() });
+  }
   for (const o of ONCE) {
     if (await store.read('sweep/' + o[0] + '.json')) continue;
     if (o[1].indexOf('promo:') === 0) await require('./_offline').savePromo(o[1].slice(6), o[2]);
