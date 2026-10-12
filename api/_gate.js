@@ -53,4 +53,11 @@ function isAdmin(k) {
   const t = verify(String(k || ''));
   return !!(t && t.adm === 1 && t.x > Math.floor(Date.now() / 1000));
 }
-module.exports = { emailOf, isBuyer, gated, paidByEmail, isAdmin };
+// Who may bid: anyone signed in the usual ways, or with a bidder sign-in (email and password, made on the auction page).
+function bidderOf(token) {
+  const e = emailOf(token);
+  if (e) return e;
+  const t = verify(String(token || ''));
+  return t && t.bd === 1 && t.e && t.x > Math.floor(Date.now() / 1000) ? String(t.e).trim().toLowerCase() : '';
+}
+module.exports = { emailOf, isBuyer, gated, paidByEmail, isAdmin, bidderOf };

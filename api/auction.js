@@ -21,7 +21,7 @@ module.exports = async (req, res) => {
   if (req.method === 'GET') {
     const s = await A.state(p);
     const out = Object.assign({ id: p.id, name: p.name }, A.pub(s));
-    const me = gate.emailOf(req.query && req.query.t);
+    const me = gate.bidderOf(req.query && req.query.t);
     if (me) {
       const mine = s.list.filter((x) => x.e === me);
       const pref = (await store.read(prefKey(me))) || {};
@@ -31,7 +31,7 @@ module.exports = async (req, res) => {
     return res.json(out);
   }
   if (req.method !== 'POST') return res.status(405).json({ error: 'Use GET or POST.' });
-  const me = gate.emailOf(b.t);
+  const me = gate.bidderOf(b.t);
   if (!me) return res.status(401).json({ error: 'Sign in with your email to bid.' });
   const s = await A.state(p);
   if (s.ended) return res.status(400).json({ error: 'This auction has ended.' });
