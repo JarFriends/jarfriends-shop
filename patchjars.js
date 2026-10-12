@@ -18,7 +18,17 @@ const changes = [
   ['inject.js', R`  if (f === 'admin.html' && s.indexOf('/admin-carts.js') < 0) s = before(s, f, '<script src="/admin-carts.js" defer></script>');`, R`  if (f === 'admin.html' && s.indexOf('/admin-carts.js') < 0) s = before(s, f, '<script src="/admin-carts.js" defer></script>');
   if (f === 'admin.html' && s.indexOf('/admin-jars.js') < 0) s = before(s, f, '<script src="/admin-jars.js" defer></script>');`],
   ['public/account.html', R`<button type="button" class="ghost" id="out">Sign out</button>`, R`<a class="solid" href="/jars.html" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center">My jars</a>
-    <button type="button" class="ghost" id="out">Sign out</button>`]
+    <button type="button" class="ghost" id="out">Sign out</button>`],
+  // Orders can be sorted: newest, oldest, most expensive, cheapest.
+  ['public/admin.html', R`      <button type="button" class="ghost" id="csv">Download as a spreadsheet</button>`, R`      <label id="sortBox" style="flex:0 1 220px">Sort orders<select id="sortBy"><option value="new">Newest first</option><option value="old">Oldest first</option><option value="high">Most expensive first</option><option value="low">Cheapest first</option></select></label>
+      <button type="button" class="ghost" id="csv">Download as a spreadsheet</button>`],
+  ['public/admin.html', R`    var bo = $('bOrders'), bp = $('bPeople'); bo.textContent = ''; bp.textContent = '';
+    orders.forEach(function (o) {`, R`    var bo = $('bOrders'), bp = $('bPeople'); bo.textContent = ''; bp.textContent = '';
+    $('sortBox').hidden = tab !== 'orders';
+    var sb = $('sortBy').value, amt = function (o) { return Number(String(o.total == null ? '' : o.total).replace(/[^0-9.]/g, '')) || 0; };
+    orders.slice().sort(function (a, b) { return sb === 'old' ? a.at - b.at : sb === 'high' ? amt(b) - amt(a) || b.at - a.at : sb === 'low' ? amt(a) - amt(b) || b.at - a.at : b.at - a.at; }).forEach(function (o) {`],
+  ['public/admin.html', R`  $('tPeople').addEventListener('click', function () { tab = 'people'; draw(); });`, R`  $('tPeople').addEventListener('click', function () { tab = 'people'; draw(); });
+  $('sortBy').addEventListener('change', function () { draw(); });`]
 ];
 const files = {};
 changes.forEach((c) => {
