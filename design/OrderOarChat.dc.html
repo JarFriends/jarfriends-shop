@@ -183,7 +183,7 @@ const st = this.state || {};
 const qtys = st.qtys || {};
 const paySite = "https://collectors-page.vercel.app";
 const money = (cents) => "$" + (cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const PICS = ["MONSTER", "MPARTY", "HARPIK", "ASTRO", "JACKO", "DEAL1", "DEAL2", "DEAL3"];
+const PICS = ["MONSTER", "MPARTY", "MPARTY2", "HARPIK", "ASTRO", "JACKO", "DEAL1", "DEAL2", "DEAL3"];
 const byId = {};
 this.catalog().forEach((c) => { byId[c.id] = c; });
 const card = (id) => {
@@ -201,7 +201,7 @@ this.setState({ qtys: next });
 const stock = sold ? "Sold" : c.stock === null ? "" : c.stock === 1 ? "One of a kind" : c.stock <= 3 ? "Only " + c.stock + " left" : c.stock + " available";
 // A small picture: the one uploaded in the back office, or the shop's own photo of an original piece.
 const raw = ((this.state && this.state.shop) || []).filter((x) => x.id === c.id)[0];
-const pic = (raw && raw.photo) || (PICS.indexOf(c.id) >= 0 ? "https://jarfriends.com/photos/" + (c.id === "MPARTY" ? "MONSTER" : c.id) + ".jpg" : "");
+const pic = (raw && raw.photo) || (PICS.indexOf(c.id) >= 0 ? "https://jarfriends.com/photos/" + (/^MPARTY/.test(c.id) ? "MONSTER" : c.id) + ".jpg" : "");
 return {
 name: c.name, photo: pic, hasPhoto: !!pic,
 price: c.cents === null ? "" : money(c.cents),

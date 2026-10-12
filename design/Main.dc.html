@@ -283,6 +283,18 @@ button{font-family:inherit;cursor:pointer}
 </div>
 </section>
 </sc-if>
+<sc-if value="{{party.soon}}" hint-placeholder-val="{{false}}">
+<section id="party" style="max-width: 1200px; margin: 0 auto; padding: 8px 24px 56px; display: flex; flex-direction: column; gap: 14px">
+<div style="font-family: 'Playfair Display', Georgia, serif; font-style: italic; font-weight: 700; font-size: clamp(32px, 4.5vw, 48px); line-height: 1.1; color: #8FD3AE">JarFriends Party Pricing</div>
+<div style="align-self: flex-start; display: flex; flex-direction: column; gap: 10px; max-width: 560px; padding: 18px 22px; border-radius: 14px; background: #C9A45C; color: #0B1A13">
+<span style="align-self: flex-start; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500; letter-spacing: 0.1em; border: 1px solid #0B1A13; border-radius: 999px; padding: 3px 10px">NEW PARTY OPENS SOON</span>
+<span style="font-weight: 800; font-size: 22px; line-height: 1.25">{{party.soonName}}</span>
+<span ref="{{party.setTimer}}" aria-label="Time until it opens" style="align-self: flex-start; font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 26px; letter-spacing: 0.04em; background: #0B1A13; color: #F7F2E6; padding: 8px 16px; border-radius: 8px; font-variant-numeric: tabular-nums">{{party.clock}}</span>
+<span style="font-size: 15px; line-height: 1.45">{{party.soonText}} The more that sell, the lower it goes for everyone.</span>
+<a href="https://jarfriends.com/help.html?join=1" target="_top" style="align-self: flex-start; background: #0B1A13; color: #F7F2E6; text-decoration: none; font-weight: 700; padding: 10px 20px; border-radius: 999px">Subscribe so you don't miss it</a>
+</div>
+</section>
+</sc-if>
 <sc-if value="{{party.over}}" hint-placeholder-val="{{false}}">
 <section id="party" style="max-width: 1200px; margin: 0 auto; padding: 8px 24px 56px; display: flex; flex-direction: column; gap: 12px">
 <div style="font-family: 'Playfair Display', Georgia, serif; font-style: italic; font-weight: 700; font-size: clamp(32px, 4.5vw, 48px); line-height: 1.1; color: #8FD3AE">JarFriends Party Pricing</div>
@@ -533,7 +545,9 @@ if (j && j.products && j.products.length) this.setState({ shop: j });
 if (!this.setTimerEl) this.setTimerEl = (el) => { this.timerEl = el; };
 this.partyTick = setInterval(() => {
 const pt = this.state && this.state.party;
-if (this.timerEl && pt && pt.ends) this.timerEl.textContent = this.clockText(Number(pt.ends) - Date.now());
+if (this.timerEl && pt && pt.ends) this.timerEl.textContent = this.clockText(Number(pt.upcoming ? pt.starts : pt.ends) - Date.now());
+// At the opening the party is read again, so the price and levels appear.
+if (pt && pt.upcoming && Date.now() >= Number(pt.starts) + 2000 && !this.partyReload) { this.partyReload = true; fetch("https://collectors-page.vercel.app/api/party").then((r) => r.json()).then((j) => { this.partyReload = false; if (j && j.pid) this.setState({ party: j }); }).catch(() => { this.partyReload = false; }); }
 // The open deal's clock, when that deal has an end time. At zero the shop is read again so the next safe shows.
 const sh = this.state && this.state.shop, od = sh && (sh.deals || []).filter((d) => d.state === "open")[0];
 if (od && od.ends) {
@@ -657,21 +671,21 @@ if (vaultPreview && dp && openSlot.n !== 5) Object.assign(deal, { tag: "SAFE 5 /
 // The party: one piece where everyone's price drops as more of it sells.
 const pt = (this.state && this.state.party) || null;
 const usdP = (n) => "$" + Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const partyVals = pt && pt.on && !pt.ended ? {
+const partyVals = pt && pt.on && !pt.ended && !pt.upcoming ? {
 show: true, name: pt.name, tag: "PARTY PRICE / OPEN NOW",
 photo: PHOTOS[pt.pid] || PHOTOS.MONSTER || "", hasPhoto: !!(PHOTOS[pt.pid] || PHOTOS.MONSTER),
-price: usdP(pt.onePrice || pt.price), priceNote: pt.oneOff ? "each right now (" + pt.oneOff + "% off the " + usdP(pt.price) + " listed price). Buy more and it can drop further." : "each right now. The price drops as more sell, and buying several can unlock it straight away.",
-soldText: pt.sold + " of " + pt.total + " sold", backText: pt.off ? pt.off + "% off reached" : "No discount yet",
+price: usdP(pt.onePrice || pt.price), priceNote: pt.oneOff ? "each right now (" + (pt.oneOffText || pt.oneOff + "% off") + " the " + usdP(pt.price) + " listed price). Buy more and it can drop further." : "each right now. The price drops as more sell, and buying several can unlock it straight away.",
+soldText: pt.sold + " of " + pt.total + " sold", backText: pt.off ? (pt.offText || pt.off + "% off") + " reached" : "No discount yet",
 bar: Math.max(3, Math.round(pt.sold / pt.total * 100)) + "%",
-nextText: pt.next ? (pt.next.need - pt.sold) + " more sold and the price is " + pt.next.off + "% off for everyone." : "Top level reached.",
-tiers: pt.tiers.map((t) => ({ off: t.off + "% off", when: t.need === pt.total ? "if all " + pt.total + " sell" : "once " + t.need + " are sold", each: usdP(Number(pt.price) * (100 - t.off) / 100) + " each", line: t.reached ? "#C9A45C" : "#4E7A63", bg: t.reached ? "rgba(201, 164, 92, 0.16)" : "transparent", fg: t.reached ? "#C9A45C" : "#F7F2E6" })),
+nextText: pt.next ? (pt.next.need - pt.sold) + " more sold and the price drops to " + usdP(Math.round(Number(pt.price) * (100 - pt.next.off)) / 100) + " for everyone." : "Top level reached.",
+tiers: pt.tiers.map((t) => ({ off: t.price || t.off + "% off", when: t.need === pt.total ? "if all " + pt.total + " sell" : "once " + t.need + " are sold", each: usdP(Number(pt.price) * (100 - t.off) / 100) + " each", line: t.reached ? "#C9A45C" : "#4E7A63", bg: t.reached ? "rgba(201, 164, 92, 0.16)" : "transparent", fg: t.reached ? "#C9A45C" : "#F7F2E6" })),
 endsText: "Ends " + pt.endsText + ", or sooner if it sells out. " + pt.left + " left.",
 // The deadline, said plainly, with a clock that counts down every second (see componentDidMount).
 deadline: "Party pricing ends " + pt.endsText + ".",
 setTimer: this.setTimerEl || (this.setTimerEl = (el) => { this.timerEl = el; }), clock: this.clockText(Number(pt.ends) - Date.now()),
 cta: "Join the party",
 join: () => go(paySite + "/order.html?product=" + pt.pid + "&qty=1")
-} : { show: false, tiers: [], over: !!(pt && pt.on && pt.ended) };
+} : { show: false, tiers: [], over: !!(pt && pt.on && pt.ended), soon: !!(pt && pt.on && pt.upcoming), soonName: (pt && pt.name || "").replace(/: Party Pricing$/, ""), soonText: "Opens " + (pt && pt.startsText || "soon") + ". The price is revealed the moment it opens.", setTimer: this.setTimerEl || (this.setTimerEl = (el) => { this.timerEl = el; }), clock: this.clockText(Number(pt && pt.starts) - Date.now()) };
 const safeLook = {
 sold: { label: "Claimed", bg: "#0B1A13", line: "#244536", dial: "#244536", fg: "#6F8A7B" },
 open: { label: "Open now", bg: "radial-gradient(circle, #5A4A1E, #1A2B23)", line: "#C9A45C", dial: "#C9A45C", fg: "#F7F2E6" },

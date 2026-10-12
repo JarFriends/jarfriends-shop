@@ -57,7 +57,7 @@ fs.writeFileSync(f, fs.readFileSync(f, 'utf8') + `
       const rate = await ethUsd(), send = res.json.bind(res);
       res.json = (body) => {
         // Every comic says it ships sealed, whatever else its description says.
-        try { if (body && Array.isArray(body.products)) body.products.forEach((p) => { if (((p.sections || []).indexOf('Comics') >= 0 || p.id === 'MPARTY') && !/sealed/i.test(p.desc || '')) p.desc = ((p.desc || '').trim() + ' Ships sealed.').trim(); }); } catch (e) { /* the list goes out without it */ }
+        try { if (body && Array.isArray(body.products)) body.products.forEach((p) => { if (((p.sections || []).indexOf('Comics') >= 0 || /^MPARTY/.test(p.id)) && !/sealed/i.test(p.desc || '')) p.desc = ((p.desc || '').trim() + ' Ships sealed.').trim(); }); } catch (e) { /* the list goes out without it */ }
         try { if (rate > 0 && body && Array.isArray(body.products)) body.products.forEach((p) => { if (p.nft) { const e = Number(p.price) / rate; p.eth = e.toFixed(e < 0.1 ? 3 : 2); } }); } catch (e) { /* the list goes out without it */ }
         return send(body);
       };

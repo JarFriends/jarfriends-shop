@@ -38,7 +38,7 @@
       for (var i = 1; i <= p.left; i++) {
         var o = document.createElement('option'), f = offFor(i);
         o.value = i;
-        o.textContent = i + (f ? ': ' + f + '% off, ' + usd(Number(p.price) * (100 - f) / 100) + ' each' : ': no discount yet, ' + usd(p.price) + ' each');
+        o.textContent = i + (f ? ': ' + usd(Number(p.price) * f / 100) + ' off, ' + usd(Number(p.price) * (100 - f) / 100) + ' each' : ': no discount yet, ' + usd(p.price) + ' each');
         pick.appendChild(o);
       }
       pick.addEventListener('change', function () { reload(Number(pick.value)); });
@@ -67,13 +67,13 @@
         if (String(q) !== shown && document.activeElement !== pick) { shown = String(q); pick.value = String(Math.min(q, p.left)); }
         if (locked) {
           // Checkout is already at the party price.
-          if (lead) lead.textContent = 'Party price: ' + off + '% off is taken off below.';
-          lab.textContent = 'Listed at ' + usd(p.price) + ' each. Party price ' + off + '% off, already taken off';
+          if (lead) lead.textContent = 'Party price: ' + usd(Number(p.price) * off / 100) + ' off each is taken off below.';
+          lab.textContent = 'Listed at ' + usd(p.price) + ' each. Party price ' + usd(Number(p.price) * (100 - off) / 100) + ' each, already taken off';
           val.textContent = 'You save ' + usd(Number(p.price) * q * off / 100);
           return;
         }
         lab.textContent = 'Party price';
-        val.textContent = off ? off + '% off' : 'No discount yet at this quantity';
+        val.textContent = off ? usd(Number(p.price) * off / 100) + ' off each' : 'No discount yet at this quantity';
         // Arrived at a quantity that earns a discount without the party price applied: apply it. Tried once per page.
         if (off && q <= p.left && (!sent || !qs.get('offer'))) reload(q);
       }, 300);

@@ -19,6 +19,10 @@ const changes = [
   if (f === 'admin.html' && s.indexOf('/admin-jars.js') < 0) s = before(s, f, '<script src="/admin-jars.js" defer></script>');`],
   ['public/account.html', R`<button type="button" class="ghost" id="out">Sign out</button>`, R`<a class="solid" href="/jars.html" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center">My jars</a>
     <button type="button" class="ghost" id="out">Sign out</button>`],
+  // The party piece is off the product list and cannot be ordered before the party opens.
+  ['api/order.js', R`      const pty = require('./_party'), over = (await pty.state(0)).ended;`, R`      const pty = require('./_party'), over = (await pty.state(0)).ended || Date.now() < pty.PARTY.starts;`],
+  ['api/order.js', R`  if (p.id === require('./_party').PARTY.pid && (await require('./_party').state(0)).ended) return`, R`  if (p.id === require('./_party').PARTY.pid && Date.now() < require('./_party').PARTY.starts) return res.status(400).json({ error: 'Party pricing opens ' + require('./_party').PARTY.startsText + '. Come back then.' });
+  if (p.id === require('./_party').PARTY.pid && (await require('./_party').state(0)).ended) return`],
   // Orders can be sorted: newest, oldest, most expensive, cheapest.
   ['public/admin.html', R`      <button type="button" class="ghost" id="csv">Download as a spreadsheet</button>`, R`      <label id="sortBox" style="flex:0 1 220px">Sort orders<select id="sortBy"><option value="new">Newest first</option><option value="old">Oldest first</option><option value="high">Most expensive first</option><option value="low">Cheapest first</option></select></label>
       <button type="button" class="ghost" id="csv">Download as a spreadsheet</button>`],
