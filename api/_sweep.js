@@ -164,24 +164,25 @@ async function arrivals(now, mail) {
   if (!todo.length) { st.batch = null; await store.write('sweep/known.json', st); return; }
   const addr = (process.env.RETURN_ADDRESS || '').replace(/\s*\n\s*/g, ', ').trim();
   const subject = items.length === 1 ? 'New at JarFriends: ' + items[0].name : items.length + ' new pieces at JarFriends';
-  const cost = (p) => '$' + p.price + (p.eth ? ' (about ' + p.eth + ' ETH)' : '') + (p.nft ? '' : Number(p.ship) > 0 ? ' + $' + p.ship + ' shipping' : ', free shipping');
+  const cost = (p) => (p.auction ? 'Auction: bidding starts at $' + p.auction.start + ', ends ' + new Date(p.auction.ends).toLocaleString('en-US', { timeZone: 'America/Chicago', weekday: 'long', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) + ' Central' : '$' + p.price + (p.eth ? ' (about ' + p.eth + ' ETH)' : '')) + (p.nft ? '' : Number(p.ship) > 0 ? ' + $' + p.ship + ' shipping' : ', free shipping');
+  const linkOf = (p) => p.auction ? HOST + '/auction.html?id=' + encodeURIComponent(p.id) : HOST + '/order.html?product=' + encodeURIComponent(p.id);
   const tip = 'Pay with crypto and take 1% off. There is no wallet to connect and nothing to sign: you just send the payment to the address shown.';
   for (const e of todo.slice(0, 12)) {
     if (await gone(e)) { log.done[hashOf(e)] = 1; continue; }
     const stop = HOST + '/api/unsub?t=' + lib.sign({ un: 1, e: e });
     const lines = [first(who[e]), '', items.length === 1 ? 'A new piece just landed in the shop:' : 'New pieces just landed in the shop:', ''];
-    items.forEach((p) => { lines.push(p.name, cost(p), HOST + '/order.html?product=' + encodeURIComponent(p.id), ''); });
+    items.forEach((p) => { lines.push(p.name, cost(p), linkOf(p), ''); });
     lines.push(tip, '', 'You are getting this because you ordered from JarFriends or subscribed.' + (addr ? ' JarFriends, ' + addr + '.' : ''), 'Unsubscribe: ' + stop);
     const html = '<div style="background:#0B1712;padding:28px 16px;font-family:Arial,Helvetica,sans-serif;color:#E6EFE9"><div style="max-width:520px;margin:0 auto">' +
       '<div style="font-size:13px;letter-spacing:2px;color:#C9A45C">NEW IN THE SHOP</div>' +
       '<h1 style="font-size:26px;margin:8px 0 14px;color:#8FD3AE">' + (items.length === 1 ? 'A new piece just landed' : 'New pieces just landed') + '</h1>' +
       '<p style="font-size:16px;line-height:1.5;margin:0 0 16px">' + esc(first(who[e])) + '</p>' +
-      items.map((p) => { const link = HOST + '/order.html?product=' + encodeURIComponent(p.id); return '<div style="border:1px solid #2C4A3B;border-radius:10px;padding:16px;margin:0 0 16px">' +
+      items.map((p) => { const link = linkOf(p); return '<div style="border:1px solid #2C4A3B;border-radius:10px;padding:16px;margin:0 0 16px">' +
         (p.photo ? '<a href="' + link + '"><img src="' + esc(p.photo) + '" alt="' + esc(p.name) + '" width="480" style="max-width:100%;height:auto;border:0;border-radius:8px;display:block;margin:0 0 12px"></a>' : '') +
         '<div style="font-size:18px;font-weight:bold;line-height:1.35">' + esc(p.name) + '</div>' +
         '<div style="font-size:22px;font-weight:bold;color:#C9A45C;margin:8px 0 4px">' + esc(cost(p)) + '</div>' +
         (p.desc ? '<div style="font-size:14px;line-height:1.5;color:#B9CCC0;margin:6px 0 0">' + esc(p.desc) + '</div>' : '') +
-        '<p style="margin:14px 0 0"><a href="' + link + '" style="background:#C9A45C;color:#0B1712;text-decoration:none;font-weight:bold;padding:11px 20px;border-radius:24px;display:inline-block">Get it</a></p></div>'; }).join('') +
+        '<p style="margin:14px 0 0"><a href="' + link + '" style="background:#C9A45C;color:#0B1712;text-decoration:none;font-weight:bold;padding:11px 20px;border-radius:24px;display:inline-block">' + (p.auction ? 'Bid now' : 'Get it') + '</a></p></div>'; }).join('') +
       '<p style="font-size:15px;line-height:1.5;margin:0 0 10px;background:#12261D;border-radius:8px;padding:12px 14px">' + esc(tip) + '</p>' +
       '<p style="font-size:12px;line-height:1.5;color:#8FA89A;margin:22px 0 0">You are getting this because you ordered from JarFriends or subscribed.' + (addr ? ' JarFriends, ' + esc(addr) + '.' : '') + ' <a href="' + stop + '" style="color:#8FA89A">Unsubscribe</a></p></div></div>';
     const out = await mail(e, subject, lines, st.batch.key + '-' + hashOf(e), html).catch(() => 'failed');
@@ -235,7 +236,7 @@ async function repriced(now, mail, opt) {
   const hold = opt && opt.hold !== undefined ? opt.hold : 0, max = (opt && opt.max) || 12;
   const lib = require('./_lib');
   const r = await fetch(HOST + '/api/order', { signal: AbortSignal.timeout(8000), headers: { 'cache-control': 'no-store' } });
-  const shop = ((await r.json()).products || []).filter((p) => p && p.id && !p.locked && !/^MPARTY/.test(p.id));
+  const shop = ((await r.json()).products || []).filter((p) => p && p.id && !p.locked && !p.auction && !/^MPARTY/.test(p.id));
   if (!shop.length) return;
   let st = await store.read('sweep/prices.json');
   // The first time, today's prices are noted. Nothing is sent for them.
@@ -298,6 +299,51 @@ async function repriced(now, mail, opt) {
   await store.write('sweep/' + st.batch.key + '.json', log);
 }
 
+// 8. Auctions (see _auction.js). Under an hour left: every bidder hears it is ending. Once it ends: the winner gets a
+// link to pay their bid within 24 hours (the owner gets a copy). Not paid in 24 hours: the next-highest bidder is
+// offered it at their own bid, up to two times.
+async function auctions(now, mail) {
+  const A = require('./_auction'), lib = require('./_lib');
+  const box = (title, body, link, btn) => '<div style="background:#0B1712;padding:28px 16px;font-family:Arial,Helvetica,sans-serif;color:#E6EFE9"><div style="max-width:520px;margin:0 auto"><div style="font-size:13px;letter-spacing:2px;color:#C9A45C">AUCTION</div><h1 style="font-size:24px;margin:8px 0 14px;color:#8FD3AE">' + esc(title) + '</h1>' + body.map((t) => '<p style="font-size:16px;line-height:1.5;margin:0 0 10px">' + esc(t) + '</p>').join('') + '<p style="margin:18px 0"><a href="' + link + '" style="background:#C9A45C;color:#0B1712;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:24px;display:inline-block">' + esc(btn) + '</a></p></div></div>';
+  const owner = (process.env.OWNER_EMAIL || '').trim();
+  for (const p of await A.list()) {
+    const s = await A.state(p), st = Object.assign({}, s.st), page = HOST + '/auction.html?id=' + encodeURIComponent(p.id);
+    let changed = false;
+    if (!s.ended && s.count && s.ends - now < 3600000 && !st.soonSent) {
+      st.soonSent = now; changed = true;
+      for (const e of Array.from(new Set(s.list.map((b) => b.e)))) {
+        const lead = s.top && s.top.e === e;
+        const body = [p.name + ' ends in under an hour. The top bid is $' + A.usd(s.current) + (lead ? ', and it is yours.' : '.'), lead ? 'Keep an eye on it: a late bid could still beat you.' : 'There is still time to win it.'];
+        await mail(e, 'Ending soon: ' + p.name, body.concat(['', page]), 'auc-soon-' + p.id + '-' + hashOf(e), box('Ending in under an hour', body, page, lead ? 'Watch the auction' : 'Bid now')).catch(() => null);
+      }
+    }
+    if (s.ended && !st.closed) {
+      st.closed = now; st.offered = []; changed = true;
+      if (!s.top) {
+        if (owner) await mail(owner, 'Auction ended with no bids: ' + p.name, ['The auction for ' + p.name + ' ended with no bids.'], 'auc-none-' + p.id).catch(() => null);
+      } else {
+        st.offered.push({ e: s.top.e, amt: s.top.amt, at: now });
+        await offerTo(p, s.top, now, true);
+      }
+    } else if (st.closed && st.offered && st.offered.length && st.offered.length < 3) {
+      const last = st.offered[st.offered.length - 1];
+      if (now - last.at > 24 * 3600000 && !(await store.sales()).some((x) => x.pid === p.id)) {
+        const taken = st.offered.map((o) => o.e), next = s.list.filter((b) => taken.indexOf(b.e) < 0)[0];
+        if (next) { st.offered.push({ e: next.e, amt: next.amt, at: now }); changed = true; await offerTo(p, next, now, false); }
+        else if (!st.noneLeft) { st.noneLeft = now; changed = true; if (owner) await mail(owner, 'Auction winner did not pay: ' + p.name, ['Nobody paid for ' + p.name + ' after the auction, and there are no more bidders to offer it to.'], 'auc-left-' + p.id).catch(() => null); }
+      }
+    }
+    if (changed) await store.write('auction/' + p.id + '/state.json', st);
+  }
+  async function offerTo(p, bid, at, first) {
+    const pay = HOST + '/order.html?offer=' + lib.sign({ oa: 1, n: 'AUC-' + p.id, pid: p.id, q: 1, c: bid.amt, x: Math.floor(at / 1000) + 24 * 3600 });
+    const body = first ? ['You won the auction for ' + p.name + ' with your bid of $' + A.usd(bid.amt) + '.', 'Pay within 24 hours to claim it. If it is not paid in time, it goes to the next bidder.']
+      : ['Good news: the winner of the auction for ' + p.name + ' did not pay, so it is yours for your bid of $' + A.usd(bid.amt) + '.', 'Pay within 24 hours to claim it.'];
+    await mail(bid.e, (first ? 'You won: ' : 'It is yours: ') + p.name, body.concat(['', 'Pay here:', pay]), 'auc-win-' + p.id + '-' + hashOf(bid.e), box(first ? 'You won the auction' : 'It is yours', body, pay, 'Pay $' + A.usd(bid.amt))).catch(() => null);
+    if (owner) await mail(owner, (first ? 'Auction won: ' : 'Auction passed to next bidder: ') + p.name, [p.name + ' went to ' + bid.e + ' for $' + A.usd(bid.amt) + '. They have 24 hours to pay. It shows in the back office once they order.'], 'auc-own-' + p.id + '-' + hashOf(bid.e)).catch(() => null);
+  }
+}
+
 async function run() {
   const now = Date.now();
   if (process.env.VERCEL_ENV === 'production' && store.on()) await oneOff().catch((e) => { once = false; console.error('ONEOFF_FAIL', String(e && e.message || e)); });
@@ -313,6 +359,7 @@ async function run() {
   await safes(now, mail).catch((e) => console.error('SWEEP_SAFES_FAIL', String(e && e.message || e)));
   await arrivals(now, mail).catch((e) => console.error('SWEEP_ARRIVALS_FAIL', String(e && e.message || e)));
   await repriced(now, mail).catch((e) => console.error('SWEEP_PRICES_FAIL', String(e && e.message || e)));
+  await auctions(now, mail).catch((e) => console.error('SWEEP_AUCTIONS_FAIL', String(e && e.message || e)));
 }
 // Called by the back office the moment a lower price is saved.
 async function dropNow() { await repriced(Date.now(), require('./_lib').mail, { hold: 0, max: 40 }); }

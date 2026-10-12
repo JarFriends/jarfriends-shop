@@ -50,5 +50,29 @@
  [
   "<sc-if value=\"{{allClaimed}}\" hint-placeholder-val=\"{{false}}\">\n<p style=\"margin: 0; font-size: 18px; color: #D6E2DA\">Every safe has been cracked. New deals are on the way.</p>\n</sc-if>",
   "<sc-if value=\"{{allClaimed}}\" hint-placeholder-val=\"{{false}}\">\n<div style=\"align-self: flex-start; display: flex; flex-direction: column; gap: 10px; max-width: 560px; padding: 18px 22px; border-radius: 14px; background: #C9A45C; color: #0B1A13\">\n<span style=\"align-self: flex-start; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500; letter-spacing: 0.1em; border: 1px solid #0B1A13; border-radius: 999px; padding: 3px 10px\">DEAL OF THE DAY</span>\n<span style=\"font-weight: 800; font-size: 30px; line-height: 1.15\">Coming soon</span>\n<span style=\"font-size: 15px; line-height: 1.45\">Every safe has been cracked. A new round of Deal of the day safes is coming soon. Subscribe and you will get an email the moment the first one opens.</span>\n<a href=\"https://jarfriends.com/help.html?join=1\" target=\"_top\" style=\"align-self: flex-start; background: #0B1A13; color: #F7F2E6; text-decoration: none; font-weight: 700; padding: 10px 20px; border-radius: 999px\">Subscribe</a>\n</div>\n</sc-if>"
+ ],
+ [
+  "locked: !!x.locked, eth:",
+  "locked: !!x.locked, auction: x.auction || null, eth:"
+ ],
+ [
+  "p.hint = sold ? (c.locked ? \"Coming soon\" : \"Sold\") : s === \"limited\" ? (c.stock === 1 ? \"One of a kind\" : \"Few left\") : p.isOpen ? \"Close\" : \"Details\";",
+  "p.hint = sold ? (c.locked ? \"Coming soon\" : \"Sold\") : s === \"limited\" ? (c.stock === 1 ? \"One of a kind\" : \"Few left\") : p.isOpen ? \"Close\" : \"Details\";\n// An auction shows its current bid in place of a price, and its button goes to the auction page.\nif (c.auction) { p.price = c.auction.bids ? (c.auction.ended ? \"Won at $\" : \"Current bid $\") + c.auction.current : c.auction.ended ? \"Auction ended\" : \"Starting bid $\" + c.auction.current; p.stockText = c.auction.ended ? \"Auction ended\" : \"Auction\"; p.hint = c.auction.ended ? \"Ended\" : p.isOpen ? \"Close\" : \"Auction\"; }"
+ ],
+ [
+  "p.orderUrl = c.locked ? paySite + \"/safe.html?product=\" + c.id : paySite + \"/order.html?product=\" + c.id + \"&qty=\" + q;",
+  "p.orderUrl = c.locked ? paySite + \"/safe.html?product=\" + c.id : paySite + \"/order.html?product=\" + c.id + \"&qty=\" + q;\nif (c.auction) { p.orderUrl = paySite + \"/auction.html?id=\" + c.id; p.total = (c.auction.ended ? \"Auction ended\" : c.auction.bids ? c.auction.bids + (c.auction.bids === 1 ? \" bid\" : \" bids\") + \", current bid $\" + c.auction.current : \"No bids yet, starting bid $\" + c.auction.current) + \". \" + (c.auction.ended ? \"Ended \" : \"Ends \") + new Date(c.auction.ends).toLocaleString(\"en-US\", { weekday: \"short\", month: \"short\", day: \"numeric\", hour: \"numeric\", minute: \"2-digit\" }); p.note = \"Free to bid. The winner pays within 24 hours.\"; }\np.buyText = c.auction ? (c.auction.ended ? \"See the result\" : \"Place a bid\") : \"Check out\"; p.canOffer = !c.auction; p.canQty = !c.auction;"
+ ],
+ [
+  "<label style=\"flex: 1 1 90px; min-width: 0; display: flex; flex-direction: column; gap: 6px; font-size: 14px; color: #A8BFB1\">How many?",
+  "<sc-if value=\"{{p.canQty}}\" hint-placeholder-val=\"{{true}}\">\n<label style=\"flex: 1 1 90px; min-width: 0; display: flex; flex-direction: column; gap: 6px; font-size: 14px; color: #A8BFB1\">How many?"
+ ],
+ [
+  "</label>\n<button type=\"button\" sc-camel-on-click=\"{{p.order}}\" style=\"flex: 2 1 150px; font-family: inherit; font-size: 17px; cursor: pointer; text-align: center; border: 0; background: #C9A45C; color: #0B1A13; font-weight: 700; padding: 13px 14px; border-radius: 999px\">Check out</button>\n<button type=\"button\" sc-camel-on-click=\"{{p.offer}}\"",
+  "</label>\n</sc-if>\n<button type=\"button\" sc-camel-on-click=\"{{p.order}}\" style=\"flex: 2 1 150px; font-family: inherit; font-size: 17px; cursor: pointer; text-align: center; border: 0; background: #C9A45C; color: #0B1A13; font-weight: 700; padding: 13px 14px; border-radius: 999px\">{{p.buyText}}</button>\n<sc-if value=\"{{p.canOffer}}\" hint-placeholder-val=\"{{true}}\">\n<button type=\"button\" sc-camel-on-click=\"{{p.offer}}\""
+ ],
+ [
+  "padding: 12px 14px; border-radius: 999px\">Make an offer</button>\n",
+  "padding: 12px 14px; border-radius: 999px\">Make an offer</button>\n</sc-if>\n"
  ]
 ]

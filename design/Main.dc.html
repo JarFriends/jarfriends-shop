@@ -538,11 +538,15 @@ button{font-family:inherit;cursor:pointer}
 <sc-if value="{{p.canOrder}}" hint-placeholder-val="{{true}}">
 <div style="display: flex; flex-direction: column; gap: 10px">
 <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end">
+<sc-if value="{{p.canQty}}" hint-placeholder-val="{{true}}">
 <label style="flex: 1 1 90px; min-width: 0; display: flex; flex-direction: column; gap: 6px; font-size: 14px; color: #A8BFB1">How many?
 <input type="number" min="1" max="{{p.maxQty}}" step="1" inputMode="numeric" value="{{p.qty}}" onChange="{{p.setQty}}" style="width: 100%; box-sizing: border-box; font-family: 'Archivo', system-ui, sans-serif; font-size: 17px; letter-spacing: 0; padding: 11px 14px; background: #11261C; border: 1px solid #4E7A63; color: #F7F2E6; border-radius: 12px">
 </label>
-<button type="button" onClick="{{p.order}}" style="flex: 2 1 150px; font-family: inherit; font-size: 17px; cursor: pointer; text-align: center; border: 0; background: #C9A45C; color: #0B1A13; font-weight: 700; padding: 13px 14px; border-radius: 999px">Check out</button>
+</sc-if>
+<button type="button" onClick="{{p.order}}" style="flex: 2 1 150px; font-family: inherit; font-size: 17px; cursor: pointer; text-align: center; border: 0; background: #C9A45C; color: #0B1A13; font-weight: 700; padding: 13px 14px; border-radius: 999px">{{p.buyText}}</button>
+<sc-if value="{{p.canOffer}}" hint-placeholder-val="{{true}}">
 <button type="button" onClick="{{p.offer}}" style="flex: 1 1 100%; font-family: inherit; font-size: 17px; cursor: pointer; text-align: center; border: 1px solid #C9A45C; background: transparent; color: #F7F2E6; font-weight: 700; padding: 12px 14px; border-radius: 999px">Make an offer</button>
+</sc-if>
 </div>
 <div style="font-size: 14px; color: #D6E2DA">{{p.total}}. {{p.note}}</div>
 </div>
@@ -803,7 +807,7 @@ next: { badge: "Next release [DATE]", badgeBg: "#0B1A13", badgeFg: "#D6E2DA", ba
 };
 const paySite = "https://collectors-page.vercel.app";
 const shop = this.state && this.state.shop;
-const catalog = shop ? shop.products.map((x) => ({ id: x.id, name: x.name, cents: Math.round(Number(x.price) * 100), min: x.min, stock: x.stock, sections: x.sections || [], deal: !!x.deal, nft: !!x.nft, locked: !!x.locked, eth: x.eth || "", ship: x.ship, desc: x.desc || "", shelf: x.shelf, photo: x.photo || "" })) : [["A", 1], ["B", 1], ["C", 1], ["D", 1], ["E", 1], ["F", 1]].map((x) => ({ id: x[0], name: "Sample Piece " + x[0], cents: 10, min: x[1], stock: null, sections: [] }));
+const catalog = shop ? shop.products.map((x) => ({ id: x.id, name: x.name, cents: Math.round(Number(x.price) * 100), min: x.min, stock: x.stock, sections: x.sections || [], deal: !!x.deal, nft: !!x.nft, locked: !!x.locked, auction: x.auction || null, eth: x.eth || "", ship: x.ship, desc: x.desc || "", shelf: x.shelf, photo: x.photo || "" })) : [["A", 1], ["B", 1], ["C", 1], ["D", 1], ["E", 1], ["F", 1]].map((x) => ({ id: x[0], name: "Sample Piece " + x[0], cents: 10, min: x[1], stock: null, sections: [] }));
 const note = shop && shop.note ? shop.note : "You choose how to pay on the next screen.";
 const qtys = (this.state && this.state.qtys) || {};
 const open = (this.state && this.state.open) || "";
@@ -826,6 +830,8 @@ p.photo = c.photo || PHOTOS[c.id] || "";
 p.hasPhoto = !!p.photo; p.noPhoto = !p.photo;
 p.photoH = p.isOpen ? "340px" : narrow ? "150px" : "190px";
 p.hint = sold ? (c.locked ? "Coming soon" : "Sold") : s === "limited" ? (c.stock === 1 ? "One of a kind" : "Few left") : p.isOpen ? "Close" : "Details";
+// An auction shows its current bid in place of a price, and its button goes to the auction page.
+if (c.auction) { p.price = c.auction.bids ? (c.auction.ended ? "Won at $" : "Current bid $") + c.auction.current : c.auction.ended ? "Auction ended" : "Starting bid $" + c.auction.current; p.stockText = c.auction.ended ? "Auction ended" : "Auction"; p.hint = c.auction.ended ? "Ended" : p.isOpen ? "Close" : "Auction"; }
 if (!sold) {
 const raw = qtys[c.id];
 let q = Math.max(c.min, Math.floor(Number(raw)) || c.min);
@@ -840,6 +846,8 @@ this.setState({ qtys: Object.assign({}, qtys, { [c.id]: c.stock !== null && n > 
 p.total = c.locked ? "Customer Loyalty product: returning customers open the safe to see what is inside." : q + (q === 1 ? " piece: $" : " pieces: $") + (c.cents * q / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 p.note = note;
 p.orderUrl = c.locked ? paySite + "/safe.html?product=" + c.id : paySite + "/order.html?product=" + c.id + "&qty=" + q;
+if (c.auction) { p.orderUrl = paySite + "/auction.html?id=" + c.id; p.total = (c.auction.ended ? "Auction ended" : c.auction.bids ? c.auction.bids + (c.auction.bids === 1 ? " bid" : " bids") + ", current bid $" + c.auction.current : "No bids yet, starting bid $" + c.auction.current) + ". " + (c.auction.ended ? "Ended " : "Ends ") + new Date(c.auction.ends).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); p.note = "Free to bid. The winner pays within 24 hours."; }
+p.buyText = c.auction ? (c.auction.ended ? "See the result" : "Place a bid") : "Check out"; p.canOffer = !c.auction; p.canQty = !c.auction;
 p.offer = () => ((url) => {
 let w = null;
 try { w = window.open(url, "_blank"); } catch (e) { w = null; }

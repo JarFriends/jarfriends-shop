@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Auction</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&family=IBM+Plex+Mono:wght@400;500&family=Playfair+Display:wght@600;700;800&display=swap">
+<link rel="stylesheet" href="/site.css">
+<style>
+[hidden]{display:none!important}
+.wrapA{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:28px;align-items:start}
+@media (max-width:760px){.wrapA{grid-template-columns:1fr}}
+.pic{width:100%;border-radius:12px;display:block;box-shadow:0 18px 40px rgba(0,0,0,.5)}
+.big{font-weight:900;font-size:40px;line-height:1.05;color:#C9A45C}
+.clock{font-family:'IBM Plex Mono',monospace;font-size:24px;letter-spacing:.04em;background:#0B1A13;color:#F7F2E6;padding:8px 14px;border-radius:8px;display:inline-block;font-variant-numeric:tabular-nums}
+.box{display:flex;flex-direction:column;gap:14px}
+.bidrow{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.bidrow label{flex:1 1 160px}
+.hist{display:flex;flex-direction:column;gap:6px;font-size:14px}
+.hist div{display:flex;justify-content:space-between;gap:10px;border-top:1px solid rgba(255,255,255,.08);padding-top:6px}
+.tag{align-self:flex-start;font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.12em;border:1px solid #C9A45C;color:#C9A45C;border-radius:999px;padding:3px 10px}
+.win{background:#C9A45C;color:#0B1A13;border-radius:12px;padding:14px 16px;font-weight:700}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap bar"><a class="brand" href="/" style="text-decoration:none">JarFriends</a><span style="display:flex;align-items:center;gap:20px"><span class="mono dim">AUCTION</span><a class="home" href="/">Home</a></span></div></header>
+<main class="wrap page">
+  <div class="wrapA">
+    <div class="box">
+      <img class="pic" id="pic" alt="" hidden>
+      <div class="small" id="desc"></div>
+    </div>
+    <div class="box">
+      <span class="tag" id="tag">AUCTION</span>
+      <h1 id="name" style="margin:0;font-size:clamp(24px,3vw,34px);line-height:1.15">Loading the auction...</h1>
+      <div><div class="small dim" id="curLabel">Current bid</div><div class="big" id="cur">-</div><div class="small" id="count"></div></div>
+      <div><div class="small dim" id="clockLabel">Time left</div><span class="clock" id="clock">-</span></div>
+      <div class="small" id="ship"></div>
+      <div class="win" id="status" hidden></div>
+      <form id="bidForm" class="box" hidden>
+        <div class="bidrow">
+          <label>Your bid, in USD<input id="amount" type="number" inputmode="decimal" step="0.01" min="0.01" required></label>
+          <button class="solid" type="submit" id="bidGo">Place bid</button>
+        </div>
+        <div class="small" id="minNote"></div>
+        <div class="small" id="bidMsg" role="status"></div>
+      </form>
+      <form id="signForm" class="box" hidden>
+        <div class="small">Sign in to bid. Enter your email and we will send you a link that brings you right back here.</div>
+        <div class="bidrow">
+          <label>Your email<input id="mailIn" type="email" required autocomplete="email" placeholder="you@example.com"></label>
+          <button class="solid" type="submit" id="mailGo">Email me a link</button>
+        </div>
+        <div class="small" id="mailMsg" role="status"></div>
+      </form>
+      <div class="small dim">How it works: the highest bid when the clock runs out wins. A bid in the last 2 minutes adds 2 more minutes. The winner gets an email with a link to pay within 24 hours; if it is not paid, it goes to the next bidder.</div>
+      <div>
+        <div class="mono gold" style="font-size:12px;letter-spacing:.12em;margin-bottom:6px">BIDS</div>
+        <div class="hist" id="hist"><span class="small dim">No bids yet. Be the first.</span></div>
+      </div>
+    </div>
+  </div>
+</main>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var id = new URLSearchParams(location.search).get('id') || '', tok = '', A = null;
+  try { tok = localStorage.getItem('acct_token') || ''; } catch (e) { tok = ''; }
+  var clockText = function (ms) {
+    if (ms <= 0) return '0d 00h 00m 00s';
+    var s = Math.floor(ms / 1000), d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60), x = s % 60;
+    var p = function (n) { return (n < 10 ? '0' : '') + n; };
+    return d + 'd ' + p(h) + 'h ' + p(m) + 'm ' + p(x) + 's';
+  };
+  var when = function (t) { return new Date(t).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); };
+  // The piece itself (name, picture, description, shipping) comes from the shop's list.
+  fetch('/api/order', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (j) {
+    var p = (j.products || []).filter(function (x) { return x.id === id; })[0];
+    if (!p) return;
+    document.title = 'Auction: ' + p.name.replace(/^Auction:\s*/, '');
+    if (p.photo) { $('pic').src = p.photo; $('pic').alt = p.name; $('pic').hidden = false; }
+    $('desc').textContent = p.desc || '';
+    $('ship').textContent = Number(p.ship) > 0 ? 'Shipping $' + p.ship + '.' : 'Free shipping.';
+  }).catch(function () {});
+  function draw(a) {
+    A = a;
+    $('name').textContent = String(a.name || '').replace(/^Auction:\s*/, '');
+    $('cur').textContent = '$' + a.current;
+    $('curLabel').textContent = a.bids ? (a.ended ? 'Winning bid' : 'Current bid') : (a.ended ? 'No bids' : 'Starting bid');
+    $('count').textContent = a.bids ? a.bids + (a.bids === 1 ? ' bid' : ' bids') + ' from ' + a.bidders + (a.bidders === 1 ? ' person' : ' people') + (a.leader ? ' · top bidder ' + a.leader : '') : '';
+    $('clockLabel').textContent = a.ended ? 'Ended ' + when(a.ends) : 'Ends ' + when(a.ends);
+    var hist = $('hist'); hist.textContent = '';
+    if (!a.history || !a.history.length) { var e = document.createElement('span'); e.className = 'small dim'; e.textContent = a.ended ? 'No bids were placed.' : 'No bids yet. Be the first.'; hist.appendChild(e); }
+    (a.history || []).forEach(function (b, i) {
+      var row = document.createElement('div');
+      var l = document.createElement('span'); l.textContent = (i === 0 ? (a.ended ? 'Winner ' : 'Top ') : '') + b.who + ' · ' + when(b.at);
+      var r = document.createElement('b'); r.textContent = '$' + b.amount;
+      row.appendChild(l); row.appendChild(r); hist.appendChild(row);
+    });
+    var st = $('status'); st.hidden = true;
+    if (a.ended) {
+      $('bidForm').hidden = true; $('signForm').hidden = true; $('tag').textContent = 'AUCTION ENDED';
+      if (a.me && a.me.won) { st.textContent = 'You won! Check your email for the link to pay your bid of $' + a.current + '. You have 24 hours.'; st.hidden = false; }
+      return;
+    }
+    if (!tok) { $('signForm').hidden = false; $('bidForm').hidden = true; return; }
+    $('signForm').hidden = true; $('bidForm').hidden = false;
+    if (a.me && a.me.leading) { st.textContent = 'You have the highest bid: $' + a.me.best + '.'; st.hidden = false; }
+    else if (a.me && a.me.best) { st.textContent = 'You have been outbid. Your best bid was $' + a.me.best + '.'; st.hidden = false; }
+    var amt = $('amount');
+    amt.min = a.next;
+    if (!amt.value || Number(amt.value) < Number(a.next)) amt.value = a.next;
+    $('minNote').textContent = 'Bid $' + a.next + ' or more.';
+  }
+  function load() {
+    fetch('/api/auction?id=' + encodeURIComponent(id) + (tok ? '&t=' + encodeURIComponent(tok) : ''), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (a) {
+      if (a.error) { $('name').textContent = a.error; return; }
+      draw(a);
+    }).catch(function () {});
+  }
+  load();
+  setInterval(load, 6000);
+  setInterval(function () { if (A) $('clock').textContent = clockText(Number(A.ends) - Date.now()); }, 1000);
+  $('bidForm').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var v = $('amount').value;
+    if (!confirm('Place a bid of $' + Number(v).toFixed(2) + '? If you win, you agree to pay this amount.')) return;
+    $('bidGo').disabled = true; $('bidMsg').textContent = 'Placing your bid...';
+    fetch('/api/auction', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: id, amount: v, t: tok }) }).then(function (r) { return r.json(); }).then(function (r) {
+      $('bidGo').disabled = false;
+      if (r.error) { $('bidMsg').textContent = r.error; if (/sign in/i.test(r.error)) { tok = ''; try { localStorage.removeItem('acct_token'); } catch (e) {} } load(); return; }
+      $('bidMsg').textContent = 'Your bid is in. You are the highest bidder.';
+      $('amount').value = '';
+      load();
+    }, function () { $('bidGo').disabled = false; $('bidMsg').textContent = 'Could not reach the site. Try again.'; });
+  });
+  $('signForm').addEventListener('submit', function (ev) {
+    ev.preventDefault(); $('mailGo').disabled = true; $('mailMsg').textContent = 'Sending...';
+    fetch('/api/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: $('mailIn').value, next: '/auction.html?id=' + encodeURIComponent(id) }) })
+      .then(function (r) { return r.json(); })
+      .then(function (r) { $('mailGo').disabled = false; $('mailMsg').textContent = r.error || 'Sent. Open the email from us and tap the button: it brings you right back here, signed in and ready to bid. Check spam if you do not see it in a minute.'; },
+        function () { $('mailGo').disabled = false; $('mailMsg').textContent = 'Could not send just now. Try again.'; });
+  });
+})();
+</script>
+</body>
+</html>

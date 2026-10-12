@@ -99,6 +99,18 @@
     head.appendChild(t);
     head.appendChild(el('span', (p.hidden ? 'HIDDEN · ' : '') + (p.buyers ? 'CUSTOMER LOYALTY · ' : '') + p.where + (!p.deal && p.where === 'Shop' ? (p.onShelf ? ' · on the shelf' : ' · not on the shelf') : '') + (p.deal ? ', safe ' + p.deal : '') + (p.section ? ' · ' + p.section : '') + ' · ' + (p.hidden ? 'Off the site' : p.state || (p.left > 0 ? 'For sale' : 'Sold out')), 'small'));
     c.appendChild(head);
+    if (p.auction) {
+      // An auction: current bid, time left and every bid with its email (only the owner sees emails).
+      var ab = el('div', 'Auction: loading bids...', 'small'); ab.style.cssText = 'display:flex;flex-direction:column;gap:4px';
+      c.appendChild(ab);
+      fetch('/api/auction?id=' + encodeURIComponent(p.id) + '&ak=' + encodeURIComponent(key()), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (a) {
+        ab.textContent = '';
+        var head = el('b', 'AUCTION · ' + (a.bids ? 'Current bid $' + a.current + ' · ' + a.bids + (a.bids === 1 ? ' bid' : ' bids') + ' from ' + a.bidders + (a.bidders === 1 ? ' person' : ' people') : 'No bids yet · starts at $' + a.start) + ' · ' + (a.ended ? 'Ended' : 'Ends ' + new Date(a.ends).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })));
+        ab.appendChild(head);
+        (a.all || []).slice(0, 10).forEach(function (x, i) { ab.appendChild(el('span', (i === 0 ? 'Top: ' : '') + '$' + x.amount + ' · ' + x.email + ' · ' + new Date(x.at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }))); });
+        var al = el('a', 'Open the auction page'); al.href = '/auction.html?id=' + encodeURIComponent(p.id); al.target = '_blank'; ab.appendChild(al);
+      }, function () { ab.textContent = 'Auction: could not load the bids.'; });
+    }
     if (p.buyers) { var sl = el('a', 'Open the safe (admin view)'); sl.href = '/safe.html?product=' + encodeURIComponent(p.id); sl.target = '_blank'; sl.style.cssText = 'align-self:flex-start;font-weight:700'; c.appendChild(sl); }
     var stats = el('div'); stats.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px 22px';
     [['Price', usd(p.price)], ['Shipping', p.shipping ? usd(p.shipping) : 'Free'], ['Left', p.left + ' of ' + p.start], ['Sold', String(p.sold)], ['On hold', String(p.held || 0)], ['Looked at', p.views + (p.viewsToday ? ' (' + p.viewsToday + ' today)' : '')], ['Checkout clicks', String(p.checkouts)]].forEach(function (x) { stats.appendChild(stat(x[0], x[1])); });
