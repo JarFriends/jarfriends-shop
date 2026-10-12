@@ -223,9 +223,10 @@ async function oneOff() {
 }
 
 // 7. Price drops. When a piece in the shop (or the open Deal of the day) gets cheaper, everyone on the list hears
-// about it, with the old and new price. A drop waits 30 minutes first, so a few quick edits go out as one email,
-// and nothing is sent if the price goes back up in the meantime. Price rises send nothing.
-async function repriced(now, mail) {
+// about it, with the old and new price, right away: saving a lower price in the back office sends it (dropNow), and
+// the regular check catches anything else. Price rises send nothing.
+async function repriced(now, mail, opt) {
+  const hold = opt && opt.hold !== undefined ? opt.hold : 0, max = (opt && opt.max) || 12;
   const lib = require('./_lib');
   const r = await fetch(HOST + '/api/order', { signal: AbortSignal.timeout(8000), headers: { 'cache-control': 'no-store' } });
   const shop = ((await r.json()).products || []).filter((p) => p && p.id && (p.shelf || p.deal) && !p.locked && !/^MPARTY/.test(p.id));
@@ -248,7 +249,7 @@ async function repriced(now, mail) {
       if (st.wait[p.id] && cur >= st.wait[p.id].from - 0.004) delete st.wait[p.id];
     }
   });
-  if (!st.batch && Object.keys(st.wait).some((id) => now - st.wait[id].at >= HOLD)) {
+  if (!st.batch && Object.keys(st.wait).some((id) => now - st.wait[id].at >= hold)) {
     st.batch = { key: 'drop-' + now.toString(36), items: st.wait }; st.wait = {}; changed = true;
   }
   if (changed) await store.write('sweep/prices.json', st);
@@ -263,7 +264,7 @@ async function repriced(now, mail) {
   const subject = items.length === 1 ? 'Price drop: ' + items[0].name + ' is now ' + usd(items[0].price) : items.length + ' price drops at JarFriends';
   const ship = (p) => (p.nft ? '' : Number(p.ship) > 0 ? ' + $' + p.ship + ' shipping' : ', free shipping');
   const tip = 'Pay with crypto and take 1% off. There is no wallet to connect and nothing to sign: you just send the payment to the address shown.';
-  for (const e of todo.slice(0, 12)) {
+  for (const e of todo.slice(0, max)) {
     if (await store.read('unsub/' + hashOf(e) + '.json')) { log.done[hashOf(e)] = 1; continue; }
     const stop = HOST + '/api/unsub?t=' + lib.sign({ un: 1, e: e });
     const lines = [first(who[e]), '', items.length === 1 ? 'A price just dropped at JarFriends:' : 'Prices just dropped at JarFriends:', ''];
@@ -304,4 +305,6 @@ async function run() {
   await arrivals(now, mail).catch((e) => console.error('SWEEP_ARRIVALS_FAIL', String(e && e.message || e)));
   await repriced(now, mail).catch((e) => console.error('SWEEP_PRICES_FAIL', String(e && e.message || e)));
 }
-module.exports = { run };
+// Called by the back office the moment a lower price is saved.
+async function dropNow() { await repriced(Date.now(), require('./_lib').mail, { hold: 0, max: 40 }); }
+module.exports = { run, dropNow };

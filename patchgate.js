@@ -18,6 +18,9 @@ const changes = [
   Promise.all([fetch('/api/order?co=1' + (acct ? '&t=' + encodeURIComponent(acct) : '') + (ak ? '&ak=' + encodeURIComponent(ak) : ''), { cache: 'no-store' })`],
   ['public/order.html', R`    data.product = $('product').value; data.qty = Number($('qty').value);`, R`    data.product = $('product').value; data.qty = Number($('qty').value); data.acct = acct; data.ak = ak;`]
 ];
+// Saving a lower price in the back office emails the mailing list right away.
+changes.push(['api/admin.js', "    if (!p.deal) f.section = String(q.section || '').replace(/[^A-Za-z, ]/g, '').trim().slice(0, 80);\n    await edits.save(p.id, f);\n    return res.json({ ok: true });",
+  "    if (!p.deal) f.section = String(q.section || '').replace(/[^A-Za-z, ]/g, '').trim().slice(0, 80);\n    await edits.save(p.id, f);\n    if (Number(f.price) < Number(p.price) - 0.004) { try { await require('./_sweep').dropNow(); } catch (e) { console.error('DROP_NOW_FAIL', String(e && e.message || e)); } }\n    return res.json({ ok: true });"]);
 const files = {};
 changes.forEach((c) => {
   const s = files[c[0]] || (files[c[0]] = fs.readFileSync(c[0], 'utf8'));
