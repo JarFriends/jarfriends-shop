@@ -113,7 +113,7 @@ button{font-family:inherit;cursor:pointer}
 <section id="deal" style="max-width: 1200px; margin: 0 auto; padding: 8px 24px 48px; display: flex; flex-direction: column; gap: 16px">
 <div style="display: flex; flex-direction: column; gap: 10px">
 <div style="font-family: 'Playfair Display', Georgia, serif; font-style: italic; font-weight: 700; font-size: clamp(32px, 4.5vw, 48px); line-height: 1.1; color: #8FD3AE">Deal of the day</div>
-<p style="margin: 0; font-size: 15px; color: #D6E2DA; max-width: 480px">{{dealCount}} pieces are locked away and only one safe is open. When that piece is claimed, the next safe unlocks.</p>
+<p style="margin: 0; font-size: 15px; color: #D6E2DA; max-width: 480px">{{dealIntro}}</p>
 <sc-if value="{{deal.timed}}" hint-placeholder-val="{{false}}">
 <div role="note" style="align-self: flex-start; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 10px 16px; border-radius: 12px; background: #C9A45C; color: #0B1A13">
 <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500; letter-spacing: 0.1em; border: 1px solid #0B1A13; border-radius: 999px; padding: 3px 10px">LIMITED TIME</span>
@@ -266,11 +266,11 @@ button{font-family:inherit;cursor:pointer}
 </div>
 </sc-if>
 <sc-if value="{{allClaimed}}" hint-placeholder-val="{{false}}">
-<div style="align-self: flex-start; display: flex; flex-direction: column; gap: 10px; max-width: 560px; padding: 18px 22px; border-radius: 14px; background: #C9A45C; color: #0B1A13">
-<span style="align-self: flex-start; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500; letter-spacing: 0.1em; border: 1px solid #0B1A13; border-radius: 999px; padding: 3px 10px">DEAL OF THE DAY</span>
-<span style="font-weight: 800; font-size: 30px; line-height: 1.15">Coming soon</span>
-<span style="font-size: 15px; line-height: 1.45">Every safe has been cracked. A new round of Deal of the day safes is coming soon. Subscribe and you will get an email the moment the first one opens.</span>
-<a href="https://jarfriends.com/help.html?join=1" target="_top" style="align-self: flex-start; background: #0B1A13; color: #F7F2E6; text-decoration: none; font-weight: 700; padding: 10px 20px; border-radius: 999px">Subscribe</a>
+<div style="align-self: flex-start; display: flex; flex-direction: column; gap: 10px; max-width: 600px; padding: 20px 24px; border-radius: 14px; background: #C9A45C; color: #0B1A13; box-shadow: 0 0 40px rgba(201, 164, 92, 0.35)">
+<span style="align-self: flex-start; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500; letter-spacing: 0.1em; border: 1px solid #0B1A13; border-radius: 999px; padding: 3px 10px">COMING SOON · 5 MORE SAFES</span>
+<span style="font-weight: 800; font-size: 30px; line-height: 1.15">All 5 safes have been cracked open!</span>
+<span style="font-size: 16px; line-height: 1.45">Five brand new safes are on the way, each with a new deal locked inside. <b>Who will open them first?</b> Subscribe and you will get an email the second safe 1 unlocks.</span>
+<a href="https://jarfriends.com/help.html?join=1" target="_top" style="align-self: flex-start; background: #0B1A13; color: #F7F2E6; text-decoration: none; font-weight: 700; padding: 11px 22px; border-radius: 999px">Subscribe and be first</a>
 </div>
 </sc-if>
 <div class="m-minis" style="display: flex; flex-wrap: wrap; gap: 12px">
@@ -280,7 +280,8 @@ button{font-family:inherit;cursor:pointer}
 <div aria-hidden="true" style="position: absolute; left: 10px; bottom: 0; width: 14px; height: 7px; border-radius: 0 0 3px 3px; background: #0A1410; border: 1px solid {{s.line}}; border-top: 0"></div>
 <div aria-hidden="true" style="position: absolute; right: 10px; bottom: 0; width: 14px; height: 7px; border-radius: 0 0 3px 3px; background: #0A1410; border: 1px solid {{s.line}}; border-top: 0"></div>
 <div style="position: absolute; left: 0; top: 0; width: 84px; height: 82px; box-sizing: border-box; border-radius: 9px; border: 2px solid {{s.line}}; background: linear-gradient(150deg, #3A5146 0%, #1E3028 45%, #0E1A15 100%); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), inset 0 -3px 5px rgba(0, 0, 0, 0.6), 0 5px 10px rgba(0, 0, 0, 0.45)">
-<div style="position: absolute; top: 5px; right: 5px; bottom: 5px; left: 9px; border-radius: 5px; border: 1px solid {{s.line}}; background: {{s.bg}}; box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.35), inset 0 6px 8px rgba(255, 255, 255, 0.07); display: flex; align-items: center; justify-content: center">
+<div aria-hidden="true" style="position: absolute; top: 5px; right: 5px; bottom: 5px; left: 9px; border-radius: 5px; background: {{s.inner}}; box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.6)"></div>
+<div style="position: absolute; top: 5px; right: 5px; bottom: 5px; left: 9px; border-radius: 5px; transform-origin: left center; transform: perspective(160px) rotateY({{s.turn}}); transition: transform 1.2s ease; border: 1px solid {{s.line}}; background: {{s.bg}}; box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.35), inset 0 6px 8px rgba(255, 255, 255, 0.07); display: flex; align-items: center; justify-content: center">
 <div style="position: relative; width: 38px; height: 38px; margin-right: 8px; box-sizing: border-box; border-radius: 999px; border: 2px solid {{s.dial}}; background: repeating-conic-gradient({{s.dial}} 0deg 3deg, transparent 3deg 30deg), radial-gradient(circle, #0B1A13 0 60%, #13241C 61%); box-shadow: 0 2px 4px rgba(0, 0, 0, 0.6); display: flex; align-items: center; justify-content: center">
 <div style="width: 24px; height: 24px; border-radius: 999px; background: #0B1A13; border: 1px solid {{s.dial}}; display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-size: 14px; font-weight: 500; color: {{s.fg}}">{{s.n}}</div>
 </div>
@@ -955,7 +956,10 @@ sold: { label: "Claimed", bg: "#0B1A13", line: "#244536", dial: "#244536", fg: "
 open: { label: "Open now", bg: "radial-gradient(circle, #5A4A1E, #1A2B23)", line: "#C9A45C", dial: "#C9A45C", fg: "#F7F2E6" },
 locked: { label: "Locked", bg: "linear-gradient(145deg, #3A5146, #1A2B23)", line: "#4E7A63", dial: "#A8BFB1", fg: "#A8BFB1" }
 };
-const safes = dealSlots.map((d) => Object.assign({ n: d.n }, safeLook[d.state] || safeLook.locked));
+const allSafesDone = dealSlots.length > 0 && !openSlot;
+const crackedLook = { label: "Cracked open", bg: "linear-gradient(145deg, #3A5146, #1A2B23)", line: "#C9A45C", dial: "#C9A45C", fg: "#C9A45C", turn: "-74deg", inner: "radial-gradient(circle at 50% 55%, #FFF1C2 0%, #E9C46A 30%, #6A4C14 75%, #1A1206 100%)" };
+const safes = dealSlots.map((d) => Object.assign({ n: d.n, turn: "0deg", inner: "transparent" }, allSafesDone ? crackedLook : (safeLook[d.state] || safeLook.locked)))
+.concat(allSafesDone ? [6, 7, 8, 9, 10].map(() => Object.assign({ n: "?", turn: "0deg", inner: "transparent" }, safeLook.locked, { label: "Coming soon" })) : []);
 // Sections of the collection. A piece can sit in more than one.
 const names = shop && shop.sections && shop.sections.length ? shop.sections : ["Comics", "Cards", "NFTs", "Graded", "Pokemon", "Watches"];
 const filters = [["all", "Everything"]].concat(names.map((n) => [n, n])).map((f) => ({
@@ -978,7 +982,7 @@ shelfTitle: SHELF_OPEN ? "What I'm sharing right now" : shelf.length ? "Availabl
 shelfText: SHELF_OPEN ? "Take your time. Tap a piece to see its details and check out." : (shelf.length ? "Tap a piece to see its details and check out. More coming soon: comics, cards, NFTs, graded pieces, Pokemon and watches." : "My personal collection is on its way: comics, cards, NFTs, graded pieces, Pokemon and watches. Until then, the Deal of the day safe is open."),
 filters: filters,
 hasDeals: dealSlots.length > 0, hasOpen: !!dp, allClaimed: dealSlots.length > 0 && !openSlot,
-dealCount: dealSlots.length, deal: deal, safes: safes,
+dealCount: dealSlots.length, dealIntro: dealSlots.length > 0 && !openSlot ? "Every safe in this round has been opened. Five new ones are coming soon, and only one will open at a time." : dealSlots.length + " pieces are locked away and only one safe is open. When that piece is claimed, the next safe unlocks.", deal: deal, safes: safes,
 party: partyVals,
 // The safe starts shut, with its door closed over the deal.
 // The deal sits behind the door. Opening turns the wheel, then the door swings out on its hinges and is taken away.
