@@ -30,6 +30,23 @@ button{font-family:inherit;cursor:pointer}
 .vault-dial:hover{filter:brightness(1.15)}
 @keyframes vaultShake{0%,100%{transform:translate(0,0)}25%{transform:translate(-2px,1px)}50%{transform:translate(2px,-1px)}75%{transform:translate(-1px,-1px)}}
 .vault-shake{animation:vaultShake .28s linear 1}
+@keyframes partyTwinkle{0%,100%{opacity:1;filter:brightness(1.2)}50%{opacity:.45;filter:brightness(.7)}}
+.party-bulb{animation:partyTwinkle 1.6s ease-in-out infinite}
+@keyframes partyFlicker{0%,100%{opacity:.95}40%{opacity:.75}55%{opacity:1}80%{opacity:.82}}
+.party-win{animation:partyFlicker 2.8s ease-in-out infinite}
+@keyframes partySway{0%,100%{transform:translateX(0)}50%{transform:translateX(10px)}}
+.party-guest{animation:partySway 1.3s ease-in-out infinite}
+@keyframes partyKnock{0%,100%{transform:rotateY(0deg) translateX(0)}20%{transform:rotateY(0deg) translateX(-3px)}40%{transform:rotateY(0deg) translateX(2px)}60%{transform:rotateY(0deg) translateX(-3px)}80%{transform:rotateY(0deg) translateX(2px)}}
+.party-knock{animation:partyKnock .45s linear 2}
+@keyframes partySpill{0%{opacity:0;transform:scale(.6)}100%{opacity:1;transform:scale(1.25)}}
+.party-spill{animation:partySpill 1.6s ease-out both}
+@keyframes partyPop{0%{opacity:0;transform:translate(0,0) rotate(0deg)}15%{opacity:1}100%{opacity:0;transform:translate(var(--dx),var(--dy)) rotate(540deg)}}
+.party-pop{animation:partyPop 1.9s cubic-bezier(.15,.6,.3,1) both}
+@keyframes partyIn{from{opacity:0;transform:translateY(14px) scale(.97)}to{opacity:1;transform:none}}
+.party-in{animation:partyIn .7s ease-out both}
+.party-knockbtn:hover{filter:brightness(1.1)}
+@media (max-width:560px){.m-pwin{display:none!important}.m-pscene{min-height:440px!important}}
+@media (prefers-reduced-motion: reduce){.party-bulb,.party-win,.party-guest,.party-knock,.party-spill,.party-pop,.party-in{animation:none!important}}
 @media (max-width:560px){.m-safein{min-height:480px!important;margin-left:6px!important;padding:14px!important}.m-hinge{flex-basis:50px!important}.m-minis{gap:6px!important;justify-content:space-between}.m-mini{zoom:.74}}
 @media (prefers-reduced-motion: reduce){.safe-wheel,.safe-reveal,.safe-door,.vault-beam,.vault-sun,.vault-fade,.vault-coin,.vault-shake{transition:none!important;animation:none!important}}
 </style>
@@ -252,7 +269,65 @@ button{font-family:inherit;cursor:pointer}
 <span style="flex: 1 1 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px"><span ref="{{party.setTimer}}" aria-label="Time left" style="font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 22px; letter-spacing: 0.04em; background: #0B1A13; color: #F7F2E6; padding: 6px 14px; border-radius: 8px; font-variant-numeric: tabular-nums">{{party.clock}}</span><span style="font-size: 15px; font-weight: 600">left. After that, party pricing is over.</span></span>
 </div>
 </div>
-<div style="display: flex; flex-wrap: wrap; gap: 20px; max-width: 760px; padding: 18px; border-radius: 18px; border: 2px solid #C9A45C; background: linear-gradient(145deg, #1D3A2C 0%, #11261C 60%, #0B1A13 100%); box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45)">
+<sc-if value="{{party.doorShut}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; flex-direction: column; gap: 14px; max-width: 760px">
+<div class="m-pscene" style="position: relative; overflow: hidden; min-height: 460px; border-radius: 18px; border: 2px solid #C9A45C; background: repeating-linear-gradient(180deg, rgba(0, 0, 0, 0) 0 30px, rgba(0, 0, 0, 0.22) 30px 32px), linear-gradient(180deg, #24344A 0%, #1C2A3C 60%, #142030 100%); box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45)">
+<div aria-hidden="true" style="position: absolute; top: 6px; left: 0; right: 0; display: flex; justify-content: space-around; padding: 0 10px"><span class="party-bulb" style="width: 10px; height: 14px; border-radius: 50% 50% 45% 45%; background: #E86A5C; box-shadow: 0 0 10px #E86A5C; margin-top: 0px; animation-delay: 0s"></span><span class="party-bulb" style="width: 10px; height: 14px; border-radius: 50% 50% 45% 45%; background: #C9A45C; box-shadow: 0 0 10px #C9A45C; margin-top: 6px; animation-delay: 0.3s"></span><span class="party-bulb" style="width: 10px; height: 14px; border-radius: 50% 50% 45% 45%; background: #8FD3AE; box-shadow: 0 0 10px #8FD3AE; margin-top: 10px; animation-delay: 0.6s"></span><span class="party-bulb" style="width: 10px; height: 14px; border-radius: 50% 50% 45% 45%; background: #6FA8DC; box-shadow: 0 0 10px #6FA8DC; margin-top: 6px; animation-delay: 0.8999999999999999s"></span><span class="party-bulb" style="width: 10px; height: 14px; border-radius: 50% 50% 45% 45%; background: #F7F2E6; box-shadow: 0 0 10px #F7F2E6; margin-top: 0px; animation-delay: 1.2s"></span><span class="party-bulb" style="width: 10px; height: 14px; border-radius: 50% 50% 45% 45%; background: #E86A5C; box-shadow: 0 0 10px #E86A5C; margin-top: 0px; animation-delay: 0s"></span><span class="party-bulb" style="width: 10px; height: 14px; border-radius: 50% 50% 45% 45%; background: #C9A45C; box-shadow: 0 0 10px #C9A45C; margin-top: 6px; animation-delay: 0.3s"></span><span class="party-bulb" style="width: 10px; height: 14px; border-radius: 50% 50% 45% 45%; background: #8FD3AE; box-shadow: 0 0 10px #8FD3AE; margin-top: 10px; animation-delay: 0.6s"></span><span class="party-bulb" style="width: 10px; height: 14px; border-radius: 50% 50% 45% 45%; background: #6FA8DC; box-shadow: 0 0 10px #6FA8DC; margin-top: 6px; animation-delay: 0.8999999999999999s"></span><span class="party-bulb" style="width: 10px; height: 14px; border-radius: 50% 50% 45% 45%; background: #F7F2E6; box-shadow: 0 0 10px #F7F2E6; margin-top: 0px; animation-delay: 1.2s"></span><span class="party-bulb" style="width: 10px; height: 14px; border-radius: 50% 50% 45% 45%; background: #E86A5C; box-shadow: 0 0 10px #E86A5C; margin-top: 0px; animation-delay: 0s"></span><span class="party-bulb" style="width: 10px; height: 14px; border-radius: 50% 50% 45% 45%; background: #C9A45C; box-shadow: 0 0 10px #C9A45C; margin-top: 6px; animation-delay: 0.3s"></span><span class="party-bulb" style="width: 10px; height: 14px; border-radius: 50% 50% 45% 45%; background: #8FD3AE; box-shadow: 0 0 10px #8FD3AE; margin-top: 10px; animation-delay: 0.6s"></span><span class="party-bulb" style="width: 10px; height: 14px; border-radius: 50% 50% 45% 45%; background: #6FA8DC; box-shadow: 0 0 10px #6FA8DC; margin-top: 6px; animation-delay: 0.8999999999999999s"></span><span class="party-bulb" style="width: 10px; height: 14px; border-radius: 50% 50% 45% 45%; background: #F7F2E6; box-shadow: 0 0 10px #F7F2E6; margin-top: 0px; animation-delay: 1.2s"></span></div>
+<div aria-hidden="true" style="position: absolute; top: 4px; left: 0; right: 0; height: 18px; border-bottom: 2px solid #0E1622; border-radius: 0 0 50% 50%"></div>
+<div style="position: absolute; top: 40px; left: 50%; transform: translateX(-50%); white-space: nowrap; padding: 6px 16px; border-radius: 10px; border: 2px solid #C9A45C; background: #0B1A13; font-family: 'Playfair Display', Georgia, serif; font-style: italic; font-weight: 700; font-size: 20px; color: #F7E2A8; text-shadow: 0 0 10px rgba(255, 210, 120, 0.8)">The JarFriends Party</div>
+<div aria-hidden="true" class="m-pwin" style="position: absolute; top: 120px; left: 7%; width: 120px; height: 120px; border: 6px solid #3B2A1C; border-radius: 6px; overflow: hidden; background: #2A1E14; box-shadow: 0 0 40px rgba(255, 196, 92, 0.35)">
+<div class="party-win" style="position: absolute; inset: 0; background: radial-gradient(circle at 50% 70%, #FFE3A3 0%, #F4B45A 55%, #B5652A 100%)"></div>
+<div class="party-guest" style="position: absolute; bottom: 0; left: 18px; width: 34px; height: 70px; border-radius: 17px 17px 0 0; background: rgba(40, 20, 10, 0.55)"></div>
+<div class="party-guest" style="position: absolute; bottom: 0; right: 16px; width: 30px; height: 60px; border-radius: 15px 15px 0 0; background: rgba(40, 20, 10, 0.5); animation-delay: .5s"></div>
+<div style="position: absolute; top: 0; bottom: 0; left: 50%; width: 5px; margin-left: -2px; background: #3B2A1C"></div><div style="position: absolute; left: 0; right: 0; top: 50%; height: 5px; margin-top: -2px; background: #3B2A1C"></div>
+</div>
+<div aria-hidden="true" class="m-pwin" style="position: absolute; top: 120px; right: 7%; width: 120px; height: 120px; border: 6px solid #3B2A1C; border-radius: 6px; overflow: hidden; background: #2A1E14; box-shadow: 0 0 40px rgba(255, 196, 92, 0.35)">
+<div class="party-win" style="position: absolute; inset: 0; background: radial-gradient(circle at 50% 70%, #FFE3A3 0%, #F4B45A 55%, #B5652A 100%)"></div>
+<div class="party-guest" style="position: absolute; bottom: 0; left: 18px; width: 34px; height: 70px; border-radius: 17px 17px 0 0; background: rgba(40, 20, 10, 0.55)"></div>
+<div class="party-guest" style="position: absolute; bottom: 0; right: 16px; width: 30px; height: 60px; border-radius: 15px 15px 0 0; background: rgba(40, 20, 10, 0.5); animation-delay: .5s"></div>
+<div style="position: absolute; top: 0; bottom: 0; left: 50%; width: 5px; margin-left: -2px; background: #3B2A1C"></div><div style="position: absolute; left: 0; right: 0; top: 50%; height: 5px; margin-top: -2px; background: #3B2A1C"></div>
+</div>
+<div style="position: absolute; bottom: 34px; left: 50%; width: 190px; height: 300px; margin-left: -95px; padding: 10px 10px 0; box-sizing: border-box; background: #F2EDE1; border-radius: 6px 6px 0 0; box-shadow: 0 0 0 4px #D8D0BC, 0 10px 30px rgba(0, 0, 0, 0.6); perspective: 900px">
+<div style="position: relative; width: 100%; height: 100%; overflow: hidden; background: radial-gradient(circle at 50% 60%, #FFF4D0 0%, #FFCF70 40%, #D9822B 100%)">
+<sc-if value="{{party.hasPhoto}}" hint-placeholder-val="{{false}}"><img src="{{party.photo}}" alt="" style="position: absolute; left: 50%; bottom: 20px; transform: translateX(-50%); max-width: 80%; max-height: 62%; border-radius: 6px; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5)"></sc-if>
+<div class="{{party.doorCls}}" style="position: absolute; inset: 0; transform-origin: left center; transform: rotateY({{party.doorTurn}}); transition: {{party.doorTrans}}; backface-visibility: hidden; background: linear-gradient(90deg, #7A2E22 0%, #943A2B 50%, #7A2E22 100%); box-shadow: inset 0 0 0 3px #5A1F16, 10px 0 20px rgba(0, 0, 0, 0.5); display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1.2fr 1fr; gap: 12px; padding: 18px 16px 26px; box-sizing: border-box">
+<span style="border-radius: 4px; box-shadow: inset 2px 2px 0 rgba(255, 255, 255, 0.12), inset -2px -2px 0 rgba(0, 0, 0, 0.35)"></span><span style="border-radius: 4px; box-shadow: inset 2px 2px 0 rgba(255, 255, 255, 0.12), inset -2px -2px 0 rgba(0, 0, 0, 0.35)"></span>
+<span style="border-radius: 4px; box-shadow: inset 2px 2px 0 rgba(255, 255, 255, 0.12), inset -2px -2px 0 rgba(0, 0, 0, 0.35)"></span><span style="border-radius: 4px; box-shadow: inset 2px 2px 0 rgba(255, 255, 255, 0.12), inset -2px -2px 0 rgba(0, 0, 0, 0.35)"></span>
+<span style="position: absolute; top: 52%; right: 16px; width: 16px; height: 16px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #FFF1B8, #C9A45C 55%, #7A5B22); box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5)"></span>
+<span style="position: absolute; top: 30px; left: 50%; transform: translateX(-50%); padding: 2px 8px; border-radius: 3px; background: #C9A45C; color: #3B1610; font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: 0.08em; white-space: nowrap">GUEST LIST: 11</span>
+</div>
+<sc-if value="{{party.spilling}}" hint-placeholder-val="{{false}}">
+<div aria-hidden="true" class="party-spill" style="position: absolute; inset: -60px; pointer-events: none; background: radial-gradient(circle, rgba(255, 245, 210, 0.9) 0%, rgba(255, 210, 120, 0.35) 45%, rgba(255, 200, 80, 0) 70%)"></div>
+</sc-if>
+</div>
+</div>
+<sc-if value="{{party.spilling}}" hint-placeholder-val="{{false}}">
+<div aria-hidden="true" style="position: absolute; left: 50%; bottom: 190px; width: 0; height: 0; pointer-events: none; z-index: 3">
+<span class="party-pop" style="position: absolute; width: 9px; height: 14px; border-radius: 2px; background: #C9A45C; --dx: -140px; --dy: -120px; animation-delay: 0.6s"></span>
+<span class="party-pop" style="position: absolute; width: 9px; height: 14px; border-radius: 2px; background: #8FD3AE; --dx: 130px; --dy: -140px; animation-delay: 0.65s"></span>
+<span class="party-pop" style="position: absolute; width: 9px; height: 14px; border-radius: 2px; background: #E86A5C; --dx: -90px; --dy: -170px; animation-delay: 0.7s"></span>
+<span class="party-pop" style="position: absolute; width: 9px; height: 14px; border-radius: 2px; background: #F7F2E6; --dx: 100px; --dy: -90px; animation-delay: 0.75s"></span>
+<span class="party-pop" style="position: absolute; width: 9px; height: 14px; border-radius: 2px; background: #6FA8DC; --dx: -160px; --dy: -60px; animation-delay: 0.6799999999999999s"></span>
+<span class="party-pop" style="position: absolute; width: 9px; height: 14px; border-radius: 2px; background: #C9A45C; --dx: 160px; --dy: -40px; animation-delay: 0.72s"></span>
+<span class="party-pop" style="position: absolute; width: 9px; height: 14px; border-radius: 2px; background: #E86A5C; --dx: 40px; --dy: -180px; animation-delay: 0.63s"></span>
+<span class="party-pop" style="position: absolute; width: 9px; height: 14px; border-radius: 2px; background: #8FD3AE; --dx: -40px; --dy: -150px; animation-delay: 0.78s"></span>
+<span class="party-pop" style="position: absolute; width: 9px; height: 14px; border-radius: 2px; background: #F7F2E6; --dx: -120px; --dy: 20px; animation-delay: 0.8s"></span>
+<span class="party-pop" style="position: absolute; width: 9px; height: 14px; border-radius: 2px; background: #6FA8DC; --dx: 150px; --dy: 30px; animation-delay: 0.82s"></span>
+<span class="party-pop" style="position: absolute; width: 9px; height: 14px; border-radius: 2px; background: #C9A45C; --dx: 20px; --dy: -120px; animation-delay: 0.85s"></span>
+<span class="party-pop" style="position: absolute; width: 9px; height: 14px; border-radius: 2px; background: #E86A5C; --dx: -180px; --dy: -130px; animation-delay: 0.74s"></span>
+</div>
+</sc-if>
+<div aria-hidden="true" style="position: absolute; bottom: 14px; left: 50%; width: 230px; margin-left: -115px; height: 22px; border-radius: 4px; background: #6B4A2B; color: #F2D9A8; font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.3em; display: flex; align-items: center; justify-content: center">WELCOME</div>
+<div aria-hidden="true" style="position: absolute; bottom: 0; left: 0; right: 0; height: 14px; background: #4A4F57"></div>
+</div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px">
+<button type="button" class="party-knockbtn" onClick="{{party.openDoor}}" style="flex: 0 1 auto; font-size: 17px; border: 0; background: #C9A45C; color: #0B1A13; font-weight: 800; padding: 13px 26px; border-radius: 999px">{{party.knockText}}</button>
+<span style="font-size: 14px; color: #D6E2DA">{{party.doorNote}}</span>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{party.doorOpen}}" hint-placeholder-val="{{false}}">
+<div class="party-in" style="display: flex; flex-wrap: wrap; gap: 20px; max-width: 760px; padding: 18px; border-radius: 18px; border: 2px solid #C9A45C; background: linear-gradient(145deg, #1D3A2C 0%, #11261C 60%, #0B1A13 100%); box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45)">
 <sc-if value="{{party.hasPhoto}}" hint-placeholder-val="{{false}}">
 <img src="{{party.photo}}" alt="{{party.name}}" style="flex: 0 0 auto; display: block; width: auto; height: auto; max-width: 100%; max-height: 240px; border-radius: 8px; align-self: center">
 </sc-if>
@@ -281,6 +356,7 @@ button{font-family:inherit;cursor:pointer}
 <div style="font-size: 12px; color: #A8BFB1">Any money back goes to the way you paid once the party ends. Shipping and any card fee are not part of the discount.</div>
 </div>
 </div>
+</sc-if>
 </section>
 </sc-if>
 <sc-if value="{{party.soon}}" hint-placeholder-val="{{false}}">
@@ -423,6 +499,37 @@ class Component extends DCLogic {
 // Tells the shop a piece was looked at, so the back office can count it. Nothing about the visitor is sent.
 track(id, kind) {
 try { fetch("https://collectors-page.vercel.app/api/click", { method: "POST", mode: "no-cors", keepalive: true, body: JSON.stringify({ id: id, kind: kind }) }).catch(() => {}); } catch (e) { /* counting is best effort */ }
+}
+// The party door: two knocks, a short creak, then a bright chord as the party comes into view.
+partySound(step) {
+try {
+const C = window.AudioContext || window.webkitAudioContext;
+if (!C) return;
+const ctx = this.actx || (this.actx = new C());
+if (ctx.state === "suspended") ctx.resume();
+const t0 = ctx.currentTime;
+const thud = (when) => {
+const n = Math.floor(ctx.sampleRate * 0.12), buf = ctx.createBuffer(1, n, ctx.sampleRate), d = buf.getChannelData(0);
+for (let k = 0; k < n; k++) d[k] = (Math.random() * 2 - 1) * Math.pow(1 - k / n, 6);
+const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), a = ctx.createGain();
+s.buffer = buf; f.type = "lowpass"; f.frequency.value = 420; a.gain.value = 1.4;
+s.connect(f); f.connect(a); a.connect(ctx.destination); s.start(t0 + when);
+};
+const tone = (fr, when, dur, g, type) => {
+const o = ctx.createOscillator(), a = ctx.createGain();
+o.type = type || "triangle"; o.frequency.value = fr;
+a.gain.setValueAtTime(0.0001, t0 + when); a.gain.exponentialRampToValueAtTime(g, t0 + when + 0.03); a.gain.exponentialRampToValueAtTime(0.0001, t0 + when + dur);
+o.connect(a); a.connect(ctx.destination); o.start(t0 + when); o.stop(t0 + when + dur + 0.05);
+};
+if (step === "knock") { thud(0); thud(0.22); thud(0.62); thud(0.84); }
+if (step === "open") {
+const o = ctx.createOscillator(), a = ctx.createGain();
+o.type = "sawtooth"; o.frequency.setValueAtTime(140, t0); o.frequency.linearRampToValueAtTime(95, t0 + 0.7);
+a.gain.setValueAtTime(0.0001, t0); a.gain.exponentialRampToValueAtTime(0.03, t0 + 0.1); a.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.75);
+o.connect(a); a.connect(ctx.destination); o.start(t0); o.stop(t0 + 0.8);
+[523.25, 659.25, 783.99, 1046.5].forEach((fr, k) => tone(fr, 0.75 + k * 0.09, 1.4, 0.09));
+}
+} catch (e) { /* sound is a nice extra only */ }
 }
 // Sounds for the vault (safe 5), made in the browser: dial ticks, the click, the bolts, the door.
 vaultSound() {
@@ -669,7 +776,10 @@ setTimer: this.setDealTimerEl || (this.setDealTimerEl = (el) => { this.dealTimer
 // The ?vault=1 preview shows the vault's own piece, for looking only.
 if (vaultPreview && dp && openSlot.n !== 5) Object.assign(deal, { tag: "SAFE 5 / PREVIEW", name: "Eager Eagle 1st (Pure .999 Fine Silver) + Motivated Monster Comic + Adventurous Astronaut Comic", price: "$206.00", note: "Preview only. The vault is still locked for everyone else.", photo: PHOTOS.VAULT5, hasPhoto: true, noPhoto: false, order: () => {}, offer: () => {}, timed: false });
 // The party: one piece where everyone's price drops as more of it sells.
-const pt = (this.state && this.state.party) || null;
+let partyPreview = false;
+try { partyPreview = /[?&]party=1/.test(window.location.search) || /[?&]party=1/.test(window.top.location.search); } catch (e) { /* not allowed to look: no preview */ }
+const livePt = (this.state && this.state.party) || null;
+const pt = partyPreview && !(livePt && livePt.on && !livePt.ended && !livePt.upcoming) ? { on: true, ended: false, upcoming: false, pid: "MPARTY2", name: "Motivated Monster Comic Pack (Issue 05): Party Pricing", price: "29.60", onePrice: "29.60", oneOff: 0, sold: 0, total: 11, left: 11, off: 0, tiers: [[3, "$28.16"], [5, "$26.72"], [7, "$25.28"], [9, "$23.84"], [11, "$22.40"]].map((t) => ({ need: t[0], price: t[1], off: (2960 - Math.round(Number(t[1].slice(1)) * 100)) / 29.6, reached: false })), next: { need: 3, off: 144 / 29.6 }, ends: Date.now() + 86400000, endsText: "Tuesday, October 13 at 12:00 PM Central" } : livePt;
 const usdP = (n) => "$" + Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const partyVals = pt && pt.on && !pt.ended && !pt.upcoming ? {
 show: true, name: pt.name, tag: "PARTY PRICE / OPEN NOW",
@@ -683,8 +793,32 @@ endsText: "Ends " + pt.endsText + ", or sooner if it sells out. " + pt.left + " 
 // The deadline, said plainly, with a clock that counts down every second (see componentDidMount).
 deadline: "Party pricing ends " + pt.endsText + ".",
 setTimer: this.setTimerEl || (this.setTimerEl = (el) => { this.timerEl = el; }), clock: this.clockText(Number(pt.ends) - Date.now()),
-cta: "Join the party",
-join: () => go(paySite + "/order.html?product=" + pt.pid + "&qty=1")
+cta: partyPreview ? "Join the party (preview)" : "Join the party",
+...(() => {
+// The front door: shut until the visitor knocks. Once opened, this device remembers it and goes straight in next time.
+const doorKey = "jf-party-door-" + pt.pid;
+let been = false;
+if (!partyPreview) { try { been = window.localStorage.getItem(doorKey) === "1"; } catch (e) { been = false; } }
+const ds = this.state.partyDoor || (been ? "open" : "shut");
+return {
+doorShut: ds !== "open", doorOpen: ds === "open",
+doorTurn: ds === "opening" ? "-108deg" : "0deg", doorTrans: ds === "opening" ? "transform 1.5s cubic-bezier(.45,.05,.3,1)" : "none",
+doorCls: ds === "knock" ? "party-knock" : "", spilling: ds === "opening",
+knockText: ds === "knock" ? "Knock knock..." : ds === "opening" ? "Come on in!" : "Knock and walk in",
+doorNote: partyPreview ? "Preview: the door shows every time here. Customers only open it once." : "The party is inside. " + pt.left + " of " + pt.total + " spots left on the list.",
+openDoor: () => {
+if (ds !== "shut") return;
+this.partySound("knock");
+this.setState({ partyDoor: "knock" });
+setTimeout(() => { this.partySound("open"); this.setState({ partyDoor: "opening" }); }, 1000);
+setTimeout(() => {
+if (!partyPreview) { try { window.localStorage.setItem(doorKey, "1"); } catch (e) { /* remembered for this visit only */ } }
+this.setState({ partyDoor: "open" });
+}, 3100);
+}
+};
+})(),
+join: () => { if (partyPreview && !(livePt && livePt.on && !livePt.upcoming && !livePt.ended)) return; go(paySite + "/order.html?product=" + pt.pid + "&qty=1"); }
 } : { show: false, tiers: [], over: !!(pt && pt.on && pt.ended), soon: !!(pt && pt.on && pt.upcoming), soonName: (pt && pt.name || "").replace(/: Party Pricing$/, ""), soonText: "Opens " + (pt && pt.startsText || "soon") + ". The price is revealed the moment it opens.", setTimer: this.setTimerEl || (this.setTimerEl = (el) => { this.timerEl = el; }), clock: this.clockText(Number(pt && pt.starts) - Date.now()) };
 const safeLook = {
 sold: { label: "Claimed", bg: "#0B1A13", line: "#244536", dial: "#244536", fg: "#6F8A7B" },
