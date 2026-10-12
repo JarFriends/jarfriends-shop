@@ -11,7 +11,7 @@ const changes = [
   ['api/order.js', R`  if (!p) return res.status(400).json({ error: 'Choose a product.' });`, R`  if (!p) return res.status(400).json({ error: 'Choose a product.' });
   {
     const gate = require('./_gate');
-    if ((await gate.gated())[p.id] && !gate.isAdmin(b.ak) && !(await gate.isBuyer(gate.emailOf(b.acct)))) return res.status(403).json({ error: 'This piece is for past buyers only. Sign in with the email you ordered with, then open the safe again.' });
+    if ((await gate.gated())[p.id] && !gate.isAdmin(b.ak) && !(await gate.isBuyer(gate.emailOf(b.acct)))) return res.status(403).json({ error: 'This is a Customer Loyalty product, only for returning customers. Sign in with the email you ordered with, then open the safe again.' });
   }`],
   // The checkout page sends the sign-in along, and never lists a safe that is still locked.
   ['public/order.html', R`  Promise.all([fetch('/api/order', { cache: 'no-store' })`, R`  var acct = '', ak = ''; try { acct = localStorage.getItem('acct_token') || ''; ak = localStorage.getItem('adminKey') || ''; } catch (e) { acct = ''; }
@@ -46,8 +46,8 @@ fs.writeFileSync(f, fs.readFileSync(f, 'utf8') + `
                 if (!ids[p.id]) return p;
                 if (ok) return Object.assign({}, p, { buyersOnly: true });
                 if (co) return null;
-                return { id: p.id, name: 'Buyers-only safe', price: '0.00', min: 1, stock: Number(p.stock) > 0 ? 1 : 0, ship: '0.00', sections: p.sections || [], deal: false, nft: false, shelf: true, locked: true, gate: email ? 'buyer' : 'signin',
-                  desc: 'Only past buyers can open this safe. Sign in with the email you ordered with to see what is inside.', photo: 'https://' + req.headers.host + '/photos/vault.jpg' };
+                return { id: p.id, name: 'Customer Loyalty safe', price: '0.00', min: 1, stock: Number(p.stock) > 0 ? 1 : 0, ship: '0.00', sections: p.sections || [], deal: false, nft: false, shelf: true, locked: true, gate: email ? 'buyer' : 'signin',
+                  desc: 'A Customer Loyalty product: only returning customers can open this safe. Sign in with the email you ordered with to see what is inside.', photo: 'https://' + req.headers.host + '/photos/vault.jpg' };
               }).filter(Boolean);
             }
           } catch (e) { /* the list goes out as it was */ }

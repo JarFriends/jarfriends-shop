@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Buyers-only safe</title>
+<title>Customer Loyalty safe</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&family=IBM+Plex+Mono:wght@400;500&family=Playfair+Display:wght@600;700;800&display=swap">
 <link rel="stylesheet" href="/site.css">
 <style>
@@ -53,11 +53,11 @@
 </style>
 </head>
 <body>
-<header class="top"><div class="wrap bar"><a class="brand" href="/" style="text-decoration:none">JarFriends</a><span style="display:flex;align-items:center;gap:20px"><span class="mono dim">BUYERS ONLY</span><a class="home" href="/">Home</a></span></div></header>
+<header class="top"><div class="wrap bar"><a class="brand" href="/" style="text-decoration:none">JarFriends</a><span style="display:flex;align-items:center;gap:20px"><span class="mono dim">CUSTOMER LOYALTY</span><a class="home" href="/">Home</a></span></div></header>
 <main class="wrap page">
   <div class="stack-s center">
-    <div class="mono gold" id="eyebrow">FOR PAST BUYERS</div>
-    <h1 id="head">The buyers-only safe</h1>
+    <div class="mono gold" id="eyebrow">CUSTOMER LOYALTY PRODUCT</div>
+    <h1 id="head">The Customer Loyalty safe</h1>
     <div class="small" id="lead">Checking the lock...</div>
     <div class="combo" id="combo" aria-live="polite"></div>
     <div class="nm reveal" id="nm" hidden></div>
@@ -74,7 +74,7 @@
   </div>
   <div class="center">
     <button class="solid keybtn" type="button" id="open" hidden><span aria-hidden="true">🔑</span> Use your buyer's key</button>
-    <span class="badge reveal" id="badge" hidden>★ PAST BUYER REWARD ★</span>
+    <span class="badge reveal" id="badge" hidden>★ CUSTOMER LOYALTY REWARD ★</span>
     <div class="thanks reveal" id="thanks" hidden><h2>Thank you</h2><p>You bought from JarFriends before, and that means a lot. This safe only opens for returning buyers, so what is inside is our way of saying thanks. It is just for you.</p></div>
     <a class="solid reveal" id="buy" hidden style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center">Claim my reward</a>
     <a class="solid" id="signin" href="/account.html" hidden style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center">Sign in to open</a>
@@ -123,7 +123,7 @@
     })(start);
   }
   function showAfter(p) {
-    $('eyebrow').textContent = 'PAST BUYERS ONLY';
+    $('eyebrow').textContent = 'CUSTOMER LOYALTY PRODUCT';
     $('head').textContent = 'Your reward is unlocked';
     $('nm').textContent = p.name; $('nm').hidden = false;
     $('lead').textContent = '';
@@ -139,7 +139,7 @@
       if (p.gate === 'buyer') {
         $('lead').textContent = 'You are signed in, but there is no paid order under this email yet. Buy any piece in the shop and this safe opens for you.';
       } else {
-        $('lead').textContent = 'This safe opens only for past buyers. Sign in with the email you ordered with, then come back here.';
+        $('lead').textContent = 'This Customer Loyalty safe opens only for returning customers. Sign in with the email you ordered with, then come back here.';
         $('signin').hidden = false;
       }
       return;

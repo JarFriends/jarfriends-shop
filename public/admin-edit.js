@@ -97,7 +97,7 @@
     head.appendChild(pic);
     var t = el('b', p.name); t.style.cssText = 'flex:1 1 260px;min-width:0;overflow-wrap:anywhere';
     head.appendChild(t);
-    head.appendChild(el('span', (p.hidden ? 'HIDDEN · ' : '') + (p.buyers ? 'BUYERS ONLY · ' : '') + p.where + (!p.deal && p.where === 'Shop' ? (p.onShelf ? ' · on the shelf' : ' · not on the shelf') : '') + (p.deal ? ', safe ' + p.deal : '') + (p.section ? ' · ' + p.section : '') + ' · ' + (p.hidden ? 'Off the site' : p.state || (p.left > 0 ? 'For sale' : 'Sold out')), 'small'));
+    head.appendChild(el('span', (p.hidden ? 'HIDDEN · ' : '') + (p.buyers ? 'CUSTOMER LOYALTY · ' : '') + p.where + (!p.deal && p.where === 'Shop' ? (p.onShelf ? ' · on the shelf' : ' · not on the shelf') : '') + (p.deal ? ', safe ' + p.deal : '') + (p.section ? ' · ' + p.section : '') + ' · ' + (p.hidden ? 'Off the site' : p.state || (p.left > 0 ? 'For sale' : 'Sold out')), 'small'));
     c.appendChild(head);
     if (p.buyers) { var sl = el('a', 'Open the safe (admin view)'); sl.href = '/safe.html?product=' + encodeURIComponent(p.id); sl.target = '_blank'; sl.style.cssText = 'align-self:flex-start;font-weight:700'; c.appendChild(sl); }
     var stats = el('div'); stats.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px 22px';
@@ -127,7 +127,7 @@
     var price = field('Price, $', Number(p.price).toFixed(2), 'number', '120px'), stock = field('Started with', p.start, 'number', '120px'), ship = field('Shipping, $ (0 = free)', Number(p.shipping).toFixed(2), 'number', '160px');
     var sec = p.deal ? null : field('Section', p.section, 'text', '180px');
     var safe = field('Deal of the day safe (0 = none)', p.deal || 0, 'number', '200px');
-    var onShelf = tick('Show on the shop shelf and in the chat', p.onShelf), hide = tick('Hide from the site (it cannot be seen or ordered)', p.hidden), buyers = tick('Buyers only (shows as a locked safe; only a signed-in past buyer can open and order it)', p.buyers);
+    var onShelf = tick('Show on the shop shelf and in the chat', p.onShelf), hide = tick('Hide from the site (it cannot be seen or ordered)', p.hidden), buyers = tick('Customer Loyalty product (shows as a locked safe; only a signed-in returning customer can open and order it)', p.buyers);
     var photo = photoField('New photo (optional)');
     [name, desc, price, stock, ship, sec, safe, photo, onShelf, hide, buyers].forEach(function (f) { if (f) row.appendChild(f.box); });
     var save = el('button', 'Save', 'solid'); save.type = 'button'; row.appendChild(save);

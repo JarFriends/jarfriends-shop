@@ -753,7 +753,7 @@ const slots = catalog.map((c) => (c.stock === null ? "in" : c.stock <= 0 ? "next
 const all = slots.map((s, i) => {
 const c = catalog[i];
 const sold = c.stock !== null && c.stock < c.min;
-const p = Object.assign({ status: s, deal: !!c.deal, cents: c.cents, sections: c.sections, lot: c.id, name: c.name, price: c.locked ? "Buyers only" : "$" + (c.cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + (c.eth ? " (≈ " + c.eth + " ETH)" : ""), stockText: c.stock === null ? "Shown at checkout" : c.stock === 1 ? "One of a kind" : c.stock + " available", canOrder: !sold, noOrder: sold }, badges[s]);
+const p = Object.assign({ status: s, deal: !!c.deal, cents: c.cents, sections: c.sections, lot: c.id, name: c.name, price: c.locked ? "Customer Loyalty" : "$" + (c.cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + (c.eth ? " (≈ " + c.eth + " ETH)" : ""), stockText: c.stock === null ? "Shown at checkout" : c.stock === 1 ? "One of a kind" : c.stock + " available", canOrder: !sold, noOrder: sold }, badges[s]);
 if (sold) { p.badge = "Sold"; p.stockText = "Sold"; }
 // Each piece is a small tile; tapping it opens its details and the check out button.
 p.isOpen = open === c.id;
@@ -779,7 +779,7 @@ p.setQty = (e) => {
 const typed = e.target.value, n = Math.floor(Number(typed));
 this.setState({ qtys: Object.assign({}, qtys, { [c.id]: c.stock !== null && n > c.stock ? String(c.stock) : typed }) });
 };
-p.total = c.locked ? "Past buyers: open the safe to see what is inside." : q + (q === 1 ? " piece: $" : " pieces: $") + (c.cents * q / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+p.total = c.locked ? "Customer Loyalty product: returning customers open the safe to see what is inside." : q + (q === 1 ? " piece: $" : " pieces: $") + (c.cents * q / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 p.note = note;
 p.orderUrl = c.locked ? paySite + "/safe.html?product=" + c.id : paySite + "/order.html?product=" + c.id + "&qty=" + q;
 p.offer = () => ((url) => {
