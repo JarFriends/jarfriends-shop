@@ -235,7 +235,7 @@ async function repriced(now, mail, opt) {
   const hold = opt && opt.hold !== undefined ? opt.hold : 0, max = (opt && opt.max) || 12;
   const lib = require('./_lib');
   const r = await fetch(HOST + '/api/order', { signal: AbortSignal.timeout(8000), headers: { 'cache-control': 'no-store' } });
-  const shop = ((await r.json()).products || []).filter((p) => p && p.id && (p.shelf || p.deal) && !p.locked && !/^MPARTY/.test(p.id));
+  const shop = ((await r.json()).products || []).filter((p) => p && p.id && !p.locked && !/^MPARTY/.test(p.id));
   if (!shop.length) return;
   let st = await store.read('sweep/prices.json');
   // The first time, today's prices are noted. Nothing is sent for them.
@@ -259,12 +259,14 @@ async function repriced(now, mail, opt) {
     st.batch = { key: 'drop-' + now.toString(36), items: st.wait }; st.wait = {}; changed = true;
   }
   if (changed) await store.write('sweep/prices.json', st);
+  console.log('DROPS', JSON.stringify({ waiting: Object.keys(st.wait), batch: st.batch ? Object.keys(st.batch.items) : null, checked: shop.length }));
   if (!st.batch) return;
   // Only pieces still for sale, still at the lower price, are shown.
   const items = Object.keys(st.batch.items).map((id) => { const p = shop.filter((x) => x.id === id)[0], w = st.batch.items[id]; return p && Number(p.stock) > 0 && Number(p.price) < w.from - 0.004 ? Object.assign({}, p, { was: w.from }) : null; }).filter(Boolean);
   const who = items.length ? await everyone() : {}, log = (await store.read('sweep/' + st.batch.key + '.json')) || { done: {} };
   const todo = Object.keys(who).filter((e) => !log.done[hashOf(e)]);
   // The last batch is done: clear it, then look again at once so a newer drop is not left waiting.
+  console.log('DROPS_SEND', JSON.stringify({ key: st.batch.key, items: items.length, people: Object.keys(who).length, left: todo.length }));
   if (!todo.length) { st.batch = null; await store.write('sweep/prices.json', st); return opt && opt.again === false ? undefined : repriced(now, mail, Object.assign({}, opt, { again: false })); }
   const addr = (process.env.RETURN_ADDRESS || '').replace(/\s*\n\s*/g, ', ').trim();
   const usd = (n) => '$' + Number(n).toFixed(2);
