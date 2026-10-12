@@ -11,12 +11,12 @@ const changes = [
   ['api/order.js', R`  if (!p) return res.status(400).json({ error: 'Choose a product.' });`, R`  if (!p) return res.status(400).json({ error: 'Choose a product.' });
   {
     const gate = require('./_gate');
-    if ((await gate.gated())[p.id] && !(await gate.isBuyer(gate.emailOf(b.acct)))) return res.status(403).json({ error: 'This piece is for past buyers only. Sign in with the email you ordered with, then open the safe again.' });
+    if ((await gate.gated())[p.id] && !gate.isAdmin(b.ak) && !(await gate.isBuyer(gate.emailOf(b.acct)))) return res.status(403).json({ error: 'This piece is for past buyers only. Sign in with the email you ordered with, then open the safe again.' });
   }`],
   // The checkout page sends the sign-in along, and never lists a safe that is still locked.
-  ['public/order.html', R`  Promise.all([fetch('/api/order', { cache: 'no-store' })`, R`  var acct = ''; try { acct = localStorage.getItem('acct_token') || ''; } catch (e) { acct = ''; }
-  Promise.all([fetch('/api/order?co=1' + (acct ? '&t=' + encodeURIComponent(acct) : ''), { cache: 'no-store' })`],
-  ['public/order.html', R`    data.product = $('product').value; data.qty = Number($('qty').value);`, R`    data.product = $('product').value; data.qty = Number($('qty').value); data.acct = acct;`]
+  ['public/order.html', R`  Promise.all([fetch('/api/order', { cache: 'no-store' })`, R`  var acct = '', ak = ''; try { acct = localStorage.getItem('acct_token') || ''; ak = localStorage.getItem('adminKey') || ''; } catch (e) { acct = ''; }
+  Promise.all([fetch('/api/order?co=1' + (acct ? '&t=' + encodeURIComponent(acct) : '') + (ak ? '&ak=' + encodeURIComponent(ak) : ''), { cache: 'no-store' })`],
+  ['public/order.html', R`    data.product = $('product').value; data.qty = Number($('qty').value);`, R`    data.product = $('product').value; data.qty = Number($('qty').value); data.acct = acct; data.ak = ak;`]
 ];
 const files = {};
 changes.forEach((c) => {
@@ -37,7 +37,7 @@ fs.writeFileSync(f, fs.readFileSync(f, 'utf8') + `
       let ids = {}, email = '', ok = false;
       try { ids = await gate.gated(); } catch (e) { ids = {}; }
       if (Object.keys(ids).length) {
-        email = gate.emailOf(req.query && req.query.t); ok = await gate.isBuyer(email);
+        email = gate.emailOf(req.query && req.query.t); ok = gate.isAdmin(req.query && req.query.ak) || await gate.isBuyer(email);
         const send = res.json.bind(res), co = !!(req.query && req.query.co);
         res.json = (body) => {
           try {

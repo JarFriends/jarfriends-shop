@@ -48,4 +48,9 @@ async function gated() {
   try { (await require('./_edits').apply(require('./_products'), { all: true })).forEach((p) => { if (p.buyers) out[p.id] = true; }); } catch (e) { /* none */ }
   return out;
 }
-module.exports = { emailOf, isBuyer, gated, paidByEmail };
+// The owner's back-office key (the one admin.html keeps after signing in). It opens every buyers-only safe.
+function isAdmin(k) {
+  const t = verify(String(k || ''));
+  return !!(t && t.adm === 1 && t.x > Math.floor(Date.now() / 1000));
+}
+module.exports = { emailOf, isBuyer, gated, paidByEmail, isAdmin };

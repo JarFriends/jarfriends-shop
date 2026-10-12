@@ -99,6 +99,7 @@
     head.appendChild(t);
     head.appendChild(el('span', (p.hidden ? 'HIDDEN · ' : '') + (p.buyers ? 'BUYERS ONLY · ' : '') + p.where + (!p.deal && p.where === 'Shop' ? (p.onShelf ? ' · on the shelf' : ' · not on the shelf') : '') + (p.deal ? ', safe ' + p.deal : '') + (p.section ? ' · ' + p.section : '') + ' · ' + (p.hidden ? 'Off the site' : p.state || (p.left > 0 ? 'For sale' : 'Sold out')), 'small'));
     c.appendChild(head);
+    if (p.buyers) { var sl = el('a', 'Open the safe (admin view)'); sl.href = '/safe.html?product=' + encodeURIComponent(p.id); sl.target = '_blank'; sl.style.cssText = 'align-self:flex-start;font-weight:700'; c.appendChild(sl); }
     var stats = el('div'); stats.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px 22px';
     [['Price', usd(p.price)], ['Shipping', p.shipping ? usd(p.shipping) : 'Free'], ['Left', p.left + ' of ' + p.start], ['Sold', String(p.sold)], ['On hold', String(p.held || 0)], ['Looked at', p.views + (p.viewsToday ? ' (' + p.viewsToday + ' today)' : '')], ['Checkout clicks', String(p.checkouts)]].forEach(function (x) { stats.appendChild(stat(x[0], x[1])); });
     c.appendChild(stats);

@@ -71,6 +71,7 @@
     <a class="solid reveal" id="buy" hidden style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center">Claim my reward</a>
     <a class="solid" id="signin" href="/account.html" hidden style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center">Sign in to open</a>
     <div class="small reveal" id="desc" style="max-width:560px"></div>
+    <div class="small dim" id="replay" hidden>Admin view: you are signed in to the back office, so the safe opens for you and plays every time. <a href="" onclick="location.reload();return false">Play it again</a></div>
     <a class="home" href="/">Back to the shop</a>
   </div>
 </main>
@@ -80,7 +81,7 @@
 (function () {
   var $ = function (id) { return document.getElementById(id); };
   var id = new URLSearchParams(location.search).get('product') || '', tok = '';
-  try { tok = localStorage.getItem('acct_token') || ''; } catch (e) { tok = ''; }
+  var ak = ''; try { tok = localStorage.getItem('acct_token') || ''; ak = localStorage.getItem('adminKey') || ''; } catch (e) { tok = ''; }
   var seenKey = 'jf-safe-open-' + id, seen = false;
   try { seen = localStorage.getItem(seenKey) === '1'; } catch (e) { seen = false; }
   var calm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -121,7 +122,7 @@
     $('buy').href = '/order.html?product=' + encodeURIComponent(id) + '&qty=' + (p.min || 1); $('buy').hidden = false;
   }
 
-  fetch('/api/order' + (tok ? '?t=' + encodeURIComponent(tok) : ''), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (j) {
+  fetch('/api/order?s=1' + (tok ? '&t=' + encodeURIComponent(tok) : '') + (ak ? '&ak=' + encodeURIComponent(ak) : ''), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (j) {
     var p = (j.products || []).filter(function (x) { return x.id === id; })[0];
     if (!p) { $('head').textContent = 'This safe is not here'; $('lead').textContent = 'It may have been claimed already. Have a look at the shop.'; return; }
     if (p.locked) {
@@ -138,9 +139,11 @@
     $('pr').textContent = '$' + p.price + (p.eth ? ' (about ' + p.eth + ' ETH)' : '');
     if (p.photo) { $('pic').src = p.photo; $('pic').hidden = false; }
     // Opened before on this device: the safe stands open.
+    if (ak) seen = false;
     if (seen) { $('stage').className = 'stage open instant'; showAfter(p); return; }
     $('head').textContent = 'You earned a key';
     $('lead').textContent = 'Welcome back. Because you have bought from JarFriends before, this safe opens for you.';
+    if (ak) { $('eyebrow').textContent = 'ADMIN VIEW'; $('replay').hidden = false; }
     $('open').hidden = false;
     $('open').addEventListener('click', function () {
       $('open').hidden = true; $('lead').textContent = 'Turning the key...';
@@ -150,7 +153,7 @@
       setTimeout(function () { st.className = 'stage shake'; sound('bolts'); $('lead').textContent = 'Unlocking...'; }, 1700);
       setTimeout(function () { st.className = 'stage open'; }, 2700);
       setTimeout(function () { sound('win'); $('flash').className = 'flash go'; confetti(); }, 3500);
-      setTimeout(function () { showAfter(p); try { localStorage.setItem(seenKey, '1'); } catch (e) { /* fine */ } }, 4300);
+      setTimeout(function () { showAfter(p); if (!ak) { try { localStorage.setItem(seenKey, '1'); } catch (e) { /* fine */ } } }, 4300);
     });
   }, function () { $('lead').textContent = 'Could not reach the shop. Reload the page.'; });
 })();
