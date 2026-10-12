@@ -1,6 +1,7 @@
 // Build step: the party (see _party.js). This one starts Monday, October 12, 2026 at 12:00 PM Central and runs
-// 24 hours. Its own listing (MPARTY2, so the last party's orders and settlement stay apart), 11 units at $35 each.
-// Levels are set in units sold and dollars: 2 sold $30, 5 sold $26 final (written as exact % off $35).
+// 24 hours. Its own listing (MPARTY2, so the last party's orders and settlement stay apart), 11 units at $29.60 each,
+// $6.20 shipping per order.
+// Levels: $29.60, then 3 sold $28.16, 5 $26.72, 7 $25.28, 9 $23.84, all 11 $22.40 (exact % off $29.60).
 // Before it opens, no price is shown or sold: the home page shows a countdown to the opening.
 const fs = require('fs');
 const R = String.raw;
@@ -16,9 +17,9 @@ const changes = [
   startsText: 'today, Monday, October 12 at 12:00 PM Central',
   ends: Date.parse('2026-10-13T12:00:00-05:00'),
   endsText: 'Tuesday, October 13 at 12:00 PM Central',
-  // [units sold, % off]: the % gives exact dollar prices on $35 ($30, then $26 as the final price).
+  // [units sold, % off]: the % gives exact dollar prices on $29.60, $1.44 lower every 2 sold, $22.40 if all 11 sell.
   counts: true,
-  tiers: [[2, 100 / 7], [5, 180 / 7]]`],
+  tiers: [[3, 14400 / 2960], [5, 28800 / 2960], [7, 43200 / 2960], [9, 57600 / 2960], [11, 72000 / 2960]]`],
   ['api/_party.js', R`const tiers = PARTY.tiers.map((t) => { const need = Math.ceil(PARTY.total * t[0] / 100); return { share: t[0], need: need, off: t[1], reached: sold >= need }; });`,
     R`const tiers = PARTY.tiers.map((t) => { const need = PARTY.counts ? t[0] : Math.ceil(PARTY.total * t[0] / 100); return { share: t[0], need: need, off: t[1], label: cents ? money(Math.round(cents * t[1] / 100)) + ' off' : '', price: cents ? money(Math.round(cents * (100 - t[1]) / 100)) : '', reached: sold >= need }; });`],
   ['api/_party.js', R`return PARTY.tiers.reduce((m, t) => (after >= Math.ceil(PARTY.total * t[0] / 100) ? Math.max(m, t[1]) : m), 0);`, R`return PARTY.tiers.reduce((m, t) => (after >= (PARTY.counts ? t[0] : Math.ceil(PARTY.total * t[0] / 100)) ? Math.max(m, t[1]) : m), 0);`],
@@ -27,7 +28,7 @@ const changes = [
   return { upcoming: upcoming, starts: PARTY.starts, startsText: PARTY.startsText || '', offText: off && cents ? money(Math.round(cents * off / 100)) + ' off' : off ? off + '% off' : '', on: store.on(), pid: PARTY.pid,`],
   // The listing: the new party piece, and the last party's listing taken off the site.
   ['api/_products.js', R`  { id: 'MPARTY', name: 'Motivated Monster Comic Pack (Issue 05): Party Pricing', price: 44, min: 1, stock: 11, shipping: 5.3 },`, R`  { id: 'MPARTY', name: 'Motivated Monster Comic Pack (Issue 05): Party Pricing', price: 44, min: 1, stock: 11, shipping: 5.3, hidden: true },
-  { id: 'MPARTY2', name: 'Motivated Monster Comic Pack (Issue 05): Party Pricing', price: 35, min: 1, stock: 11, shipping: 5.3 },`],
+  { id: 'MPARTY2', name: 'Motivated Monster Comic Pack (Issue 05): Party Pricing', price: 29.6, min: 1, stock: 11, shipping: 6.2 },`],
   // Before the opening the party gives away nothing but the time it opens.
   ['api/party.js', R`  const st = await party.state(cents);`, R`  const st = await party.state(cents);
   if (!(req.query && req.query.settle) && st.upcoming) return res.json({ pid: st.pid, on: st.on, upcoming: true, ended: false, starts: st.starts, startsText: st.startsText, ends: st.ends, endsText: st.endsText, total: st.total, name: p.name });`],
