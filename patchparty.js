@@ -1,6 +1,6 @@
 // Build step: the party (see _party.js). This one starts Monday, October 12, 2026 at 12:00 PM Central and runs
 // 24 hours. Its own listing (MPARTY2, so the last party's orders and settlement stay apart), 11 units at $35 each.
-// Levels are set in units sold and dollars: 2 sold $30, 5 sold $28, 10 sold $22.50 (written as exact % off $35).
+// Levels are set in units sold and dollars: 2 sold $30, 5 sold $26 final (written as exact % off $35).
 // Before it opens, no price is shown or sold: the home page shows a countdown to the opening.
 const fs = require('fs');
 const R = String.raw;
@@ -16,9 +16,9 @@ const changes = [
   startsText: 'today, Monday, October 12 at 12:00 PM Central',
   ends: Date.parse('2026-10-13T12:00:00-05:00'),
   endsText: 'Tuesday, October 13 at 12:00 PM Central',
-  // [units sold, % off]: the % gives exact dollar prices on $35 ($30, $28, $22.50).
+  // [units sold, % off]: the % gives exact dollar prices on $35 ($30, then $26 as the final price).
   counts: true,
-  tiers: [[2, 100 / 7], [5, 20], [10, 250 / 7]]`],
+  tiers: [[2, 100 / 7], [5, 180 / 7]]`],
   ['api/_party.js', R`const tiers = PARTY.tiers.map((t) => { const need = Math.ceil(PARTY.total * t[0] / 100); return { share: t[0], need: need, off: t[1], reached: sold >= need }; });`,
     R`const tiers = PARTY.tiers.map((t) => { const need = PARTY.counts ? t[0] : Math.ceil(PARTY.total * t[0] / 100); return { share: t[0], need: need, off: t[1], label: cents ? money(Math.round(cents * t[1] / 100)) + ' off' : '', price: cents ? money(Math.round(cents * (100 - t[1]) / 100)) : '', reached: sold >= need }; });`],
   ['api/_party.js', R`return PARTY.tiers.reduce((m, t) => (after >= Math.ceil(PARTY.total * t[0] / 100) ? Math.max(m, t[1]) : m), 0);`, R`return PARTY.tiers.reduce((m, t) => (after >= (PARTY.counts ? t[0] : Math.ceil(PARTY.total * t[0] / 100)) ? Math.max(m, t[1]) : m), 0);`],
