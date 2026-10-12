@@ -11,6 +11,8 @@ const changes = [
       const st = require('./_store');
       if (st.on()) {
         await st.write('list/' + crypto.createHash('sha1').update(email.toLowerCase()).digest('hex').slice(0, 20) + '.json', { at: Date.now(), email: email.toLowerCase(), name: name });
+        // Subscribing again undoes an earlier unsubscribe.
+        await st.write('unsub/' + crypto.createHash('sha1').update(email.toLowerCase()).digest('hex').slice(0, 20) + '.json', { back: Date.now() });
         if (!issue) await st.write('msgs/' + Date.now() + '-' + crypto.createHash('sha1').update('join|' + email).digest('hex').slice(0, 8) + '.json', { at: Date.now(), kind: 'join', name: name, email: email, order: '', topic: topic, issue: '', fix: '' });
       }
     } catch (e) { console.error('LIST_SAVE_FAIL', String(e && e.message || e)); return res.status(503).json({ error: 'Could not add you just now. Please try again.' }); }

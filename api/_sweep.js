@@ -69,6 +69,12 @@ async function unpaid(now, mail) {
 // one email about it, with a picture of the vault. Twelve go out per check, so a long list takes a few checks.
 const esc = (v) => String(v == null ? '' : v).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const hashOf = (e) => require('crypto').createHash('sha1').update(String(e).toLowerCase()).digest('hex').slice(0, 20);
+// Has this address unsubscribed? Subscribing again (help.html?join=1) undoes it. The shop owner always gets these.
+async function gone(e) {
+  if (String(e).toLowerCase() === (process.env.OWNER_EMAIL || '').trim().toLowerCase()) return false;
+  const r = await store.read('unsub/' + hashOf(e) + '.json');
+  return !!(r && r.at && !(r.back > r.at));
+}
 async function safes(now, mail) {
   const lib = require('./_lib'), dl = await require('./_offline').deals(await lib.getInventory());
   const openSlot = (dl.slots || []).filter((x) => x.state === 'open')[0] || {}, open = openSlot.n || 0, openId = openSlot.id || '';
@@ -100,7 +106,7 @@ async function safes(now, mail) {
   const addr = (process.env.RETURN_ADDRESS || '').replace(/\s*\n\s*/g, ', ').trim();
   const subject = n >= total ? 'The Vault is open at JarFriends' : n === 1 ? 'New Deal of the day: safe 1 is open at JarFriends' : 'Safe ' + n + ' just unlocked at JarFriends';
   for (const e of todo.slice(0, 12)) {
-    if (await store.read('unsub/' + hashOf(e) + '.json')) { log.done[hashOf(e)] = 1; continue; }
+    if (await gone(e)) { log.done[hashOf(e)] = 1; continue; }
     const stop = HOST + '/api/unsub?t=' + lib.sign({ un: 1, e: e });
     const l1 = n >= total ? 'Every safe before it has been claimed, so The Vault is open right now.' : n === 1 ? 'A new round of Deal of the day safes just started, and safe 1 is open.' : 'Safe ' + (n - 1) + ' was just claimed, so safe ' + n + ' is unlocked.';
     const l2 = n >= total ? 'This is the last and biggest one. Have you seen what is inside?' : 'Have you checked what is inside the new safe?';
@@ -161,7 +167,7 @@ async function arrivals(now, mail) {
   const cost = (p) => '$' + p.price + (p.eth ? ' (about ' + p.eth + ' ETH)' : '') + (p.nft ? '' : Number(p.ship) > 0 ? ' + $' + p.ship + ' shipping' : ', free shipping');
   const tip = 'Pay with crypto and take 1% off. There is no wallet to connect and nothing to sign: you just send the payment to the address shown.';
   for (const e of todo.slice(0, 12)) {
-    if (await store.read('unsub/' + hashOf(e) + '.json')) { log.done[hashOf(e)] = 1; continue; }
+    if (await gone(e)) { log.done[hashOf(e)] = 1; continue; }
     const stop = HOST + '/api/unsub?t=' + lib.sign({ un: 1, e: e });
     const lines = [first(who[e]), '', items.length === 1 ? 'A new piece just landed in the shop:' : 'New pieces just landed in the shop:', ''];
     items.forEach((p) => { lines.push(p.name, cost(p), HOST + '/order.html?product=' + encodeURIComponent(p.id), ''); });
@@ -258,14 +264,15 @@ async function repriced(now, mail, opt) {
   const items = Object.keys(st.batch.items).map((id) => { const p = shop.filter((x) => x.id === id)[0], w = st.batch.items[id]; return p && Number(p.stock) > 0 && Number(p.price) < w.from - 0.004 ? Object.assign({}, p, { was: w.from }) : null; }).filter(Boolean);
   const who = items.length ? await everyone() : {}, log = (await store.read('sweep/' + st.batch.key + '.json')) || { done: {} };
   const todo = Object.keys(who).filter((e) => !log.done[hashOf(e)]);
-  if (!todo.length) { st.batch = null; await store.write('sweep/prices.json', st); return; }
+  // The last batch is done: clear it, then look again at once so a newer drop is not left waiting.
+  if (!todo.length) { st.batch = null; await store.write('sweep/prices.json', st); return opt && opt.again === false ? undefined : repriced(now, mail, Object.assign({}, opt, { again: false })); }
   const addr = (process.env.RETURN_ADDRESS || '').replace(/\s*\n\s*/g, ', ').trim();
   const usd = (n) => '$' + Number(n).toFixed(2);
   const subject = items.length === 1 ? 'Price drop: ' + items[0].name + ' is now ' + usd(items[0].price) : items.length + ' price drops at JarFriends';
   const ship = (p) => (p.nft ? '' : Number(p.ship) > 0 ? ' + $' + p.ship + ' shipping' : ', free shipping');
   const tip = 'Pay with crypto and take 1% off. There is no wallet to connect and nothing to sign: you just send the payment to the address shown.';
   for (const e of todo.slice(0, max)) {
-    if (await store.read('unsub/' + hashOf(e) + '.json')) { log.done[hashOf(e)] = 1; continue; }
+    if (await gone(e)) { log.done[hashOf(e)] = 1; continue; }
     const stop = HOST + '/api/unsub?t=' + lib.sign({ un: 1, e: e });
     const lines = [first(who[e]), '', items.length === 1 ? 'A price just dropped at JarFriends:' : 'Prices just dropped at JarFriends:', ''];
     items.forEach((p) => { lines.push(p.name, 'Was ' + usd(p.was) + ', now ' + usd(p.price) + (p.eth ? ' (about ' + p.eth + ' ETH)' : '') + ship(p), HOST + '/order.html?product=' + encodeURIComponent(p.id), ''); });
