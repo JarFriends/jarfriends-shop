@@ -77,7 +77,11 @@
     <span class="badge reveal" id="badge" hidden>★ CUSTOMER LOYALTY REWARD ★</span>
     <div class="thanks reveal" id="thanks" hidden><h2>Thank you</h2><p>You bought from JarFriends before, and that means a lot. This safe only opens for returning buyers, so what is inside is our way of saying thanks. It is just for you.</p></div>
     <a class="solid reveal" id="buy" hidden style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center">Claim my reward</a>
-    <a class="solid" id="signin" href="/account.html" hidden style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center">Sign in to open</a>
+    <form id="signin" hidden style="display:flex;flex-direction:column;gap:10px;align-items:center;width:100%;max-width:420px">
+      <label style="width:100%;display:flex;flex-direction:column;gap:6px;text-align:left">The email you ordered with<input type="email" id="mailIn" required autocomplete="email" placeholder="you@example.com"></label>
+      <button class="solid" type="submit" id="mailGo" style="align-self:center">Email me a link to open the safe</button>
+      <div class="small" id="mailMsg" role="status"></div>
+    </form>
     <div class="small reveal" id="desc" style="max-width:560px"></div>
     <div class="small dim" id="replay" hidden>Admin view: you are signed in to the back office, so the safe opens for you and plays every time. <a href="" onclick="location.reload();return false">Play it again</a></div>
     <a class="home" href="/">Back to the shop</a>
@@ -132,6 +136,13 @@
     $('buy').href = '/order.html?product=' + encodeURIComponent(id) + '&qty=' + (p.min || 1); $('buy').hidden = false;
   }
 
+  $('signin').addEventListener('submit', function (ev) {
+    ev.preventDefault(); $('mailGo').disabled = true; $('mailMsg').textContent = 'Sending...';
+    fetch('/api/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: $('mailIn').value, next: '/safe.html?product=' + encodeURIComponent(id) }) })
+      .then(function (r) { return r.json(); })
+      .then(function (r) { $('mailGo').disabled = false; $('mailMsg').textContent = r.error || 'Sent. Open the email from us and tap the button: it brings you right back here with the safe ready to open. Check spam if you do not see it in a minute.'; },
+        function () { $('mailGo').disabled = false; $('mailMsg').textContent = 'Could not send just now. Try again.'; });
+  });
   fetch('/api/order?s=1' + (tok ? '&t=' + encodeURIComponent(tok) : '') + (ak ? '&ak=' + encodeURIComponent(ak) : ''), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (j) {
     var p = (j.products || []).filter(function (x) { return x.id === id; })[0];
     if (!p) { $('head').textContent = 'This safe is not here'; $('lead').textContent = 'It may have been claimed already. Have a look at the shop.'; return; }
@@ -139,7 +150,7 @@
       if (p.gate === 'buyer') {
         $('lead').textContent = 'You are signed in, but there is no paid order under this email yet. Buy any piece in the shop and this safe opens for you.';
       } else {
-        $('lead').textContent = 'This Customer Loyalty safe opens only for returning customers. Sign in with the email you ordered with, then come back here.';
+        $('lead').textContent = 'This Customer Loyalty safe opens only for returning customers. Enter the email you ordered with (any email, not just Gmail) and we will send you a link that opens it.';
         $('signin').hidden = false;
       }
       return;

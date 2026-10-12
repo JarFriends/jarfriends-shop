@@ -20,10 +20,15 @@
   <div class="stack-s">
     <div class="mono gold" id="who">YOUR ACCOUNT</div>
     <h1 id="head">My orders</h1>
-    <div class="small" id="lead">Sign in with the Google account for the email you used to order, to see your orders and their status.</div>
+    <div class="small" id="lead">Sign in with the email you used to order, to see your orders and their status. Any email works: we send you a sign-in link.</div>
   </div>
 
   <section class="card" id="signin" hidden style="gap:18px">
+    <form id="mailForm" style="display:flex;flex-direction:column;gap:10px;align-items:flex-start">
+      <label style="width:100%;display:flex;flex-direction:column;gap:6px">The email you ordered with<input type="email" id="mailIn" required autocomplete="email" placeholder="you@example.com"></label>
+      <button class="solid" type="submit" id="mailGo">Email me a sign-in link</button>
+    </form>
+    <div class="small dim">Or, if you ordered with a Gmail address:</div>
     <div id="gbtn"></div>
     <div class="small" id="msg" role="status"></div>
   </section>
@@ -40,7 +45,12 @@
   var KEY = 'acct_token', token = null;
   var qs = new URLSearchParams(location.search);
   try {
-    if (qs.get('t')) { localStorage.setItem(KEY, qs.get('t')); history.replaceState(null, '', location.pathname); }
+    var nx = qs.get('next') || '';
+    if (qs.get('t')) {
+      localStorage.setItem(KEY, qs.get('t'));
+      // Signed in from an emailed link that was asked for on another page (the Customer Loyalty safe): go back there.
+      if (/^\/[^\/]/.test(nx)) { location.replace(nx); } else { history.replaceState(null, '', location.pathname); }
+    }
     token = localStorage.getItem(KEY);
   } catch (e) { token = qs.get('t'); }
 
@@ -66,6 +76,14 @@
       document.head.appendChild(sc);
     }, function () {});
   }
+  $('mailForm').addEventListener('submit', function (ev) {
+    ev.preventDefault(); $('mailGo').disabled = true; $('msg').textContent = 'Sending...';
+    var nx = new URLSearchParams(location.search).get('next') || '';
+    fetch('/api/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: $('mailIn').value, next: nx }) })
+      .then(function (r) { return r.json(); })
+      .then(function (r) { $('mailGo').disabled = false; $('msg').textContent = r.error || 'Check your inbox for a sign-in link from us. It can take a minute (look in spam too).'; },
+        function () { $('mailGo').disabled = false; $('msg').textContent = 'Could not send just now. Try again.'; });
+  });
   function signedOut(note) {
     googleButton();
     $('signin').hidden = false; $('list').hidden = true; $('foot').hidden = true; $('foot').style.display = 'none';
