@@ -15,6 +15,9 @@ const changes = [
   if (f === 'admin.html' && s.indexOf('/admin-digest.js') < 0) s = before(s, f, '<script src="/admin-digest.js" defer></script>');
   if (f === 'admin.html' && s.indexOf('/admin-ship.js') < 0) s = before(s, f, '<script src="/admin-ship.js" defer></script>');`]
 ];
+// The back office can set each piece's shipping weight and package size (used for its shipping label).
+changes.push(['api/admin.js', "buyers: !!p.buyers, auction: p.auction || null,", "buyers: !!p.buyers, auction: p.auction || null, weight: p.weight_oz || '', box: p.box || '',"]);
+changes.push(['api/admin.js', "    if (q.buyers !== undefined) f.buyers = q.buyers === '1';", "    if (q.buyers !== undefined) f.buyers = q.buyers === '1';\n    if (q.weight !== undefined) { const w = Number(q.weight); if (q.weight !== '' && !(w > 0 && w <= 1600)) return res.status(400).json({ error: 'Enter a shipping weight in ounces, or leave it blank.' }); f.weight_oz = q.weight === '' ? 0 : Math.round(w * 10) / 10; }\n    if (q.box !== undefined) f.box = String(q.box || '').replace(/\\s+/g, ' ').trim().slice(0, 60);"]);
 const files = {};
 changes.forEach((c) => {
   const s = files[c[0]] || (files[c[0]] = fs.readFileSync(c[0], 'utf8'));
