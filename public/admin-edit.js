@@ -45,7 +45,9 @@
       return true;
     });
     var by = { views: function (a, b) { return b.views - a.views; }, checkouts: function (a, b) { return b.checkouts - a.checkouts; }, sold: function (a, b) { return b.sold - a.sold; }, left: function (a, b) { return a.left - b.left; }, priceHigh: function (a, b) { return b.price - a.price; }, priceLow: function (a, b) { return a.price - b.price; }, name: function (a, b) { return a.name.localeCompare(b.name); }, shelf: function (a, b) { return (a.test - b.test) || (rank[a.where] - rank[b.where]) || (a.deal - b.deal); } };
-    return v.sort(by[sort.sel.value] || by.shelf);
+    // Drafts waiting to go live stay at the top.
+    var dr = function (x) { return x.draft && x.hidden ? 1 : 0; }, cmp = by[sort.sel.value] || by.shelf;
+    return v.sort(function (a, b) { return dr(b) - dr(a) || cmp(a, b); });
   }
   function field(label, value, type, width) {
     var l = el('label', label); l.style.cssText = 'flex:1 1 ' + width + ';min-width:0';
@@ -97,7 +99,7 @@
     head.appendChild(pic);
     var t = el('b', p.name); t.style.cssText = 'flex:1 1 260px;min-width:0;overflow-wrap:anywhere';
     head.appendChild(t);
-    head.appendChild(el('span', (p.hidden ? 'HIDDEN · ' : '') + (p.buyers ? 'CUSTOMER LOYALTY · ' : '') + p.where + (!p.deal && p.where === 'Shop' ? (p.onShelf ? ' · on the shelf' : ' · not on the shelf') : '') + (p.deal ? ', safe ' + p.deal : '') + (p.section ? ' · ' + p.section : '') + ' · ' + (p.hidden ? 'Off the site' : p.state || (p.left > 0 ? 'For sale' : 'Sold out')), 'small'));
+    head.appendChild(el('span', (p.nextSafe ? 'WAITING IN NEXT SAFES · ' : p.draft && p.hidden ? 'DRAFT · NOT ON THE SITE YET · ' : p.hidden ? 'HIDDEN · ' : '') + (p.buyers ? 'CUSTOMER LOYALTY · ' : '') + p.where + (!p.deal && p.where === 'Shop' ? (p.onShelf ? ' · on the shelf' : ' · not on the shelf') : '') + (p.deal ? ', safe ' + p.deal : '') + (p.section ? ' · ' + p.section : '') + ' · ' + (p.hidden ? 'Off the site' : p.state || (p.left > 0 ? 'For sale' : 'Sold out')), 'small'));
     c.appendChild(head);
     if (p.auction) {
       // An auction: current bid, time left and every bid with its email (only the owner sees emails).
@@ -131,7 +133,23 @@
         }, function () { hb.disabled = false; hb.textContent = p.hidden ? 'Show on site' : 'Hide from site'; alert('Could not reach the site. Try again.'); });
       });
       var acts = el('div'); acts.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px';
-      ed.style.alignSelf = ''; acts.appendChild(ed); acts.appendChild(hb);
+      ed.style.alignSelf = ''; acts.appendChild(ed);
+      if (p.draft && p.hidden) {
+        // A draft: check it, edit it, then one press puts it on the site and the shop shelf.
+        var gl = el('button', 'Go live', 'solid'); gl.type = 'button'; gl.style.cssText = 'padding:8px 22px';
+        gl.addEventListener('click', function () {
+          if (!p.photo && !confirm('"' + p.name + '" has no photo. Go live anyway?')) return;
+          if (!confirm('Put "' + p.name + '" on the site now at ' + usd(p.price) + '?')) return;
+          gl.disabled = true; gl.textContent = 'Going live...';
+          get('&golive=' + encodeURIComponent(p.id)).then(function (r) {
+            if (r.error) { gl.disabled = false; gl.textContent = 'Go live'; alert(r.error); return; }
+            load('"' + p.name + '" is live. It shows in the shop within about a minute, and it will be in your next daily update email.');
+          }, function () { gl.disabled = false; gl.textContent = 'Go live'; alert('Could not reach the site. Try again.'); });
+        });
+        acts.appendChild(gl);
+        acts.appendChild(el('span', 'Draft: only you can see it. Press Edit to change anything or add the photo, then Go live.', 'small'));
+      } else if (!p.nextSafe) acts.appendChild(hb);
+      else acts.appendChild(el('span', 'This piece is set up in Next safes. It goes live with its group.', 'small'));
       c.appendChild(acts); return c;
     }
     var row = el('div'); row.style.cssText = 'display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end';
@@ -164,20 +182,27 @@
   function addCard() {
     var c = el('section', null, 'card'); c.style.cssText = 'display:flex;flex-direction:column;gap:10px;border-color:#C9A45C';
     c.appendChild(el('b', 'Add a product'));
+    c.appendChild(el('div', 'It is saved as a draft that only you can see. Check it over, then press Go live on it when you are done.', 'small'));
     var row = el('div'); row.style.cssText = 'display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end';
     var name = field('Name', '', 'text', '100%'), desc = field('Description (optional)', '', 'area', '100%');
     var price = field('Price, $', '', 'number', '120px'), stock = field('How many you have', '1', 'number', '140px'), ship = field('Shipping, $ (0 = free)', '5.30', 'number', '160px'), sec = field('Section', 'Comics', 'text', '180px');
+    var wt = field('Weight, oz (for the label)', '', 'number', '170px'), bx = field('Box (e.g. 12 x 9 x 6)', '', 'text', '170px');
+    var regL = el('label'); regL.style.cssText = 'display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer;flex:0 0 auto';
+    regL.style.setProperty('display', 'flex', 'important'); regL.style.setProperty('flex-direction', 'row', 'important');
+    var reg = el('input'); reg.type = 'checkbox'; ['width', 'height', 'min-width', 'flex', 'padding'].forEach(function (k, i) { reg.style.setProperty(k, ['20px', '20px', '20px', '0 0 20px', '0'][i], 'important'); }); reg.style.margin = '0'; reg.style.accentColor = '#C9A45C';
+    regL.appendChild(reg); regL.appendChild(el('span', 'Regular box (12 x 9 x 6 in)'));
+    reg.addEventListener('change', function () { bx.input.value = reg.checked ? '12 x 9 x 6' : ''; });
     var photo = photoField('Photo');
-    [name, desc, price, stock, ship, sec, photo].forEach(function (f) { row.appendChild(f.box); });
-    var save = el('button', 'Add it to the shop', 'solid'); save.type = 'button'; row.appendChild(save);
+    [name, desc, price, stock, ship, sec, wt, bx, { box: regL }, photo].forEach(function (f) { row.appendChild(f.box); });
+    var save = el('button', 'Save as draft', 'solid'); save.type = 'button'; row.appendChild(save);
     var cancel = el('button', 'Cancel', 'ghost'); cancel.type = 'button'; row.appendChild(cancel);
-    var msg = el('div', 'It goes on the shop shelf and into the chat right away. Sections: Comics, Cards, NFTs, Graded, Pokemon, Watches.', 'small'); msg.setAttribute('role', 'status');
+    var msg = el('div', 'Nothing shows on the site until you press Go live. Sections: Comics, Cards, NFTs, Graded, Pokemon, Watches.', 'small'); msg.setAttribute('role', 'status');
     cancel.addEventListener('click', function () { adding = false; draw(); });
     save.addEventListener('click', function () {
       save.disabled = true; msg.textContent = 'Adding...';
-      get('&add=1&name=' + encodeURIComponent(name.input.value) + '&desc=' + encodeURIComponent(desc.input.value) + '&price=' + encodeURIComponent(price.input.value) + '&stock=' + encodeURIComponent(stock.input.value) + '&shipping=' + encodeURIComponent(ship.input.value || '0') + '&section=' + encodeURIComponent(sec.input.value)).then(function (r) {
+      get('&add=1&name=' + encodeURIComponent(name.input.value) + '&desc=' + encodeURIComponent(desc.input.value) + '&price=' + encodeURIComponent(price.input.value) + '&stock=' + encodeURIComponent(stock.input.value) + '&shipping=' + encodeURIComponent(ship.input.value || '0') + '&draft=1&weight=' + encodeURIComponent(wt.input.value) + '&box=' + encodeURIComponent(bx.input.value) + '&section=' + encodeURIComponent(sec.input.value)).then(function (r) {
         if (r.error) { save.disabled = false; msg.textContent = r.error; return; }
-        var fin = function (ok, why) { adding = false; load(ok ? 'Added. It shows in the shop within about a minute.' : 'Added, but the photo did not go up: ' + why + ' Open the product and try the photo again.'); };
+        var fin = function (ok, why) { adding = false; load(ok ? 'Saved as a draft. It is at the top of the list: check it, then press Go live.' : 'Saved as a draft, but the photo did not go up: ' + why + ' Press Edit on it and try the photo again.'); };
         if (photo.input.files && photo.input.files[0]) { msg.textContent = 'Sending the photo...'; sendPhoto(r.id, photo.input.files[0], fin); } else fin(true);
       }, function () { save.disabled = false; msg.textContent = 'Could not reach the site. Try again.'; });
     });
