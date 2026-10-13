@@ -104,6 +104,9 @@ async function safes(now, mail) {
   const todo = Object.keys(who).filter((e) => !log.done[hashOf(e)]);
   if (!todo.length) { await store.write('sweep/safe.json', { open: st.open, id: st.id, pending: 0 }); return; }
   const addr = (process.env.RETURN_ADDRESS || '').replace(/\s*\n\s*/g, ', ').trim();
+  // What is inside the open safe (only that one; locked safes stay a secret).
+  let piece = null;
+  try { const sj = await (await fetch(HOST + '/api/order', { signal: AbortSignal.timeout(8000), headers: { 'cache-control': 'no-store' } })).json(); piece = (sj.products || []).filter((p) => p.id === st.id && p.deal)[0] || null; } catch (e) { piece = null; }
   const subject = n >= total ? 'The Vault is open at JarFriends' : n === 1 ? 'New Deal of the day: safe 1 is open at JarFriends' : 'Safe ' + n + ' just unlocked at JarFriends';
   for (const e of todo.slice(0, 12)) {
     if (await gone(e)) { log.done[hashOf(e)] = 1; continue; }
@@ -111,17 +114,19 @@ async function safes(now, mail) {
     const l1 = n >= total ? 'Every safe before it has been claimed, so The Vault is open right now.' : n === 1 ? 'A new round of Deal of the day safes just started, and safe 1 is open.' : 'Safe ' + (n - 1) + ' was just claimed, so safe ' + n + ' is unlocked.';
     const l2 = n >= total ? 'This is the last and biggest one. Have you seen what is inside?' : 'Have you checked what is inside the new safe?';
     const l3 = n >= total ? '' : 'We are getting closer to The Vault: ' + (left === 1 ? 'it is the very next safe to open.' : left + ' more safes to go before it opens.');
-    const lines = [first(who[e]), '', l1, l2].concat(l3 ? ['', l3] : [], ['', 'See it here:', HOST + '/#deal', '', 'You are getting this because you ordered from JarFriends or subscribed.' + (addr ? ' JarFriends, ' + addr + '.' : ''), 'Unsubscribe: ' + stop]);
+    const pl = piece ? ['', 'Inside safe ' + n + ': ' + piece.name, '$' + piece.price + (piece.nft ? '' : Number(piece.ship) > 0 ? ' + $' + piece.ship + ' shipping' : ', free shipping')] : [];
+    const lines = [first(who[e]), '', l1, l2].concat(pl, l3 ? ['', l3] : [], ['', 'See it here:', HOST + '/#deal', '', 'You are getting this because you ordered from JarFriends or subscribed.' + (addr ? ' JarFriends, ' + addr + '.' : ''), 'Unsubscribe: ' + stop]);
     const html = '<div style="background:#0B1712;padding:28px 16px;font-family:Arial,Helvetica,sans-serif;color:#E6EFE9"><div style="max-width:520px;margin:0 auto">' +
       '<div style="font-size:13px;letter-spacing:2px;color:#C9A45C">DEAL OF THE DAY</div>' +
       '<h1 style="font-size:26px;margin:8px 0 14px;color:#8FD3AE">' + esc(subject.replace(' at JarFriends', '')) + '</h1>' +
       '<p style="font-size:16px;line-height:1.5;margin:0 0 10px">' + esc(first(who[e])) + '</p>' +
       '<p style="font-size:16px;line-height:1.5;margin:0 0 10px">' + esc(l1) + ' <b>' + esc(l2) + '</b></p>' +
       '<p style="margin:18px 0"><a href="' + HOST + '/#deal" style="background:#C9A45C;color:#0B1712;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:24px;display:inline-block">' + (n >= total ? 'Open The Vault' : 'See what is in safe ' + n) + '</a></p>' +
+      (piece ? '<div style="border:1px solid #C9A45C;border-radius:10px;padding:14px;margin:0 0 14px"><div style="font-size:13px;letter-spacing:2px;color:#C9A45C">INSIDE SAFE ' + n + '</div>' + (piece.photo ? '<img src="' + esc(piece.photo) + '" alt="' + esc(piece.name) + '" width="480" style="max-width:100%;height:auto;border:0;border-radius:8px;display:block;margin:10px 0">' : '') + '<div style="font-size:18px;font-weight:bold;line-height:1.35;margin-top:6px">' + esc(piece.name) + '</div><div style="font-size:22px;font-weight:bold;color:#C9A45C;margin-top:6px">$' + esc(piece.price) + '</div></div>' : '') +
       (l3 ? '<p style="font-size:16px;line-height:1.5;margin:0 0 12px">' + esc(l3) + '</p>' : '') +
-      '<a href="' + HOST + '/#deal"><img src="' + HOST + '/photos/vault.jpg" alt="The Vault" width="360" style="max-width:100%;height:auto;border:0;border-radius:10px;display:block"></a>' +
+      (piece && piece.photo ? '' : '<a href="' + HOST + '/#deal"><img src="' + HOST + '/photos/vault.jpg" alt="The Vault" width="360" style="max-width:100%;height:auto;border:0;border-radius:10px;display:block"></a>') +
       '<p style="font-size:12px;line-height:1.5;color:#8FA89A;margin:22px 0 0">You are getting this because you ordered from JarFriends or subscribed.' + (addr ? ' JarFriends, ' + esc(addr) + '.' : '') + ' <a href="' + stop + '" style="color:#8FA89A">Unsubscribe</a></p></div></div>';
-    const out = await mail(e, subject, lines, 'safe-' + n + '-' + hashOf(e), html).catch(() => 'failed');
+    const out = await mail(e, subject, lines, logKey + '-' + hashOf(e), html).catch(() => 'failed');
     if (out === 'sent' || out === 'duplicate') log.done[hashOf(e)] = 1;
     await new Promise((r) => setTimeout(r, 550));
   }
@@ -345,6 +350,35 @@ async function auctions(now, mail) {
   }
 }
 
+// 9. Party pricing opens: everyone on the list hears it once, for each new party.
+async function partyOpen(now, mail) {
+  const lib = require('./_lib'), P = require('./_party').PARTY;
+  if (!P || !P.pid || now < P.starts || now >= P.ends) return;
+  const key = 'sweep/party-' + P.pid + '-' + P.starts + '.json';
+  const log = (await store.read(key)) || { done: {} };
+  if (log.finished) return;
+  const who = await everyone(), todo = Object.keys(who).filter((e) => !log.done[hashOf(e)]);
+  if (!todo.length) { log.finished = now; await store.write(key, log); return; }
+  let p = null;
+  try { const sj = await (await fetch(HOST + '/api/order', { signal: AbortSignal.timeout(8000), headers: { 'cache-control': 'no-store' } })).json(); p = (sj.products || []).filter((x) => x.id === P.pid)[0] || null; } catch (e) { p = null; }
+  const name = p ? p.name.replace(/:\s*Party Pricing$/, '') : 'the party piece';
+  const addr = (process.env.RETURN_ADDRESS || '').replace(/\s*\n\s*/g, ', ').trim();
+  const body = ['JarFriends Party Pricing is open now: ' + name + '.', 'The more that sell, the lower the price goes for everyone, and if it drops after you buy, you get the difference back.', 'Ends ' + P.endsText + '. Only ' + P.total + ' available.'];
+  for (const e of todo.slice(0, 12)) {
+    if (await gone(e)) { log.done[hashOf(e)] = 1; continue; }
+    const stop = HOST + '/api/unsub?t=' + lib.sign({ un: 1, e: e });
+    const html = '<div style="background:#0B1712;padding:28px 16px;font-family:Arial,Helvetica,sans-serif;color:#E6EFE9"><div style="max-width:520px;margin:0 auto"><div style="font-size:13px;letter-spacing:2px;color:#C9A45C">PARTY PRICING</div><h1 style="font-size:26px;margin:8px 0 14px;color:#8FD3AE">The party is open</h1><p style="font-size:16px;line-height:1.5;margin:0 0 10px">' + esc(first(who[e])) + '</p>' +
+      body.map((t) => '<p style="font-size:16px;line-height:1.5;margin:0 0 10px">' + esc(t) + '</p>').join('') +
+      (p && p.photo ? '<img src="' + esc(p.photo) + '" alt="' + esc(name) + '" width="480" style="max-width:100%;height:auto;border:0;border-radius:8px;display:block;margin:12px 0">' : '') +
+      '<p style="margin:18px 0"><a href="' + HOST + '/#party" style="background:#C9A45C;color:#0B1712;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:24px;display:inline-block">Join the party</a></p>' +
+      '<p style="font-size:12px;line-height:1.5;color:#8FA89A;margin:22px 0 0">You are getting this because you ordered from JarFriends or subscribed.' + (addr ? ' JarFriends, ' + esc(addr) + '.' : '') + ' <a href="' + stop + '" style="color:#8FA89A">Unsubscribe</a></p></div></div>';
+    const out = await mail(e, 'Party Pricing is open at JarFriends', [first(who[e]), ''].concat(body, ['', HOST + '/#party', '', 'Unsubscribe: ' + stop]), 'party-' + P.pid + '-' + P.starts + '-' + hashOf(e), html).catch(() => 'failed');
+    log.done[hashOf(e)] = out === 'sent' || out === 'duplicate' ? 1 : 'failed';
+    await new Promise((r) => setTimeout(r, 550));
+  }
+  await store.write(key, log);
+}
+
 async function run() {
   const now = Date.now();
   if (process.env.VERCEL_ENV === 'production' && store.on()) await oneOff().catch((e) => { once = false; console.error('ONEOFF_FAIL', String(e && e.message || e)); });
@@ -357,11 +391,12 @@ async function run() {
   await carts(now, mail).catch((e) => console.error('SWEEP_CARTS_FAIL', String(e && e.message || e)));
   await offers(now, mail).catch((e) => console.error('SWEEP_OFFERS_FAIL', String(e && e.message || e)));
   await unpaid(now, mail).catch((e) => console.error('SWEEP_UNPAID_FAIL', String(e && e.message || e)));
+  // Sent on their own: a safe opening (including a new round) and party pricing opening. New pieces, price drops and
+  // auctions go out together when the owner presses the daily update button in the back office (see _digest.js).
   await safes(now, mail).catch((e) => console.error('SWEEP_SAFES_FAIL', String(e && e.message || e)));
-  await arrivals(now, mail).catch((e) => console.error('SWEEP_ARRIVALS_FAIL', String(e && e.message || e)));
-  await repriced(now, mail).catch((e) => console.error('SWEEP_PRICES_FAIL', String(e && e.message || e)));
+  await partyOpen(now, mail).catch((e) => console.error('SWEEP_PARTY_FAIL', String(e && e.message || e)));
   await auctions(now, mail).catch((e) => console.error('SWEEP_AUCTIONS_FAIL', String(e && e.message || e)));
 }
 // Called by the back office the moment a lower price is saved.
-async function dropNow() { await repriced(Date.now(), require('./_lib').mail, { hold: 0, max: 40 }); }
-module.exports = { run, dropNow };
+async function dropNow() { /* price drops now go out with the daily update (see _digest.js) */ }
+module.exports = { run, dropNow, everyone, gone, hashOf, esc, first };
