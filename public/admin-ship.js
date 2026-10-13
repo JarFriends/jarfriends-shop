@@ -130,11 +130,22 @@
     box.textContent = 'Loading...';
     get('').then(function (r) {
       if (r.error) { box.textContent = r.error; return; }
+      last = r; draw();
+    }, function () { box.textContent = 'Could not load. Try again.'; });
+  }
+  // The Search box at the top of the back office filters these two tabs too: name, email, order number, item or address.
+  var last = null, findBox = $('find');
+  if (findBox) findBox.addEventListener('input', function () { if (view && last) draw(); });
+  function draw() {
+      var r = last;
       prod = {}; (r.products || []).forEach(function (x) { prod[x.id] = x; });
       var list = (r.orders || []), to = list.filter(toShip), done = list.filter(shipped);
       bTo.textContent = 'Needs to be shipped (' + to.length + ')'; bDone.textContent = 'Shipped (' + done.length + ')';
       if (!view) return;
       box.textContent = '';
+      var words = String(findBox ? findBox.value : '').toLowerCase().split(/\s+/).filter(Boolean);
+      var hay = function (o) { return [o.buyer, o.email, o.n, o.product, o.pid, o.ship, o.tracking, o.pay, o.total].join(' ').toLowerCase(); };
+      if (words.length) { to = to.filter(function (o) { var h = hay(o); return words.every(function (w) { return h.indexOf(w) >= 0; }); }); done = done.filter(function (o) { var h = hay(o); return words.every(function (w) { return h.indexOf(w) >= 0; }); }); }
       // Sort picker: oldest first (to ship) or newest first (shipped) by default, A to Z by customer, or most expensive.
       var amt = function (o) { return Number(String(o.total == null ? '' : o.total).replace(/[^0-9.]/g, '')) || 0; };
       var shipTime = function (o) { return o.shippedAt || o.nftSentAt || o.at; };
@@ -144,17 +155,17 @@
       else if (sortBy === 'new') rows.sort(function (a, b) { return (view === 'to' ? b.at - a.at : shipTime(b) - shipTime(a)); });
       else rows.sort(function (a, b) { return view === 'to' ? a.at - b.at : shipTime(b) - shipTime(a); });
       var bar = el('div'); bar.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px 16px;align-items:flex-end;justify-content:space-between';
-      bar.appendChild(el('div', view === 'to' ? (rows.length ? 'Paid orders waiting to go out. Buy the label and the order moves to Shipped.' : 'Nothing to ship. Every paid order is out the door.') : (rows.length ? 'Orders that are on their way.' : 'Nothing shipped yet.'), 'small'));
+      if (words.length) bar.appendChild(el('div', rows.length ? rows.length + (rows.length === 1 ? ' order matches "' : ' orders match "') + findBox.value.trim() + '".' : 'No orders here match "' + findBox.value.trim() + '". Clear the Search box to see them all.', 'small'));
+      else bar.appendChild(el('div', view === 'to' ? (rows.length ? 'Paid orders waiting to go out. Buy the label and the order moves to Shipped.' : 'Nothing to ship. Every paid order is out the door.') : (rows.length ? 'Orders that are on their way.' : 'Nothing shipped yet.'), 'small'));
       if (rows.length > 1) {
         var lab = el('label', 'Sort'); lab.style.cssText = 'flex:0 1 240px';
         var sel = el('select');
         (view === 'to' ? [['', 'Oldest first (ship these first)'], ['new', 'Most recent first'], ['az', 'Customer name, A to Z'], ['money', 'Most expensive first']] : [['', 'Most recently shipped'], ['az', 'Customer name, A to Z'], ['money', 'Most expensive first']]).forEach(function (o) { var op = el('option', o[1]); op.value = o[0]; if (o[0] === sortBy) op.selected = true; sel.appendChild(op); });
-        sel.addEventListener('change', function () { sortBy = sel.value; load(); });
+        sel.addEventListener('change', function () { sortBy = sel.value; draw(); });
         lab.appendChild(sel); bar.appendChild(lab);
       }
       box.appendChild(bar);
       rows.forEach(function (o) { box.appendChild(card(o)); });
-    }, function () { box.textContent = 'Could not load. Try again.'; });
   }
   // The counts on the two buttons fill in as soon as the back office opens.
   if (key()) { view = ''; load(); }
