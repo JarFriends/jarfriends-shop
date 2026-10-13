@@ -1,4 +1,4 @@
-// "Next 5 safes" in the back office: fill in the next round of Deal of the day safes while they stay hidden,
+// "Next safes" in the back office (two groups: 5 safes and 6 safes): fill in the next round of Deal of the day safes while they stay hidden,
 // check how they will look, then press Go live. See patchsafes.js for the server side.
 (function () {
   var $ = function (id) { return document.getElementById(id); };
@@ -10,7 +10,7 @@
   var usd = function (n) { return '$' + (Number(n) || 0).toFixed(2); };
   var GOLD = '#C9A45C';
 
-  var btn = el('button', 'Next 5 safes', 'ghost'); btn.type = 'button'; btn.setAttribute('aria-pressed', 'false');
+  var btn = el('button', 'Next safes', 'ghost'); btn.type = 'button'; btn.setAttribute('aria-pressed', 'false');
   tabs.insertBefore(btn, $('tPeople') || null);
   var box = el('div'); box.hidden = true; box.dataset.extraTab = '1'; box.style.cssText = 'display:flex;flex-direction:column;gap:16px';
   main.insertBefore(box, $('wOrders'));
@@ -58,10 +58,10 @@
     });
   }
 
-  function slotCard(n, s) {
+  function slotCard(n, s, g, size) {
     var c = el('section', null, 'card'); c.style.cssText = 'display:flex;flex-direction:column;gap:12px;border-color:' + (s ? 'rgba(143,211,174,.55)' : 'rgba(255,255,255,.18)');
     var top = el('div'); top.style.cssText = 'display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap';
-    top.appendChild(el('b', 'Safe ' + n + (n === 5 ? ' (The Vault)' : '')));
+    top.appendChild(el('b', 'Safe ' + n + (n === size ? ' (The Vault)' : '')));
     var st = el('span', s ? 'Saved' : 'Not filled in yet', 'small'); st.style.color = s ? '#8FD3AE' : '';
     top.appendChild(st); c.appendChild(top);
 
@@ -96,14 +96,14 @@
     var msg = el('span', '', 'small');
     acts.appendChild(save);
     if (s) { var clr = el('button', 'Empty this safe', 'ghost'); clr.type = 'button'; acts.appendChild(clr);
-      clr.addEventListener('click', function () { if (!confirm('Empty safe ' + n + '? What you filled in for it is removed from the next round.')) return; clr.disabled = true; api('&safes=clear&n=' + n).then(function (r) { if (r.error) { alert(r.error); clr.disabled = false; return; } load(); }); }); }
+      clr.addEventListener('click', function () { if (!confirm('Empty safe ' + n + '? What you filled in for it is removed from the next round.')) return; clr.disabled = true; api('&safes=clear&g=' + g + '&n=' + n).then(function (r) { if (r.error) { alert(r.error); clr.disabled = false; return; } load(); }); }); }
     acts.appendChild(msg); c.appendChild(acts);
     function mark() { dirty[n] = true; st.textContent = 'Not saved yet'; st.style.color = GOLD; }
     [name, desc, price, stock, ship, wt, bx].forEach(function (f) { f.input.addEventListener('input', mark); });
     nft.input.addEventListener('change', mark);
     save.addEventListener('click', function () {
       save.disabled = true; msg.textContent = 'Saving...';
-      var q = '&safes=save&n=' + n + '&name=' + encodeURIComponent(name.input.value) + '&desc=' + encodeURIComponent(desc.input.value) + '&price=' + encodeURIComponent(price.input.value) + '&stock=' + encodeURIComponent(stock.input.value) + '&shipping=' + encodeURIComponent(ship.input.value) + '&weight=' + encodeURIComponent(wt.input.value) + '&box=' + encodeURIComponent(bx.input.value) + '&nft=' + (nft.input.checked ? '1' : '0');
+      var q = '&safes=save&g=' + g + '&n=' + n + '&name=' + encodeURIComponent(name.input.value) + '&desc=' + encodeURIComponent(desc.input.value) + '&price=' + encodeURIComponent(price.input.value) + '&stock=' + encodeURIComponent(stock.input.value) + '&shipping=' + encodeURIComponent(ship.input.value) + '&weight=' + encodeURIComponent(wt.input.value) + '&box=' + encodeURIComponent(bx.input.value) + '&nft=' + (nft.input.checked ? '1' : '0');
       api(q).then(function (r) {
         if (r.error) { msg.textContent = r.error; save.disabled = false; return; }
         var f = file.files && file.files[0];
@@ -118,12 +118,12 @@
   // What customers will see: safe 1 open with its piece, the rest locked until the one before is claimed.
   function preview(slots) {
     var c = el('section', null, 'card'); c.style.cssText = 'display:flex;flex-direction:column;gap:12px';
-    c.appendChild(el('b', 'Check it out: the next round'));
+    c.appendChild(el('b', 'Check it out: group ' + curG));
     c.appendChild(el('div', 'This is everything that will be in the safes. On the site, safe 1 opens first and each next safe unlocks when the one before it is claimed. Locked safes stay a secret until then.', 'small'));
     var grid = el('div'); grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px';
     slots.forEach(function (s, i) {
       var t = el('div'); t.style.cssText = 'border:1px solid ' + (s ? GOLD : 'rgba(255,255,255,.2)') + ';border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:6px;background:rgba(255,255,255,.03)';
-      t.appendChild(el('div', (i === 4 ? 'THE VAULT · SAFE 5' : 'SAFE ' + (i + 1)) + (i === 0 ? ' · OPENS FIRST' : ''), 'small'));
+      t.appendChild(el('div', (i === slots.length - 1 ? 'THE VAULT · SAFE ' + slots.length : 'SAFE ' + (i + 1)) + (i === 0 ? ' · OPENS FIRST' : ''), 'small'));
       var p = el('div'); p.style.cssText = 'aspect-ratio:1/1;border-radius:8px;background:#fff;overflow:hidden;display:flex;align-items:center;justify-content:center;color:#666;font-size:13px';
       if (s && s.photo) { var im = el('img'); im.src = s.photo; im.alt = s.name; im.style.cssText = 'width:100%;height:100%;object-fit:contain'; p.appendChild(im); } else p.textContent = s ? 'No photo' : 'Empty';
       t.appendChild(p);
@@ -137,32 +137,43 @@
     return c;
   }
 
+  // Two groups, each set up and taken live on its own: group 1 has 5 safes, group 2 has 6.
+  var curG = 1;
   function draw() {
     box.textContent = '';
-    var slots = data.slots || [], ready = slots.filter(Boolean).length, rd = data.round || {};
-    var head = el('section', null, 'card'); head.style.cssText = 'display:flex;flex-direction:column;gap:8px;border-color:' + GOLD;
-    head.appendChild(el('b', 'Next 5 safes'));
-    head.appendChild(el('div', 'Fill in each safe and press Save. Nothing here shows on the site until you press Go live.', 'small'));
-    head.appendChild(el('div', rd.total ? (rd.left ? 'Current round: ' + rd.left + ' of ' + rd.total + ' safes still not claimed.' : 'Current round: all ' + rd.total + ' safes are claimed. Customers see "Coming soon" right now.') : 'No safes are live right now.', 'small'));
-    head.appendChild(el('div', ready + ' of 5 safes filled in.', 'small'));
+    var groups = data.groups || [], rd = data.round || {};
+    var grp = groups.filter(function (x) { return x.g === curG; })[0] || groups[0] || { g: 1, size: 5, slots: [] };
+    var slots = grp.slots || [], size = grp.size, ready = slots.filter(Boolean).length;
+    var head = el('section', null, 'card'); head.style.cssText = 'display:flex;flex-direction:column;gap:10px;border-color:' + GOLD;
+    head.appendChild(el('b', 'Next safes'));
+    head.appendChild(el('div', 'Two groups you can set up ahead of time. Each one goes live on its own when you press its Go live button. Nothing here shows on the site until then.', 'small'));
+    head.appendChild(el('div', rd.total ? (rd.left ? 'On the site now: ' + rd.left + ' of ' + rd.total + ' safes still not claimed.' : 'On the site now: all ' + rd.total + ' safes are claimed. Customers see "Coming soon".') : 'No safes are live right now.', 'small'));
+    var pick = el('div'); pick.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px';
+    groups.forEach(function (x) {
+      var n = (x.slots || []).filter(Boolean).length;
+      var b = el('button', 'Group ' + x.g + ': ' + x.size + ' safes (' + n + ' of ' + x.size + ' filled)', x.g === curG ? 'solid' : 'ghost'); b.type = 'button';
+      b.addEventListener('click', function () { if (Object.keys(dirty).length && !confirm('You have changes that are not saved. Switch anyway?')) return; dirty = {}; curG = x.g; draw(); window.scrollTo({ top: box.offsetTop - 20 }); });
+      pick.appendChild(b);
+    });
+    head.appendChild(pick);
     box.appendChild(head);
-    slots.forEach(function (s, i) { box.appendChild(slotCard(i + 1, s)); });
+    slots.forEach(function (s, i) { box.appendChild(slotCard(i + 1, s, curG, size)); });
     box.appendChild(preview(slots));
 
     var live = el('section', null, 'card'); live.style.cssText = 'display:flex;flex-direction:column;gap:10px;border-color:' + GOLD;
-    live.appendChild(el('b', 'Go live'));
-    live.appendChild(el('div', 'Puts these 5 pieces in the safes and opens safe 1 right away. The last round comes off the site, and everyone on your list gets the "new round, safe 1 is open" email (it shows only what is in safe 1).', 'small'));
-    var go = el('button', 'Go live with the next 5 safes', 'solid'); go.type = 'button'; go.style.cssText = 'align-self:flex-start;padding:12px 22px;font-size:16px';
+    live.appendChild(el('b', 'Go live with group ' + curG));
+    live.appendChild(el('div', 'Puts these ' + size + ' pieces in the safes and opens safe 1 right away. Whatever is in the safes now comes off the site, and everyone on your list gets the "new round, safe 1 is open" email (it shows only what is in safe 1). The other group stays saved for later.', 'small'));
+    var go = el('button', 'Go live with group ' + curG + ' (' + size + ' safes)', 'solid'); go.type = 'button'; go.style.cssText = 'align-self:flex-start;padding:12px 22px;font-size:16px';
     var gm = el('div', '', 'small');
-    if (ready < 5) { go.disabled = true; go.style.opacity = '.5'; gm.textContent = 'Fill in and save all 5 safes to go live.'; }
+    if (ready < size) { go.disabled = true; go.style.opacity = '.5'; gm.textContent = 'Fill in and save all ' + size + ' safes in this group to go live.'; }
     go.addEventListener('click', function () {
       if (Object.keys(dirty).length) { alert('Save your changes first: safe ' + Object.keys(dirty).join(', safe ') + '.'); return; }
       var noPic = slots.map(function (s, i) { return s && !s.photo ? i + 1 : 0; }).filter(Boolean);
       if (noPic.length && !confirm('Safe ' + noPic.join(', safe ') + (noPic.length === 1 ? ' has' : ' have') + ' no photo. Go live anyway?')) return;
-      if (!confirm('Go live now? Safe 1 opens on the site right away and the email goes out to your list.')) return;
+      if (!confirm('Go live with group ' + curG + ' now? Safe 1 opens on the site right away and the email goes out to your list.')) return;
       var send = function (force) {
         go.disabled = true; gm.textContent = 'Going live...';
-        api('&safes=live' + (force ? '&force=1' : '')).then(function (r) {
+        api('&safes=live&g=' + curG + (force ? '&force=1' : '')).then(function (r) {
           if (r.left && !force) { go.disabled = false; gm.textContent = ''; if (confirm(r.error + ' Go live anyway?')) send(true); return; }
           if (r.error) { go.disabled = false; gm.textContent = r.error; return; }
           // Loading the shop runs the check that sends the safe 1 email, so it goes out now.

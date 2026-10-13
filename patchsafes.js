@@ -13,14 +13,16 @@ const changes = [
   ['api/admin.js', R`  if (req.query && req.query.edit) {`, R`  if (req.query && req.query.safes) {
     const q = req.query, what = String(q.safes), tidy = (v, n) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n);
     const everything = await edits.apply(catalog, { all: true });
-    const draft = (n) => everything.filter((x) => Number(x.nextDeal) === n)[0] || null;
+    // Groups of next-round safes, each set up and taken live on its own: group 1 has 5 safes, group 2 has 6.
+    const SIZES = { 1: 5, 2: 6 }, g = SIZES[Number(q.g)] ? Number(q.g) : 1, size = SIZES[g], nums = (k) => Array.from({ length: SIZES[k] }, (x, i) => i + 1);
+    const draft = (n, k) => everything.filter((x) => Number(x.nextDeal) === n && (Number(x.nextGroup) || 1) === (k || g))[0] || null;
     const card = (p) => p ? { id: p.id, name: p.name, desc: p.desc || '', price: p.price, stock: p.stock, shipping: p.shipping === 'free' ? 0 : Number(p.shipping) || 0, weight: p.weight_oz || '', box: p.box || '', nft: !!(p.nft && p.nft !== 'no'), photo: p.photo ? '/api/photo?id=' + p.id + '&v=' + p.photo : (p.pic ? '/photos/' + p.pic + '.jpg' : '') } : null;
     const lib = require('./_lib'), off = require('./_offline');
     const roundNow = async () => { let dl = { slots: [] }; try { dl = await off.deals(await lib.getInventory(true)); } catch (e) { console.error('SAFES_ROUND_FAIL', String(e && e.message || e)); } const left = dl.slots.filter((s) => s.state !== 'sold').length; return { total: dl.slots.length, left: left }; };
     try {
-      if (what === 'list') return res.json({ slots: [1, 2, 3, 4, 5].map((n) => card(draft(n))), round: await roundNow() });
+      if (what === 'list') return res.json({ groups: [1, 2].map((k) => ({ g: k, size: SIZES[k], slots: nums(k).map((n) => card(draft(n, k))) })), round: await roundNow() });
       const n = Math.floor(Number(q.n));
-      if ((what === 'save' || what === 'clear') && !(n >= 1 && n <= 5)) return res.status(400).json({ error: 'Pick a safe from 1 to 5.' });
+      if ((what === 'save' || what === 'clear') && !(n >= 1 && n <= size)) return res.status(400).json({ error: 'Pick a safe from 1 to ' + size + '.' });
       if (what === 'clear') { const p = draft(n); if (p) await edits.save(p.id, { nextDeal: 0, hidden: true }); return res.json({ ok: true }); }
       if (what === 'save') {
         const name = tidy(q.name, 140), price = Math.round(Number(q.price) * 100) / 100, stock = Math.floor(Number(q.stock === '' || q.stock == null ? 1 : q.stock)), ship = Math.round(Number(q.shipping || 0) * 100) / 100;
@@ -30,21 +32,21 @@ const changes = [
         if (!(ship >= 0 && ship <= 1000)) return res.status(400).json({ error: 'Enter shipping from $0 (free) to $1,000.' });
         const w = Number(q.weight);
         if (q.weight && !(w > 0 && w <= 1600)) return res.status(400).json({ error: 'Enter the weight in ounces, or leave it blank.' });
-        const f = { name: name, desc: tidy(q.desc, 1200), price: price, stock: stock, min: 1, shipping: ship > 0 ? ship : 'free', weight_oz: w > 0 ? Math.round(w * 10) / 10 : 0, box: tidy(q.box, 60), nft: q.nft === '1' ? 'yes' : '', section: q.nft === '1' ? 'NFTs' : '', deal: 0, nextDeal: n, hidden: true, shelf: false };
+        const f = { name: name, desc: tidy(q.desc, 1200), price: price, stock: stock, min: 1, shipping: ship > 0 ? ship : 'free', weight_oz: w > 0 ? Math.round(w * 10) / 10 : 0, box: tidy(q.box, 60), nft: q.nft === '1' ? 'yes' : '', section: q.nft === '1' ? 'NFTs' : '', deal: 0, nextDeal: n, nextGroup: g, hidden: true, shelf: false };
         let p = draft(n);
         if (p) await edits.save(p.id, f); else { p = await edits.add(f); await edits.save(p.id, f); }
         return res.json({ ok: true, id: p.id });
       }
       if (what === 'live') {
-        const slots = [1, 2, 3, 4, 5].map(draft), missing = [1, 2, 3, 4, 5].filter((n, i) => !slots[i]);
+        const slots = nums(g).map((n) => draft(n)), missing = nums(g).filter((n, i) => !slots[i]);
         if (missing.length) return res.status(400).json({ error: 'Fill in every safe first. Still empty: safe ' + missing.join(', safe ') + '.' });
         const r = await roundNow();
         if (r.left && q.force !== '1') return res.status(409).json({ error: 'The current round still has ' + r.left + (r.left === 1 ? ' safe' : ' safes') + ' not claimed. Going live takes those pieces out of the safes.', left: r.left });
         // The old round leaves the safes. Its pieces stay in the order history but come off the site.
         const old = everything.filter((x) => Number(x.deal) > 0);
         for (const p of old) await edits.save(p.id, { deal: 0, hidden: true });
-        for (let i = 0; i < 5; i++) await edits.save(slots[i].id, { deal: i + 1, nextDeal: 0, hidden: false, shelf: false });
-        console.log('SAFES_LIVE', JSON.stringify({ out: old.map((p) => p.id), in: slots.map((p) => p.id) }));
+        for (let i = 0; i < slots.length; i++) await edits.save(slots[i].id, { deal: i + 1, nextDeal: 0, nextGroup: 0, hidden: false, shelf: false });
+        console.log('SAFES_LIVE', JSON.stringify({ group: g, out: old.map((p) => p.id), in: slots.map((p) => p.id) }));
         return res.json({ ok: true, live: slots.map((p) => p.id) });
       }
       return res.status(400).json({ error: 'Unknown request.' });

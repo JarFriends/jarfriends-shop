@@ -1,0 +1,22 @@
+[
+ [
+  "COMING SOON \u00b7 5 MORE SAFES</span>",
+  "COMING SOON \u00b7 MORE SAFES</span>"
+ ],
+ [
+  "All 5 safes have been cracked open!",
+  "Every safe has been cracked open!"
+ ],
+ [
+  "Five brand new safes are on the way",
+  "Brand new safes are on the way"
+ ],
+ [
+  "Every safe in this round has been opened. Five new ones are coming soon,",
+  "Every safe in this round has been opened. New ones are coming soon,"
+ ],
+ [
+  "const heavy = !!openSlot && (openSlot.n === 5 || vaultPreview);",
+  "const heavy = !!openSlot && (openSlot.n === dealSlots.length || vaultPreview);"
+ ]
+]

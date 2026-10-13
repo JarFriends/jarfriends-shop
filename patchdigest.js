@@ -6,7 +6,7 @@ const changes = [
     const d = require('./_digest'), what = String(req.query.digest);
     try {
       if (what === 'preview') return res.json(await d.preview());
-      if (what === 'send') { const r = await d.send(req.query.start === '1'); return res.status(r.error ? 400 : 200).json(r); }
+      if (what === 'send') { const r = await d.send(req.query.start === '1', req.query.note); return res.status(r.error ? 400 : 200).json(r); }
     } catch (e) { console.error('DIGEST_FAIL', String(e && e.message || e)); return res.status(503).json({ error: 'Could not do that just now. Try again.' }); }
     return res.status(400).json({ error: 'Unknown request.' });
   }

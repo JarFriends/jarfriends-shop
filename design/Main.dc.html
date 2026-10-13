@@ -269,9 +269,9 @@ button{font-family:inherit;cursor:pointer}
 </sc-if>
 <sc-if value="{{allClaimed}}" hint-placeholder-val="{{false}}">
 <div style="align-self: flex-start; display: flex; flex-direction: column; gap: 10px; max-width: 600px; padding: 20px 24px; border-radius: 14px; background: #C9A45C; color: #0B1A13; box-shadow: 0 0 40px rgba(201, 164, 92, 0.35)">
-<span style="align-self: flex-start; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500; letter-spacing: 0.1em; border: 1px solid #0B1A13; border-radius: 999px; padding: 3px 10px">COMING SOON · 5 MORE SAFES</span>
-<span style="font-weight: 800; font-size: 30px; line-height: 1.15">All 5 safes have been cracked open!</span>
-<span style="font-size: 16px; line-height: 1.45">Five brand new safes are on the way, each with a new deal locked inside. <b>Who will open them first?</b> Subscribe and you will get an email the second safe 1 unlocks.</span>
+<span style="align-self: flex-start; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500; letter-spacing: 0.1em; border: 1px solid #0B1A13; border-radius: 999px; padding: 3px 10px">COMING SOON · MORE SAFES</span>
+<span style="font-weight: 800; font-size: 30px; line-height: 1.15">Every safe has been cracked open!</span>
+<span style="font-size: 16px; line-height: 1.45">Brand new safes are on the way, each with a new deal locked inside. <b>Who will open them first?</b> Subscribe and you will get an email the second safe 1 unlocks.</span>
 <a href="https://jarfriends.com/help.html?join=1" target="_top" style="align-self: flex-start; background: #0B1A13; color: #F7F2E6; text-decoration: none; font-weight: 700; padding: 11px 22px; border-radius: 999px">Subscribe and be first</a>
 </div>
 <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 6px">
@@ -903,7 +903,7 @@ const openSlot = dealSlots.filter((d) => d.state === "open")[0];
 // Safe 5 is the vault: a heavier safe with a long opening. Adding ?vault=1 to the address previews it on whichever safe is open.
 let vaultPreview = false;
 try { vaultPreview = /[?&]vault=1/.test(window.location.search) || /[?&]vault=1/.test(window.top.location.search); } catch (e) { /* not allowed to look: no preview */ }
-const heavy = !!openSlot && (openSlot.n === 5 || vaultPreview);
+const heavy = !!openSlot && (openSlot.n === dealSlots.length || vaultPreview);
 // A safe someone has already opened on this device stays open on their next visit (the vault too).
 if (openSlot && !vaultPreview) {
 try {
@@ -1007,7 +1007,7 @@ shelfTitle: SHELF_OPEN ? "What I'm sharing right now" : shelf.length ? "Availabl
 shelfText: SHELF_OPEN ? "Take your time. Tap a piece to see its details and check out." : (shelf.length ? "Tap a piece to see its details and check out. More coming soon: comics, cards, NFTs, graded pieces, Pokemon and watches." : "My personal collection is on its way: comics, cards, NFTs, graded pieces, Pokemon and watches. Until then, the Deal of the day safe is open."),
 filters: filters,
 hasDeals: dealSlots.length > 0, hasOpen: !!dp, allClaimed: dealSlots.length > 0 && !openSlot,
-dealCount: dealSlots.length, missed: dealSlots.filter((d) => d.state === "sold").map((d) => ({ n: "SAFE " + d.n, name: d.name || "Safe " + d.n, photo: PHOTOS[d.id] || "", hasPhoto: !!PHOTOS[d.id], noPhoto: !PHOTOS[d.id], priceText: d.price ? "Claimed at $" + Number(d.price).toFixed(2) : "Claimed" })), dealIntro: dealSlots.length > 0 && !openSlot ? "Every safe in this round has been opened. Five new ones are coming soon, and only one will open at a time." : dealSlots.length + " pieces are locked away and only one safe is open. When that piece is claimed, the next safe unlocks.", deal: deal, safes: safes,
+dealCount: dealSlots.length, missed: dealSlots.filter((d) => d.state === "sold").map((d) => ({ n: "SAFE " + d.n, name: d.name || "Safe " + d.n, photo: PHOTOS[d.id] || "", hasPhoto: !!PHOTOS[d.id], noPhoto: !PHOTOS[d.id], priceText: d.price ? "Claimed at $" + Number(d.price).toFixed(2) : "Claimed" })), dealIntro: dealSlots.length > 0 && !openSlot ? "Every safe in this round has been opened. New ones are coming soon, and only one will open at a time." : dealSlots.length + " pieces are locked away and only one safe is open. When that piece is claimed, the next safe unlocks.", deal: deal, safes: safes,
 party: partyVals,
 // The safe starts shut, with its door closed over the deal.
 // The deal sits behind the door. Opening turns the wheel, then the door swings out on its hinges and is taken away.
