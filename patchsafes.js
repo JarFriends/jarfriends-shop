@@ -20,9 +20,11 @@ const changes = [
     const lib = require('./_lib'), off = require('./_offline');
     const roundNow = async () => { let dl = { slots: [] }; try { dl = await off.deals(await lib.getInventory(true)); } catch (e) { console.error('SAFES_ROUND_FAIL', String(e && e.message || e)); } const left = dl.slots.filter((s) => s.state !== 'sold').length; return { total: dl.slots.length, left: left }; };
     try {
-      if (what === 'list') return res.json({ groups: [1, 2].map((k) => ({ g: k, size: SIZES[k], slots: nums(k).map((n) => card(draft(n, k))) })), round: await roundNow() });
+      const isLive = q.g === 'live', liveSafes = everything.filter((x) => Number(x.deal) > 0).sort((a, b) => Number(a.deal) - Number(b.deal));
+      if (what === 'list') return res.json({ live: { from: (liveSafes[0] && Number(liveSafes[0].fromGroup)) || 0, slots: liveSafes.map(card) }, groups: [1, 2].map((k) => ({ g: k, size: SIZES[k], slots: nums(k).map((n) => card(draft(n, k))) })), round: await roundNow() });
       const n = Math.floor(Number(q.n));
-      if ((what === 'save' || what === 'clear') && !(n >= 1 && n <= size)) return res.status(400).json({ error: 'Pick a safe from 1 to ' + size + '.' });
+      if (isLive && what !== 'save') return res.status(400).json({ error: 'Live safes can be edited, not emptied.' });
+      if ((what === 'save' || what === 'clear') && !(n >= 1 && n <= (isLive ? liveSafes.length : size))) return res.status(400).json({ error: 'Pick a safe from 1 to ' + size + '.' });
       if (what === 'clear') { const p = draft(n); if (p) await edits.save(p.id, { nextDeal: 0, hidden: true }); return res.json({ ok: true }); }
       if (what === 'save') {
         const name = tidy(q.name, 140), price = Math.round(Number(q.price) * 100) / 100, stock = Math.floor(Number(q.stock === '' || q.stock == null ? 1 : q.stock)), ship = Math.round(Number(q.shipping || 0) * 100) / 100;
@@ -33,6 +35,7 @@ const changes = [
         const w = Number(q.weight);
         if (q.weight && !(w > 0 && w <= 1600)) return res.status(400).json({ error: 'Enter the weight in ounces, or leave it blank.' });
         const f = { name: name, desc: tidy(q.desc, 1200), price: price, stock: stock, min: 1, shipping: ship > 0 ? ship : 'free', weight_oz: w > 0 ? Math.round(w * 10) / 10 : 0, box: tidy(q.box, 60), nft: q.nft === '1' ? 'yes' : '', section: q.nft === '1' ? 'NFTs' : '', deal: 0, nextDeal: n, nextGroup: g, hidden: true, shelf: false };
+        if (isLive) { const lp = liveSafes[n - 1]; ['deal', 'nextDeal', 'nextGroup', 'hidden', 'shelf'].forEach((k) => { delete f[k]; }); await edits.save(lp.id, f); return res.json({ ok: true, id: lp.id }); }
         let p = draft(n);
         if (p) await edits.save(p.id, f); else { p = await edits.add(f); await edits.save(p.id, f); }
         return res.json({ ok: true, id: p.id });
@@ -45,7 +48,7 @@ const changes = [
         // The old round leaves the safes. Its pieces stay in the order history but come off the site.
         const old = everything.filter((x) => Number(x.deal) > 0);
         for (const p of old) await edits.save(p.id, { deal: 0, hidden: true });
-        for (let i = 0; i < slots.length; i++) await edits.save(slots[i].id, { deal: i + 1, nextDeal: 0, nextGroup: 0, hidden: false, shelf: false });
+        for (let i = 0; i < slots.length; i++) await edits.save(slots[i].id, { deal: i + 1, nextDeal: 0, nextGroup: 0, fromGroup: g, hidden: false, shelf: false });
         console.log('SAFES_LIVE', JSON.stringify({ group: g, out: old.map((p) => p.id), in: slots.map((p) => p.id) }));
         return res.json({ ok: true, live: slots.map((p) => p.id) });
       }
