@@ -14,7 +14,7 @@ const changes = [
     const q = req.query, what = String(q.safes), tidy = (v, n) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n);
     const everything = await edits.apply(catalog, { all: true });
     const draft = (n) => everything.filter((x) => Number(x.nextDeal) === n)[0] || null;
-    const card = (p) => p ? { id: p.id, name: p.name, desc: p.desc || '', price: p.price, stock: p.stock, shipping: p.shipping === 'free' ? 0 : Number(p.shipping) || 0, weight: p.weight_oz || '', box: p.box || '', nft: !!(p.nft && p.nft !== 'no'), photo: p.photo ? '/api/photo?id=' + p.id + '&v=' + p.photo : '' } : null;
+    const card = (p) => p ? { id: p.id, name: p.name, desc: p.desc || '', price: p.price, stock: p.stock, shipping: p.shipping === 'free' ? 0 : Number(p.shipping) || 0, weight: p.weight_oz || '', box: p.box || '', nft: !!(p.nft && p.nft !== 'no'), photo: p.photo ? '/api/photo?id=' + p.id + '&v=' + p.photo : (p.pic ? '/photos/' + p.pic + '.jpg' : '') } : null;
     const lib = require('./_lib'), off = require('./_offline');
     const roundNow = async () => { let dl = { slots: [] }; try { dl = await off.deals(await lib.getInventory(true)); } catch (e) { console.error('SAFES_ROUND_FAIL', String(e && e.message || e)); } const left = dl.slots.filter((s) => s.state !== 'sold').length; return { total: dl.slots.length, left: left }; };
     try {

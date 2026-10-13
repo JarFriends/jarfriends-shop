@@ -1,0 +1,14 @@
+[
+ [
+  "(Number(dp.ship) > 0 ? \"$\" + Number(dp.ship).toFixed(2) + \" shipping.\" : \"Free shipping.\") + \" USA only.\",",
+  "\"USA shipping only.\",\nshipLine: dp.nft ? \"\" : (Number(dp.ship) > 0 ? \"$\" + Number(dp.ship).toFixed(2) + \" shipping\" : \"FREE SHIPPING\"),"
+ ],
+ [
+  "<div style=\"font-weight: 800; font-size: 18px; color: #C9A45C\">{{deal.price}}</div>\n<div style=\"font-size: 13px; color: #D6E2DA\">{{deal.note}}</div>",
+  "<div style=\"font-weight: 800; font-size: 18px; color: #C9A45C\">{{deal.price}}</div>\n<div style=\"font-size: 13px; color: #D6E2DA\">{{deal.note}}</div>\n<div style=\"font-weight: 900; font-size: 16px; letter-spacing: .5px; color: #8FD3AE\">{{deal.shipLine}}</div>"
+ ],
+ [
+  "<div style=\"font-weight: 800; font-size: 19px; color: #C9A45C\">{{deal.price}}</div>\n<div style=\"font-size: 13px; color: #D6E2DA\">{{deal.note}}</div>",
+  "<div style=\"font-weight: 800; font-size: 19px; color: #C9A45C\">{{deal.price}}</div>\n<div style=\"font-size: 13px; color: #D6E2DA\">{{deal.note}}</div>\n<div style=\"font-weight: 900; font-size: 16px; letter-spacing: .5px; color: #8FD3AE\">{{deal.shipLine}}</div>"
+ ]
+]
