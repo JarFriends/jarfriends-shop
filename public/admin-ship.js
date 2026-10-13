@@ -19,7 +19,17 @@
   tabs.insertBefore(bTo, after); tabs.insertBefore(bDone, after);
   var box = el('div'); box.hidden = true; box.style.cssText = 'display:flex;flex-direction:column;gap:14px'; box.dataset.extraTab = '1';
   main.insertBefore(box, $('wOrders'));
-  var view = '', sortBy = '';
+  var view = '', sortBy = '', prod = {};
+  // Full-size photo viewer: tap a photo on a card to check every piece before it goes in the box.
+  function zoom(src, title) {
+    var ov = el('div'); ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px;cursor:zoom-out';
+    var im = el('img'); im.src = src; im.alt = title; im.style.cssText = 'max-width:100%;max-height:calc(100vh - 90px);object-fit:contain;border-radius:10px;background:#fff';
+    ov.appendChild(im); ov.appendChild(el('div', title + ' · tap anywhere to close', 'small'));
+    var close = function () { ov.remove(); document.removeEventListener('keydown', esc); };
+    var esc = function (e) { if (e.key === 'Escape') close(); };
+    ov.addEventListener('click', close); document.addEventListener('keydown', esc);
+    document.body.appendChild(ov);
+  }
   tabs.addEventListener('click', function (ev) { var b = ev.target.closest && ev.target.closest('button'); if (b && b !== bTo && b !== bDone && b.id !== 'out') { box.hidden = true; view = ''; [bTo, bDone].forEach(function (x) { x.setAttribute('aria-pressed', 'false'); }); } });
   function open(which, btn) {
     view = which;
@@ -38,6 +48,17 @@
     top.appendChild(el('b', (o.product || o.pid) + (Number(o.q) > 1 ? '  ×' + o.q : '')));
     top.appendChild(el('span', 'Order ' + o.n + ' · ' + when(o.at), 'small'));
     c.appendChild(top);
+    // What was sold: the product photo and its description, to check the package against.
+    var pr = prod[o.pid] || {}, what = el('div'); what.style.cssText = 'display:flex;gap:12px;align-items:flex-start';
+    if (pr.photo) {
+      var th = el('img'); th.src = pr.photo; th.alt = o.product || o.pid; th.loading = 'lazy'; th.title = 'Tap to see it full size';
+      th.style.cssText = 'width:110px;height:110px;object-fit:cover;border-radius:10px;background:#fff;cursor:zoom-in;flex:0 0 auto;border:1px solid rgba(255,255,255,.15)';
+      th.addEventListener('click', function () { zoom(pr.photo, o.product || o.pid); });
+      th.addEventListener('error', function () { th.replaceWith(el('div', 'No photo saved for this piece', 'small')); });
+      what.appendChild(th);
+    } else what.appendChild(el('div', 'No photo saved for this piece', 'small'));
+    if (pr.desc) { var d = el('div', 'What\'s in it: ' + pr.desc, 'small'); d.style.cssText = 'line-height:1.45;overflow-wrap:anywhere'; what.appendChild(d); }
+    c.appendChild(what);
     var who = el('div'); who.style.cssText = 'display:flex;flex-direction:column;gap:2px';
     who.appendChild(el('div', o.buyer || '-')); if (o.email) who.appendChild(el('div', o.email, 'small'));
     c.appendChild(who);
@@ -73,6 +94,7 @@
     box.textContent = 'Loading...';
     get('').then(function (r) {
       if (r.error) { box.textContent = r.error; return; }
+      prod = {}; (r.products || []).forEach(function (x) { prod[x.id] = x; });
       var list = (r.orders || []), to = list.filter(toShip), done = list.filter(shipped);
       bTo.textContent = 'Needs to be shipped (' + to.length + ')'; bDone.textContent = 'Shipped (' + done.length + ')';
       if (!view) return;
