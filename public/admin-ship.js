@@ -21,10 +21,10 @@
   main.insertBefore(box, $('wOrders'));
   var view = '', sortBy = '', prod = {};
   // Full-size photo viewer: tap a photo on a card to check every piece before it goes in the box.
-  function zoom(src, title) {
+  function zoom(src, title, desc) {
     var ov = el('div'); ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px;cursor:zoom-out';
-    var im = el('img'); im.src = src; im.alt = title; im.style.cssText = 'max-width:100%;max-height:calc(100vh - 90px);object-fit:contain;border-radius:10px;background:#fff';
-    ov.appendChild(im); ov.appendChild(el('div', title + ' · tap anywhere to close', 'small'));
+    var im = el('img'); im.src = src; im.alt = title; im.style.cssText = 'max-width:100%;max-height:calc(100vh - 140px);object-fit:contain;border-radius:10px;background:#fff';
+    ov.appendChild(im); var cap = el('div', title + (desc ? ' · ' + desc : '') + '  (tap anywhere to close)', 'small'); cap.style.cssText = 'max-width:900px;text-align:center;color:#fff;line-height:1.45'; ov.appendChild(cap);
     var close = function () { ov.remove(); document.removeEventListener('keydown', esc); };
     var esc = function (e) { if (e.key === 'Escape') close(); };
     ov.addEventListener('click', close); document.addEventListener('keydown', esc);
@@ -49,15 +49,22 @@
     top.appendChild(el('span', 'Order ' + o.n + ' · ' + when(o.at), 'small'));
     c.appendChild(top);
     // What was sold: the product photo and its description, to check the package against.
-    var pr = prod[o.pid] || {}, what = el('div'); what.style.cssText = 'display:flex;gap:12px;align-items:flex-start';
-    if (pr.photo) {
-      var th = el('img'); th.src = pr.photo; th.alt = o.product || o.pid; th.loading = 'lazy'; th.title = 'Tap to see it full size';
-      th.style.cssText = 'width:110px;height:110px;object-fit:cover;border-radius:10px;background:#fff;cursor:zoom-in;flex:0 0 auto;border:1px solid rgba(255,255,255,.15)';
-      th.addEventListener('click', function () { zoom(pr.photo, o.product || o.pid); });
-      th.addEventListener('error', function () { th.replaceWith(el('div', 'No photo saved for this piece', 'small')); });
-      what.appendChild(th);
-    } else what.appendChild(el('div', 'No photo saved for this piece', 'small'));
-    if (pr.desc) { var d = el('div', 'What\'s in it: ' + pr.desc, 'small'); d.style.cssText = 'line-height:1.45;overflow-wrap:anywhere'; what.appendChild(d); }
+    var pr = prod[o.pid] || {}, what = el('div'); what.style.cssText = 'display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap';
+    // Try the saved product photo first, then the home page picture for that piece.
+    var tries = [pr.photo, '/photos/home-' + o.pid + '.jpg', '/photos/' + o.pid + '.jpg'].filter(function (u, i, a) { return u && a.indexOf(u) === i; });
+    var title = o.product || pr.name || o.pid;
+    var th = el('img'); th.alt = title; th.title = 'Tap to see it full size';
+    th.style.cssText = 'width:150px;height:150px;object-fit:contain;border-radius:10px;background:#fff;cursor:zoom-in;flex:0 0 auto;border:1px solid rgba(255,255,255,.2)';
+    var at = 0, go = function () { if (at < tries.length) th.src = tries[at++]; else th.replaceWith(el('div', 'No photo saved for this piece', 'small')); };
+    th.addEventListener('error', go);
+    th.addEventListener('click', function () { zoom(th.currentSrc || th.src, title, pr.desc && pr.desc !== title ? pr.desc : ''); });
+    go(); what.appendChild(th);
+    var d = el('div'); d.style.cssText = 'flex:1 1 220px;display:flex;flex-direction:column;gap:4px;line-height:1.45;overflow-wrap:anywhere';
+    d.appendChild(el('b', "What's in it")); var full = (pr.name || title) + (pr.desc && pr.desc !== (pr.name || title) ? '. ' + pr.desc : '');
+    d.appendChild(el('div', full, 'small'));
+    var tap = el('button', 'See photo full size', 'ghost'); tap.type = 'button'; tap.style.cssText = 'align-self:flex-start;padding:6px 12px;font-size:13px;margin-top:4px';
+    tap.addEventListener('click', function () { zoom(th.currentSrc || th.src, title, pr.desc && pr.desc !== title ? pr.desc : ''); }); d.appendChild(tap);
+    what.appendChild(d);
     c.appendChild(what);
     var who = el('div'); who.style.cssText = 'display:flex;flex-direction:column;gap:2px';
     who.appendChild(el('div', o.buyer || '-')); if (o.email) who.appendChild(el('div', o.email, 'small'));

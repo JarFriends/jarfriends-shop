@@ -13,7 +13,7 @@ const changes = [
   if (req.query && req.query.voidlabel) {`],
   ['inject.js', R`  if (f === 'admin.html' && s.indexOf('/admin-jars.js') < 0) s = before(s, f, '<script src="/admin-jars.js" defer></script>');`, R`  if (f === 'admin.html' && s.indexOf('/admin-jars.js') < 0) s = before(s, f, '<script src="/admin-jars.js" defer></script>');
   if (f === 'admin.html' && s.indexOf('/admin-digest.js') < 0) s = before(s, f, '<script src="/admin-digest.js" defer></script>');
-  if (f === 'admin.html' && s.indexOf('/admin-ship.js') < 0) s = before(s, f, '<script src="/admin-ship.js" defer></script>');`]
+  if (f === 'admin.html' && s.indexOf('/admin-ship.js') < 0) s = before(s, f, '<script src="/admin-ship.js?v=' + Date.now() + '" defer></script>');`]
 ];
 // The back office can set each piece's shipping weight and package size (used for its shipping label).
 changes.push(['api/admin.js', "buyers: !!p.buyers, auction: p.auction || null,", "buyers: !!p.buyers, auction: p.auction || null, weight: p.weight_oz || '', box: p.box || '',"]);
