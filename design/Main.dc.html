@@ -830,7 +830,7 @@ next: { badge: "Next release [DATE]", badgeBg: "#0B1A13", badgeFg: "#D6E2DA", ba
 };
 const paySite = "https://collectors-page.vercel.app";
 const shop = this.state && this.state.shop;
-const catalog = shop ? shop.products.map((x) => ({ id: x.id, name: x.name, cents: Math.round(Number(x.price) * 100), min: x.min, stock: x.stock, sections: x.sections || [], deal: !!x.deal, nft: !!x.nft, locked: !!x.locked, auction: x.auction || null, eth: x.eth || "", ship: x.ship, desc: x.desc || "", shelf: x.shelf, photo: x.photo || "" })) : [["A", 1], ["B", 1], ["C", 1], ["D", 1], ["E", 1], ["F", 1]].map((x) => ({ id: x[0], name: "Sample Piece " + x[0], cents: 10, min: x[1], stock: null, sections: [] }));
+const catalog = shop ? shop.products.map((x) => ({ id: x.id, name: x.name, cents: Math.round(Number(x.price) * 100), min: x.min, stock: x.stock, sections: x.sections || [], deal: !!x.deal, nft: !!x.nft, locked: !!x.locked, onHold: !!x.onHold, auction: x.auction || null, eth: x.eth || "", ship: x.ship, desc: x.desc || "", shelf: x.shelf, photo: x.photo || "" })) : [["A", 1], ["B", 1], ["C", 1], ["D", 1], ["E", 1], ["F", 1]].map((x) => ({ id: x[0], name: "Sample Piece " + x[0], cents: 10, min: x[1], stock: null, sections: [] }));
 const note = shop && shop.note ? shop.note : "You choose how to pay on the next screen.";
 const qtys = (this.state && this.state.qtys) || {};
 const open = (this.state && this.state.open) || "";
@@ -839,7 +839,7 @@ const all = slots.map((s, i) => {
 const c = catalog[i];
 const sold = c.stock !== null && c.stock < c.min;
 const p = Object.assign({ status: s, deal: !!c.deal, cents: c.cents, sections: c.sections, lot: c.id, name: c.name, price: c.locked ? "Customer Loyalty" : "$" + (c.cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + (c.eth ? " (≈ " + c.eth + " ETH)" : ""), stockText: c.stock === null ? "Shown at checkout" : c.stock === 1 ? "One of a kind" : c.stock + " available", canOrder: !sold, noOrder: sold }, badges[s]);
-if (sold) { p.badge = c.locked ? "Coming soon" : "Sold"; p.stockText = c.locked ? "Coming soon" : "Sold"; if (c.locked) p.price = "Coming soon"; }
+if (sold) { p.badge = c.locked ? "Coming soon" : c.onHold ? "On hold" : "Sold"; p.stockText = c.locked ? "Coming soon" : c.onHold ? "On hold for a buyer. If it is not paid within 3 hours, it goes back on sale." : "Sold"; if (c.locked) p.price = "Coming soon"; }
 // Each piece is a small tile; tapping it opens its details and the check out button.
 p.isOpen = open === c.id;
 p.toggle = () => { if (open !== c.id) this.track(c.id, "view"); this.setState({ open: open === c.id ? "" : c.id }); };
@@ -852,7 +852,7 @@ p.edge = p.isOpen ? "#C9A45C" : "#244536";
 p.photo = c.photo || PHOTOS[c.id] || "";
 p.hasPhoto = !!p.photo; p.noPhoto = !p.photo;
 p.photoH = p.isOpen ? "340px" : narrow ? "150px" : "190px";
-p.hint = sold ? (c.locked ? "Coming soon" : "Sold") : s === "limited" ? (c.stock === 1 ? "One of a kind" : "Few left") : p.isOpen ? "Close" : "Details";
+p.hint = sold ? (c.locked ? "Coming soon" : c.onHold ? "On hold" : "Sold") : s === "limited" ? (c.stock === 1 ? "One of a kind" : "Few left") : p.isOpen ? "Close" : "Details";
 // An auction shows its current bid in place of a price, and its button goes to the auction page.
 if (c.auction) { p.price = c.auction.bids ? (c.auction.ended ? "Won at $" : "Current bid $") + c.auction.current : c.auction.ended ? "Auction ended" : "Starting bid $" + c.auction.current; p.stockText = c.auction.ended ? "Auction ended" : "Auction"; p.hint = c.auction.ended ? "Ended" : p.isOpen ? "Close" : "Auction"; }
 if (!sold) {

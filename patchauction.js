@@ -27,6 +27,13 @@ fs.writeFileSync(f, fs.readFileSync(f, 'utf8') + `
   const inner = module.exports;
   const w = async (req, res) => {
     if (req.method === 'GET') {
+      // Pieces whose last units are held for an accepted offer show as on hold, not sold out.
+      let held = {};
+      try { held = await require('./_holds').byProduct(); } catch (e) { held = {}; }
+      if (Object.keys(held).length) {
+        const send0 = res.json.bind(res);
+        res.json = (body) => { try { if (body && Array.isArray(body.products)) body.products.forEach((p) => { if (held[p.id] && !(Number(p.stock) > 0)) p.onHold = true; }); } catch (e) { /* as it was */ } return send0(body); };
+      }
       let list = [];
       try { list = await require('./_auction').list(); } catch (e) { list = []; }
       if (list.length) {

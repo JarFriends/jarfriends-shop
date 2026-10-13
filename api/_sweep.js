@@ -1,9 +1,9 @@
 // Emails the site sends on its own. There is no timer: the check runs when someone visits the shop, at most once
 // every ten minutes, and only on the live site.
 // 1. Someone typed their email on a checkout page three hours ago and has not ordered that piece: one reminder.
-// 2. An accepted or countered offer runs out within three hours and is still unused: one "runs out soon" email.
+// 2. An accepted or countered offer runs out within an hour and is still unused: one "runs out soon" email.
 const store = require('./_store');
-const GAP = 10 * 60000, WAIT = 3 * 3600000, OLD = 48 * 3600000, SOON = 3 * 3600000, HOST = 'https://jarfriends.com';
+const GAP = 10 * 60000, WAIT = 3 * 3600000, OLD = 48 * 3600000, SOON = 3600000, HOST = 'https://jarfriends.com';
 let last = 0;
 const first = (n) => (n ? 'Hi ' + String(n).split(' ')[0] + ',' : 'Hi,');
 async function files(prefix) {

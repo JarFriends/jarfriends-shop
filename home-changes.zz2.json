@@ -90,5 +90,17 @@
  [
   "dealCount: dealSlots.length,",
   "dealCount: dealSlots.length, missed: dealSlots.filter((d) => d.state === \"sold\").map((d) => ({ n: \"SAFE \" + d.n, name: d.name || \"Safe \" + d.n, photo: PHOTOS[d.id] || \"\", hasPhoto: !!PHOTOS[d.id], noPhoto: !PHOTOS[d.id], priceText: d.price ? \"Claimed at $\" + Number(d.price).toFixed(2) : \"Claimed\" })), dealIntro: dealSlots.length > 0 && !openSlot ? \"Every safe in this round has been opened. Five new ones are coming soon, and only one will open at a time.\" : dealSlots.length + \" pieces are locked away and only one safe is open. When that piece is claimed, the next safe unlocks.\","
+ ],
+ [
+  "locked: !!x.locked, auction: x.auction || null, eth:",
+  "locked: !!x.locked, onHold: !!x.onHold, auction: x.auction || null, eth:"
+ ],
+ [
+  "if (sold) { p.badge = c.locked ? \"Coming soon\" : \"Sold\"; p.stockText = c.locked ? \"Coming soon\" : \"Sold\"; if (c.locked) p.price = \"Coming soon\"; }",
+  "if (sold) { p.badge = c.locked ? \"Coming soon\" : c.onHold ? \"On hold\" : \"Sold\"; p.stockText = c.locked ? \"Coming soon\" : c.onHold ? \"On hold for a buyer. If it is not paid within 3 hours, it goes back on sale.\" : \"Sold\"; if (c.locked) p.price = \"Coming soon\"; }"
+ ],
+ [
+  "p.hint = sold ? (c.locked ? \"Coming soon\" : \"Sold\")",
+  "p.hint = sold ? (c.locked ? \"Coming soon\" : c.onHold ? \"On hold\" : \"Sold\")"
  ]
 ]
