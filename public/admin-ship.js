@@ -137,6 +137,12 @@
     } else {
       var s = isNft(o) ? 'NFT sent ' + when(o.nftSentAt) : 'Shipped' + (o.shippedAt ? ' ' + when(o.shippedAt) : '') + (o.tracking ? ' · Tracking ' + o.tracking : '');
       row.appendChild(el('span', s, 'small'));
+      // Track package: the carrier's tracking page, picked from the shape of the number (labels bought here are USPS).
+      if (o.tracking) {
+        var t = String(o.tracking).replace(/\s+/g, ''), tu = /^1Z/i.test(t) ? 'https://www.ups.com/track?tracknum=' : /^\d{12}$|^\d{15}$/.test(t) ? 'https://www.fedex.com/fedextrack/?trknbr=' : /^\d{10}$/.test(t) ? 'https://www.dhl.com/us-en/home/tracking.html?tracking-id=' : 'https://tools.usps.com/go/TrackConfirmAction?tLabels=';
+        var tr = el('a', 'Track package', 'solid'); tr.href = tu + encodeURIComponent(t); tr.target = '_blank'; tr.rel = 'noopener'; tr.style.cssText = 'padding:8px 14px;font-size:14px;text-decoration:none;display:inline-block';
+        row.appendChild(tr);
+      }
       if (o.hasLabel) { var p = el('a', 'Print label (half sheet)'); p.href = '/api/labelpdf?n=' + encodeURIComponent(o.n) + '&k=' + encodeURIComponent(key()); p.target = '_blank'; p.rel = 'noopener'; p.style.fontSize = '14px'; row.appendChild(p); }
     }
     c.appendChild(row);
