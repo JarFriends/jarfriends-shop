@@ -22,6 +22,23 @@
       <div class="row"><span class="dim">Ship to</span><span id="to" style="text-align:right;white-space:pre-line"></span></div>
       <div class="row"><span class="dim">Ship from</span><span id="from" style="text-align:right;white-space:pre-line"></span></div>
       <div class="row"><span class="dim">Package</span><span id="pkg"></span></div>
+    </div>
+    <div id="edit" hidden style="display:flex;flex-direction:column;gap:10px;padding:14px;border:1px solid rgba(201,164,92,.55);border-radius:12px">
+      <b>Weight and box size</b>
+      <div class="small">Weigh the packed box and measure it, then press Get new price. The label is priced and bought with these numbers.</div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end">
+        <label style="flex:0 1 90px">Pounds<input id="wLb" type="number" inputmode="decimal" min="0" step="1" placeholder="0"></label>
+        <label style="flex:0 1 90px">Ounces<input id="wOz" type="number" inputmode="decimal" min="0" step="0.1" placeholder="0"></label>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end">
+        <label style="flex:0 1 90px">Length (in)<input id="dL" type="number" inputmode="decimal" min="0" step="0.1"></label>
+        <label style="flex:0 1 90px">Width (in)<input id="dW" type="number" inputmode="decimal" min="0" step="0.1"></label>
+        <label style="flex:0 1 90px">Height (in)<input id="dH" type="number" inputmode="decimal" min="0" step="0.1"></label>
+      </div>
+      <div class="small dim" id="flatNote" hidden>This piece is set to a USPS flat rate box. Leave the size blank to keep the flat rate box, or enter your own box size.</div>
+      <button type="button" class="ghost" id="reprice" style="align-self:flex-start">Get new price</button>
+    </div>
+    <div class="rows">
       <div class="row" id="rSvc" hidden><span class="dim">Service</span><span id="svc" style="text-align:right"></span></div>
       <div class="row total" id="rCost" hidden><span>Postage</span><span id="cost"></span></div>
     </div>
@@ -51,8 +68,28 @@
     $('pkg').textContent = o.pkg || (o.parcel.length + ' x ' + o.parcel.width + ' x ' + o.parcel.height + ' in, ' + o.parcel.weight + ' oz');
     $('box').hidden = false;
   }
-  fetch('/api/label?inv=' + encodeURIComponent(inv) + '&k=' + encodeURIComponent(k), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (r) {
-    if (r.order) showOrder(r.order);
+  // Fill the weight and size boxes from the package the label is priced with (only the first time).
+  var filled = false;
+  function fillEdit(o) {
+    if (filled || !o || !o.parcel) return; filled = true;
+    var oz = Number(o.parcel.weight) || 0;
+    $('wLb').value = Math.floor(oz / 16) || ''; $('wOz').value = oz ? Math.round((oz % 16) * 10) / 10 : '';
+    if (o.parcel.template) $('flatNote').hidden = false;
+    else { $('dL').value = o.parcel.length || ''; $('dW').value = o.parcel.width || ''; $('dH').value = o.parcel.height || ''; }
+    $('edit').hidden = false;
+  }
+  function typed() {
+    var v = function (id) { return Number($(id).value) || 0; };
+    var oz = v('wLb') * 16 + v('wOz'), q = '';
+    if (oz > 0) q += '&oz=' + Math.round(oz * 10) / 10;
+    if (v('dL') && v('dW') && v('dH')) q += '&l=' + v('dL') + '&w=' + v('dW') + '&h=' + v('dH');
+    return q;
+  }
+  function price(extra) {
+  rate = null; $('buy').hidden = true; $('rSvc').hidden = true; $('rCost').hidden = true; $('lead').textContent = 'Pricing the label...';
+  fetch('/api/label?inv=' + encodeURIComponent(inv) + '&k=' + encodeURIComponent(k) + (extra || ''), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (r) {
+    if (r.order) { showOrder(r.order); fillEdit(r.order); }
+    $('reprice').disabled = false;
     if (r.error || !r.rate) { $('head').textContent = r.order ? 'Label not priced' : 'Label link not valid'; $('lead').textContent = r.error || 'Could not price the label.'; return; }
     rate = r.rate;
     $('svc').textContent = rate.carrier + ' ' + rate.service + (rate.days ? ' (about ' + rate.days + (rate.days === 1 ? ' day)' : ' days)') : '');
@@ -61,7 +98,15 @@
     $('lead').textContent = r.order.test
       ? 'Test mode: this makes a free sample label that cannot be mailed. Nothing is charged.'
       : 'Buying charges $' + rate.amount + ' to your Shippo account. Check the address first.';
-  }, function () { $('head').textContent = 'Label not priced'; $('lead').textContent = 'Could not reach the site. Reload to try again.'; });
+  }, function () { $('reprice').disabled = false; $('head').textContent = 'Label not priced'; $('lead').textContent = 'Could not reach the site. Reload to try again.'; });
+  }
+  price('');
+  $('reprice').addEventListener('click', function () {
+    var q = typed();
+    if (!/oz=/.test(q)) { $('msg').textContent = 'Enter the weight first.'; return; }
+    if (($('dL').value || $('dW').value || $('dH').value) && !/&l=/.test(q)) { $('msg').textContent = 'Enter all three sizes (length, width and height), or leave them all blank.'; return; }
+    $('msg').textContent = ''; $('reprice').disabled = true; $('head').textContent = 'Buy the USPS label'; price(q);
+  });
   $('buy').addEventListener('click', function () {
     if (!rate) return;
     $('buy').disabled = true; $('msg').textContent = 'Buying the label...';

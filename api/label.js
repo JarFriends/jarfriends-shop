@@ -21,13 +21,20 @@ function shipFrom() {
   return { name: String(f.name || process.env.BRAND_NAME || 'JarFriends'), street1: String(f.street1), street2: String(f.street2 || ''), city: String(f.city), state: String(f.state), zip: String(f.zip), country: 'US', phone: String(f.phone || ''), email: (process.env.OWNER_EMAIL || '').trim() };
 }
 // The default package, changed by whatever the product sets for itself. pkg is how the owner page words it.
-async function parcel(inv) {
+// q (optional): the weight and box size the owner typed on the label page for this one order: oz, l, w, h.
+async function parcel(inv, q) {
   const p = json('SHIP_PARCEL') || {};
   const n = (v, d) => (Number(v) > 0 ? String(Number(v)) : d);
   const out = { length: n(p.length, '9'), width: n(p.width, '6'), height: n(p.height, '1'), distance_unit: 'in', weight: n(p.weight_oz, '4'), mass_unit: 'oz' };
   const own = await offline.parcelFor(inv.pid, inv.q);
   if (own.oz) out.weight = String(own.oz);
   if (own.dims) { out.length = own.dims[1]; out.width = own.dims[2]; out.height = own.dims[3]; }
+  q = q || {};
+  const num = (v, max) => { const x = Number(v); return x > 0 && x <= max ? Math.round(x * 10) / 10 : 0; };
+  const oz = num(q.oz, 1120), l = num(q.l, 108), w = num(q.w, 108), h = num(q.h, 108);
+  if (oz) out.weight = String(oz);
+  // A size typed on the page replaces a flat rate box: the label is priced for that box instead.
+  if (l && w && h) { out.length = String(l); out.width = String(w); out.height = String(h); out.distance_unit = 'in'; own.template = ''; delete out.template; }
   if (own.template) { delete out.length; delete out.width; delete out.height; delete out.distance_unit; out.template = own.template; }
   return { parcel: out, pkg: (own.template ? own.name : out.length + ' x ' + out.width + ' x ' + out.height + ' in') + ', ' + out.weight + ' oz' };
 }
@@ -51,7 +58,7 @@ module.exports = async (req, res) => {
   if (!key()) return res.status(503).json({ error: 'Shippo is not connected yet. Add SHIPPO_API_KEY in Vercel, then redeploy.' });
   const from = shipFrom();
   if (!from) return res.status(503).json({ error: 'The ship-from address is not set yet. Add SHIP_FROM in Vercel, then redeploy.' });
-  const pk = await parcel(inv);
+  const pk = await parcel(inv, req.method === 'GET' ? req.query : null);
   const order = { no: inv.n, item: inv.i, qty: inv.q, to: to, from: from, parcel: pk.parcel, pkg: pk.pkg, test: isTest() };
 
   if (req.method === 'GET') {
