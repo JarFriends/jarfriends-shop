@@ -12,7 +12,8 @@ const changes = [
   }
   if (req.query && req.query.voidlabel) {`],
   ['inject.js', R`  if (f === 'admin.html' && s.indexOf('/admin-jars.js') < 0) s = before(s, f, '<script src="/admin-jars.js" defer></script>');`, R`  if (f === 'admin.html' && s.indexOf('/admin-jars.js') < 0) s = before(s, f, '<script src="/admin-jars.js" defer></script>');
-  if (f === 'admin.html' && s.indexOf('/admin-digest.js') < 0) s = before(s, f, '<script src="/admin-digest.js" defer></script>');`]
+  if (f === 'admin.html' && s.indexOf('/admin-digest.js') < 0) s = before(s, f, '<script src="/admin-digest.js" defer></script>');
+  if (f === 'admin.html' && s.indexOf('/admin-ship.js') < 0) s = before(s, f, '<script src="/admin-ship.js" defer></script>');`]
 ];
 const files = {};
 changes.forEach((c) => {
