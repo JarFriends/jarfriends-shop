@@ -156,6 +156,16 @@
       pick.appendChild(b);
     });
     head.appendChild(pick);
+    // Go live for either group, right here at the top (each one is ready once all its safes are filled in).
+    var quick = el('div'); quick.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px';
+    groups.forEach(function (x) {
+      var full = (x.slots || []).filter(Boolean).length === x.size;
+      var b = el('button', 'Go live: group ' + x.g + ' (' + x.size + ' safes)', 'solid'); b.type = 'button';
+      if (!full) { b.disabled = true; b.style.opacity = '.5'; b.title = 'Fill in all ' + x.size + ' safes first'; }
+      b.addEventListener('click', function () { if (curG !== x.g) { dirty = {}; curG = x.g; draw(); } var go = box.querySelector('[data-go]'); if (go) go.click(); });
+      quick.appendChild(b);
+    });
+    head.appendChild(quick);
     box.appendChild(head);
     slots.forEach(function (s, i) { box.appendChild(slotCard(i + 1, s, curG, size)); });
     box.appendChild(preview(slots));
@@ -163,7 +173,7 @@
     var live = el('section', null, 'card'); live.style.cssText = 'display:flex;flex-direction:column;gap:10px;border-color:' + GOLD;
     live.appendChild(el('b', 'Go live with group ' + curG));
     live.appendChild(el('div', 'Puts these ' + size + ' pieces in the safes and opens safe 1 right away. Whatever is in the safes now comes off the site, and everyone on your list gets the "new round, safe 1 is open" email (it shows only what is in safe 1). The other group stays saved for later.', 'small'));
-    var go = el('button', 'Go live with group ' + curG + ' (' + size + ' safes)', 'solid'); go.type = 'button'; go.style.cssText = 'align-self:flex-start;padding:12px 22px;font-size:16px';
+    var go = el('button', 'Go live with group ' + curG + ' (' + size + ' safes)', 'solid'); go.type = 'button'; go.dataset.go = '1'; go.style.cssText = 'align-self:flex-start;padding:12px 22px;font-size:16px';
     var gm = el('div', '', 'small');
     if (ready < size) { go.disabled = true; go.style.opacity = '.5'; gm.textContent = 'Fill in and save all ' + size + ' safes in this group to go live.'; }
     go.addEventListener('click', function () {

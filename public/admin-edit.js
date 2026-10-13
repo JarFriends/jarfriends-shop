@@ -210,14 +210,22 @@
     return c;
   }
   addBtn.addEventListener('click', function () { adding = true; editing = ''; draw(); });
-  var flash = '';
+  var flash = '', soldOpen = false;
   function draw() {
     list.textContent = '';
     if (flash) { list.appendChild(el('div', flash, 'small')); flash = ''; }
     if (adding) list.appendChild(addCard());
-    var v = rows();
+    // Sold pieces (every unit sold) move out of the list into their own Sold section at the bottom.
+    var sold = function (p) { return p.start > 0 && p.sold >= p.start && !p.nextSafe && show.sel.value !== 'out'; };
+    var all = rows(), v = all.filter(function (p) { return !sold(p); }), gone = all.filter(sold);
     if (!v.length) list.appendChild(el('div', 'No products match.', 'small'));
     v.forEach(function (p) { list.appendChild(card(p)); });
+    if (gone.length) {
+      var sh = el('button', (soldOpen ? 'Hide' : 'Show') + ' sold (' + gone.length + ')', 'ghost'); sh.type = 'button'; sh.style.cssText = 'align-self:flex-start;margin-top:10px';
+      sh.addEventListener('click', function () { soldOpen = !soldOpen; draw(); });
+      list.appendChild(el('b', 'Sold')); list.appendChild(sh);
+      if (soldOpen) gone.forEach(function (p) { list.appendChild(card(p)); });
+    }
   }
   function load(say) {
     get().then(function (r) { if (r.error) return; items = r.products || []; flash = say || ''; draw(); }, function () { /* the page shows its own error */ });
