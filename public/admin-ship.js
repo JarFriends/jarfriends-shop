@@ -91,6 +91,22 @@
           var dOz = Number(saved.oz || pr.weight) || 0, dims = String(saved.box || pr.box || '').match(/([\d.]+)\s*[x×]\s*([\d.]+)\s*[x×]\s*([\d.]+)/i) || [];
           var iLb = box('Pounds', dOz ? Math.floor(dOz / 16) : ''), iOz = box('Ounces', dOz ? Math.round((dOz % 16) * 10) / 10 : '');
           var iL = box('Length (in)', dims[1]), iW = box('Width (in)', dims[2]), iH = box('Height (in)', dims[3]);
+          // Standard box: one check fills in 12 x 9 x 6 so only the weight needs typing.
+          var REG = ['12', '9', '6'], reg = el('label'); reg.style.cssText = 'display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer;align-self:flex-start';
+          var cb = el('input'); cb.type = 'checkbox'; cb.style.cssText = 'width:20px;height:20px;margin:0;accent-color:#C9A45C';
+          reg.appendChild(cb); reg.appendChild(el('span', 'Regular box (12 x 9 x 6 in)'));
+          reg.style.setProperty('display', 'flex', 'important'); reg.style.setProperty('flex-direction', 'row', 'important');
+          ['width', 'height', 'min-width', 'flex'].forEach(function (k, i) { cb.style.setProperty(k, ['20px', '20px', '20px', '0 0 20px'][i], 'important'); });
+          cb.style.setProperty('padding', '0', 'important');
+          var isReg = function () { return Number(iL.value) === 12 && Number(iW.value) === 9 && Number(iH.value) === 6; };
+          cb.checked = isReg();
+          cb.addEventListener('change', function () {
+            if (cb.checked) { iL.value = REG[0]; iW.value = REG[1]; iH.value = REG[2]; iLb.focus(); }
+            else { iL.value = ''; iW.value = ''; iH.value = ''; }
+            sync();
+          });
+          [iL, iW, iH].forEach(function (i) { i.addEventListener('input', function () { cb.checked = isReg(); }); });
+          pk.insertBefore(reg, pk.children[1]);
           pk.appendChild(line);
           var flat = !dims.length && /flat/i.test(String(pr.box || ''));
           pk.appendChild(el('div', flat ? 'Set to a USPS flat rate box. Leave the size blank to keep it, or type your own box size.' : 'Weigh and measure the packed box. The label is priced and bought with these numbers.', 'small'));
