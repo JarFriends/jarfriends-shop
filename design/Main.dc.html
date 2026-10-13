@@ -600,7 +600,7 @@ button{font-family:inherit;cursor:pointer}
 <a href="https://x.com/JarFriends" target="_blank" rel="noopener" aria-label="JarFriends on X" title="JarFriends on X" style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; box-sizing: border-box; border: 1px solid #4E7A63; border-radius: 999px; color: #F7F2E6"><svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"></path></svg></a>
 </div>
 <div style="display: flex; flex-direction: column; gap: 4px">
-<div>Chicago, IL · USA shipping only</div>
+<div>Chicago, IL · Ships worldwide</div>
 <div><a href="mailto:jarvisfriends@gmail.com" target="_top" style="color: #A8BFB1">jarvisfriends@gmail.com</a></div>
 </div>
 <div style="font-size: 12px; color: #6F8A7B">Thanks for stopping by. Website made by JarFriends.</div>
@@ -919,8 +919,8 @@ tag: "SAFE " + openSlot.n + " OF " + dealSlots.length + " / OPEN NOW",
 lockTag: "SAFE " + openSlot.n + " OF " + dealSlots.length + (heavy ? " / THE VAULT" : ""),
 name: dp.name,
 price: "$" + (dp.cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + (dp.eth ? " (≈ " + dp.eth + " ETH)" : ""),
-note: dp.nft ? "This is an NFT. You need your own OpenSea wallet; at checkout you give the address to send it to." : (dp.stock === 1 ? "Only one. " : dp.stock + " available. ") + "USA shipping only.",
-shipLine: dp.nft ? "" : (Number(dp.ship) > 0 ? "$" + Number(dp.ship).toFixed(2) + " shipping" : "FREE SHIPPING"),
+note: dp.nft ? "This is an NFT. You need your own OpenSea wallet; at checkout you give the address to send it to." : (dp.stock === 1 ? "Only one. " : dp.stock + " available. ") + "Ships worldwide.",
+shipLine: dp.nft ? "" : (Number(dp.ship) > 0 ? "$" + Number(dp.ship).toFixed(2) + " US shipping" : "FREE US SHIPPING"),
 photo: dp.photo || PHOTOS[dp.id] || "", hasPhoto: !!(dp.photo || PHOTOS[dp.id]), noPhoto: !(dp.photo || PHOTOS[dp.id]),
 order: () => go(dealUrl), offer: () => go(dealUrl + "&make=offer"),
 coinCls: heavy && cracked ? "vault-coin" : "",
