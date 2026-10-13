@@ -272,6 +272,28 @@ button{font-family:inherit;cursor:pointer}
 <span style="font-size: 16px; line-height: 1.45">Five brand new safes are on the way, each with a new deal locked inside. <b>Who will open them first?</b> Subscribe and you will get an email the second safe 1 unlocks.</span>
 <a href="https://jarfriends.com/help.html?join=1" target="_top" style="align-self: flex-start; background: #0B1A13; color: #F7F2E6; text-decoration: none; font-weight: 700; padding: 11px 22px; border-radius: 999px">Subscribe and be first</a>
 </div>
+<div style="display: flex; flex-direction: column; gap: 12px; margin-top: 6px">
+<div style="font-family: 'Playfair Display', Georgia, serif; font-style: italic; font-weight: 700; font-size: clamp(24px, 3vw, 32px); color: #F7F2E6">What you missed</div>
+<div style="font-size: 15px; color: #D6E2DA; max-width: 600px">This is what was inside each safe. Every one of them is gone. Don't miss the next round.</div>
+<div style="display: flex; flex-wrap: wrap; gap: 18px 26px; padding-left: 14px">
+<sc-for list="{{missed}}" as="m" hint-placeholder-count="5">
+<div style="flex: 1 1 170px; max-width: 220px; min-width: 0; display: flex; flex-direction: column; gap: 8px">
+<div style="position: relative; aspect-ratio: 1 / 1; border-radius: 12px; border: 3px solid #5B636B; background: linear-gradient(145deg, #3A4148, #15181B); box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.15), 0 12px 24px rgba(0, 0, 0, 0.55)">
+<div style="position: absolute; top: 9px; right: 9px; bottom: 9px; left: 9px; border-radius: 7px; overflow: hidden; background: radial-gradient(circle at 50% 55%, #FFF1C2 0%, #E9C46A 32%, #6A4C14 76%, #1A1206 100%); box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.75)">
+<sc-if value="{{m.hasPhoto}}" hint-placeholder-val="{{true}}"><img src="{{m.photo}}" alt="{{m.name}}" style="position: absolute; left: 50%; top: 52%; transform: translate(-50%, -50%); max-width: 80%; max-height: 80%; border-radius: 5px; box-shadow: 0 8px 16px rgba(0, 0, 0, 0.6)"></sc-if>
+<sc-if value="{{m.noPhoto}}" hint-placeholder-val="{{false}}"><div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: #3A2A0A; text-align: center; padding: 10px">{{m.name}}</div></sc-if>
+</div>
+<div aria-hidden="true" style="position: absolute; top: 2px; bottom: 2px; left: -14px; width: 16px; transform: skewY(-12deg); transform-origin: right center; border-radius: 4px 0 0 4px; border: 1px solid #8A9199; background: linear-gradient(90deg, #2A2F34, #6A717A); box-shadow: -4px 6px 10px rgba(0, 0, 0, 0.5)"></div>
+<div style="position: absolute; left: 10px; bottom: 10px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.12em; color: #F7F2E6; background: rgba(11, 26, 19, 0.85); padding: 3px 8px; border-radius: 999px">{{m.n}}</div>
+<div style="position: absolute; right: -8px; top: 14px; transform: rotate(10deg); background: #B3261E; color: #FFFFFF; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500; letter-spacing: 0.16em; padding: 5px 12px; border-radius: 4px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5)">CLAIMED</div>
+</div>
+<div style="font-weight: 700; font-size: 14px; line-height: 1.35; overflow-wrap: anywhere">{{m.name}}</div>
+<div style="font-size: 13px; color: #C9A45C; font-weight: 700">{{m.priceText}}</div>
+</div>
+</sc-for>
+</div>
+<div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.12em; color: #C9A45C; margin-top: 10px">THE NEXT 5 SAFES · COMING SOON</div>
+</div>
 </sc-if>
 <div class="m-minis" style="display: flex; flex-wrap: wrap; gap: 12px">
 <sc-for list="{{safes}}" as="s" hint-placeholder-count="10">
@@ -958,7 +980,7 @@ locked: { label: "Locked", bg: "linear-gradient(145deg, #3A5146, #1A2B23)", line
 };
 const allSafesDone = dealSlots.length > 0 && !openSlot;
 const crackedLook = { label: "Cracked open", bg: "linear-gradient(145deg, #3A5146, #1A2B23)", line: "#C9A45C", dial: "#C9A45C", fg: "#C9A45C", turn: "-74deg", inner: "radial-gradient(circle at 50% 55%, #FFF1C2 0%, #E9C46A 30%, #6A4C14 75%, #1A1206 100%)" };
-const safes = dealSlots.map((d) => Object.assign({ n: d.n, turn: "0deg", inner: "transparent" }, allSafesDone ? crackedLook : (safeLook[d.state] || safeLook.locked)))
+const safes = (allSafesDone ? [] : dealSlots.map((d) => Object.assign({ n: d.n, turn: "0deg", inner: "transparent" }, safeLook[d.state] || safeLook.locked)))
 .concat(allSafesDone ? [6, 7, 8, 9, 10].map(() => Object.assign({ n: "?", turn: "0deg", inner: "transparent" }, safeLook.locked, { label: "Coming soon" })) : []);
 // Sections of the collection. A piece can sit in more than one.
 const names = shop && shop.sections && shop.sections.length ? shop.sections : ["Comics", "Cards", "NFTs", "Graded", "Pokemon", "Watches"];
@@ -982,7 +1004,7 @@ shelfTitle: SHELF_OPEN ? "What I'm sharing right now" : shelf.length ? "Availabl
 shelfText: SHELF_OPEN ? "Take your time. Tap a piece to see its details and check out." : (shelf.length ? "Tap a piece to see its details and check out. More coming soon: comics, cards, NFTs, graded pieces, Pokemon and watches." : "My personal collection is on its way: comics, cards, NFTs, graded pieces, Pokemon and watches. Until then, the Deal of the day safe is open."),
 filters: filters,
 hasDeals: dealSlots.length > 0, hasOpen: !!dp, allClaimed: dealSlots.length > 0 && !openSlot,
-dealCount: dealSlots.length, dealIntro: dealSlots.length > 0 && !openSlot ? "Every safe in this round has been opened. Five new ones are coming soon, and only one will open at a time." : dealSlots.length + " pieces are locked away and only one safe is open. When that piece is claimed, the next safe unlocks.", deal: deal, safes: safes,
+dealCount: dealSlots.length, missed: dealSlots.filter((d) => d.state === "sold").map((d) => ({ n: "SAFE " + d.n, name: d.name || "Safe " + d.n, photo: PHOTOS[d.id] || "", hasPhoto: !!PHOTOS[d.id], noPhoto: !PHOTOS[d.id], priceText: d.price ? "Claimed at $" + Number(d.price).toFixed(2) : "Claimed" })), dealIntro: dealSlots.length > 0 && !openSlot ? "Every safe in this round has been opened. Five new ones are coming soon, and only one will open at a time." : dealSlots.length + " pieces are locked away and only one safe is open. When that piece is claimed, the next safe unlocks.", deal: deal, safes: safes,
 party: partyVals,
 // The safe starts shut, with its door closed over the deal.
 // The deal sits behind the door. Opening turns the wheel, then the door swings out on its hinges and is taken away.

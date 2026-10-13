@@ -100,8 +100,8 @@ async function deals(inventory) {
     const s = !p || p.stock < p.min ? 'sold' : opened ? 'locked' : 'open';
     if (s === 'open') opened = true;
     state[d.id] = s;
-    // A locked safe gives nothing away: no id, no name.
-    return { n: i + 1, state: s, id: s === 'open' ? d.id : '', name: s === 'sold' && p ? p.name : '' };
+    // A locked safe gives nothing away: no id, no name. A claimed one shows what was inside and what it went for.
+    return { n: i + 1, state: s, id: s === 'locked' ? '' : d.id, name: s === 'sold' && p ? p.name : '', price: s === 'sold' && p ? (p.cents / 100).toFixed(2) : '' };
   });
   return { slots: slots, state: state };
 }
