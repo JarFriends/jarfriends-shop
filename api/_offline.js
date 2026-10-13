@@ -122,7 +122,8 @@ async function parcelFor(pid, qty) {
   return {
     oz: oz > 0 ? oz * Math.max(1, Number(qty) || 1) : 0,
     template: flat && box.indexOf('medium') >= 0 ? 'USPS_MediumFlatRateBox1' : flat && box.indexOf('small') >= 0 ? 'USPS_SmallFlatRateBox' : flat && box.indexOf('large') >= 0 ? 'USPS_LargeFlatRateBox' : '',
-    name: String(row.box == null ? '' : row.box).slice(0, 60)
+    name: String(row.box == null ? '' : row.box).slice(0, 60),
+    dims: !flat ? (/(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)/i.exec(box) || null) : null
   };
 }
 const shipText = (inv) => (inv.sh ? money(inv.sh) : 'Free');

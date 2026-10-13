@@ -27,6 +27,7 @@ async function parcel(inv) {
   const out = { length: n(p.length, '9'), width: n(p.width, '6'), height: n(p.height, '1'), distance_unit: 'in', weight: n(p.weight_oz, '4'), mass_unit: 'oz' };
   const own = await offline.parcelFor(inv.pid, inv.q);
   if (own.oz) out.weight = String(own.oz);
+  if (own.dims) { out.length = own.dims[1]; out.width = own.dims[2]; out.height = own.dims[3]; }
   if (own.template) { delete out.length; delete out.width; delete out.height; delete out.distance_unit; out.template = own.template; }
   return { parcel: out, pkg: (own.template ? own.name : out.length + ' x ' + out.width + ' x ' + out.height + ' in') + ', ' + out.weight + ' oz' };
 }
