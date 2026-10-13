@@ -100,7 +100,10 @@
       : 'Buying charges $' + rate.amount + ' to your Shippo account. Check the address first.';
   }, function () { $('reprice').disabled = false; $('head').textContent = 'Label not priced'; $('lead').textContent = 'Could not reach the site. Reload to try again.'; });
   }
-  price('');
+  // Weight and size typed on the order card in the back office come along in the link.
+  var first = '';
+  ['oz', 'l', 'w', 'h'].forEach(function (n) { var v = Number(qs.get(n)); if (v > 0) first += '&' + n + '=' + v; });
+  price(first);
   $('reprice').addEventListener('click', function () {
     var q = typed();
     if (!/oz=/.test(q)) { $('msg').textContent = 'Enter the weight first.'; return; }

@@ -81,7 +81,36 @@
           b.disabled = true; get('&nftsent=' + encodeURIComponent(o.n)).then(function (r) { if (r.error) { alert(r.error); b.disabled = false; return; } load(); });
         }, true));
       } else {
-        if (/^https:\/\//.test(o.label || '')) { var a = el('a', 'Buy shipping label', 'solid'); a.href = o.label; a.target = '_blank'; a.rel = 'noopener'; a.style.cssText = 'padding:8px 14px;font-size:14px;text-decoration:none;display:inline-block'; row.appendChild(a); }
+        if (/^https:\/\//.test(o.label || '')) {
+          // Weight and box size for this package, filled in from the product. Change them, then buy the label with them.
+          var pk = el('div'); pk.style.cssText = 'display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid rgba(201,164,92,.55);border-radius:10px';
+          pk.appendChild(el('b', 'Package weight and size'));
+          var line = el('div'); line.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end';
+          var box = function (label, val) { var lb = el('label', label); lb.style.cssText = 'flex:0 1 84px;font-size:13px;display:flex;flex-direction:column;gap:4px'; var i = el('input'); i.type = 'number'; i.inputMode = 'decimal'; i.min = '0'; i.step = 'any'; i.value = val || ''; i.style.cssText = 'width:100%;padding:8px'; lb.appendChild(i); line.appendChild(lb); return i; };
+          var keyP = 'pkg-' + o.n, saved = {}; try { saved = JSON.parse(localStorage.getItem(keyP) || '{}') || {}; } catch (e) {}
+          var dOz = Number(saved.oz || pr.weight) || 0, dims = String(saved.box || pr.box || '').match(/([\d.]+)\s*[x×]\s*([\d.]+)\s*[x×]\s*([\d.]+)/i) || [];
+          var iLb = box('Pounds', dOz ? Math.floor(dOz / 16) : ''), iOz = box('Ounces', dOz ? Math.round((dOz % 16) * 10) / 10 : '');
+          var iL = box('Length (in)', dims[1]), iW = box('Width (in)', dims[2]), iH = box('Height (in)', dims[3]);
+          pk.appendChild(line);
+          var flat = !dims.length && /flat/i.test(String(pr.box || ''));
+          pk.appendChild(el('div', flat ? 'Set to a USPS flat rate box. Leave the size blank to keep it, or type your own box size.' : 'Weigh and measure the packed box. The label is priced and bought with these numbers.', 'small'));
+          var a = el('a', 'Buy shipping label', 'solid'); a.target = '_blank'; a.rel = 'noopener'; a.style.cssText = 'padding:8px 14px;font-size:14px;text-decoration:none;display:inline-block;align-self:flex-start';
+          var sync = function () {
+            var oz = (Number(iLb.value) || 0) * 16 + (Number(iOz.value) || 0), q = '';
+            if (oz > 0) q += '&oz=' + Math.round(oz * 10) / 10;
+            if (Number(iL.value) && Number(iW.value) && Number(iH.value)) q += '&l=' + Number(iL.value) + '&w=' + Number(iW.value) + '&h=' + Number(iH.value);
+            a.href = o.label + q;
+            try { localStorage.setItem(keyP, JSON.stringify({ oz: oz || '', box: q.indexOf('&l=') >= 0 ? iL.value + ' x ' + iW.value + ' x ' + iH.value : '' })); } catch (e) {}
+          };
+          [iLb, iOz, iL, iW, iH].forEach(function (i) { i.addEventListener('input', sync); });
+          a.addEventListener('click', function (ev) {
+            var some = iL.value || iW.value || iH.value, all = Number(iL.value) && Number(iW.value) && Number(iH.value);
+            if (some && !all) { ev.preventDefault(); alert('Enter all three sizes (length, width and height), or leave them all blank.'); return; }
+            if (!((Number(iLb.value) || 0) * 16 + (Number(iOz.value) || 0))) { ev.preventDefault(); alert('Enter the package weight first.'); return; }
+            sync();
+          });
+          sync(); pk.appendChild(a); c.appendChild(pk);
+        }
         row.appendChild(act('Shipped another way (add tracking)', function (b) {
           var num = prompt('Tracking number for order ' + o.n + '. The buyer is emailed it and the order moves to Shipped.'); if (!num || !num.trim()) return;
           var car = prompt('Carrier (USPS, UPS, FedEx). Leave blank to skip.', 'USPS') || '';
