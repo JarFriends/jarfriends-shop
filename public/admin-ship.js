@@ -19,7 +19,7 @@
   tabs.insertBefore(bTo, after); tabs.insertBefore(bDone, after);
   var box = el('div'); box.hidden = true; box.style.cssText = 'display:flex;flex-direction:column;gap:14px'; box.dataset.extraTab = '1';
   main.insertBefore(box, $('wOrders'));
-  var view = '';
+  var view = '', sortBy = '';
   tabs.addEventListener('click', function (ev) { var b = ev.target.closest && ev.target.closest('button'); if (b && b !== bTo && b !== bDone && b.id !== 'out') { box.hidden = true; view = ''; [bTo, bDone].forEach(function (x) { x.setAttribute('aria-pressed', 'false'); }); } });
   function open(which, btn) {
     view = which;
@@ -28,8 +28,8 @@
     Array.prototype.forEach.call(main.children, function (c) { if (c !== box && c.dataset && c.dataset.extraTab) c.hidden = true; });
     box.hidden = false; load();
   }
-  bTo.addEventListener('click', function () { open('to', bTo); });
-  bDone.addEventListener('click', function () { open('done', bDone); });
+  bTo.addEventListener('click', function () { if (sortBy === 'new' ) sortBy = ''; open('to', bTo); });
+  bDone.addEventListener('click', function () { if (sortBy === 'new') sortBy = ''; open('done', bDone); });
 
   function act(label, fn, solid) { var b = el(solid ? 'button' : 'button', label, solid ? 'solid' : 'ghost'); b.type = 'button'; b.style.cssText = 'padding:8px 14px;font-size:14px'; b.addEventListener('click', function () { fn(b); }); return b; }
   function card(o) {
@@ -77,8 +77,24 @@
       bTo.textContent = 'Needs to be shipped (' + to.length + ')'; bDone.textContent = 'Shipped (' + done.length + ')';
       if (!view) return;
       box.textContent = '';
-      var rows = view === 'to' ? to.sort(function (a, b) { return a.at - b.at; }) : done.sort(function (a, b) { return (b.shippedAt || b.nftSentAt || b.at) - (a.shippedAt || a.nftSentAt || a.at); });
-      box.appendChild(el('div', view === 'to' ? (rows.length ? 'Paid orders waiting to go out, oldest first. Buy the label and the order moves to Shipped.' : 'Nothing to ship. Every paid order is out the door.') : (rows.length ? 'Orders that are on their way, newest first.' : 'Nothing shipped yet.'), 'small'));
+      // Sort picker: oldest first (to ship) or newest first (shipped) by default, A to Z by customer, or most expensive.
+      var amt = function (o) { return Number(String(o.total == null ? '' : o.total).replace(/[^0-9.]/g, '')) || 0; };
+      var shipTime = function (o) { return o.shippedAt || o.nftSentAt || o.at; };
+      var rows = view === 'to' ? to : done;
+      if (sortBy === 'az') rows.sort(function (a, b) { return String(a.buyer || a.email || '').toLowerCase().localeCompare(String(b.buyer || b.email || '').toLowerCase()) || b.at - a.at; });
+      else if (sortBy === 'money') rows.sort(function (a, b) { return amt(b) - amt(a) || b.at - a.at; });
+      else if (sortBy === 'new') rows.sort(function (a, b) { return (view === 'to' ? b.at - a.at : shipTime(b) - shipTime(a)); });
+      else rows.sort(function (a, b) { return view === 'to' ? a.at - b.at : shipTime(b) - shipTime(a); });
+      var bar = el('div'); bar.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px 16px;align-items:flex-end;justify-content:space-between';
+      bar.appendChild(el('div', view === 'to' ? (rows.length ? 'Paid orders waiting to go out. Buy the label and the order moves to Shipped.' : 'Nothing to ship. Every paid order is out the door.') : (rows.length ? 'Orders that are on their way.' : 'Nothing shipped yet.'), 'small'));
+      if (rows.length > 1) {
+        var lab = el('label', 'Sort'); lab.style.cssText = 'flex:0 1 240px';
+        var sel = el('select');
+        (view === 'to' ? [['', 'Oldest first (ship these first)'], ['new', 'Most recent first'], ['az', 'Customer name, A to Z'], ['money', 'Most expensive first']] : [['', 'Most recently shipped'], ['az', 'Customer name, A to Z'], ['money', 'Most expensive first']]).forEach(function (o) { var op = el('option', o[1]); op.value = o[0]; if (o[0] === sortBy) op.selected = true; sel.appendChild(op); });
+        sel.addEventListener('change', function () { sortBy = sel.value; load(); });
+        lab.appendChild(sel); bar.appendChild(lab);
+      }
+      box.appendChild(bar);
       rows.forEach(function (o) { box.appendChild(card(o)); });
     }, function () { box.textContent = 'Could not load. Try again.'; });
   }
