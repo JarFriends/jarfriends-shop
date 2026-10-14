@@ -27,7 +27,13 @@
   var show = pick('Show', [['real', 'Real products'], ['all', 'Everything, with placeholders'], ['Shop', 'Shop only'], ['Deal of the day', 'Deal of the day only'], ['sale', 'For sale now'], ['out', 'Sold out'], ['hidden', 'Hidden']]);
   var down = el('button', 'Download as a spreadsheet', 'ghost'); down.type = 'button';
   var addBtn = el('button', 'Add a product', 'solid'); addBtn.type = 'button';
-  bar.appendChild(addBtn); bar.appendChild(sort.box); bar.appendChild(show.box); bar.appendChild(down);
+  // How the list looks: photo boxes, a thin list, or the full list. Remembered on this device.
+  var view = pick('View', [['boxes', 'Photo boxes'], ['thin', 'Thin list'], ['full', 'Full list']]);
+  try { view.sel.value = localStorage.getItem('prodView') || 'boxes'; } catch (e) { view.sel.value = 'boxes'; }
+  if (!view.sel.value) view.sel.value = 'boxes';
+  view.sel.addEventListener('change', function () { try { localStorage.setItem('prodView', view.sel.value); } catch (e) {} openId = ''; draw(); });
+  var openId = '';
+  bar.appendChild(addBtn); bar.appendChild(view.box); bar.appendChild(sort.box); bar.appendChild(show.box); bar.appendChild(down);
   var note = el('div', 'Looked at = times a piece was opened on the home page (or its safe was opened). Checkout clicks = times its checkout page was opened. Counting started October 10, 2026.', 'small');
   var list = el('div'); list.style.cssText = 'display:flex;flex-direction:column;gap:12px';
   wrap.insertBefore(list, wrap.firstChild); wrap.insertBefore(note, list); wrap.insertBefore(bar, note);
@@ -247,13 +253,59 @@
     var sold = function (p) { return p.start > 0 && p.sold >= p.start && !p.nextSafe && !p.buyers && show.sel.value !== 'out'; };
     var all = rows(), v = all.filter(function (p) { return !sold(p); }), gone = all.filter(sold);
     if (!v.length) list.appendChild(el('div', 'No products match.', 'small'));
-    v.forEach(function (p) { list.appendChild(card(p)); });
+    put(v);
     if (gone.length) {
       var sh = el('button', (soldOpen ? 'Hide' : 'Show') + ' sold (' + gone.length + ')', 'ghost'); sh.type = 'button'; sh.style.cssText = 'align-self:flex-start;margin-top:10px';
       sh.addEventListener('click', function () { soldOpen = !soldOpen; draw(); });
       list.appendChild(el('b', 'Sold')); list.appendChild(sh);
-      if (soldOpen) gone.forEach(function (p) { list.appendChild(card(p)); });
+      if (soldOpen) put(gone);
     }
+  }
+  // A short status for the small views.
+  function tag(p) { return p.nextSafe ? 'NEXT SAFES' : p.draft && p.hidden ? 'DRAFT' : p.hidden ? 'HIDDEN' : p.buyers ? 'LOYALTY' : p.auction ? 'AUCTION' : p.left <= 0 ? 'SOLD OUT' : p.deal ? 'SAFE ' + p.deal : ''; }
+  function picOf(p) { return p.photo || ('/photos/' + (p.id === 'MPARTY' ? 'MONSTER' : p.id) + '.jpg'); }
+  function opened(p) {
+    // The full card for the piece you picked, with a Close button to go back to the small view.
+    var c = card(p), x = el('button', 'Close', 'ghost'); x.type = 'button'; x.style.cssText = 'align-self:flex-end;padding:6px 16px';
+    x.addEventListener('click', function () { openId = ''; editing = ''; draw(); });
+    c.insertBefore(x, c.firstChild); c.style.borderColor = '#C9A45C'; return c;
+  }
+  function put(arr) {
+    var vw = view.sel.value;
+    if (vw === 'full') { arr.forEach(function (p) { list.appendChild(card(p)); }); return; }
+    var pickIt = function (p) { return function () { openId = openId === p.id ? '' : p.id; editing = ''; draw(); }; };
+    if (vw === 'boxes') {
+      var g = el('div'); g.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px';
+      arr.forEach(function (p) {
+        if (openId === p.id || editing === p.id) { var c = opened(p); c.style.gridColumn = '1 / -1'; g.appendChild(c); return; }
+        var b = el('button'); b.type = 'button'; b.title = p.name;
+        b.style.cssText = 'display:flex;flex-direction:column;gap:6px;padding:8px;text-align:left;background:#14271D;border:1px solid #2E4A3B;border-radius:8px;color:#F7F2E6;cursor:pointer;font:inherit;height:auto;min-height:0;position:relative' + (p.hidden ? ';opacity:.6' : '');
+        var im = el('img'); im.alt = ''; im.src = picOf(p); im.loading = 'lazy'; im.style.cssText = 'width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;background:#0B1A13';
+        im.onerror = function () { im.style.visibility = 'hidden'; };
+        b.appendChild(im);
+        var t = tag(p); if (t) { var tg = el('span', t); tg.style.cssText = 'position:absolute;top:12px;left:12px;background:#C9A45C;color:#0B1A13;font-size:11px;font-weight:700;padding:2px 6px;border-radius:4px'; b.appendChild(tg); }
+        var nm = el('b', p.name); nm.style.cssText = 'font-size:14px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden';
+        b.appendChild(nm);
+        var mt = el('span', usd(p.price) + ' · ' + p.left + ' left'); mt.style.cssText = 'font-size:13px;color:#C9A45C;font-weight:700'; b.appendChild(mt);
+        b.addEventListener('click', pickIt(p)); g.appendChild(b);
+      });
+      list.appendChild(g); return;
+    }
+    // Thin list: one short line per piece.
+    var tl = el('div'); tl.style.cssText = 'display:flex;flex-direction:column;gap:4px';
+    arr.forEach(function (p) {
+      if (openId === p.id || editing === p.id) { tl.appendChild(opened(p)); return; }
+      var r = el('button'); r.type = 'button';
+      r.style.cssText = 'display:flex;align-items:center;gap:12px;padding:6px 10px;text-align:left;background:#14271D;border:1px solid #2E4A3B;border-radius:6px;color:#F7F2E6;cursor:pointer;font:inherit;height:auto;min-height:0;width:100%' + (p.hidden ? ';opacity:.6' : '');
+      var im = el('img'); im.alt = ''; im.src = picOf(p); im.loading = 'lazy'; im.style.cssText = 'width:36px;height:36px;object-fit:cover;border-radius:4px;flex-shrink:0'; im.onerror = function () { im.style.visibility = 'hidden'; };
+      r.appendChild(im);
+      var nm = el('span', p.name); nm.style.cssText = 'flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:700;font-size:15px'; r.appendChild(nm);
+      var t = tag(p); if (t) { var tg = el('span', t); tg.style.cssText = 'font-size:11px;font-weight:700;color:#C9A45C;flex-shrink:0'; r.appendChild(tg); }
+      var pr = el('span', usd(p.price)); pr.style.cssText = 'flex-shrink:0;width:90px;text-align:right;color:#C9A45C;font-weight:700'; r.appendChild(pr);
+      var lf = el('span', p.left + ' of ' + p.start); lf.style.cssText = 'flex-shrink:0;width:64px;text-align:right;font-size:14px'; r.appendChild(lf);
+      r.addEventListener('click', pickIt(p)); tl.appendChild(r);
+    });
+    list.appendChild(tl);
   }
   function load(say) {
     get().then(function (r) { if (r.error) return; items = r.products || []; flash = say || ''; draw(); }, function () { /* the page shows its own error */ });
