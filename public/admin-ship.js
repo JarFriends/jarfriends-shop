@@ -228,6 +228,19 @@
         });
         ex.appendChild(b); ex.appendChild(say);
       }
+      // You can see the money arrived (in your wallet or on Stripe): mark it paid so it moves up to ship.
+      if (!ex) { ex = el('div'); ex.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;align-items:center'; }
+      var mp = el('button', 'Mark paid', 'ghost'); mp.type = 'button'; mp.style.cssText = 'padding:7px 16px';
+      mp.addEventListener('click', function () {
+        var pr = prompt('Mark order ' + o.n + ' (' + usd(o.total) + ') as paid? Only do this if the money is in your wallet or account.' + (o.how === 'crypto' ? ' Paste the transaction link (Etherscan, Basescan...) so it is on the order, or leave blank.' : ' Leave blank.'), '');
+        if (pr === null) return;
+        mp.disabled = true; mp.textContent = 'Saving...';
+        fetch('/api/admin?k=' + encodeURIComponent(key()) + '&paidpending=' + encodeURIComponent(o.n) + '&proof=' + encodeURIComponent(pr.trim()), { cache: 'no-store' }).then(function (x) { return x.json(); }).then(function (x) {
+          if (x.error) { mp.disabled = false; mp.textContent = 'Mark paid'; alert(x.error); return; }
+          load();
+        }, function () { mp.disabled = false; mp.textContent = 'Mark paid'; alert('Could not reach the site. Try again.'); });
+      });
+      ex.appendChild(mp);
       row(o, o.how === 'card' ? 'Card checkout started, not paid. A paid card order shows up above by itself.' : 'Crypto checkout started, no payment confirmed yet.', ex);
     });
   }

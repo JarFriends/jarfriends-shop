@@ -23,6 +23,34 @@ const changes = [
     pending = (await Promise.all((pr.blobs || []).filter((b) => !have[b.pathname.slice(8, -5)] && Date.now() - new Date(b.uploadedAt).getTime() < 14 * 86400000).map((b) => store.read(b.pathname)))).filter(Boolean).sort((a, b) => b.at - a.at);
   } catch (e) { console.error('PENDING_LIST_FAIL', String(e && e.message || e)); }`],
   ['api/admin.js', R`res.json({ holds:`, R`res.json({ pending: pending, holds:`],
+  // Crypto checks: if the first blockchain data source fails or is busy, try the next one (and log why).
+  ['api/_lib.js', R`  const j = await getJSON((c.api || 'https://eth.blockscout.com/api') + '?module=account&' + q + '&address=' + addr + '&sort=desc&page=1&offset=50');
+  const list = Array.isArray(j.result) ? j.result : [];
+  if (!Array.isArray(j.result) && j.status !== '0') throw new Error('Unexpected reply from Ethereum data source');`, R`  const srcs = [c.api || 'https://eth.blockscout.com/api', 'https://api.routescan.io/v2/network/mainnet/evm/' + (c.chain === 'base' ? '8453' : '1') + '/etherscan/api'];
+  let list = null;
+  for (const base of srcs) {
+    let why = '';
+    try {
+      const j = await getJSON(base + '?module=account&' + q + '&address=' + addr + '&sort=desc&page=1&offset=50');
+      if (Array.isArray(j.result)) { list = j.result; break; }
+      if (/no transactions/i.test(String(j.message || ''))) { list = []; break; }
+      why = 'reply "' + String(j.message || j.result || '').slice(0, 80) + '"';
+    } catch (e) { why = String(e && e.message || e); }
+    console.error('CHAIN_SOURCE_FAIL', new URL(base).host, why);
+  }
+  if (!list) throw new Error('Unexpected reply from Ethereum data source');`],
+  // Back office: mark a started crypto or card checkout as paid by hand (when you can see the money arrived).
+  ['api/admin.js', R`  if (req.query && req.query.carts) {`, R`  if (req.query && req.query.paidpending) {
+    const n = String(req.query.paidpending).replace(/[^A-Za-z0-9-]/g, ''), pe = await store.read('pending/' + n + '.json');
+    if (!pe) return res.status(404).json({ error: 'That checkout was not found.' });
+    const inv = require('./_lib').verify(pe.t);
+    if (!inv) return res.status(400).json({ error: 'That checkout could not be read.' });
+    const proof = /^https:\/\/[^\s"<>]+$/.test(String(req.query.proof || '')) ? String(req.query.proof) : '';
+    const off = require('./_offline'), out = await off.record(inv, 'Paid in full (marked paid by you)', { paid: true, proof: proof, label: off.labelLink('https://' + req.headers.host, pe.t, inv) });
+    console.log('PENDING_MARKED_PAID', n, out);
+    return out === 'ok' || out === 'duplicate' ? res.json({ ok: true }) : res.status(503).json({ error: 'Could not save that just now. Try again.' });
+  }
+  if (req.query && req.query.carts) {`],
   // Orders tab: a crypto payment's proof link reads View payment on blockchain.
   ['public/admin.html', R`      [['Payment proof', /^https:\/\//.test(o.proof || '') ? o.proof : '']].forEach(function (x) {
         if (!/^https:\/\//.test(x[1] || '')) return;
