@@ -194,7 +194,9 @@
       if (Object.keys(dirty).length) { alert('Save your changes first: safe ' + Object.keys(dirty).join(', safe ') + '.'); return; }
       var noPic = slots.map(function (s, i) { return s && !s.photo ? i + 1 : 0; }).filter(Boolean);
       if (noPic.length && !confirm('Safe ' + noPic.join(', safe ') + (noPic.length === 1 ? ' has' : ' have') + ' no photo. Go live anyway?')) return;
-      if (!confirm('Go live with group ' + curG + ' now? Safe 1 opens on the site right away and the email goes out to your list.')) return;
+      var lft = (data.round || {}).left || 0;
+      // Safes still for sale on the site: go straight to the queue question (send() asks it), not a go-live-now message.
+      if (!lft && !confirm('Go live with group ' + curG + ' now? Safe 1 opens on the site right away and the email goes out to your list.')) return;
       var send = function (force) {
         go.disabled = true; gm.textContent = 'Going live...';
         api('&safes=live&g=' + curG + (force ? '&force=1' : '')).then(function (r) {
