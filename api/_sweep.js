@@ -393,6 +393,8 @@ async function run() {
   await unpaid(now, mail).catch((e) => console.error('SWEEP_UNPAID_FAIL', String(e && e.message || e)));
   // Sent on their own: a safe opening (including a new round) and party pricing opening. New pieces, price drops and
   // auctions go out together when the owner presses the daily update button in the back office (see _digest.js).
+  // A queued round of safes goes live the moment the last safe on the site is bought (then safes() emails it).
+  await require('./_rounds').checkQueue().catch((e) => console.error('SWEEP_QUEUE_FAIL', String(e && e.message || e)));
   await safes(now, mail).catch((e) => console.error('SWEEP_SAFES_FAIL', String(e && e.message || e)));
   await partyOpen(now, mail).catch((e) => console.error('SWEEP_PARTY_FAIL', String(e && e.message || e)));
   await auctions(now, mail).catch((e) => console.error('SWEEP_AUCTIONS_FAIL', String(e && e.message || e)));

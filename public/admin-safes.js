@@ -163,6 +163,12 @@
       pick.appendChild(b);
     });
     head.appendChild(pick);
+    if (data.queued) {
+      var qd = el('div'); qd.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 12px;border:1px solid #8FD3AE;border-radius:10px';
+      qd.appendChild(el('b', 'Group ' + data.queued.g + ' is queued: it goes live by itself the moment the last safe on the site is bought.'));
+      var cq = el('button', 'Cancel queue', 'ghost'); cq.type = 'button'; cq.addEventListener('click', function () { if (!confirm('Cancel the queue? Group ' + data.queued.g + ' stays saved; it just will not go live by itself.')) return; api('&safes=unqueue').then(load); });
+      qd.appendChild(cq); head.appendChild(qd);
+    }
     // Go live for either group, right here at the top (each one is ready once all its safes are filled in).
     var quick = el('div'); quick.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px';
     groups.forEach(function (x) {
@@ -192,7 +198,13 @@
       var send = function (force) {
         go.disabled = true; gm.textContent = 'Going live...';
         api('&safes=live&g=' + curG + (force ? '&force=1' : '')).then(function (r) {
-          if (r.left && !force) { go.disabled = false; gm.textContent = ''; if (confirm(r.error + ' Go live anyway?')) send(true); return; }
+          if (r.left && !force) {
+            go.disabled = false; gm.textContent = '';
+            if (confirm(r.error + '\n\nPress OK to QUEUE group ' + curG + ': it stays hidden and locked, and goes live by itself the moment the last safe on the site is bought.')) {
+              api('&safes=live&queue=1&g=' + curG).then(function (q2) { if (q2.error) { gm.textContent = q2.error; return; } load(); });
+            } else if (confirm('Replace the safes on the site with group ' + curG + ' right now instead? The safes still for sale come off the site.')) send(true);
+            return;
+          }
           if (r.error) { go.disabled = false; gm.textContent = r.error; return; }
           // Loading the shop runs the check that sends the safe 1 email, so it goes out now.
           fetch('/api/order', { cache: 'no-store' }).catch(function () {});

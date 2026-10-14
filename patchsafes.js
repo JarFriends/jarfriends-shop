@@ -21,7 +21,7 @@ const changes = [
     const roundNow = async () => { let dl = { slots: [] }; try { dl = await off.deals(await lib.getInventory(true)); } catch (e) { console.error('SAFES_ROUND_FAIL', String(e && e.message || e)); } const left = dl.slots.filter((s) => s.state !== 'sold').length; return { total: dl.slots.length, left: left }; };
     try {
       const isLive = q.g === 'live', liveSafes = everything.filter((x) => Number(x.deal) > 0).sort((a, b) => Number(a.deal) - Number(b.deal));
-      if (what === 'list') return res.json({ live: { from: (liveSafes[0] && Number(liveSafes[0].fromGroup)) || 0, slots: liveSafes.map(card) }, groups: [1, 2].map((k) => ({ g: k, size: SIZES[k], slots: nums(k).map((n) => card(draft(n, k))) })), round: await roundNow() });
+      if (what === 'list') return res.json({ queued: await require('./_rounds').queued(), live: { from: (liveSafes[0] && Number(liveSafes[0].fromGroup)) || 0, slots: liveSafes.map(card) }, groups: [1, 2].map((k) => ({ g: k, size: SIZES[k], slots: nums(k).map((n) => card(draft(n, k))) })), round: await roundNow() });
       const n = Math.floor(Number(q.n));
       if (isLive && what !== 'save') return res.status(400).json({ error: 'Live safes can be edited, not emptied.' });
       if ((what === 'save' || what === 'clear') && !(n >= 1 && n <= (isLive ? liveSafes.length : size))) return res.status(400).json({ error: 'Pick a safe from 1 to ' + size + '.' });
@@ -40,17 +40,16 @@ const changes = [
         if (p) await edits.save(p.id, f); else { p = await edits.add(f); await edits.save(p.id, f); }
         return res.json({ ok: true, id: p.id });
       }
+      const rounds = require('./_rounds');
+      if (what === 'unqueue') { await rounds.unqueue(); return res.json({ ok: true }); }
       if (what === 'live') {
         const slots = nums(g).map((n) => draft(n)), missing = nums(g).filter((n, i) => !slots[i]);
         if (missing.length) return res.status(400).json({ error: 'Fill in every safe first. Still empty: safe ' + missing.join(', safe ') + '.' });
         const r = await roundNow();
-        if (r.left && q.force !== '1') return res.status(409).json({ error: 'The current round still has ' + r.left + (r.left === 1 ? ' safe' : ' safes') + ' not claimed. Going live takes those pieces out of the safes.', left: r.left });
-        // The old round leaves the safes. Its pieces stay in the order history but come off the site.
-        const old = everything.filter((x) => Number(x.deal) > 0);
-        for (const p of old) await edits.save(p.id, { deal: 0, hidden: true });
-        for (let i = 0; i < slots.length; i++) await edits.save(slots[i].id, { deal: i + 1, nextDeal: 0, nextGroup: 0, fromGroup: g, hidden: false, shelf: false });
-        console.log('SAFES_LIVE', JSON.stringify({ group: g, out: old.map((p) => p.id), in: slots.map((p) => p.id) }));
-        return res.json({ ok: true, live: slots.map((p) => p.id) });
+        // Safes still for sale on the site: queue this group to go live by itself when they are all bought.
+        if (r.left && q.queue === '1') { await rounds.queue(g); return res.json({ ok: true, queued: true }); }
+        if (r.left && q.force !== '1') return res.status(409).json({ error: 'The safes on the site are not all bought yet (' + r.left + ' left).', left: r.left });
+        return res.json(await rounds.goLive(g));
       }
       return res.status(400).json({ error: 'Unknown request.' });
     } catch (e) { console.error('SAFES_FAIL', String(e && e.message || e)); return res.status(503).json({ error: 'Could not do that just now. Try again.' }); }
