@@ -54,6 +54,8 @@ changes.forEach((c) => {
   if (s.split(c[1]).length !== 2) throw new Error('patchparty: expected one match in ' + c[0] + ' for ' + c[1].slice(0, 60));
   files[c[0]] = s.replace(c[1], () => c[2]);
 });
+// The note says dollar prices, not long percents.
+files['api/_party.js'] = files['api/_party.js'].replace("more to reach ' + next.off + '% off.'", () => "more and the price is ' + (cents ? money(Math.round(cents * (100 - next.off) / 100)) + ' each.' : Math.round(next.off) + '% off.')").replace("', so ' + off + '% off is already in place'", () => "', so ' + (cents ? money(Math.round(cents * (100 - off) / 100)) + ' each' : Math.round(off) + '% off') + ' is already in place'");
 // A settle link from the party before this one runs against that party's settings.
 files['api/party.js'] += "\n;(() => { const inner = module.exports, pa = require('./_party'); module.exports = async (req, res) => { let k = null; try { k = require('./_lib').verify(String((req.query && req.query.settle) || '')); } catch (e) { k = null; } if (k && pa.PREV && k.pid === pa.PREV.pid && k.pid !== pa.PARTY.pid) { const keep = Object.assign({}, pa.PARTY), swap = (to) => { Object.keys(pa.PARTY).forEach((x) => { delete pa.PARTY[x]; }); Object.assign(pa.PARTY, to); }; swap(pa.PREV); try { return await inner(req, res); } finally { swap(keep); } } return inner(req, res); }; })();\n";
 // Emails at the end say the dollar level, not a long percent.
