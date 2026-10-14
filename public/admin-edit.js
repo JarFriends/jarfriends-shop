@@ -92,6 +92,17 @@
     l.appendChild(i); return { box: l, input: i };
   }
   function stat(label, value) { var d = el('div'); d.style.cssText = 'display:flex;flex-direction:column;min-width:74px'; d.appendChild(el('span', label, 'small')); var b = el('b', value); b.style.color = '#C9A45C'; d.appendChild(b); return d; }
+  // Ways to pay: All payment methods (the usual), or untick it and choose only some, e.g. crypto only.
+  var PAYN = [['card', 'Card'], ['crypto', 'Crypto'], ['zelle', 'Zelle'], ['venmo', 'Venmo'], ['cashapp', 'Cash App']];
+  function payPick(cur) {
+    cur = cur || [];
+    var w = el('div'); w.style.cssText = 'flex:1 1 100%;display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center';
+    w.appendChild(el('b', 'Payment methods:'));
+    var mk = function (label, on) { var l = el('label'); l.style.setProperty('display', 'flex', 'important'); l.style.setProperty('flex-direction', 'row', 'important'); l.style.cssText += ';align-items:center;gap:6px;font-size:14px;cursor:pointer;flex:0 0 auto'; var i = el('input'); i.type = 'checkbox'; i.checked = on; ['width', 'height', 'min-width', 'flex', 'padding'].forEach(function (k, n) { i.style.setProperty(k, ['20px', '20px', '20px', '0 0 20px', '0'][n], 'important'); }); i.style.margin = '0'; i.style.accentColor = '#C9A45C'; l.appendChild(i); l.appendChild(el('span', label)); w.appendChild(l); return i; };
+    var all = mk('All payment methods', !cur.length), ones = PAYN.map(function (x) { var i = mk(x[1], cur.indexOf(x[0]) >= 0); i.parentNode.hidden = !cur.length; return i; });
+    all.addEventListener('change', function () { ones.forEach(function (i) { i.parentNode.hidden = all.checked; if (all.checked) i.checked = false; }); });
+    return { box: w, value: function () { if (all.checked) return ''; return PAYN.filter(function (x, n) { return ones[n].checked; }).map(function (x) { return x[0]; }).join(','); }, ok: function () { return all.checked || ones.some(function (i) { return i.checked; }); } };
+  }
   function card(p) {
     var c = el('section', null, 'card'); c.style.cssText = 'display:flex;flex-direction:column;gap:10px';
     var head = el('div'); head.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px 16px;align-items:baseline;justify-content:space-between';
@@ -100,7 +111,7 @@
     head.appendChild(pic);
     var t = el('b', p.name); t.style.cssText = 'flex:1 1 260px;min-width:0;overflow-wrap:anywhere';
     head.appendChild(t);
-    head.appendChild(el('span', (p.nextSafe ? 'WAITING IN NEXT SAFES · ' : p.draft && p.hidden ? 'DRAFT · NOT ON THE SITE YET · ' : p.hidden ? 'HIDDEN · ' : '') + (p.buyers ? 'CUSTOMER LOYALTY · ' : '') + p.where + (!p.deal && p.where === 'Shop' ? (p.onShelf ? ' · on the shelf' : ' · not on the shelf') : '') + (p.deal ? ', safe ' + p.deal : '') + (p.section ? ' · ' + p.section : '') + ' · ' + (p.hidden ? 'Off the site' : p.state || (p.left > 0 ? 'For sale' : 'Sold out')), 'small'));
+    head.appendChild(el('span', (p.nextSafe ? 'WAITING IN NEXT SAFES · ' : p.draft && p.hidden ? 'DRAFT · NOT ON THE SITE YET · ' : p.hidden ? 'HIDDEN · ' : '') + (p.buyers ? 'CUSTOMER LOYALTY · ' : '') + (p.pay && p.pay.length ? 'PAY: ' + p.pay.map(function (x) { return { card: 'Card', crypto: 'Crypto', zelle: 'Zelle', venmo: 'Venmo', cashapp: 'Cash App' }[x]; }).join(', ').toUpperCase() + ' ONLY · ' : '') + p.where + (!p.deal && p.where === 'Shop' ? (p.onShelf ? ' · on the shelf' : ' · not on the shelf') : '') + (p.deal ? ', safe ' + p.deal : '') + (p.section ? ' · ' + p.section : '') + ' · ' + (p.hidden ? 'Off the site' : p.state || (p.left > 0 ? 'For sale' : 'Sold out')), 'small'));
     c.appendChild(head);
     if (p.auction) {
       // An auction: current bid, time left and every bid with its email (only the owner sees emails).
@@ -163,15 +174,16 @@
     var wt = field('Shipping weight, oz (per piece)', p.weight || '', 'number', '200px'), bx = field('Package size, L x W x H in (or small/medium/large flat rate box)', p.box || '', 'text', '360px');
     var safe = field('Deal of the day safe (0 = none)', p.deal || 0, 'number', '200px');
     var onShelf = tick('Show on the shop shelf and in the chat', p.onShelf), hide = tick('Hide from the site (it cannot be seen or ordered)', p.hidden), buyers = tick('Customer Loyalty product (shows as a locked safe; only a signed-in returning customer can open and order it)', p.buyers);
-    var photo = photoField('New photo (optional)');
-    [name, desc, price, stock, ship, sec, wt, bx, safe, photo, onShelf, hide, buyers].forEach(function (f) { if (f) row.appendChild(f.box); });
+    var photo = photoField('New photo (optional)'), pay = payPick(p.pay);
+    [name, desc, price, stock, ship, sec, wt, bx, safe, pay, photo, onShelf, hide, buyers].forEach(function (f) { if (f) row.appendChild(f.box); });
     var save = el('button', 'Save', 'solid'); save.type = 'button'; row.appendChild(save);
     var cancel = el('button', 'Cancel', 'ghost'); cancel.type = 'button'; row.appendChild(cancel);
     var msg = el('div', '"Started with" is the total you began with; the site takes sold units off it, so to add 3 more, raise it by 3. Sections: Comics, Cards, NFTs, Graded, Pokemon, Watches.', 'small'); msg.setAttribute('role', 'status');
     cancel.addEventListener('click', function () { editing = ''; fresh = {}; draw(); });
     save.addEventListener('click', function () {
+      if (!pay.ok()) { msg.textContent = 'Tick at least one payment method, or All payment methods.'; return; }
       save.disabled = true; msg.textContent = 'Saving...';
-      get('&edit=' + encodeURIComponent(p.id) + '&name=' + encodeURIComponent(name.input.value) + '&desc=' + encodeURIComponent(desc.input.value) + '&price=' + encodeURIComponent(price.input.value) + '&stock=' + encodeURIComponent(stock.input.value) + '&shipping=' + encodeURIComponent(ship.input.value) + '&section=' + encodeURIComponent(sec ? sec.input.value : '') + '&deal=' + encodeURIComponent(safe.input.value || '0') + '&shelf=' + (onShelf.input.checked ? '1' : '0') + '&hidden=' + (hide.input.checked ? '1' : '0') + '&buyers=' + (buyers.input.checked ? '1' : '0') + '&weight=' + encodeURIComponent(wt.input.value) + '&box=' + encodeURIComponent(bx.input.value)).then(function (r) {
+      get('&edit=' + encodeURIComponent(p.id) + '&name=' + encodeURIComponent(name.input.value) + '&desc=' + encodeURIComponent(desc.input.value) + '&price=' + encodeURIComponent(price.input.value) + '&stock=' + encodeURIComponent(stock.input.value) + '&shipping=' + encodeURIComponent(ship.input.value) + '&section=' + encodeURIComponent(sec ? sec.input.value : '') + '&deal=' + encodeURIComponent(safe.input.value || '0') + '&shelf=' + (onShelf.input.checked ? '1' : '0') + '&hidden=' + (hide.input.checked ? '1' : '0') + '&buyers=' + (buyers.input.checked ? '1' : '0') + '&weight=' + encodeURIComponent(wt.input.value) + '&box=' + encodeURIComponent(bx.input.value) + '&pay=' + encodeURIComponent(pay.value())).then(function (r) {
         if (r.error) { save.disabled = false; msg.textContent = r.error; return; }
         var fin = function (ok, why) { save.disabled = false; if (!ok) { msg.textContent = 'Saved, but the photo did not go up: ' + why; return; } editing = ''; load('Saved. The shop shows the change within about a minute.'); };
         if (photo.input.files && photo.input.files[0]) { msg.textContent = 'Sending the photo...'; sendPhoto(p.id, photo.input.files[0], fin); } else fin(true);
@@ -207,15 +219,16 @@
       price.box.firstChild.textContent = auc.checked ? 'Starting bid, $' : 'Price, $';
       save.textContent = auc.checked ? 'Save auction as draft' : 'Save as draft';
     });
-    var photo = photoField('Photo');
-    [name, desc, { box: aucL }, price, ends, stock, ship, sec, wt, bx, { box: regL }, photo].forEach(function (f) { row.appendChild(f.box); });
+    var photo = photoField('Photo'), pay = payPick([]);
+    [name, desc, { box: aucL }, price, ends, stock, ship, sec, wt, bx, { box: regL }, pay, photo].forEach(function (f) { row.appendChild(f.box); });
     var save = el('button', 'Save as draft', 'solid'); save.type = 'button'; row.appendChild(save);
     var cancel = el('button', 'Cancel', 'ghost'); cancel.type = 'button'; row.appendChild(cancel);
     var msg = el('div', 'Nothing shows on the site until you press Go live. Sections: Comics, Cards, NFTs, Graded, Pokemon, Watches.', 'small'); msg.setAttribute('role', 'status');
     cancel.addEventListener('click', function () { adding = false; draw(); });
     save.addEventListener('click', function () {
+      if (!pay.ok()) { msg.textContent = 'Tick at least one payment method, or All payment methods.'; return; }
       save.disabled = true; msg.textContent = 'Adding...';
-      get('&add=1&name=' + encodeURIComponent(name.input.value) + '&desc=' + encodeURIComponent(desc.input.value) + '&price=' + encodeURIComponent(price.input.value) + '&stock=' + encodeURIComponent(stock.input.value) + '&shipping=' + encodeURIComponent(ship.input.value || '0') + '&draft=1' + (auc.checked ? '&auction=1&ends=' + encodeURIComponent(ends.input.value ? new Date(ends.input.value).toISOString() : '') : '') + '&weight=' + encodeURIComponent(wt.input.value) + '&box=' + encodeURIComponent(bx.input.value) + '&section=' + encodeURIComponent(sec.input.value)).then(function (r) {
+      get('&add=1&name=' + encodeURIComponent(name.input.value) + '&desc=' + encodeURIComponent(desc.input.value) + '&price=' + encodeURIComponent(price.input.value) + '&stock=' + encodeURIComponent(stock.input.value) + '&shipping=' + encodeURIComponent(ship.input.value || '0') + '&draft=1' + (auc.checked ? '&auction=1&ends=' + encodeURIComponent(ends.input.value ? new Date(ends.input.value).toISOString() : '') : '') + '&weight=' + encodeURIComponent(wt.input.value) + '&box=' + encodeURIComponent(bx.input.value) + '&pay=' + encodeURIComponent(pay.value()) + '&section=' + encodeURIComponent(sec.input.value)).then(function (r) {
         if (r.error) { save.disabled = false; msg.textContent = r.error; return; }
         var fin = function (ok, why) { adding = false; load(ok ? 'Saved as a draft. It is at the top of the list: check it, then press Go live.' : 'Saved as a draft, but the photo did not go up: ' + why + ' Press Edit on it and try the photo again.'); };
         if (photo.input.files && photo.input.files[0]) { msg.textContent = 'Sending the photo...'; sendPhoto(r.id, photo.input.files[0], fin); } else fin(true);
