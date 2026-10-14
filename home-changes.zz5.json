@@ -1,0 +1,6 @@
+[
+ [
+  "const heavy = !!openSlot && (openSlot.n === dealSlots.length || vaultPreview);",
+  "const heavy = !!openSlot && (openSlot.n === dealSlots.length || !!openSlot.vault || vaultPreview);"
+ ]
+]

@@ -92,7 +92,7 @@ async function sections() {
 async function deals(inventory) {
   const by = {};
   inventory.forEach((p) => { by[p.id] = p; });
-  const order = (await sheetRows()).map((p) => ({ id: String(p.id || '').trim(), n: Number(p.deal) })).filter((d) => d.id && d.n > 0).sort((a, b) => a.n - b.n);
+  const order = (await sheetRows()).map((p) => ({ id: String(p.id || '').trim(), n: Number(p.deal), v: p.vault === true || /^(yes|true|1)$/i.test(String(p.vault == null ? '' : p.vault)) })).filter((d) => d.id && d.n > 0).sort((a, b) => a.n - b.n);
   const state = {};
   let opened = false;
   const slots = order.map((d, i) => {
@@ -101,7 +101,7 @@ async function deals(inventory) {
     if (s === 'open') opened = true;
     state[d.id] = s;
     // A locked safe gives nothing away: no id, no name. A claimed one shows what was inside and what it went for.
-    return { n: i + 1, state: s, id: s === 'locked' ? '' : d.id, name: s === 'sold' && p ? p.name : '', price: s === 'sold' && p ? (p.cents / 100).toFixed(2) : '' };
+    return { n: i + 1, state: s, vault: d.v || i === order.length - 1, id: s === 'locked' ? '' : d.id, name: s === 'sold' && p ? p.name : '', price: s === 'sold' && p ? (p.cents / 100).toFixed(2) : '' };
   });
   return { slots: slots, state: state };
 }

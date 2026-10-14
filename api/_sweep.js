@@ -94,6 +94,8 @@ async function safes(now, mail) {
   else if (open && (open !== was.open || (was.id !== undefined && openId !== was.id))) { st = { open: open, id: openId, pending: open, key: 'blast-' + open + '-' + openId, at: now }; await store.write('sweep/safe.json', st); }
   if (!st.pending) return;
   const n = st.pending, total = (dl.slots || []).length || 5, left = total - n;
+  // The last safe of each group is a Vault (a round can hold two groups back to back).
+  const isV = n >= total || !!(((dl.slots || [])[n - 1]) || {}).vault;
   const sales = await store.sales(), who = {}, owner = (process.env.OWNER_EMAIL || '').trim().toLowerCase();
   // The owner gets it first, to see what went out.
   if (owner) who[owner] = '';
@@ -107,13 +109,13 @@ async function safes(now, mail) {
   // What is inside the open safe (only that one; locked safes stay a secret).
   let piece = null;
   try { const sj = await (await fetch(HOST + '/api/order', { signal: AbortSignal.timeout(8000), headers: { 'cache-control': 'no-store' } })).json(); piece = (sj.products || []).filter((p) => p.id === st.id && p.deal)[0] || null; } catch (e) { piece = null; }
-  const subject = n >= total ? 'The Vault is open at JarFriends' : n === 1 ? 'New Deal of the day: safe 1 is open at JarFriends' : 'Safe ' + n + ' just unlocked at JarFriends';
+  const subject = isV ? 'The Vault is open at JarFriends' : n === 1 ? 'New Deal of the day: safe 1 is open at JarFriends' : 'Safe ' + n + ' just unlocked at JarFriends';
   for (const e of todo.slice(0, 12)) {
     if (await gone(e)) { log.done[hashOf(e)] = 1; continue; }
     const stop = HOST + '/api/unsub?t=' + lib.sign({ un: 1, e: e });
-    const l1 = n >= total ? 'Every safe before it has been claimed, so The Vault is open right now.' : n === 1 ? 'A new round of Deal of the day safes just started, and safe 1 is open.' : 'Safe ' + (n - 1) + ' was just claimed, so safe ' + n + ' is unlocked.';
-    const l2 = n >= total ? 'This is the last and biggest one. Have you seen what is inside?' : 'Have you checked what is inside the new safe?';
-    const l3 = n >= total ? '' : 'We are getting closer to The Vault: ' + (left === 1 ? 'it is the very next safe to open.' : left + ' more safes to go before it opens.');
+    const l1 = isV ? 'Every safe before it has been claimed, so The Vault is open right now.' : n === 1 ? 'A new round of Deal of the day safes just started, and safe 1 is open.' : 'Safe ' + (n - 1) + ' was just claimed, so safe ' + n + ' is unlocked.';
+    const l2 = isV ? 'This is the last and biggest one. Have you seen what is inside?' : 'Have you checked what is inside the new safe?';
+    const l3 = isV ? '' : 'We are getting closer to The Vault: ' + (left === 1 ? 'it is the very next safe to open.' : left + ' more safes to go before it opens.');
     const pl = piece ? ['', 'Inside safe ' + n + ': ' + piece.name, '$' + piece.price + (piece.nft ? '' : Number(piece.ship) > 0 ? ' + $' + piece.ship + ' shipping' : ', free shipping')] : [];
     const lines = [first(who[e]), '', l1, l2].concat(pl, l3 ? ['', l3] : [], ['', 'See it here:', HOST + '/#deal', '', 'You are getting this because you ordered from JarFriends or subscribed.' + (addr ? ' JarFriends, ' + addr + '.' : ''), 'Unsubscribe: ' + stop]);
     const html = '<div style="background:#0B1712;padding:28px 16px;font-family:Arial,Helvetica,sans-serif;color:#E6EFE9"><div style="max-width:520px;margin:0 auto">' +
@@ -121,7 +123,7 @@ async function safes(now, mail) {
       '<h1 style="font-size:26px;margin:8px 0 14px;color:#8FD3AE">' + esc(subject.replace(' at JarFriends', '')) + '</h1>' +
       '<p style="font-size:16px;line-height:1.5;margin:0 0 10px">' + esc(first(who[e])) + '</p>' +
       '<p style="font-size:16px;line-height:1.5;margin:0 0 10px">' + esc(l1) + ' <b>' + esc(l2) + '</b></p>' +
-      '<p style="margin:18px 0"><a href="' + HOST + '/#deal" style="background:#C9A45C;color:#0B1712;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:24px;display:inline-block">' + (n >= total ? 'Open The Vault' : 'See what is in safe ' + n) + '</a></p>' +
+      '<p style="margin:18px 0"><a href="' + HOST + '/#deal" style="background:#C9A45C;color:#0B1712;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:24px;display:inline-block">' + (isV ? 'Open The Vault' : 'See what is in safe ' + n) + '</a></p>' +
       (piece ? '<div style="border:1px solid #C9A45C;border-radius:10px;padding:14px;margin:0 0 14px"><div style="font-size:13px;letter-spacing:2px;color:#C9A45C">INSIDE SAFE ' + n + '</div>' + (piece.photo ? '<img src="' + esc(piece.photo) + '" alt="' + esc(piece.name) + '" width="480" style="max-width:100%;height:auto;border:0;border-radius:8px;display:block;margin:10px 0">' : '') + '<div style="font-size:18px;font-weight:bold;line-height:1.35;margin-top:6px">' + esc(piece.name) + '</div><div style="font-size:22px;font-weight:bold;color:#C9A45C;margin-top:6px">$' + esc(piece.price) + '</div></div>' : '') +
       (l3 ? '<p style="font-size:16px;line-height:1.5;margin:0 0 12px">' + esc(l3) + '</p>' : '') +
       (piece && piece.photo ? '' : '<a href="' + HOST + '/#deal"><img src="' + HOST + '/photos/vault.jpg" alt="The Vault" width="360" style="max-width:100%;height:auto;border:0;border-radius:10px;display:block"></a>') +

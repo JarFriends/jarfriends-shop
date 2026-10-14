@@ -48,6 +48,7 @@ const changes = [
         const r = await roundNow();
         // Safes still for sale on the site: queue this group to go live by itself when they are all bought.
         if (r.left && q.queue === '1') { await rounds.queue(g); return res.json({ ok: true, queued: true }); }
+        if (r.left && q.append === '1') return res.json(await rounds.goLive(g, true));
         if (r.left && q.force !== '1') return res.status(409).json({ error: 'The safes on the site are not all bought yet (' + r.left + ' left).', left: r.left });
         return res.json(await rounds.goLive(g));
       }

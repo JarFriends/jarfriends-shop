@@ -202,8 +202,9 @@
         api('&safes=live&g=' + curG + (force ? '&force=1' : '')).then(function (r) {
           if (r.left && !force) {
             go.disabled = false; gm.textContent = '';
-            if (confirm(r.error + '\n\nPress OK to QUEUE group ' + curG + ': it stays hidden and locked, and goes live by itself the moment the last safe on the site is bought.')) {
-              api('&safes=live&queue=1&g=' + curG).then(function (q2) { if (q2.error) { gm.textContent = q2.error; return; } load(); });
+            var nOn = ((data.live || {}).slots || []).length;
+            if (confirm(r.error + '\n\nPress OK to ADD group ' + curG + ' after them: the open safe stays open, and group ' + curG + ' shows as locked safes ' + (nOn + 1) + ' to ' + (nOn + size) + ', opening in order after safe ' + nOn + '. Its last safe is a Vault too.')) {
+              api('&safes=live&append=1&g=' + curG).then(function (q2) { if (q2.error) { gm.textContent = q2.error; return; } fetch('/api/order', { cache: 'no-store' }).catch(function () {}); load(); });
             } else if (confirm('Replace the safes on the site with group ' + curG + ' right now instead? The safes still for sale come off the site.')) send(true);
             return;
           }

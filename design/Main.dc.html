@@ -903,7 +903,7 @@ const openSlot = dealSlots.filter((d) => d.state === "open")[0];
 // Safe 5 is the vault: a heavier safe with a long opening. Adding ?vault=1 to the address previews it on whichever safe is open.
 let vaultPreview = false;
 try { vaultPreview = /[?&]vault=1/.test(window.location.search) || /[?&]vault=1/.test(window.top.location.search); } catch (e) { /* not allowed to look: no preview */ }
-const heavy = !!openSlot && (openSlot.n === dealSlots.length || vaultPreview);
+const heavy = !!openSlot && (openSlot.n === dealSlots.length || !!openSlot.vault || vaultPreview);
 // A safe someone has already opened on this device stays open on their next visit (the vault too).
 if (openSlot && !vaultPreview) {
 try {
