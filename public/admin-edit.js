@@ -53,6 +53,7 @@
     var l = el('label', label); l.style.cssText = 'flex:1 1 ' + width + ';min-width:0';
     var i = type === 'area' ? el('textarea') : el('input'); i.value = value;
     if (type === 'number') { i.type = 'number'; i.step = 'any'; i.min = '0'; i.inputMode = 'decimal'; }
+    else if (type === 'datetime-local') i.type = type;
     if (type === 'area') { i.maxLength = 600; i.rows = 3; i.style.cssText = 'font-family:inherit;font-size:16px;line-height:1.5;padding:10px 12px;background:#0B1A13;border:1px solid #4E7A63;color:#F7F2E6;border-radius:2px;width:100%;box-sizing:border-box;resize:vertical'; }
     l.appendChild(i); return { box: l, input: i };
   }
@@ -194,15 +195,27 @@
     var reg = el('input'); reg.type = 'checkbox'; ['width', 'height', 'min-width', 'flex', 'padding'].forEach(function (k, i) { reg.style.setProperty(k, ['20px', '20px', '20px', '0 0 20px', '0'][i], 'important'); }); reg.style.margin = '0'; reg.style.accentColor = '#C9A45C';
     regL.appendChild(reg); regL.appendChild(el('span', 'Regular box (12 x 9 x 6 in)'));
     reg.addEventListener('change', function () { bx.input.value = reg.checked ? '12 x 9 x 6' : ''; });
+    // Auction: tick it and the price becomes the starting bid, with a time when bidding ends.
+    var aucL = el('label'); aucL.style.cssText = 'display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer;flex:0 0 auto';
+    aucL.style.setProperty('display', 'flex', 'important'); aucL.style.setProperty('flex-direction', 'row', 'important');
+    var auc = el('input'); auc.type = 'checkbox'; ['width', 'height', 'min-width', 'flex', 'padding'].forEach(function (k, i) { auc.style.setProperty(k, ['20px', '20px', '20px', '0 0 20px', '0'][i], 'important'); }); auc.style.margin = '0'; auc.style.accentColor = '#C9A45C';
+    aucL.appendChild(auc); aucL.appendChild(el('b', 'This is an auction'));
+    var ends = field('Auction ends (your time)', '', 'datetime-local', '240px'); ends.box.hidden = true;
+    var d0 = new Date(Date.now() + 3 * 86400000); d0.setHours(20, 0, 0, 0); ends.input.value = new Date(d0.getTime() - d0.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    auc.addEventListener('change', function () {
+      ends.box.hidden = !auc.checked; stock.box.hidden = auc.checked;
+      price.box.firstChild.textContent = auc.checked ? 'Starting bid, $' : 'Price, $';
+      save.textContent = auc.checked ? 'Save auction as draft' : 'Save as draft';
+    });
     var photo = photoField('Photo');
-    [name, desc, price, stock, ship, sec, wt, bx, { box: regL }, photo].forEach(function (f) { row.appendChild(f.box); });
+    [name, desc, { box: aucL }, price, ends, stock, ship, sec, wt, bx, { box: regL }, photo].forEach(function (f) { row.appendChild(f.box); });
     var save = el('button', 'Save as draft', 'solid'); save.type = 'button'; row.appendChild(save);
     var cancel = el('button', 'Cancel', 'ghost'); cancel.type = 'button'; row.appendChild(cancel);
     var msg = el('div', 'Nothing shows on the site until you press Go live. Sections: Comics, Cards, NFTs, Graded, Pokemon, Watches.', 'small'); msg.setAttribute('role', 'status');
     cancel.addEventListener('click', function () { adding = false; draw(); });
     save.addEventListener('click', function () {
       save.disabled = true; msg.textContent = 'Adding...';
-      get('&add=1&name=' + encodeURIComponent(name.input.value) + '&desc=' + encodeURIComponent(desc.input.value) + '&price=' + encodeURIComponent(price.input.value) + '&stock=' + encodeURIComponent(stock.input.value) + '&shipping=' + encodeURIComponent(ship.input.value || '0') + '&draft=1&weight=' + encodeURIComponent(wt.input.value) + '&box=' + encodeURIComponent(bx.input.value) + '&section=' + encodeURIComponent(sec.input.value)).then(function (r) {
+      get('&add=1&name=' + encodeURIComponent(name.input.value) + '&desc=' + encodeURIComponent(desc.input.value) + '&price=' + encodeURIComponent(price.input.value) + '&stock=' + encodeURIComponent(stock.input.value) + '&shipping=' + encodeURIComponent(ship.input.value || '0') + '&draft=1' + (auc.checked ? '&auction=1&ends=' + encodeURIComponent(ends.input.value ? new Date(ends.input.value).toISOString() : '') : '') + '&weight=' + encodeURIComponent(wt.input.value) + '&box=' + encodeURIComponent(bx.input.value) + '&section=' + encodeURIComponent(sec.input.value)).then(function (r) {
         if (r.error) { save.disabled = false; msg.textContent = r.error; return; }
         var fin = function (ok, why) { adding = false; load(ok ? 'Saved as a draft. It is at the top of the list: check it, then press Go live.' : 'Saved as a draft, but the photo did not go up: ' + why + ' Press Edit on it and try the photo again.'); };
         if (photo.input.files && photo.input.files[0]) { msg.textContent = 'Sending the photo...'; sendPhoto(r.id, photo.input.files[0], fin); } else fin(true);
