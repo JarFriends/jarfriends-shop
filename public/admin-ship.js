@@ -190,6 +190,46 @@
       }
       box.appendChild(bar);
       rows.forEach(function (o) { box.appendChild(card(o)); });
+      if (view === 'to') waiting(r, words);
+  }
+  // Orders not paid yet: Zelle, Venmo or Cash App orders not marked paid, and card or crypto checkouts that were
+  // started (Discord pinged) but have no confirmed payment. Once paid they move up into the list above.
+  function waiting(r, words) {
+    var due = (r.orders || []).filter(function (o) { return !o.cancelled && o.due; }), pend = r.pending || [];
+    var hit = function (o) { var h = [o.buyer, o.email, o.n, o.product, o.pid, o.ship].join(' ').toLowerCase(); return words.every(function (w) { return h.indexOf(w) >= 0; }); };
+    due = due.filter(hit); pend = pend.filter(hit);
+    if (!due.length && !pend.length) return;
+    var hd = el('b', 'Waiting for payment (' + (due.length + pend.length) + ')'); hd.style.cssText = 'display:block;margin-top:22px;font-size:18px'; box.appendChild(hd);
+    box.appendChild(el('div', 'Not paid yet, so nothing to ship. When the payment comes in, the order moves up into the list above.', 'small'));
+    var row = function (o, how, extra) {
+      var c = el('section', null, 'card'); c.style.cssText = 'display:flex;flex-direction:column;gap:6px;opacity:.92';
+      var t = el('b', (o.product || o.pid || 'Order') + (o.q ? ' x ' + o.q : '')); c.appendChild(t);
+      c.appendChild(el('div', (o.buyer || '-') + (o.email ? ' · ' + o.email : '') + ' · ' + usd(o.total) + ' · order ' + o.n + (o.at ? ' · ' + when(o.at) : ''), 'small'));
+      var st = el('div', how); st.style.cssText = 'color:#C9A45C;font-weight:700;font-size:14px'; c.appendChild(st);
+      if (extra) c.appendChild(extra);
+      box.appendChild(c);
+    };
+    due.forEach(function (o) { row(o, 'Payment due by ' + (o.pay || 'hand') + '. If they paid, mark it paid in the Orders tab.'); });
+    pend.forEach(function (o) {
+      var ex = null;
+      if (o.how === 'crypto' && o.coins && o.coins.length) {
+        ex = el('div'); ex.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;align-items:center';
+        var b = el('button', 'Check for payment', 'ghost'); b.type = 'button'; b.style.cssText = 'padding:7px 16px';
+        var say = el('span', '', 'small');
+        b.addEventListener('click', function () {
+          b.disabled = true; say.textContent = 'Checking the blockchain...';
+          Promise.all(o.coins.map(function (cn) { return fetch('/api/status?inv=' + encodeURIComponent(o.t) + '&coin=' + encodeURIComponent(cn), { cache: 'no-store' }).then(function (x) { return x.json(); }).catch(function () { return {}; }); })).then(function (all) {
+            b.disabled = false;
+            var ok = all.filter(function (x) { return x.status === 'confirmed'; })[0], seen = all.filter(function (x) { return x.status === 'detected'; })[0];
+            if (ok) { say.textContent = 'Paid! It is now in the list above.'; load(); }
+            else if (seen) say.textContent = 'Payment seen on the blockchain, still confirming. Check again in a few minutes.';
+            else say.textContent = all.some(function (x) { return x.status === 'expired'; }) ? 'No payment found, and the invoice has run out.' : 'No payment found yet.';
+          });
+        });
+        ex.appendChild(b); ex.appendChild(say);
+      }
+      row(o, o.how === 'card' ? 'Card checkout started, not paid. A paid card order shows up above by itself.' : 'Crypto checkout started, no payment confirmed yet.', ex);
+    });
   }
   // The counts on the two buttons fill in as soon as the back office opens.
   if (key()) { view = ''; load(); }

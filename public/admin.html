@@ -162,9 +162,9 @@ td small{display:block;color:#DADDE8}
       tr.appendChild(st);
       tr.appendChild(el('td', o.ship || '-'));
       var l = el('td');
-      [['Shipping label', o.label], [/scan\.|mempool\.space|blockscout|explorer/i.test(o.proof || '') ? 'View payment on blockchain' : 'Payment proof', /^https:\/\//.test(o.proof || '') ? o.proof : '']].forEach(function (x) {
+      [['Shipping label', o.label], ['Payment proof', /^https:\/\//.test(o.proof || '') ? o.proof : '']].forEach(function (x) {
         if (!/^https:\/\//.test(x[1] || '')) return;
-        var a = el('a', x[0]); if (/blockchain/.test(x[0])) a.style.fontWeight = '700'; a.href = x[1]; a.target = '_blank'; a.rel = 'noopener'; a.style.display = 'block'; l.appendChild(a);
+        var a = el('a', x[0]); a.href = x[1]; a.target = '_blank'; a.rel = 'noopener'; a.style.display = 'block'; l.appendChild(a);
       });
       tr.appendChild(l);
       bo.appendChild(tr);
