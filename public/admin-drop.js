@@ -13,9 +13,27 @@
   function wire(input) {
     if (input.dataset.drop) return; input.dataset.drop = '1';
     var z = input.closest('label') || input.parentNode;
-    var tip = document.createElement('span'); tip.className = 'small dropTip'; tip.textContent = 'Or drag a photo here, or hold your mouse over this box and paste (Ctrl/Cmd+V).';
+    var tip = document.createElement('span'); tip.className = 'small dropTip'; tip.textContent = 'Or drag a photo here, or paste one: press Paste photo, or hold your mouse over this box and press Ctrl/Cmd+V.';
     tip.style.cssText = 'display:block;font-weight:400;opacity:.8;margin-top:4px';
     z.appendChild(tip);
+    // A Paste photo button (asks the browser for the copied photo) and a box you can tap or click and paste into.
+    // Both work on phones and tablets too, where there is no keyboard paste or mouse hover.
+    var bar = document.createElement('span'); bar.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px';
+    var pb = document.createElement('button'); pb.type = 'button'; pb.className = 'ghost'; pb.textContent = 'Paste photo'; pb.style.cssText = 'padding:7px 14px;font-size:14px';
+    pb.addEventListener('click', function (ev) {
+      ev.preventDefault(); ev.stopPropagation(); last = input;
+      if (!navigator.clipboard || !navigator.clipboard.read) { pz.focus(); tip.textContent = 'Your browser needs the box next to this button: tap or click it, then Paste.'; return; }
+      navigator.clipboard.read().then(function (items) {
+        for (var i = 0; i < items.length; i++) { var t = items[i].types.filter(function (x) { return /^image\//.test(x); })[0]; if (t) return items[i].getType(t).then(function (bl) { put(input, new File([bl], 'pasted.' + (t.split('/')[1] || 'png'), { type: t })); }); }
+        tip.textContent = 'No photo is copied. Copy a photo first (long-press it, or right-click it and choose Copy Image), then press Paste photo.';
+      }, function () { pz.focus(); tip.textContent = 'The browser did not allow it. Tap or click the box next to the button, then Paste.'; });
+    });
+    var pz = document.createElement('span'); pz.contentEditable = 'true'; pz.textContent = 'or tap here and paste';
+    pz.style.cssText = 'display:inline-block;min-width:150px;padding:7px 12px;border:1px dashed #C9A45C;border-radius:8px;font-size:13px;opacity:.85;cursor:text;outline:none;-webkit-user-select:text;user-select:text';
+    pz.addEventListener('focus', function () { last = input; });
+    pz.addEventListener('click', function (ev) { ev.preventDefault(); ev.stopPropagation(); pz.focus(); });
+    pz.addEventListener('input', function () { pz.textContent = 'or tap here and paste'; }); // keeps typed text out
+    bar.appendChild(pb); bar.appendChild(pz); z.appendChild(bar);
     z.style.borderRadius = '10px'; z.style.transition = 'outline-color .15s';
     var mark = function () { last = input; };
     ['focus', 'click', 'mouseenter'].forEach(function (ev) { z.addEventListener(ev, mark, true); });
@@ -29,14 +47,14 @@
   // A dropped photo outside a box should not open in the tab and lose your work.
   window.addEventListener('dragover', function (ev) { ev.preventDefault(); });
   window.addEventListener('drop', function (ev) { if (!(ev.target.closest && ev.target.closest('label'))) ev.preventDefault(); });
-  document.addEventListener('paste', function (ev) {
+  window.addEventListener('paste', function (ev) {
     var items = (ev.clipboardData && ev.clipboardData.items) || [], file = null;
     for (var i = 0; i < items.length; i++) if (items[i].kind === 'file' && /^image\//.test(items[i].type)) { file = items[i].getAsFile(); break; }
     if (!file) return; // plain text pastes as normal
     var shown = Array.prototype.filter.call(document.querySelectorAll('input[type=file][data-drop]'), function (x) { return x.offsetParent !== null; });
     var target = last && last.offsetParent !== null ? last : shown.length === 1 ? shown[0] : null;
     if (!target) { alert('Click the photo box you want first, then paste.'); return; }
-    ev.preventDefault();
+    ev.preventDefault(); ev.stopPropagation();
     put(target, file);
-  });
+  }, true);
 })();
