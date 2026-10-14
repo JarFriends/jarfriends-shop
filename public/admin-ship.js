@@ -73,6 +73,8 @@
     addr.style.cssText = 'font-size:15px;line-height:1.45;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,.05);overflow-wrap:anywhere';
     c.appendChild(addr);
     c.appendChild(el('div', usd(o.total) + ' · paid ' + (o.pay || '') + (o.note ? ' · Note: ' + o.note : ''), 'small'));
+    // Crypto: the payment on the blockchain. Card: the card receipt.
+    if (/^https:\/\//.test(o.proof || '')) { var pf = el('a', /scan\.|mempool\.space|blockscout|explorer/i.test(o.proof) ? 'View payment on blockchain' : 'View card receipt'); pf.href = o.proof; pf.target = '_blank'; pf.rel = 'noopener'; pf.style.cssText = 'align-self:flex-start;font-weight:700'; c.appendChild(pf); }
     var row = el('div'); row.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;align-items:center';
     if (view === 'to') {
       if (isNft(o)) {
