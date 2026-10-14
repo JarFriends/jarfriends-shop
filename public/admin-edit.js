@@ -46,7 +46,7 @@
     });
     var by = { views: function (a, b) { return b.views - a.views; }, checkouts: function (a, b) { return b.checkouts - a.checkouts; }, sold: function (a, b) { return b.sold - a.sold; }, left: function (a, b) { return a.left - b.left; }, priceHigh: function (a, b) { return b.price - a.price; }, priceLow: function (a, b) { return a.price - b.price; }, name: function (a, b) { return a.name.localeCompare(b.name); }, shelf: function (a, b) { return (a.test - b.test) || (rank[a.where] - rank[b.where]) || (a.deal - b.deal); } };
     // Drafts waiting to go live stay at the top.
-    var dr = function (x) { return x.draft && x.hidden ? 1 : 0; }, cmp = by[sort.sel.value] || by.shelf;
+    var dr = function (x) { return x.draft && x.hidden ? 2 : x.buyers ? 1 : 0; }, cmp = by[sort.sel.value] || by.shelf;
     return v.sort(function (a, b) { return dr(b) - dr(a) || cmp(a, b); });
   }
   function field(label, value, type, width) {
@@ -134,6 +134,7 @@
       });
       var acts = el('div'); acts.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px';
       ed.style.alignSelf = ''; acts.appendChild(ed);
+      if (p.buyers) { var nr = el('button', 'Set up a new reward', 'solid'); nr.type = 'button'; nr.style.cssText = 'padding:8px 18px'; nr.addEventListener('click', function () { fresh[p.id] = 1; editing = p.id; draw(); }); acts.appendChild(nr); acts.appendChild(el('span', p.left > 0 ? 'A reward is in the safe now.' : 'Claimed. Customers see Coming soon until you set up a new reward.', 'small')); }
       if (p.draft && p.hidden) {
         // A draft: check it, edit it, then one press puts it on the site and the shop shelf.
         var gl = el('button', 'Go live', 'solid'); gl.type = 'button'; gl.style.cssText = 'padding:8px 22px';
@@ -152,9 +153,10 @@
       else acts.appendChild(el('span', 'This piece is set up in Next safes. It goes live with its group.', 'small'));
       c.appendChild(acts); return c;
     }
+    if (fresh[p.id]) { var fn = el('div', 'New reward: this puts 1 new reward in the Customer Loyalty safe. Change the name, photo, description and price to the new one, then press Save. Only past buyers can open it.', 'small'); fn.style.cssText = 'color:#C9A45C;font-weight:700'; c.appendChild(fn); }
     var row = el('div'); row.style.cssText = 'display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end';
     var name = field('Name', p.name, 'text', '100%'), desc = field('Description (shown on the home page when the piece is opened)', p.desc || '', 'area', '100%');
-    var price = field('Price, $', Number(p.price).toFixed(2), 'number', '120px'), stock = field('Started with', p.start, 'number', '120px'), ship = field('Shipping, $ (0 = free)', Number(p.shipping).toFixed(2), 'number', '160px');
+    var price = field('Price, $', Number(p.price).toFixed(2), 'number', '120px'), stock = field('Started with', fresh[p.id] ? p.sold + 1 : p.start, 'number', '120px'), ship = field('Shipping, $ (0 = free)', Number(p.shipping).toFixed(2), 'number', '160px');
     var sec = p.deal ? null : field('Section', p.section, 'text', '180px');
     // What the shipping label uses: the weight per piece, and the package (L x W x H in inches, or a flat rate box name).
     var wt = field('Shipping weight, oz (per piece)', p.weight || '', 'number', '200px'), bx = field('Package size, L x W x H in (or small/medium/large flat rate box)', p.box || '', 'text', '360px');
@@ -165,7 +167,7 @@
     var save = el('button', 'Save', 'solid'); save.type = 'button'; row.appendChild(save);
     var cancel = el('button', 'Cancel', 'ghost'); cancel.type = 'button'; row.appendChild(cancel);
     var msg = el('div', '"Started with" is the total you began with; the site takes sold units off it, so to add 3 more, raise it by 3. Sections: Comics, Cards, NFTs, Graded, Pokemon, Watches.', 'small'); msg.setAttribute('role', 'status');
-    cancel.addEventListener('click', function () { editing = ''; draw(); });
+    cancel.addEventListener('click', function () { editing = ''; fresh = {}; draw(); });
     save.addEventListener('click', function () {
       save.disabled = true; msg.textContent = 'Saving...';
       get('&edit=' + encodeURIComponent(p.id) + '&name=' + encodeURIComponent(name.input.value) + '&desc=' + encodeURIComponent(desc.input.value) + '&price=' + encodeURIComponent(price.input.value) + '&stock=' + encodeURIComponent(stock.input.value) + '&shipping=' + encodeURIComponent(ship.input.value) + '&section=' + encodeURIComponent(sec ? sec.input.value : '') + '&deal=' + encodeURIComponent(safe.input.value || '0') + '&shelf=' + (onShelf.input.checked ? '1' : '0') + '&hidden=' + (hide.input.checked ? '1' : '0') + '&buyers=' + (buyers.input.checked ? '1' : '0') + '&weight=' + encodeURIComponent(wt.input.value) + '&box=' + encodeURIComponent(bx.input.value)).then(function (r) {
@@ -210,13 +212,13 @@
     return c;
   }
   addBtn.addEventListener('click', function () { adding = true; editing = ''; draw(); });
-  var flash = '', soldOpen = false;
+  var flash = '', soldOpen = false, fresh = {};
   function draw() {
     list.textContent = '';
     if (flash) { list.appendChild(el('div', flash, 'small')); flash = ''; }
     if (adding) list.appendChild(addCard());
     // Sold pieces (every unit sold) move out of the list into their own Sold section at the bottom.
-    var sold = function (p) { return p.start > 0 && p.sold >= p.start && !p.nextSafe && show.sel.value !== 'out'; };
+    var sold = function (p) { return p.start > 0 && p.sold >= p.start && !p.nextSafe && !p.buyers && show.sel.value !== 'out'; };
     var all = rows(), v = all.filter(function (p) { return !sold(p); }), gone = all.filter(sold);
     if (!v.length) list.appendChild(el('div', 'No products match.', 'small'));
     v.forEach(function (p) { list.appendChild(card(p)); });
