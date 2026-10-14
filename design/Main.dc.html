@@ -737,6 +737,23 @@ const m = ctx.createOscillator(), mf = ctx.createBiquadFilter(), mg = ctx.create
 tone("sine", 90, 30, 2.15, 0.5, 0.9);
 hiss(1.9, 1.2, 300, 6000, 0.3);
 [220, 277.18, 329.63, 440].forEach((f, i) => { const o = ctx.createOscillator(), g = ctx.createGain(); o.type = i === 3 ? "triangle" : "sine"; o.frequency.value = f; g.gain.setValueAtTime(0.0001, t0 + 2.3); g.gain.exponentialRampToValueAtTime(0.06, t0 + 3.0); g.gain.setValueAtTime(0.06, t0 + 4.4); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 6.2); o.connect(g); g.connect(out); o.start(t0 + 2.3); o.stop(t0 + 6.3); });
+// Astronaut radio: the NASA "Quindar" beep, radio static, breathing inside the helmet, and a voice on the radio.
+const quin = (at) => tone("sine", 2525, 2524, at, 0.25, 0.08);
+quin(0.05); quin(4.6);
+const stat = (at, dur, peak) => { const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain(); s.buffer = noise(dur); f.type = "bandpass"; f.frequency.value = 2200; f.Q.value = 1.4; g.gain.setValueAtTime(0.0001, t0 + at); g.gain.exponentialRampToValueAtTime(peak, t0 + at + 0.03); g.gain.setValueAtTime(peak, t0 + at + dur - 0.05); g.gain.exponentialRampToValueAtTime(0.0001, t0 + at + dur); s.connect(f); f.connect(g); g.connect(out); s.start(t0 + at); };
+stat(0.3, 0.35, 0.05); stat(2.35, 1.9, 0.025); stat(4.25, 0.3, 0.05);
+const breath = (at, dur, peak, hi) => { const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain(); s.buffer = noise(dur); f.type = "bandpass"; f.frequency.value = hi; f.Q.value = 0.7; g.gain.setValueAtTime(0.0001, t0 + at); g.gain.linearRampToValueAtTime(peak, t0 + at + dur * 0.45); g.gain.linearRampToValueAtTime(0.0001, t0 + at + dur); s.connect(f); f.connect(g); g.connect(out); s.start(t0 + at); };
+breath(0.2, 0.9, 0.16, 900); breath(1.15, 1.1, 0.12, 600); breath(3.9, 0.9, 0.12, 900); breath(4.85, 1.1, 0.09, 600);
+try {
+const sy = window.speechSynthesis;
+if (sy && window.SpeechSynthesisUtterance) {
+const say = new SpeechSynthesisUtterance("Houston, the hatch is open. Welcome aboard.");
+say.rate = 1.02; say.pitch = 0.8; say.volume = 0.9;
+const vs = sy.getVoices ? sy.getVoices() : [], v = vs.filter((x) => /^en(-|_)US/i.test(x.lang) && /male|daniel|alex|fred|david|guy/i.test(x.name))[0] || vs.filter((x) => /^en/i.test(x.lang))[0];
+if (v) say.voice = v;
+setTimeout(() => { try { sy.cancel(); sy.speak(say); } catch (e) { /* no voice on this device */ } }, 2450);
+}
+} catch (e) { /* no voice on this device */ }
 [2.6, 2.9, 3.2, 3.5].forEach((w, i) => { tone("sine", [1318.5, 1567.98, 1975.53, 2637.02][i], [1318.5, 1567.98, 1975.53, 2637.02][i] * 0.99, w, 0.9, 0.035); });
 } catch (e) { /* sound is a nice extra only */ }
 }

@@ -1,5 +1,5 @@
-// Build step: the party (see _party.js). This one, Adventurous Astronaut (Issue 11), starts Thursday, October 15,
-// 2026 at 12:00 PM Central and runs 12 hours, to midnight. Its own listing (MPARTY3), 10 units at $33.60 each
+// Build step: the party (see _party.js). This one, Adventurous Astronaut (Issue 11), opened Wednesday, October 14,
+// 2026 at 2:50 PM Central and runs to midnight Thursday, October 15. Its own listing (MPARTY3), 10 units at $33.60 each
 // (20% over the $28.00 final price), $6.20 shipping per order.
 // Levels: $33.60, then 2 sold $32.48, 4 $31.36, 6 $30.24, 8 $29.12, all 10 $28.00 (exact % off $33.60).
 // Before it opens, no price is shown or sold: the home page shows a countdown to the opening.
@@ -13,10 +13,10 @@ const changes = [
   endsText: 'Wednesday, October 14 at 11:00 PM Central',
   tiers: [[25, 5], [50, 10], [100, 33]]`, R`  pid: 'MPARTY3',
   total: 10,
-  starts: Date.parse('2026-10-15T12:00:00-05:00'),
-  startsText: 'Thursday, October 15 at 12:00 PM Central',
+  starts: Date.parse('2026-10-14T14:50:00-05:00'),
+  startsText: 'today, Wednesday, October 14 at 2:50 PM Central',
   ends: Date.parse('2026-10-16T00:00:00-05:00'),
-  endsText: 'tonight, Thursday, October 15 at midnight Central',
+  endsText: 'Thursday, October 15 at midnight Central',
   // [units sold, % off]: exact dollar prices on $33.60, $1.12 lower every 2 sold, $28.00 if all 10 sell.
   counts: true,
   tiers: [[2, 11200 / 3360], [4, 22400 / 3360], [6, 33600 / 3360], [8, 44800 / 3360], [10, 56000 / 3360]]
