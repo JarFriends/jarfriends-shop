@@ -174,7 +174,8 @@
         var gl = el('button', 'Go live', 'solid'); gl.type = 'button'; gl.style.cssText = 'padding:8px 22px';
         gl.addEventListener('click', function () {
           if (!p.photo && !confirm('"' + p.name + '" has no photo. Go live anyway?')) return;
-          if (!confirm('Put "' + p.name + '" on the site now at ' + usd(p.price) + '?')) return;
+          var howLong = p.auction ? (p.auction.dur ? (p.auction.dur % 24 ? p.auction.dur + ' hours' : (p.auction.dur / 24) + (p.auction.dur === 24 ? ' day' : ' days')) + ' from now' : 'until ' + new Date(p.auction.ends).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })) : '';
+          if (!confirm(p.auction ? 'Put "' + p.name + '" up for AUCTION now?\n\nStarting bid: ' + usd(p.auction.start || p.price) + '\nBidding runs ' + howLong + '.' : 'Put "' + p.name + '" on the site now at ' + usd(p.price) + ' (Buy now, not an auction)?\n\nTo make it an auction instead, press Cancel, then Edit and tick "This is an auction".')) return;
           gl.disabled = true; gl.textContent = 'Going live...';
           get('&golive=' + encodeURIComponent(p.id)).then(function (r) {
             if (r.error) { gl.disabled = false; gl.textContent = 'Go live'; alert(r.error); return; }
