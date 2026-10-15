@@ -109,6 +109,22 @@
     all.addEventListener('change', function () { ones.forEach(function (i) { i.parentNode.hidden = all.checked; if (all.checked) i.checked = false; }); });
     return { box: w, value: function () { if (all.checked) return ''; return PAYN.filter(function (x, n) { return ones[n].checked; }).map(function (x) { return x[0]; }).join(','); }, ok: function () { return all.checked || ones.some(function (i) { return i.checked; }); } };
   }
+  // Auction length: a few set lengths, or a date and time you pick. keep: offer "keep the current end" first.
+  function aucLen(keepText) {
+    var w = el('div'); w.style.cssText = 'display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;flex:1 1 100%';
+    var opts = (keepText ? [['keep', keepText]] : []).concat([['24', '1 day'], ['72', '3 days'], ['120', '5 days'], ['168', '7 days'], ['240', '10 days'], ['custom', 'Pick the end date and time']]);
+    var l = el('label', 'Auction length'); l.style.cssText = 'flex:0 1 260px;min-width:0';
+    var sel = el('select'); sel.style.cssText = 'font-family:inherit;font-size:16px;height:44px;padding:0 10px;background:#0B1A13;border:1px solid #4E7A63;color:#F7F2E6;border-radius:2px;width:100%';
+    opts.forEach(function (o) { var op = el('option', o[1]); op.value = o[0]; sel.appendChild(op); }); sel.value = keepText ? 'keep' : '72';
+    l.appendChild(sel); w.appendChild(l);
+    var ends = field('Auction ends (your time)', '', 'datetime-local', '240px'); ends.box.hidden = true;
+    var d0 = new Date(Date.now() + 3 * 86400000); d0.setHours(20, 0, 0, 0); ends.input.value = new Date(d0.getTime() - d0.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    w.appendChild(ends.box);
+    var hint = el('div', '', 'small'); hint.style.flex = '1 1 100%'; w.appendChild(hint);
+    var say = function () { ends.box.hidden = sel.value !== 'custom'; hint.textContent = sel.value === 'keep' ? '' : sel.value === 'custom' ? 'It ends at exactly this time.' : 'On a draft, the clock starts when you press Go live. Otherwise it starts when you save.'; };
+    sel.addEventListener('change', say); say();
+    return { box: w, query: function () { return sel.value === 'keep' ? '' : sel.value === 'custom' ? '&ends=' + encodeURIComponent(ends.input.value ? new Date(ends.input.value).toISOString() : '') : '&dur=' + sel.value; } };
+  }
   function card(p) {
     var c = el('section', null, 'card'); c.style.cssText = 'display:flex;flex-direction:column;gap:10px';
     var head = el('div'); head.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px 16px;align-items:baseline;justify-content:space-between';
@@ -181,15 +197,22 @@
     var safe = field('Deal of the day safe (0 = none)', p.deal || 0, 'number', '200px');
     var onShelf = tick('Show on the shop shelf and in the chat', p.onShelf), hide = tick('Hide from the site (it cannot be seen or ordered)', p.hidden), buyers = tick('Customer Loyalty product (shows as a locked safe; only a signed-in returning customer can open and order it)', p.buyers);
     var photo = photoField('New photo (optional)'), pay = payPick(p.pay);
-    [name, desc, price, stock, ship, sec, wt, bx, safe, pay, photo, onShelf, hide, buyers].forEach(function (f) { if (f) row.appendChild(f.box); });
+    // Auction: tick it and the price is the starting bid. An auction already running can keep its end time.
+    var aucE = tick('This is an auction (sold to the highest bidder; the price above is the starting bid)', !!p.auction);
+    aucE.input.parentNode.lastChild.style.fontWeight = '700';
+    var lenE = aucLen(p.auction && p.auction.ends && Date.parse(p.auction.ends) > Date.now() + 600000 ? 'Keep the current end: ' + new Date(p.auction.ends).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '');
+    var aucShow = function () { lenE.box.hidden = !aucE.input.checked; price.box.firstChild.textContent = aucE.input.checked ? 'Starting bid, $' : 'Price, $'; };
+    aucE.input.addEventListener('change', aucShow); aucShow();
+    [name, desc, price, stock, ship, sec, wt, bx, safe, aucE, lenE, pay, photo, onShelf, hide, buyers].forEach(function (f) { if (f) row.appendChild(f.box); });
     var save = el('button', 'Save', 'solid'); save.type = 'button'; row.appendChild(save);
     var cancel = el('button', 'Cancel', 'ghost'); cancel.type = 'button'; row.appendChild(cancel);
     var msg = el('div', '"Started with" is the total you began with; the site takes sold units off it, so to add 3 more, raise it by 3. Sections: Comics, Cards, NFTs, Graded, Pokemon, Watches.', 'small'); msg.setAttribute('role', 'status');
     cancel.addEventListener('click', function () { editing = ''; fresh = {}; draw(); });
     save.addEventListener('click', function () {
       if (!pay.ok()) { msg.textContent = 'Tick at least one payment method, or All payment methods.'; return; }
+      if (p.auction && !aucE.input.checked && !confirm('Take "' + p.name + '" out of auction? It goes back to a normal Buy now price.')) return;
       save.disabled = true; msg.textContent = 'Saving...';
-      get('&edit=' + encodeURIComponent(p.id) + '&name=' + encodeURIComponent(name.input.value) + '&desc=' + encodeURIComponent(desc.input.value) + '&price=' + encodeURIComponent(price.input.value) + '&stock=' + encodeURIComponent(stock.input.value) + '&shipping=' + encodeURIComponent(ship.input.value) + '&section=' + encodeURIComponent(sec ? sec.input.value : '') + '&deal=' + encodeURIComponent(safe.input.value || '0') + '&shelf=' + (onShelf.input.checked ? '1' : '0') + '&hidden=' + (hide.input.checked ? '1' : '0') + '&buyers=' + (buyers.input.checked ? '1' : '0') + '&weight=' + encodeURIComponent(wt.input.value) + '&box=' + encodeURIComponent(bx.input.value) + '&pay=' + encodeURIComponent(pay.value())).then(function (r) {
+      get('&edit=' + encodeURIComponent(p.id) + '&name=' + encodeURIComponent(name.input.value) + '&desc=' + encodeURIComponent(desc.input.value) + '&price=' + encodeURIComponent(price.input.value) + '&stock=' + encodeURIComponent(stock.input.value) + '&shipping=' + encodeURIComponent(ship.input.value) + '&section=' + encodeURIComponent(sec ? sec.input.value : '') + '&deal=' + encodeURIComponent(safe.input.value || '0') + '&shelf=' + (onShelf.input.checked ? '1' : '0') + '&hidden=' + (hide.input.checked ? '1' : '0') + '&buyers=' + (buyers.input.checked ? '1' : '0') + '&weight=' + encodeURIComponent(wt.input.value) + '&box=' + encodeURIComponent(bx.input.value) + '&pay=' + encodeURIComponent(pay.value()) + (aucE.input.checked ? '&auction=1' + lenE.query() : p.auction ? '&auction=0' : '')).then(function (r) {
         if (r.error) { save.disabled = false; msg.textContent = r.error; return; }
         var fin = function (ok, why) { save.disabled = false; if (!ok) { msg.textContent = 'Saved, but the photo did not go up: ' + why; return; } editing = ''; load('Saved. The shop shows the change within about a minute.'); };
         if (photo.input.files && photo.input.files[0]) { msg.textContent = 'Sending the photo...'; sendPhoto(p.id, photo.input.files[0], fin); } else fin(true);
@@ -218,8 +241,7 @@
     aucL.style.setProperty('display', 'flex', 'important'); aucL.style.setProperty('flex-direction', 'row', 'important');
     var auc = el('input'); auc.type = 'checkbox'; ['width', 'height', 'min-width', 'flex', 'padding'].forEach(function (k, i) { auc.style.setProperty(k, ['20px', '20px', '20px', '0 0 20px', '0'][i], 'important'); }); auc.style.margin = '0'; auc.style.accentColor = '#C9A45C';
     aucL.appendChild(auc); aucL.appendChild(el('b', 'This is an auction'));
-    var ends = field('Auction ends (your time)', '', 'datetime-local', '240px'); ends.box.hidden = true;
-    var d0 = new Date(Date.now() + 3 * 86400000); d0.setHours(20, 0, 0, 0); ends.input.value = new Date(d0.getTime() - d0.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    var ends = aucLen(''); ends.box.hidden = true;
     auc.addEventListener('change', function () {
       ends.box.hidden = !auc.checked; stock.box.hidden = auc.checked;
       price.box.firstChild.textContent = auc.checked ? 'Starting bid, $' : 'Price, $';
@@ -234,7 +256,7 @@
     save.addEventListener('click', function () {
       if (!pay.ok()) { msg.textContent = 'Tick at least one payment method, or All payment methods.'; return; }
       save.disabled = true; msg.textContent = 'Adding...';
-      get('&add=1&name=' + encodeURIComponent(name.input.value) + '&desc=' + encodeURIComponent(desc.input.value) + '&price=' + encodeURIComponent(price.input.value) + '&stock=' + encodeURIComponent(stock.input.value) + '&shipping=' + encodeURIComponent(ship.input.value || '0') + '&draft=1' + (auc.checked ? '&auction=1&ends=' + encodeURIComponent(ends.input.value ? new Date(ends.input.value).toISOString() : '') : '') + '&weight=' + encodeURIComponent(wt.input.value) + '&box=' + encodeURIComponent(bx.input.value) + '&pay=' + encodeURIComponent(pay.value()) + '&section=' + encodeURIComponent(sec.input.value)).then(function (r) {
+      get('&add=1&name=' + encodeURIComponent(name.input.value) + '&desc=' + encodeURIComponent(desc.input.value) + '&price=' + encodeURIComponent(price.input.value) + '&stock=' + encodeURIComponent(stock.input.value) + '&shipping=' + encodeURIComponent(ship.input.value || '0') + '&draft=1' + (auc.checked ? '&auction=1' + ends.query() : '') + '&weight=' + encodeURIComponent(wt.input.value) + '&box=' + encodeURIComponent(bx.input.value) + '&pay=' + encodeURIComponent(pay.value()) + '&section=' + encodeURIComponent(sec.input.value)).then(function (r) {
         if (r.error) { save.disabled = false; msg.textContent = r.error; return; }
         var fin = function (ok, why) { adding = false; load(ok ? 'Saved as a draft. It is at the top of the list: check it, then press Go live.' : 'Saved as a draft, but the photo did not go up: ' + why + ' Press Edit on it and try the photo again.'); };
         if (photo.input.files && photo.input.files[0]) { msg.textContent = 'Sending the photo...'; sendPhoto(r.id, photo.input.files[0], fin); } else fin(true);
