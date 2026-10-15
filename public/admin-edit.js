@@ -125,6 +125,52 @@
     sel.addEventListener('change', say); say();
     return { box: w, query: function () { return sel.value === 'keep' ? '' : sel.value === 'custom' ? '&ends=' + encodeURIComponent(ends.input.value ? new Date(ends.input.value).toISOString() : '') : '&dur=' + sel.value; } };
   }
+  // Party pricing: starting price, final price if all sell, how many, a price drop every N sold, start and end.
+  function partyEditor(p) {
+    var w = el('div'); w.style.cssText = 'display:flex;flex-direction:column;gap:10px';
+    var btn = el('button', 'Edit party pricing', 'solid'); btn.type = 'button'; btn.style.cssText = 'align-self:flex-start;padding:8px 18px';
+    w.appendChild(btn);
+    btn.addEventListener('click', function () {
+      btn.disabled = true; btn.textContent = 'Loading...';
+      fetch('/api/party', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (pt) {
+        btn.remove();
+        var local = function (t) { var d = new Date(Number(t) || Date.now()); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16); };
+        var tiers = pt.tiers || [], last = tiers[tiers.length - 1];
+        var finalNow = last && last.price ? String(last.price).replace(/[^0-9.]/g, '') : pt.price;
+        var row = el('div'); row.style.cssText = 'display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end';
+        var st = field('Starting price, $', Number(pt.price || p.price).toFixed(2), 'number', '140px');
+        var fn = field('Final price if all sell, $', Number(finalNow || p.price).toFixed(2), 'number', '170px');
+        var tot = field('How many in the party', pt.total || p.start, 'number', '150px');
+        var stp = field('Price drops every __ sold', tiers[0] ? tiers[0].need : 2, 'number', '170px');
+        var sa = field('Party starts (your time)', local(pt.starts), 'datetime-local', '220px');
+        var en = field('Party ends (your time)', local(pt.ends), 'datetime-local', '220px');
+        [st, fn, tot, stp, sa, en].forEach(function (f) { row.appendChild(f.box); });
+        var prev = el('div', '', 'small'); prev.style.cssText = 'flex:1 1 100%;color:#C9A45C;font-weight:700';
+        var show = function () {
+          var a = Math.round(Number(st.input.value) * 100), b = Math.round(Number(fn.input.value) * 100), t = Math.floor(Number(tot.input.value)), k = Math.floor(Number(stp.input.value));
+          if (!(a > 0 && b > 0 && b <= a && t >= 1 && k >= 1 && k <= t)) { prev.textContent = 'Fill in the prices and counts to see the price levels.'; return; }
+          var needs = []; for (var n = k; n < t; n += k) needs.push(n); needs.push(t);
+          prev.textContent = 'Price levels: ' + usd(a / 100) + ' to start, then ' + needs.map(function (n, i) { return usd(Math.round(a - (a - b) * (i + 1) / needs.length) / 100) + ' at ' + n + ' sold'; }).join(', ') + '.';
+        };
+        [st, fn, tot, stp].forEach(function (f) { f.input.addEventListener('input', show); }); show();
+        row.appendChild(prev);
+        var save = el('button', 'Save party pricing', 'solid'); save.type = 'button'; row.appendChild(save);
+        var cancel = el('button', 'Cancel', 'ghost'); cancel.type = 'button'; row.appendChild(cancel);
+        var msg = el('div', (pt.sold || 0) + ' of ' + (pt.total || '?') + ' sold so far. Lowering prices is safe: anyone who already paid more gets the difference back when the party ends.', 'small');
+        cancel.addEventListener('click', function () { draw(); });
+        save.addEventListener('click', function () {
+          if (Number(st.input.value) > Number(pt.price) && (pt.sold || 0) > 0 && !confirm('Raise the starting price while people have already bought? They keep what they paid.')) return;
+          save.disabled = true; msg.textContent = 'Saving...';
+          get('&partycfg=save&start=' + encodeURIComponent(st.input.value) + '&final=' + encodeURIComponent(fn.input.value) + '&total=' + encodeURIComponent(tot.input.value) + '&step=' + encodeURIComponent(stp.input.value) + '&starts=' + encodeURIComponent(sa.input.value ? new Date(sa.input.value).toISOString() : '') + '&ends=' + encodeURIComponent(en.input.value ? new Date(en.input.value).toISOString() : '')).then(function (r) {
+            if (r.error) { save.disabled = false; msg.textContent = r.error; return; }
+            load('Party pricing saved. It now ends ' + r.endsText + '. The home page shows the change within about a minute.');
+          }, function () { save.disabled = false; msg.textContent = 'Could not reach the site. Try again.'; });
+        });
+        w.appendChild(row); w.appendChild(msg);
+      }, function () { btn.disabled = false; btn.textContent = 'Edit party pricing'; alert('Could not load the party. Try again.'); });
+    });
+    return w;
+  }
   function card(p) {
     var c = el('section', null, 'card'); c.style.cssText = 'display:flex;flex-direction:column;gap:10px';
     var head = el('div'); head.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px 16px;align-items:baseline;justify-content:space-between';
@@ -152,7 +198,7 @@
     [['Price', usd(p.price)], ['Shipping', p.shipping ? usd(p.shipping) : 'Free'], ['Left', p.left + ' of ' + p.start], ['Sold', String(p.sold)], ['On hold', String(p.held || 0)], ['Looked at', p.views + (p.viewsToday ? ' (' + p.viewsToday + ' today)' : '')], ['Checkout clicks', String(p.checkouts)]].forEach(function (x) { stats.appendChild(stat(x[0], x[1])); });
     c.appendChild(stats);
     if (p.desc && editing !== p.id) c.appendChild(el('div', p.desc, 'small'));
-    if (p.where === 'Party pricing') { c.appendChild(el('div', 'The party piece is locked while the party runs. Ask Claude to change it.', 'small')); return c; }
+    if (p.where === 'Party pricing') { c.appendChild(partyEditor(p)); return c; }
     if (editing !== p.id) {
       var ed = el('button', 'Edit', 'ghost'); ed.type = 'button'; ed.style.cssText = 'align-self:flex-start;padding:8px 18px';
       ed.addEventListener('click', function () { editing = p.id; draw(); });
