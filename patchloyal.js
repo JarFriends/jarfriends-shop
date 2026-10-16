@@ -26,6 +26,32 @@ module.exports = { emailOf, isBuyer, gated, paidByEmail, isAdmin, bidderOf, loya
   }
   if (req.method === 'GET') {
     // ?quote=1`],
+  // A returning customer: any order under the email that is paid, marked paid, has a label bought, tracking or was
+  // shipped (Zelle, Venmo and Cash App orders whose label was bought never got marked paid). All orders read at once.
+  ['api/_gate.js', R`  let v = false;
+  try {
+    for (const s of await store.sales()) {
+      const d = (await store.read(s.path)) || {};
+      if (String(d.email || '').trim().toLowerCase() !== email) continue;
+      if (!/payment due/i.test(d.status || '')) { v = true; break; }
+      const meta = (await store.read('meta/' + s.n + '.json')) || {};
+      if (meta.paidAt) { v = true; break; }
+    }
+  } catch (e) { console.error('GATE_FAIL', String(e && e.message || e)); }`, R`  let v = false, found = 0;
+  try {
+    const all = await store.sales(), mine = [];
+    for (let i = 0; i < all.length; i += 40) {
+      const part = all.slice(i, i + 40), got = await Promise.all(part.map((s) => store.read(s.path)));
+      got.forEach((d, k) => { if (d && String(d.email || '').trim().toLowerCase() === email) mine.push({ s: part[k], d: d }); });
+    }
+    found = mine.length;
+    if (mine.some((x) => !/payment due/i.test(x.d.status || ''))) v = true;
+    else {
+      const metas = await Promise.all(mine.map((x) => store.read('meta/' + x.s.n + '.json')));
+      v = metas.some((m) => m && (m.paidAt || m.shippedAt || m.labelPdf || (m.tracking && !m.testLabel)));
+    }
+  } catch (e) { console.error('GATE_FAIL', String(e && e.message || e)); }
+  console.log('LOYAL_CHECK', JSON.stringify({ who: email.replace(/^(.).*?(@.*)$/, '$1***$2'), orders: found, ok: v }));`],
   // The checkout uses the pass too when nobody is signed in.
   ['public/order.html', R`acct = localStorage.getItem('acct_token') || '';`, R`acct = localStorage.getItem('acct_token') || localStorage.getItem('loyal_token') || '';`]
 ];
