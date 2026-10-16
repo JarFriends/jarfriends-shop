@@ -83,6 +83,7 @@
     info.appendChild(el('div', (o.buyer || '-') + (o.email ? ' · ' + o.email : ''), 'small'));
     info.appendChild(el('div', 'Order ' + o.n + ' · ' + when(o.at) + ' · ' + usd(o.total) + (o.pay ? ' · paid with ' + o.pay : ''), 'small'));
     if (o.ship) info.appendChild(el('div', 'Ship to: ' + o.ship, 'small'));
+    if (o.due || o.reminders) info.appendChild(el('div', o.reminders ? 'Payment reminders emailed: ' + o.reminders + ' (last ' + when(o.remindedAt) + ')' + (o.paidAt ? ', before you marked it paid ' + when(o.paidAt) : '') : 'No payment reminder emailed yet. The first goes out 4 hours after the order if it is still unpaid.', 'small'));
     top.appendChild(info);
     var x = el('button', 'Close', 'ghost'); x.type = 'button'; x.style.cssText = 'padding:6px 16px;align-self:flex-start';
     x.addEventListener('click', function () { openN = ''; render(); }); top.appendChild(x);
