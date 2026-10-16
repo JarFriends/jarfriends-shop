@@ -79,7 +79,7 @@
     <a class="solid reveal" id="buy" hidden style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center">Claim my reward</a>
     <form id="signin" hidden style="display:flex;flex-direction:column;gap:10px;align-items:center;width:100%;max-width:420px">
       <label style="width:100%;display:flex;flex-direction:column;gap:6px;text-align:left">The email you ordered with<input type="email" id="mailIn" required autocomplete="email" placeholder="you@example.com"></label>
-      <button class="solid" type="submit" id="mailGo" style="align-self:center">Email me a link to open the safe</button>
+      <button class="solid" type="submit" id="mailGo" style="align-self:center">Open the safe</button>
       <div class="small" id="mailMsg" role="status"></div>
     </form>
     <div class="small reveal" id="desc" style="max-width:560px"></div>
@@ -93,7 +93,8 @@
 (function () {
   var $ = function (id) { return document.getElementById(id); };
   var id = new URLSearchParams(location.search).get('product') || '', tok = '';
-  var ak = ''; try { tok = localStorage.getItem('acct_token') || ''; ak = localStorage.getItem('adminKey') || ''; } catch (e) { tok = ''; }
+  var ak = ''; try { tok = localStorage.getItem('acct_token') || localStorage.getItem('loyal_token') || ''; ak = localStorage.getItem('adminKey') || ''; } catch (e) { tok = ''; }
+  tok = tok || new URLSearchParams(location.search).get('lt') || '';
   var seenKey = 'jf-safe-open-' + id, seen = false;
   try { seen = localStorage.getItem(seenKey) === '1'; } catch (e) { seen = false; }
   var calm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -136,12 +137,17 @@
     $('buy').href = '/order.html?product=' + encodeURIComponent(id) + '&qty=' + (p.min || 1); $('buy').hidden = false;
   }
 
+  // Type the email you ordered with: a paid order under it opens the safe right here. No email link.
   $('signin').addEventListener('submit', function (ev) {
-    ev.preventDefault(); $('mailGo').disabled = true; $('mailMsg').textContent = 'Sending...';
-    fetch('/api/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: $('mailIn').value, next: '/safe.html?product=' + encodeURIComponent(id) }) })
+    ev.preventDefault(); $('mailGo').disabled = true; $('mailMsg').textContent = 'Checking...';
+    fetch('/api/order?loyal=' + encodeURIComponent($('mailIn').value.trim()), { cache: 'no-store' })
       .then(function (r) { return r.json(); })
-      .then(function (r) { $('mailGo').disabled = false; $('mailMsg').textContent = r.error || 'Sent. Open the email from us and tap the button: it brings you right back here with the safe ready to open. Check spam if you do not see it in a minute.'; },
-        function () { $('mailGo').disabled = false; $('mailMsg').textContent = 'Could not send just now. Try again.'; });
+      .then(function (r) {
+        $('mailGo').disabled = false;
+        if (!r.ok || !r.lt) { $('mailMsg').textContent = r.error || 'That did not work. Try again.'; return; }
+        try { localStorage.setItem('loyal_token', r.lt); } catch (e) { /* this visit only */ }
+        location.replace('/safe.html?product=' + encodeURIComponent(id) + (localStorage.getItem('loyal_token') ? '' : '&lt=' + encodeURIComponent(r.lt)));
+      }, function () { $('mailGo').disabled = false; $('mailMsg').textContent = 'Could not check just now. Try again.'; });
   });
   fetch('/api/order?s=1' + (tok ? '&t=' + encodeURIComponent(tok) : '') + (ak ? '&ak=' + encodeURIComponent(ak) : ''), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (j) {
     var p = (j.products || []).filter(function (x) { return x.id === id; })[0];
@@ -155,7 +161,7 @@
       if (p.gate === 'buyer') {
         $('lead').textContent = 'You are signed in, but there is no paid order under this email yet. Buy any piece in the shop and this safe opens for you.';
       } else {
-        $('lead').textContent = 'This Customer Loyalty safe opens only for returning customers. Enter the email you ordered with (any email, not just Gmail) and we will send you a link that opens it.';
+        $('lead').textContent = 'This Customer Loyalty safe opens only for returning customers. Enter the email you ordered with and it opens right here. Signed in? It opens by itself.';
         $('signin').hidden = false;
       }
       return;
