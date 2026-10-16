@@ -1,0 +1,26 @@
+[
+[
+"const paySite = \"https://collectors-page.vercel.app\";",
+"const paySite = (() => { try { const o = window.top.location.origin; if (/^https:\\/\\/((www\\.)?jarfriends\\.com|collectors-page\\.vercel\\.app)$/.test(o)) return o; } catch (e) { /* not allowed to look */ } return \"https://collectors-page.vercel.app\"; })();"
+],
+[
+"componentDidMount() {\nfetch(\"https://collectors-page.vercel.app/api/order\").then",
+"componentDidMount() {\nfetch(\"https://collectors-page.vercel.app/api/order\" + this.signQ()).then"
+],
+[
+"setTimeout(() => { fetch(\"https://collectors-page.vercel.app/api/order\").then",
+"setTimeout(() => { fetch(\"https://collectors-page.vercel.app/api/order\" + this.signQ()).then"
+],
+[
+"// The spaceship hatch (Adventurous Astronaut party)",
+"// Signed in on this site (My orders sign-in, or the Customer Loyalty email check): the token, else \"\".\nsignTok() { const g = (w) => { try { return w.localStorage.getItem(\"acct_token\") || w.localStorage.getItem(\"loyal_token\") || \"\"; } catch (e) { return \"\"; } }; let t = \"\"; try { t = g(window.top); } catch (e) { t = \"\"; } return t || g(window); }\nsignQ() { const t = this.signTok(); return t ? \"?t=\" + encodeURIComponent(t) : \"\"; }\n// The spaceship hatch (Adventurous Astronaut party)"
+],
+[
+"white-space: nowrap\">Sign in</button>",
+"white-space: nowrap\">{{signText}}</button>"
+],
+[
+"return {\nopenAccount: () => {",
+"return {\nsignText: this.signTok() ? \"My orders\" : \"Sign in\",\nopenAccount: () => {"
+]
+]

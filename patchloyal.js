@@ -52,6 +52,7 @@ module.exports = { emailOf, isBuyer, gated, paidByEmail, isAdmin, bidderOf, loya
     }
   } catch (e) { console.error('GATE_FAIL', String(e && e.message || e)); }
   console.log('LOYAL_CHECK', JSON.stringify({ who: email.replace(/^(.).*?(@.*)$/, '$1***$2'), orders: found, ok: v }));`],
+  ['api/order.js', R`desc: 'A Customer Loyalty product: only returning customers can open this safe. Sign in with the email you ordered with to see what is inside.'`, R`desc: 'A Customer Loyalty product: only returning customers can open this safe. Tap Check out and type the email you ordered with, and it opens.'`],
   // The checkout uses the pass too when nobody is signed in.
   ['public/order.html', R`acct = localStorage.getItem('acct_token') || '';`, R`acct = localStorage.getItem('acct_token') || localStorage.getItem('loyal_token') || '';`]
 ];
