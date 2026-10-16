@@ -30,6 +30,8 @@
     <div id="safes" style="margin-top:8px"></div>
     <div class="small" id="msg" role="status"></div>
   </section>
+  <section class="card" id="burnBox" hidden style="display:flex;flex-direction:column;gap:10px;border-color:#E86A5C"></section>
+  <section class="card" id="histBox" hidden style="display:flex;flex-direction:column;gap:6px"></section>
   <a class="solid" id="signin" href="/account.html" hidden style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center;align-self:flex-start">Sign in</a>
   <a class="home" href="/">Back to the shop</a>
 </main>
@@ -45,6 +47,7 @@
     for (var i = 0; i < Math.max(r.need, r.jars); i++) $('row').appendChild(el('div', null, 'jar' + (i < r.jars ? ' full' : '')));
     var left = r.need - r.jars;
     $('how').textContent = 'You have ' + r.jars + (r.jars === 1 ? ' jar' : ' jars') + '. Every paid order earns one. ' + (left > 0 ? left + ' more and you can open a locked safe early.' : 'That is enough to open a locked safe early. Opening one uses ' + r.need + ' jars; you still pay for the piece inside.');
+    burnUI(r);
     $('safes').textContent = '';
     if (!r.safes.length) { $('safes').appendChild(el('div', 'There are no locked safes right now.', 'small')); return; }
     r.safes.forEach(function (s) {
@@ -67,6 +70,41 @@
       }
       $('safes').appendChild(row);
     });
+  }
+  // A burn the shop has open: burn jars (in groups), with a wallet address for the NFT if there is one.
+  function burnUI(r) {
+    var b = $('burnBox'), h = $('histBox'); b.textContent = ''; h.textContent = '';
+    if (r.burn && r.burn.open) {
+      b.hidden = false;
+      b.appendChild(el('div', 'BURN OPEN NOW', 'mono gold'));
+      b.appendChild(el('h2', r.burn.title || 'Burn your jars'));
+      if (r.burn.note) b.appendChild(el('div', r.burn.note, 'small'));
+      var each = r.burn.each || 1, most = Math.floor(r.jars / each) * each;
+      if (most < each) { b.appendChild(el('div', 'You need at least ' + each + (each === 1 ? ' jar' : ' jars') + ' to burn. You have ' + r.jars + '.', 'small')); }
+      else {
+        var lab = el('label', 'How many jars to burn' + (each > 1 ? ' (groups of ' + each + ')' : '')); lab.style.cssText = 'display:flex;flex-direction:column;gap:6px;max-width:260px';
+        var n = el('input'); n.type = 'number'; n.min = String(each); n.step = String(each); n.max = String(most); n.value = String(most); lab.appendChild(n); b.appendChild(lab);
+        var wl = el('label', 'Your wallet address (optional, for the NFT)'); wl.style.cssText = 'display:flex;flex-direction:column;gap:6px';
+        var w = el('input'); w.placeholder = '0x... or name.eth'; w.autocomplete = 'off'; wl.appendChild(w); b.appendChild(wl);
+        var go = el('button', 'Burn my jars', 'solid'); go.type = 'button'; go.style.alignSelf = 'flex-start'; b.appendChild(go);
+        var say = el('div', '', 'small'); say.setAttribute('role', 'status'); b.appendChild(say);
+        go.addEventListener('click', function () {
+          var k = Math.floor(Number(n.value));
+          if (!(k >= each) || k % each || k > r.jars) { say.textContent = 'Pick a number from ' + each + ' to ' + most + (each > 1 ? ', in groups of ' + each : '') + '.'; return; }
+          if (!confirm('Burn ' + k + (k === 1 ? ' jar' : ' jars') + '? Burned jars are gone for good.')) return;
+          go.disabled = true; say.textContent = 'Burning...';
+          fetch('/api/jars', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ t: tok, burn: k, wallet: w.value.trim() }) }).then(function (x) { return x.json(); }).then(function (x) {
+            go.disabled = false;
+            if (x.error) { say.textContent = x.error; return; }
+            draw(x); $('msg').textContent = 'Burned ' + k + (k === 1 ? ' jar' : ' jars') + '. Thank you!';
+          }, function () { go.disabled = false; say.textContent = 'Could not reach the site. Try again.'; });
+        });
+      }
+    } else b.hidden = true;
+    if (r.burns && r.burns.length) {
+      h.hidden = false; h.appendChild(el('b', 'Jars you have burned: ' + r.burned));
+      r.burns.forEach(function (x) { h.appendChild(el('div', new Date(x.at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ' · ' + x.n + (x.n === 1 ? ' jar' : ' jars') + (x.why ? ' · ' + x.why : '') + (x.wallet ? ' · to ' + x.wallet : ''), 'small')); });
+    } else h.hidden = true;
   }
   fetch('/api/jars?t=' + encodeURIComponent(tok), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (r) {
     if (r.error) { $('lead').textContent = r.error; $('signin').hidden = false; return; }

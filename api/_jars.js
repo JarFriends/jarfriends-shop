@@ -3,6 +3,8 @@
 // Every change is its own small file, jars/<email hash>/<time>.json, so nothing is ever overwritten:
 //   { email, adj: +1 or -1 }            the owner gave or took a jar
 //   { email, spent: 10, pass: <pid> }   ten jars used to open that piece's safe
+//   { email, burn: n, why, wallet, by }  n jars burned (by the customer in an open burn, or by the owner)
+// The burn the owner has open (if any) is jarburn/config.json: { open, title, note, each }.
 const crypto = require('crypto');
 const store = require('./_store');
 const gate = require('./_gate');
@@ -20,12 +22,12 @@ async function events(prefix) {
   } while (cursor);
   return (await Promise.all(out.sort().map((p) => store.read(p)))).filter(Boolean);
 }
-const fold = (evs) => evs.reduce((m, e) => { m.adj += Number(e.adj) || 0; m.spent += Number(e.spent) || 0; if (e.pass) m.passes[e.pass] = 1; return m; }, { adj: 0, spent: 0, passes: {} });
-const total = (earned, f) => Math.max(0, earned + f.adj - f.spent);
+const fold = (evs) => evs.reduce((m, e) => { m.adj += Number(e.adj) || 0; m.spent += Number(e.spent) || 0; m.burned += Number(e.burn) || 0; if (e.burn) m.burns.push({ n: Number(e.burn), at: e.at || 0, why: e.why || '', wallet: e.wallet || '', by: e.by || '' }); if (e.pass) m.passes[e.pass] = 1; return m; }, { adj: 0, spent: 0, burned: 0, burns: [], passes: {} });
+const total = (earned, f) => Math.max(0, earned + f.adj - f.spent - f.burned);
 
 async function summary(email) {
   const f = fold(await events('jars/' + hashOf(email) + '/')), earned = ((await gate.paidByEmail())[email] || { n: 0 }).n;
-  return { email: email, earned: earned, adj: f.adj, spent: f.spent, jars: total(earned, f), passes: f.passes, need: NEED };
+  return { email: email, earned: earned, adj: f.adj, spent: f.spent, burned: f.burned, burns: f.burns.sort((a, b) => b.at - a.at), jars: total(earned, f), passes: f.passes, need: NEED };
 }
 async function write(email, ev) { await store.write('jars/' + hashOf(email) + '/' + Date.now() + '.json', Object.assign({ email: email, at: Date.now() }, ev)); }
 const adjust = (email, by) => write(email, { adj: by });
@@ -43,7 +45,7 @@ async function all() {
   const paid = await gate.paidByEmail(), by = {};
   (await events('jars/')).forEach((e) => { if (e.email) (by[e.email] = by[e.email] || []).push(e); });
   const emails = Object.keys(paid).concat(Object.keys(by).filter((e) => !paid[e]));
-  return emails.map((e) => { const f = fold(by[e] || []), earned = (paid[e] || { n: 0 }).n; return { email: e, name: (paid[e] || {}).name || '', earned: earned, adj: f.adj, spent: f.spent, jars: total(earned, f), opened: Object.keys(f.passes).length }; }).sort((a, b) => b.jars - a.jars || a.email.localeCompare(b.email));
+  return emails.map((e) => { const f = fold(by[e] || []), earned = (paid[e] || { n: 0 }).n; return { email: e, name: (paid[e] || {}).name || '', earned: earned, adj: f.adj, spent: f.spent, burned: f.burned, burns: f.burns, jars: total(earned, f), opened: Object.keys(f.passes).length }; }).sort((a, b) => b.jars - a.jars || a.email.localeCompare(b.email));
 }
 // The locked Deal of the day safes, in order: [{ n, pid }].
 async function lockedSafes() {
@@ -51,4 +53,16 @@ async function lockedSafes() {
   const order = (await require('./_edits').apply(require('./_products'))).filter((p) => Number(p.deal) > 0).sort((a, b) => Number(a.deal) - Number(b.deal));
   return (dl.slots || []).map((s, i) => ({ n: s.n, state: s.state, pid: order[i] ? order[i].id : '', name: order[i] ? order[i].name : '' })).filter((s) => s.pid && dl.state[s.pid] === s.state);
 }
-module.exports = { NEED, summary, adjust, redeem, passes, hasPass, all, lockedSafes };
+// Burning jars. The owner opens a burn (what it is for, and how many jars each burn takes); while it is open,
+// customers burn jars on My jars. The owner can also burn a customer's jars from the back office.
+async function burnCfg() { return (await store.read('jarburn/config.json')) || { open: false, title: '', note: '', each: 1 }; }
+async function setBurnCfg(c) { await store.write('jarburn/config.json', c); return c; }
+async function burn(email, n, extra) {
+  const s = await summary(email);
+  n = Math.floor(Number(n));
+  if (!(n >= 1)) return { error: 'Pick how many jars to burn.' };
+  if (n > s.jars) return { error: 'There ' + (s.jars === 1 ? 'is only 1 jar' : 'are only ' + s.jars + ' jars') + ' to burn.' };
+  await write(email, Object.assign({ burn: n }, extra || {}));
+  return { ok: true };
+}
+module.exports = { NEED, summary, adjust, redeem, passes, hasPass, all, lockedSafes, burnCfg, setBurnCfg, burn };

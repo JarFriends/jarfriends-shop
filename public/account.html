@@ -121,13 +121,57 @@
       rows.appendChild(row('Order total', money(o.total)));
       rows.appendChild(row('Paid so far', money(o.paid)));
       rows.appendChild(row('Balance due', money(o.balance)));
+      if (o.ship) rows.appendChild(row('Ships to', o.ship));
       card.appendChild(rows);
+      if (o.edit) card.appendChild(addrForm(o));
       if (o.proof) { var a = el('a', null, 'View proof of payment'); a.href = o.proof; a.target = '_blank'; a.rel = 'noopener'; card.appendChild(a); }
       list.appendChild(card);
     });
     list.hidden = false; $('foot').hidden = false; $('foot').style.display = 'flex';
+    jarsCard();
   }
 
+  // Change the shipping address of an order that has not shipped yet.
+  function addrForm(o) {
+    var w = document.createElement('div'); w.style.cssText = 'display:flex;flex-direction:column;gap:10px;margin-top:6px';
+    var open = document.createElement('button'); open.type = 'button'; open.className = 'ghost'; open.textContent = 'Change shipping address'; open.style.alignSelf = 'flex-start';
+    w.appendChild(open);
+    open.addEventListener('click', function () {
+      open.hidden = true;
+      var f = document.createElement('div'); f.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px';
+      var mk = function (label, val, basis) { var l = document.createElement('label'); l.style.cssText = 'display:flex;flex-direction:column;gap:4px;flex:1 1 ' + basis + ';min-width:0'; l.appendChild(document.createTextNode(label)); var i = document.createElement('input'); i.value = val || ''; l.appendChild(i); f.appendChild(l); return i; };
+      var e = o.edit, nm = mk('Name', e.name, '100%'), st = mk('Street address', e.street, '100%'), l2 = mk('Apt, suite (optional)', e.line2, '100%'), ci = mk('City', e.city, '160px'), sa = mk(e.intl ? 'State / region (if any)' : 'State', e.state, '100px'), zp = mk(e.intl ? 'Postal code' : 'ZIP code', e.zip, '110px');
+      w.appendChild(f);
+      if (e.intl) { var cn = document.createElement('div'); cn.className = 'small dim'; cn.textContent = 'The country stays the same as on your order.'; w.appendChild(cn); }
+      var bar = document.createElement('div'); bar.style.cssText = 'display:flex;gap:10px;flex-wrap:wrap';
+      var save = document.createElement('button'); save.type = 'button'; save.className = 'solid'; save.textContent = 'Save new address';
+      var cancel = document.createElement('button'); cancel.type = 'button'; cancel.className = 'ghost'; cancel.textContent = 'Cancel';
+      bar.appendChild(save); bar.appendChild(cancel); w.appendChild(bar);
+      var say = document.createElement('div'); say.className = 'small'; say.setAttribute('role', 'status'); w.appendChild(say);
+      cancel.addEventListener('click', function () { load(); });
+      save.addEventListener('click', function () {
+        save.disabled = true; say.textContent = 'Saving...';
+        fetch('/api/orders', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ t: token, n: o.invoice, addr: { name: nm.value, street: st.value, line2: l2.value, city: ci.value, state: sa.value, zip: zp.value } }) }).then(function (r) { return r.json(); }).then(function (r) {
+          save.disabled = false;
+          if (r.error) { say.textContent = r.error; return; }
+          say.textContent = 'Saved. Your order will ship to: ' + r.ship; setTimeout(load, 1500);
+        }, function () { save.disabled = false; say.textContent = 'Could not reach the site. Try again.'; });
+      });
+    });
+    return w;
+  }
+  // How many jars this customer has, at the top of their orders.
+  function jarsCard() {
+    if ($('jarsTop')) return;
+    fetch('/api/jars?t=' + encodeURIComponent(token), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (r) {
+      if (r.error || r.jars == null || $('jarsTop')) return;
+      var c = document.createElement('a'); c.id = 'jarsTop'; c.href = '/jars.html'; c.className = 'card'; c.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:12px;text-decoration:none;color:inherit;border-color:#C9A45C';
+      var l = document.createElement('div'); var b = document.createElement('b'); b.textContent = 'You have ' + r.jars + (r.jars === 1 ? ' jar' : ' jars'); l.appendChild(b);
+      var sm = document.createElement('div'); sm.className = 'small'; sm.textContent = 'One jar for every paid order.' + (r.burn && r.burn.open ? ' A burn is open now: tap to see it.' : ' Tap to see your jars.'); l.appendChild(sm);
+      c.appendChild(l); var g = document.createElement('span'); g.className = 'gold'; g.textContent = 'My jars'; c.appendChild(g);
+      var list = $('list'); list.parentNode.insertBefore(c, list);
+    }).catch(function () {});
+  }
   $('out').addEventListener('click', function () {
     try { localStorage.removeItem(KEY); } catch (e) {}
     token = null; $('lead').textContent = 'You are signed out.'; signedOut('');

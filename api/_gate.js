@@ -36,7 +36,7 @@ async function paidByEmail() {
     const d = (await store.read(s.path)) || {}, e = String(d.email || '').trim().toLowerCase();
     if (!e) return;
     let paid = !/payment due/i.test(d.status || '');
-    if (!paid) paid = !!((await store.read('meta/' + s.n + '.json')) || {}).paidAt;
+    if (!paid) { const m = (await store.read('meta/' + s.n + '.json')) || {}; paid = !!(m.paidAt || m.shippedAt || m.labelPdf || (m.tracking && !m.testLabel)); }
     out[e] = out[e] || { n: 0, name: d.buyer || '' };
     if (paid) out[e].n++;
   }));
