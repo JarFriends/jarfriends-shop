@@ -21,9 +21,9 @@ async function passwordIn(email, pass, res) {
     tries.delete(email);
     return res.json({ token: sign({ bd: 1, e: email, x: now + 90 * 86400 }), created: false });
   }
-  const salt = crypto.randomBytes(16).toString('hex');
-  await store.write(key, { salt: salt, hash: hash(salt), at: Date.now() });
-  return res.json({ token: sign({ bd: 1, e: email, x: now + 90 * 86400 }), created: true });
+  // New accounts are made on the account page, which checks the email is really theirs. This old quick bidder
+  // sign-in no longer makes one, so nobody can claim someone else's email here.
+  return res.status(404).json({ error: 'No account with this email yet. Make one on the My account page (or use Continue with Google), then come back.' });
 }
 
 module.exports = async (req, res) => {

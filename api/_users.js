@@ -54,4 +54,16 @@ async function checkCode(email, code) {
   return 'ok';
 }
 
-module.exports = { h, get, put, setPassword, checkPassword, hasPassword, newCode, checkCode, tokenFor, skipCode, validEmail };
+// Emails that must always prove they are real with a code, even on a test site with ALLOW_UNVERIFIED on:
+// the owner, every seller, and anyone who has placed an order. Otherwise someone could open an account on that
+// email and see its orders, addresses or seller shop.
+async function guarded(email) {
+  email = String(email).trim().toLowerCase();
+  const list = [process.env.OWNER_EMAIL || ''].concat(String(process.env.SEED_SELLERS || '').split(',').map((x) => x.split('|')[1] || ''));
+  if (list.some((x) => x.trim().toLowerCase() === email)) return true;
+  if (await get(email).catch(() => true)) return true; // already has an account (Google, saved cards…)
+  try { if (await require('./_sellers').byEmail(email)) return true; } catch (e) { return true; }
+  try { return (await Promise.all((await store.sales()).map((s) => store.read(s.path)))).some((d) => d && String(d.email || '').trim().toLowerCase() === email); } catch (e) { return true; }
+}
+
+module.exports = { guarded, h, get, put, setPassword, checkPassword, hasPassword, newCode, checkCode, tokenFor, skipCode, validEmail };

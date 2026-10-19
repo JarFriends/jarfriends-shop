@@ -7,6 +7,8 @@
 const U = require('./_users');
 const { mail } = require('./_lib');
 
+// Accounts made before pwOk existed were confirmed when verified was set.
+const pwConfirmed = (u) => !!u && (u.pwOk === true || (u.pwOk === undefined && u.verified === true));
 const tries = new Map();
 const slow = (email) => { const t = tries.get(email); return t && t.n >= 8 && Date.now() - t.at < 15 * 60000; };
 const miss = (email) => { const t = tries.get(email) || { n: 0, at: 0 }; if (tries.size > 2000) tries.clear(); tries.set(email, { n: t.n + 1, at: Date.now() }); };
@@ -34,18 +36,23 @@ module.exports = async (req, res) => {
       if (pass.length > 200) return res.status(400).json({ error: 'That password is too long.' });
       if (slow(email)) return res.status(429).json({ error: 'Too many tries. Wait 15 minutes, or sign in with Google.' });
       const has = await U.hasPassword(email);
+      // Test sites can skip the emailed code, but never for the owner, sellers or past buyers (see _users.guarded).
+      const skip = U.skipCode() && !(await U.guarded(email));
       if (b.do === 'signup') {
-        if (has) return res.status(409).json({ error: 'This email already has an account. Sign in instead.' });
+        // An account that never confirmed its email can be started again (by whoever really owns the email).
+        if (has) { const u0 = await U.get(email); if (!u0 || pwConfirmed(u0)) return res.status(409).json({ error: 'This email already has an account. Sign in instead.' }); }
         await U.setPassword(email, pass);
-        await U.put(email, { name: String(b.name || '').replace(/\s+/g, ' ').trim().slice(0, 80), verified: U.skipCode() });
+        // pwOk: this password has been confirmed with the emailed code. A new password always starts unconfirmed,
+        // even on an account that already exists through Google.
+        await U.put(email, Object.assign({ name: String(b.name || '').replace(/\s+/g, ' ').trim().slice(0, 80), pwOk: skip }, skip ? { verified: true } : {}));
       } else {
         if (!has) return res.status(404).json({ error: 'No account with this email yet. Create one, or sign in with Google.' });
         if (!(await U.checkPassword(email, pass))) { miss(email); return res.status(401).json({ error: 'That password is not right. Try again, or sign in with Google.' }); }
         tries.delete(email);
       }
       const u = await U.get(email);
-      if ((u && u.verified) || U.skipCode()) {
-        if (!u || !u.verified) await U.put(email, { verified: true });
+      if ((u && pwConfirmed(u)) || skip) {
+        if (!u || !pwConfirmed(u)) await U.put(email, { verified: true, pwOk: true });
         return res.json({ token: U.tokenFor(email), created: b.do === 'signup' });
       }
       const sent = await sendCode(email, host);
@@ -54,7 +61,7 @@ module.exports = async (req, res) => {
     }
     if (b.do === 'verify') {
       const r = await U.checkCode(email, b.code);
-      if (r === 'ok') { await U.put(email, { verified: true }); return res.json({ token: U.tokenFor(email) }); }
+      if (r === 'ok') { await U.put(email, { verified: true, pwOk: true }); return res.json({ token: U.tokenFor(email) }); }
       return res.status(400).json({ error: r === 'wrong' ? 'That code is not right. Check the email and try again.' : r === 'tries' ? 'Too many wrong codes. Ask for a new one.' : 'That code has run out. Ask for a new one.' });
     }
     if (b.do === 'resend') {
