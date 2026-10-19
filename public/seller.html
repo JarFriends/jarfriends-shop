@@ -152,13 +152,13 @@
     if (t.unpaidGross) wrap.appendChild(el('div', JF.cents(t.unpaidGross) + ' more is in orders waiting for the buyer to pay. It counts once they pay.', 'small dim'));
     var tabs = el('div', null, 'jf-tabs');
     var toShip = D.orders.filter(function (o) { return o.paid && !o.tracking; }).length;
-    [['listings', 'My pieces (' + D.listings.length + ')'], ['posts', 'Community posts'], ['reviews', 'Reviews (' + ((D.reviews || []).length) + ')'], ['offers', 'Offers'], ['orders', 'Orders' + (toShip ? ' · ' + toShip + ' to ship' : '')], ['payouts', 'Payouts'], ['settings', 'Shop settings']].forEach(function (x) {
+    [['listings', 'My pieces (' + D.listings.length + ')'], ['posts', 'Community posts'], ['reviews', 'Reviews (' + ((D.reviews || []).length) + ')'], ['offers', 'Offers'], ['trades', 'Trades'], ['orders', 'Orders' + (toShip ? ' · ' + toShip + ' to ship' : '')], ['payouts', 'Payouts'], ['profit', 'Profit'], ['settings', 'Shop settings']].forEach(function (x) {
       var b = el('button', x[1], 'pill'); b.type = 'button'; b.setAttribute('aria-pressed', tab === x[0] ? 'true' : 'false');
       b.addEventListener('click', function () { tab = x[0]; editing = null; adding = false; dash(); }); tabs.appendChild(b);
     });
     wrap.appendChild(tabs);
     var pane = el('div'); pane.style.cssText = 'display:flex;flex-direction:column;gap:18px';
-    ({ listings: listings, posts: posts, reviews: reviews, offers: offers, orders: orders, payouts: payouts, settings: settings })[tab](pane);
+    ({ listings: listings, posts: posts, reviews: reviews, offers: offers, trades: trades, orders: orders, payouts: payouts, profit: profit, settings: settings })[tab](pane);
     wrap.appendChild(pane);
     var out = el('button', 'Sign out', 'ghost'); out.type = 'button'; out.style.alignSelf = 'flex-start';
     out.addEventListener('click', function () { if (AS) { location.href = '/admin.html'; return; } JF.signOut(); location.reload(); });
@@ -213,6 +213,8 @@
     var hoursL = field('Auction length', hours, live ? 'Ends ' + new Date(p.auction.ends).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) + '. Last-minute bids add 2 minutes.' : 'Last-minute bids add 2 minutes, so nobody wins by sniping.');
     var minL = field('Lowest offer you will look at (USD)', minOffer, 'Offers under this are declined for you automatically. You answer the rest in the Offers tab.');
     f.appendChild(hoursL); f.appendChild(minL);
+    var cost = input('number', p && p.cost != null ? p.cost : '', { min: '0', step: '0.01', inputmode: 'decimal', placeholder: 'Optional' });
+    f.appendChild(field('What you paid for it (USD, each)', cost, 'Private: only you see this. When it sells, the Profit tab shows what you made.'));
     var showMode = function () { var a = mode.value === 'auction'; hoursL.hidden = !a; minL.hidden = a; stockL.hidden = a; priceL.firstChild.textContent = a ? 'Starting bid (USD)' : 'Price (USD)'; };
     mode.addEventListener('change', showMode); showMode();
     f.appendChild(field('Shipping', shipMode));
@@ -239,7 +241,7 @@
     c.appendChild(f);
     f.addEventListener('submit', function (ev) {
       ev.preventDefault(); go.disabled = true; m.textContent = 'Saving…';
-      JF.api('/api/market', { do: 'listing', t: tok, as: AS, ak: AK, id: p ? p.id : '', name: name.value, desc: desc.value, price: price.value, stock: mode.value === 'auction' ? 1 : stock.value, shipping: ship.value, shipMode: shipMode.value, pkgPreset: pf.read().preset, pkgOz: pf.read().oz, pkgL: pf.read().l, pkgW: pf.read().w, pkgH: pf.read().h, section: sec.value, hidden: hidden.checked, mode: mode.value, hours: hours.value, minOffer: mode.value === 'auction' ? '' : minOffer.value }).then(function (r) {
+      JF.api('/api/market', { do: 'listing', t: tok, as: AS, ak: AK, id: p ? p.id : '', cost: cost.value, name: name.value, desc: desc.value, price: price.value, stock: mode.value === 'auction' ? 1 : stock.value, shipping: ship.value, shipMode: shipMode.value, pkgPreset: pf.read().preset, pkgOz: pf.read().oz, pkgL: pf.read().l, pkgW: pf.read().w, pkgH: pf.read().h, section: sec.value, hidden: hidden.checked, mode: mode.value, hours: hours.value, minOffer: mode.value === 'auction' ? '' : minOffer.value }).then(function (r) {
         if (r.error) { go.disabled = false; m.textContent = r.error; return; }
         var file = photo.files && photo.files[0];
         if (!file) return finish();
@@ -319,6 +321,46 @@
     });
   }
   // Offers on my pieces: accept, counter or decline. The buyer gets an email with a checkout link at the agreed price.
+  // Trade requests: a buyer's photo, message and money either way. Accept or pass; on accept both get emails.
+  function trades(pane) {
+    var c = el('section', null, 'card'); c.style.gap = '12px';
+    c.appendChild(el('h2', 'Trade requests'));
+    c.appendChild(el('div', 'Buyers can offer something of theirs for one of your pieces. Accept and you both get each other\'s email to arrange the swap; pass and they get a polite no. Accepting does not mark the piece sold, so hide it or lower its stock once you agree.', 'small dim'));
+    var list = el('div', 'Loading…'); c.appendChild(list); pane.appendChild(c);
+    JF.api('/api/market?do=trades&t=' + encodeURIComponent(tok) + (AS ? '&as=' + encodeURIComponent(AS) + '&ak=' + encodeURIComponent(AK) : '')).then(function (r) {
+      list.textContent = '';
+      if (r.error) { list.textContent = r.error; return; }
+      if (!r.trades.length) { list.appendChild(el('div', 'No trade requests yet.', 'jf-empty')); return; }
+      r.trades.forEach(function (t) {
+        var row = el('div', null, 'jf-row'); row.style.alignItems = 'flex-start';
+        if (t.photoUrl) { var a = el('a'); a.href = t.photoUrl; a.target = '_blank'; var im = el('img'); im.src = t.photoUrl; im.alt = 'What they offer'; im.style.cssText = 'width:110px;height:110px;object-fit:cover;border-radius:4px'; a.appendChild(im); row.appendChild(a); }
+        var mid = el('div'); mid.style.cssText = 'flex:1;min-width:0;display:flex;flex-direction:column;gap:6px';
+        mid.appendChild(el('b', 'For your ' + t.product));
+        mid.appendChild(el('span', t.status === 'pending' ? 'NEEDS YOUR ANSWER' : t.status.toUpperCase(), 'jf-badge ' + (t.status === 'accepted' ? 'ok' : t.status === 'pending' ? 'wait' : 'off')));
+        mid.appendChild(el('div', t.text, 'small'));
+        mid.appendChild(el('div', t.dir === 'add' ? 'They add ' + JF.cents(t.diff) + ' on top' : t.dir === 'ask' ? 'They want ' + JF.cents(t.diff) + ' back' : 'Even swap, no money', 'small'));
+        mid.appendChild(el('div', new Date(t.at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) + (t.status === 'accepted' ? ' · their email: ' + t.email : ''), 'small dim'));
+        if (t.reply) mid.appendChild(el('div', 'Your reply: ' + t.reply, 'small'));
+        if (t.status === 'pending') {
+          var rt = el('textarea'); rt.rows = 2; rt.maxLength = 1000; rt.placeholder = 'Optional message to them'; rt.style.cssText = 'font:inherit;font-size:15px;padding:8px 10px;background:#0E0F13;border:1px solid #4A4F5E;color:#F7F2E6;border-radius:2px';
+          mid.appendChild(rt);
+          var acts = el('div'); acts.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap';
+          var m = el('span', '', 'small');
+          [['Accept trade', true, 'solid'], ['Pass', false, 'ghost']].forEach(function (x) {
+            var bt = el('button', x[0], x[2]); bt.type = 'button';
+            bt.addEventListener('click', function () {
+              if (x[1] && !confirm('Accept this trade? You will both get each other\'s email to arrange it.')) return;
+              bt.disabled = true;
+              JF.api('/api/market', { do: 'trade-answer', t: tok, as: AS, ak: AK, id: t.id, yes: x[1], text: rt.value }).then(function (y) { if (y.error) { m.textContent = y.error; bt.disabled = false; return; } pane.textContent = ''; trades(pane); });
+            });
+            acts.appendChild(bt);
+          });
+          acts.appendChild(m); mid.appendChild(acts);
+        }
+        row.appendChild(mid); list.appendChild(row);
+      });
+    }).catch(function () { list.textContent = 'Could not load trades. Try again.'; });
+  }
   function offers(pane) {
     pane.appendChild(el('div', 'Buyers can offer less than your price on buy-now pieces. Accepting holds the piece for them for 3 hours while they pay.', 'small dim'));
     var box = el('div'); box.style.cssText = 'display:flex;flex-direction:column;gap:14px'; box.textContent = 'Loading offers…'; pane.appendChild(box);
@@ -462,6 +504,78 @@
     }
     c.appendChild(m);
     return c;
+  }
+  // Profit on every paid sale, for the seller's own books and taxes, with a spreadsheet download for any year.
+  function profit(pane) {
+    var rows = D.profit || [];
+    var years = {}; rows.forEach(function (r) { years[new Date(r.at).getFullYear()] = 1; });
+    var ys = Object.keys(years).sort().reverse(); if (!ys.length) ys = [String(new Date().getFullYear())];
+    var c = el('section', null, 'card'); c.style.gap = '14px';
+    c.appendChild(el('h2', 'Profit'));
+    c.appendChild(el('div', 'Add what you paid for each piece (Change on the piece, "What you paid for it"). When it sells, its profit shows here: what you sold it for, minus the V2V fee, your shipping label, what you paid, and any other costs you add. Only you see this.', 'small dim'));
+    var bar = el('div'); bar.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end';
+    var yr = select([['all', 'All years']].concat(ys.map(function (y) { return [y, y]; })), ys[0]);
+    bar.appendChild(field('Year', yr));
+    var dl = el('button', 'Download spreadsheet', 'solid'); dl.type = 'button'; bar.appendChild(dl);
+    c.appendChild(bar);
+    var tiles = el('div', null, 'jf-tiles'); c.appendChild(tiles);
+    var list = el('div'); c.appendChild(list);
+    pane.appendChild(c);
+    var pick = function () { return rows.filter(function (r) { return yr.value === 'all' || String(new Date(r.at).getFullYear()) === yr.value; }); };
+    var money = function (v) { return v == null ? '' : (v < 0 ? '-' : '') + JF.cents(Math.abs(v)); };
+    function draw() {
+      var rs = pick(), t = { gross: 0, fee: 0, label: 0, cost: 0, other: 0, profit: 0, missing: 0 };
+      rs.forEach(function (r) { t.gross += r.gross; t.fee += r.fee; t.label += r.label; t.other += r.other; if (r.cost == null) t.missing++; else { t.cost += r.cost; t.profit += r.profit; } });
+      tiles.textContent = '';
+      [['SALES', JF.cents(t.gross), ''], ['V2V FEES', JF.cents(t.fee), ''], ['LABELS', JF.cents(t.label), ''], ['WHAT YOU PAID', JF.cents(t.cost), ''], ['OTHER COSTS', JF.cents(t.other), ''], ['PROFIT', money(t.profit), 'gold']].forEach(function (x) {
+        var d = el('div', null, 'jf-tile ' + x[2]); d.appendChild(el('span', x[0], 'label')); d.appendChild(el('b', x[1])); tiles.appendChild(d);
+      });
+      list.textContent = '';
+      if (t.missing) list.appendChild(el('div', t.missing + (t.missing === 1 ? ' sale has' : ' sales have') + ' no cost yet, so they are left out of the profit. Add it below.', 'alert small'));
+      if (!rs.length) { list.appendChild(el('div', 'No paid sales in this year yet.', 'jf-empty')); return; }
+      rs.forEach(function (r) {
+        var row = el('div', null, 'jf-row'); row.style.flexDirection = 'column'; row.style.alignItems = 'stretch';
+        var top = el('div'); top.style.cssText = 'display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px';
+        top.appendChild(el('b', r.product + (r.q > 1 ? ' x ' + r.q : '')));
+        top.appendChild(el('b', r.profit == null ? 'Add the cost' : 'Profit ' + money(r.profit), r.profit == null ? 'dim' : r.profit < 0 ? '' : 'gold'));
+        row.appendChild(top);
+        row.appendChild(el('div', new Date(r.at).toLocaleDateString('en-US', { dateStyle: 'medium' }) + ' · order ' + r.n + ' · sold ' + JF.cents(r.gross) + ' · V2V fee ' + JF.cents(r.fee) + (r.label ? ' · label ' + JF.cents(r.label) : ''), 'small dim'));
+        var ed = el('div'); ed.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-top:6px';
+        var ci = input('number', r.cost == null ? '' : (r.cost / 100).toFixed(2), { min: '0', step: '0.01', inputmode: 'decimal' });
+        var oi = input('number', r.other ? (r.other / 100).toFixed(2) : '', { min: '0', step: '0.01', inputmode: 'decimal', placeholder: '0.00' });
+        var ni = input('text', r.note || '', { maxlength: '200', placeholder: 'Supplies, card fee…' });
+        [[field('What you paid (total)', ci), '1 1 130px'], [field('Other costs', oi), '1 1 110px'], [field('Note', ni), '2 1 180px']].forEach(function (x) { x[0].style.flex = x[1]; x[0].style.minWidth = '0'; ed.appendChild(x[0]); });
+        var sv = el('button', 'Save', 'ghost'); sv.type = 'button'; ed.appendChild(sv);
+        var m = el('span', '', 'small'); ed.appendChild(m);
+        sv.addEventListener('click', function () {
+          sv.disabled = true;
+          JF.api('/api/market', { do: 'cost-set', t: tok, as: AS, ak: AK, n: r.n, cost: ci.value, other: oi.value, note: ni.value }).then(function (x) {
+            sv.disabled = false; if (x.error) { m.textContent = x.error; return; }
+            r.cost = ci.value === '' ? null : Math.round(Number(ci.value) * 100); r.other = oi.value === '' ? 0 : Math.round(Number(oi.value) * 100); r.note = ni.value;
+            r.profit = r.cost == null ? null : r.net - r.label - r.cost - r.other; draw();
+          });
+        });
+        row.appendChild(ed);
+        list.appendChild(row);
+      });
+    }
+    yr.addEventListener('change', draw); draw();
+    // The spreadsheet: a CSV file, which Excel, Numbers and Google Sheets all open.
+    dl.addEventListener('click', function () {
+      var q = function (v) { v = v == null ? '' : String(v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+      var d2 = function (c) { return c == null ? '' : (c / 100).toFixed(2); };
+      var lines = [['Date', 'Order', 'Item', 'Quantity', 'Paid with', 'Sale (pieces + shipping)', 'V2V fee', 'Shipping label', 'What you paid', 'Other costs', 'Profit', 'Note'].join(',')];
+      var rs = pick().slice().sort(function (a, b) { return a.at - b.at; }), tot = [0, 0, 0, 0, 0, 0];
+      rs.forEach(function (r) {
+        lines.push([new Date(r.at).toISOString().slice(0, 10), r.n, r.product, r.q, r.pay, d2(r.gross), d2(r.fee), d2(r.label), d2(r.cost), d2(r.other), d2(r.profit), r.note].map(q).join(','));
+        tot[0] += r.gross; tot[1] += r.fee; tot[2] += r.label; tot[3] += r.cost || 0; tot[4] += r.other; tot[5] += r.profit || 0;
+      });
+      lines.push(['Total', '', '', '', '', d2(tot[0]), d2(tot[1]), d2(tot[2]), d2(tot[3]), d2(tot[4]), d2(tot[5]), ''].map(q).join(','));
+      var blob = new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+      var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+      a.download = (D.seller.slug || 'shop') + '-profit-' + (yr.value === 'all' ? 'all-years' : yr.value) + '.csv';
+      document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    });
   }
   function payouts(pane) {
     pane.appendChild(stripeCard());

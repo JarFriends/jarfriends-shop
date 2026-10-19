@@ -125,7 +125,7 @@ async function products() {
   const sellers = {};
   (await all()).forEach((s) => { sellers[s.slug] = s; });
   return (await listings()).filter((p) => sellers[p.seller] && sellers[p.seller].status === 'approved' && !p.hidden)
-    .map((p) => Object.assign({}, p, { section: sectionOf(p), sellerName: sellers[p.seller].name, shelf: false }));
+    .map((p) => { const o = Object.assign({}, p, { section: sectionOf(p), sellerName: sellers[p.seller].name, shelf: false }); delete o.cost; return o; }); // cost is private to the seller
 }
 const isSellerPid = (id) => /^S[0-9A-Z]{5,19}$/.test(String(id || ''));
 // One listing saved by its seller. New listings get an id starting with S.
@@ -153,6 +153,10 @@ async function saveListing(seller, f) {
     pkg.length = d[0]; pkg.width = d[1]; pkg.height = d[2];
   }
   const section = SECTIONS.indexOf(f.section) >= 0 ? f.section : '';
+  // What the seller paid for one piece. Private: only the seller sees it, for their profit numbers.
+  const costRaw = String(f.cost == null ? '' : f.cost).replace(/[^0-9.]/g, '');
+  const cost = costRaw === '' ? null : Math.round(Number(costRaw) * 100) / 100;
+  if (cost != null && !(cost >= 0 && cost <= 1000000)) return { error: 'What you paid: enter a dollar amount, or leave it empty.' };
   // Lowest offer the seller will look at: anything under it is declined on the spot. Optional.
   const minOffer = f.minOffer === '' || f.minOffer == null ? 0 : Math.round(Number(String(f.minOffer).replace(/[^0-9.]/g, '')) * 100) / 100;
   if (minOffer && !(minOffer > 0 && minOffer < price)) return { error: 'The lowest offer must be under the price.' };
@@ -175,7 +179,7 @@ async function saveListing(seller, f) {
     else if (!(hrs >= 1 && hrs <= 336)) return { error: 'An auction runs from 1 hour to 14 days.' };
     else auction = { start: price, ends: new Date(Date.now() + hrs * 3600000).toISOString() };
   }
-  const p = Object.assign({}, was || {}, { id: id, seller: seller.slug, name: name, desc: tidy(f.desc, 1200), price: price, min: 1, stock: auction ? 1 : stock, shipping: ship, section: section, sectionSet: !!section, hidden: !!f.hidden, minOffer: auction ? 0 : minOffer, auction: auction, shipMode: shipMode, pkg: pkg, updated: Date.now() }, was ? {} : { created: Date.now() });
+  const p = Object.assign({}, was || {}, { id: id, seller: seller.slug, name: name, desc: tidy(f.desc, 1200), price: price, min: 1, stock: auction ? 1 : stock, shipping: ship, section: section, sectionSet: !!section, cost: cost, hidden: !!f.hidden, minOffer: auction ? 0 : minOffer, auction: auction, shipMode: shipMode, pkg: pkg, updated: Date.now() }, was ? {} : { created: Date.now() });
   await store.write('market/' + seller.slug + '/' + id + '.json', p);
   forget();
   return { listing: p };
@@ -222,6 +226,30 @@ async function ledger(slug) {
       labelCost: m.labelCost || 0, labelEarn: m.labelFromEarnings || 0, labelCard: m.labelFromCard || 0, labelPdf: m.labelPdf || '' };
   }));
   return rows.sort((a, b) => b.at - a.at);
+}
+// Profit on each paid sale: what the seller kept from V2V (sales minus the V2V fee), minus their label cost, what
+// they paid for the piece and any other costs they add. cogs/<slug>/<order>.json { cost, other, note } in cents.
+// The piece's cost is copied onto the sale the first time it is seen paid, so changing it later never rewrites old
+// sales; the seller can still correct one sale by hand.
+async function profit(slug, rows) {
+  const mine = {};
+  (await listings()).forEach((p) => { if (p.seller === slug) mine[p.id] = p; });
+  return Promise.all(rows.filter((r) => r.paid).map(async (r) => {
+    let c = await store.read('cogs/' + slug + '/' + r.n + '.json');
+    const l = mine[r.pid];
+    if (!c && l && l.cost != null) { c = { cost: Math.round(l.cost * 100) * r.q, other: 0, note: '', auto: true, at: Date.now() }; await store.write('cogs/' + slug + '/' + r.n + '.json', c).catch(() => null); }
+    c = c || {};
+    const known = c.cost != null;
+    return { n: r.n, at: r.at, product: r.product, q: r.q, pay: r.pay, gross: r.gross, fee: r.fee, net: r.net, label: r.labelCost || 0,
+      cost: known ? c.cost : null, other: c.other || 0, note: c.note || '', profit: known ? r.net - (r.labelCost || 0) - c.cost - (c.other || 0) : null };
+  }));
+}
+async function setCost(slug, n, f) {
+  const cents = (v) => { const s = String(v == null ? '' : v).replace(/[^0-9.]/g, ''); return s === '' ? null : Math.round(Number(s) * 100); };
+  const cost = cents(f.cost), other = cents(f.other) || 0;
+  if ((cost != null && !(cost >= 0 && cost <= 1e8)) || !(other >= 0 && other <= 1e8)) return { error: 'Enter dollar amounts.' };
+  await store.write('cogs/' + slug + '/' + n + '.json', { cost: cost, other: other, note: String(f.note || '').slice(0, 200), at: Date.now() });
+  return { ok: true };
 }
 async function payouts(slug) {
   const v = (await Promise.all((await paths('payouts/' + (slug ? slug + '/' : ''))).map(async (p) => {
@@ -347,4 +375,4 @@ async function notifySale(n, kind) {
   return mail(seller.email, (paid ? 'Paid, ship it: ' : 'New order (not paid yet): ') + (d.product || 'your piece'), lines, 'seller-sale-' + n + '-' + (paid ? 'paid' : 'placed')).catch((e) => { console.error('SELLER_NOTIFY_FAIL', n, String(e && e.message || e)); return 'failed'; });
 }
 
-module.exports = { giveawayPct, sellerOf, offerTo, notifySale, reviews, saveReview, removeReview, stats, statsAll, statsFrom, shortName, completed, VERIFY_AFTER, posts, addPost, removePost, feePct, autoApprove, all, bySlug, byEmail, save, apply, pub, listings, products, isSellerPid, saveListing, setListing, removeListing, ledger, payouts, addPayout, totals, hashOf, SECTIONS, sectionOf, forget };
+module.exports = { profit, setCost, giveawayPct, sellerOf, offerTo, notifySale, reviews, saveReview, removeReview, stats, statsAll, statsFrom, shortName, completed, VERIFY_AFTER, posts, addPost, removePost, feePct, autoApprove, all, bySlug, byEmail, save, apply, pub, listings, products, isSellerPid, saveListing, setListing, removeListing, ledger, payouts, addPayout, totals, hashOf, SECTIONS, sectionOf, forget };

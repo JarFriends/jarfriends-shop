@@ -27,7 +27,10 @@ const KINDS = [
   { id: 'offer-reply', who: 'Buyers', name: 'Offer declined or countered', re: /^About your offer on/i, about: 'Tells a buyer the seller declined their offer or made a counter offer.' },
   { id: 'offer-late', who: 'Buyers', name: 'Accepted offer running out', re: /^Your offer on .+ runs out soon/i, about: 'Reminds a buyer to pay for an accepted offer before it runs out.' },
   { id: 'news', who: 'Buyers', name: 'New pieces and price drops', re: /^(New at |Price drop:|\d+ (new pieces|price drops) at )|plus what is new at/i, about: 'Announcements to people who signed up for news: new pieces and lower prices.' },
+  { id: 'trade-answer', who: 'Buyers', name: 'Trade answered', re: /^(Trade accepted:|About your trade for)/i, about: 'Tells a buyer the seller accepted (with how to reach them) or passed on their trade.' },
   // Sellers
+  { id: 'trade-new', who: 'Sellers', name: 'New trade request', re: /^Trade request:/i, about: 'Tells a seller someone wants to trade for one of their pieces.' },
+  { id: 'trade-accepted', who: 'Sellers', name: 'Trade accepted (to the seller)', re: /^You accepted a trade:/i, about: 'Gives the seller the buyer\'s email after they accept a trade.' },
   { id: 'seller-sale', who: 'Sellers', name: 'New sale (to the seller)', re: /^(Paid, ship it|New order \(not paid yet\)):/i, about: 'Tells a seller they made a sale, and when it is paid and ready to ship.' },
   { id: 'seller-open', who: 'Sellers', name: 'Seller shop approved', re: /seller shop is open$/i, about: 'Tells a new seller their shop is approved and open.' },
   { id: 'seller-paid', who: 'Sellers', name: 'Payout sent', re: /sent you \$/i, about: 'Tells a seller you sent them money for their sales.' },

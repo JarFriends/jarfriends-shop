@@ -59,6 +59,7 @@
     var links = el('div'); links.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px';
     [['My orders', '/account.html'], ['My wishlist', '/wishlist.html'], ['Browse the market', '/market.html']].forEach(function (x) { var a = el('a', x[0], 'ghost'); a.href = x[1]; a.style.textDecoration = 'none'; links.appendChild(a); });
     wrap.appendChild(links);
+    wrap.appendChild(tradeCard());
     wrap.appendChild(reviewCard());
     wrap.appendChild(payCard());
     wrap.appendChild(addrCard());
@@ -70,6 +71,33 @@
   }
 
   // Review your purchases: every shipped order from a seller, with a 1-5 star pick and a few words.
+  // Trades the buyer has sent, with the seller's answer.
+  function tradeCard() {
+    var c = el('section', null, 'card'); c.style.gap = '6px'; c.hidden = true;
+    c.appendChild(el('h2', 'My trade requests'));
+    JF.api('/api/market?do=mytrades&t=' + encodeURIComponent(tok)).then(function (r) {
+      if (!r.trades || !r.trades.length) return;
+      c.hidden = false;
+      var money = function (t) { return t.dir === 'add' ? 'you add ' + JF.cents(t.diff) : t.dir === 'ask' ? 'you get ' + JF.cents(t.diff) + ' back' : 'even swap'; };
+      r.trades.forEach(function (t) {
+        var row = el('div', null, 'jf-row');
+        if (t.photoUrl) { var im = el('img'); im.src = t.photoUrl; im.alt = ''; im.style.cssText = 'width:64px;height:64px;object-fit:cover;border-radius:4px'; row.appendChild(im); }
+        var mid = el('div'); mid.style.cssText = 'flex:1;min-width:0;display:flex;flex-direction:column;gap:4px';
+        mid.appendChild(el('b', 'For: ' + t.product));
+        mid.appendChild(el('span', t.status === 'pending' ? 'WAITING FOR THE SELLER' : t.status === 'accepted' ? 'ACCEPTED' : t.status === 'declined' ? 'PASSED' : 'WITHDRAWN', 'jf-badge ' + (t.status === 'accepted' ? 'ok' : t.status === 'pending' ? 'wait' : 'off')));
+        mid.appendChild(el('div', t.text + ' · ' + money(t), 'small'));
+        if (t.reply) mid.appendChild(el('div', 'Seller: ' + t.reply, 'small'));
+        if (t.status === 'accepted') mid.appendChild(el('div', 'Check your email for the seller\'s address to arrange the swap.', 'small dim'));
+        if (t.status === 'pending') {
+          var w = el('button', 'Withdraw', 'ghost'); w.type = 'button'; w.style.alignSelf = 'flex-start';
+          w.addEventListener('click', function () { if (!confirm('Withdraw this trade request?')) return; w.disabled = true; JF.api('/api/market', { do: 'trade-withdraw', t: tok, slug: t.slug, id: t.id }).then(function (x) { if (x.error) { alert(x.error); w.disabled = false; return; } location.reload(); }); });
+          mid.appendChild(w);
+        }
+        row.appendChild(mid); c.appendChild(row);
+      });
+    }).catch(function () {});
+    return c;
+  }
   function reviewCard() {
     var c = el('section', null, 'card'); c.style.gap = '6px'; c.hidden = true;
     c.appendChild(el('h2', 'Review your purchases'));

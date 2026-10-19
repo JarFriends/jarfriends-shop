@@ -243,6 +243,19 @@ module.exports = async (req, res) => {
       await M.saveReview(row.seller, r);
       return res.json({ ok: true });
     }
+    // ---------- Trades, as a buyer (see _trades.js) ----------
+    if (what === 'mytrades') return res.json({ trades: await require('./_trades').forBuyer(me) });
+    if (what === 'trade' && req.method === 'POST') {
+      const T = require('./_trades');
+      const buf = b.data ? Buffer.from(String(b.data).replace(/^data:image\/jpeg;base64,/, ''), 'base64') : null;
+      if (buf && (buf.length < 1000 || buf.length > 1500000 || buf[0] !== 0xFF || buf[1] !== 0xD8)) return res.status(400).json({ error: 'That photo could not be used. Try another one.' });
+      const r = await T.create(me, b, buf);
+      if (r.error) return res.status(400).json(r);
+      const t = r.trade, host = 'https://' + req.headers.host;
+      await mail(r.seller.email, 'Trade request: ' + t.product, ['Someone wants to trade for your ' + t.product + '.', '', 'Their offer: ' + t.text, 'Money: ' + T.terms(t) + '.', '', 'See their photo and answer in your store office, Trades tab:', host + '/seller.html'], 'trade-new-' + t.id).catch(() => null);
+      return res.json({ ok: true, trade: t });
+    }
+    if (what === 'trade-withdraw' && req.method === 'POST') { const r = await require('./_trades').withdraw(me, b.slug, b.id); return res.status(r.error ? 400 : 200).json(r); }
     let seller = await M.byEmail(me);
     // The owner's own shops (SEED_SELLERS) open only from the back office or an emailed sign-in link, never from a
     // password sign-in, since anyone could set a password for an email they do not own.
@@ -261,9 +274,15 @@ module.exports = async (req, res) => {
       const myReviews = (await M.reviews(seller.slug)).map((r) => ({ n: r.n, stars: r.stars, text: r.text || '', name: r.name, product: r.product || '', at: r.at, reply: r.reply || '' }));
       const feed = (await M.posts(seller.slug, 50)).map((x) => Object.assign({}, x, { photoUrl: x.photo ? '/api/photo?id=' + x.id + '&v=' + x.photo : '' }));
       const st = stripeBase.ready() ? await connect.status(seller).catch(() => ({ state: 'unknown' })) : { state: 'off' };
-      return res.json({ email: me, seller: seller, fee: M.feePct(), sections: M.SECTIONS, listings: listings, orders: orders, payouts: outs, totals: M.totals(rows, outs), posts: feed, stripe: st, stats: myStats, reviews: myReviews, presets: require('./_ship').PRESETS, labelsOn: require('./_ship').ready() });
+      const prof = await M.profit(seller.slug, rows);
+      return res.json({ email: me, seller: seller, fee: M.feePct(), sections: M.SECTIONS, listings: listings, orders: orders, profit: prof, payouts: outs, totals: M.totals(rows, outs), posts: feed, stripe: st, stats: myStats, reviews: myReviews, presets: require('./_ship').PRESETS, labelsOn: require('./_ship').ready() });
     }
     // Offers on my pieces. A pending one carries its answer key (t) for /api/offer: accept, counter or decline.
+    // ---------- Trades, as the seller ----------
+    if (what === 'trades') {
+      if (!seller) return res.status(403).json({ error: 'Open a seller shop first.' });
+      return res.json({ trades: await require('./_trades').forSeller(seller.slug) });
+    }
     if (what === 'offers') {
       if (!seller) return res.status(403).json({ error: 'Open a seller shop first.' });
       const mine = {};
@@ -361,6 +380,24 @@ module.exports = async (req, res) => {
       return res.json(r);
     }
     if (what === 'unpost') return res.json({ ok: await M.removePost(seller, b.id) });
+    if (what === 'trade-answer') {
+      const T = require('./_trades');
+      const r = await T.answer(seller.slug, b.id, !!b.yes, b.text);
+      if (r.error) return res.status(400).json(r);
+      const t = r.trade;
+      if (t.status === 'accepted') {
+        await mail(t.email, 'Trade accepted: ' + t.product, [seller.name + ' accepted your trade for ' + t.product + ' (' + T.terms(t) + ').', t.reply ? 'Their message: ' + t.reply : '', '', 'Write to them to agree how you will swap and send the pieces: ' + seller.email, 'Your email has been given to them too.'], 'trade-yes-' + t.id).catch(() => null);
+        await mail(seller.email, 'You accepted a trade: ' + t.product, ['You accepted a trade for ' + t.product + ' (' + T.terms(t) + ').', '', 'Their offer: ' + t.text, '', 'Write to them to agree how you will swap and send the pieces: ' + t.email], 'trade-yes-s-' + t.id).catch(() => null);
+      } else await mail(t.email, 'About your trade for ' + t.product, [seller.name + ' passed on your trade for ' + t.product + '.', t.reply ? 'Their message: ' + t.reply : '', '', 'You can still buy it or make an offer on the site.'], 'trade-no-' + t.id).catch(() => null);
+      return res.json({ ok: true });
+    }
+    // Correct the cost on one sale (what was paid for the piece, other costs such as supplies or card fees).
+    if (what === 'cost-set') {
+      const n = String(b.n || '');
+      if (!/^[A-Z0-9]{4,20}$/.test(n) || !(await M.ledger(seller.slug)).some((r) => r.n === n)) return res.status(404).json({ error: 'That sale was not found.' });
+      const r = await M.setCost(seller.slug, n, b);
+      return res.status(r.error ? 400 : 200).json(r);
+    }
     if (what === 'ship') {
       const n = String(b.n || ''), tracking = String(b.tracking || '').replace(/\s+/g, '').slice(0, 40);
       if (!/^[A-Za-z0-9]{8,40}$/.test(tracking)) return res.status(400).json({ error: 'Enter the tracking number.' });
