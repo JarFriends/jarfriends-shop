@@ -12,7 +12,17 @@ const changes = [
   //    application fee (see api/_connect.js). Everything else about the card page stays the same.
   ['api/stripe.js', "  if (!inv || !isCard(inv) || !(inv.u > 0)) return stop(res, 400, 'This payment link is not valid. Place the order again.');\n",
     "  if (!inv || !isCard(inv) || !(inv.u > 0)) return stop(res, 400, 'This payment link is not valid. Place the order again.');\n  const stripe = await require('./_connect').clientFor(inv);\n"],
-  ['api/stripe.js', '  const label = offline.labelLink(host, token, inv);', "  await require('./_connect').markDirect(inv, stripe).catch((e) => console.error('MARK_DIRECT_FAIL', inv.n, String(e && e.message || e)));\n  const label = offline.labelLink(host, token, inv);"]
+  ['api/stripe.js', '  const label = offline.labelLink(host, token, inv);', "  await require('./_connect').markDirect(inv, stripe).catch((e) => console.error('MARK_DIRECT_FAIL', inv.n, String(e && e.message || e)));\n  const label = offline.labelLink(host, token, inv);"],
+  // 4. Sellers hear about their own sales: a new order waiting for payment, and once it is paid (see _sellers.notifySale).
+  ['api/testsheet.js', "      const om = inv && /^[A-Z0-9]{4,20}$/.test(String(inv.of || '')) ? String(inv.of) : '';",
+    "      try { await require('./_sellers').notifySale(key, /payment due/i.test(String(row[13] || '')) ? 'placed' : 'paid'); } catch (e) { console.error('SELLER_NOTIFY_FAIL', key, String(e && e.message || e)); }\n      const om = inv && /^[A-Z0-9]{4,20}$/.test(String(inv.of || '')) ? String(inv.of) : '';"],
+  ['api/admin.js', "await store.write('meta/' + s.n + '.json', Object.assign(was, { paidAt: Date.now(), paidHow: 'hand' }));",
+    "await store.write('meta/' + s.n + '.json', Object.assign(was, { paidAt: Date.now(), paidHow: 'hand' }));\n      await require('./_sellers').notifySale(s.n, 'paid').catch(() => null);"],
+  // 5. An offer on a seller's piece goes to that seller to answer, not to the owner.
+  ['api/offer.js', "mail(owner(), 'Offer: '", "mail(await require('./_sellers').offerTo(p.id, owner()), 'Offer: '"],
+  // 6. A seller's auction that ends with no bids, or whose winners never pay, is the seller's to know about.
+  ['api/_sweep.js', "if (owner) await mail(owner, 'Auction ended with no bids: '", "if (owner) await mail(await require('./_sellers').offerTo(p.id, owner), 'Auction ended with no bids: '"],
+  ['api/_sweep.js', "if (owner) await mail(owner, 'Auction winner did not pay: '", "if (owner) await mail(await require('./_sellers').offerTo(p.id, owner), 'Auction winner did not pay: '"]
 ];
 changes.forEach(([f, find, put]) => {
   const s = fs.readFileSync(f, 'utf8');

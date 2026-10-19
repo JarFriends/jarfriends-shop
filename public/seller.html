@@ -119,13 +119,13 @@
     if (t.unpaidGross) wrap.appendChild(el('div', JF.cents(t.unpaidGross) + ' more is in orders waiting for the buyer to pay. It counts once they pay.', 'small dim'));
     var tabs = el('div', null, 'jf-tabs');
     var toShip = D.orders.filter(function (o) { return o.paid && !o.tracking; }).length;
-    [['listings', 'My pieces (' + D.listings.length + ')'], ['posts', 'Community posts'], ['reviews', 'Reviews (' + ((D.reviews || []).length) + ')'], ['orders', 'Orders' + (toShip ? ' · ' + toShip + ' to ship' : '')], ['payouts', 'Payouts'], ['settings', 'Shop settings']].forEach(function (x) {
+    [['listings', 'My pieces (' + D.listings.length + ')'], ['posts', 'Community posts'], ['reviews', 'Reviews (' + ((D.reviews || []).length) + ')'], ['offers', 'Offers'], ['orders', 'Orders' + (toShip ? ' · ' + toShip + ' to ship' : '')], ['payouts', 'Payouts'], ['settings', 'Shop settings']].forEach(function (x) {
       var b = el('button', x[1], 'pill'); b.type = 'button'; b.setAttribute('aria-pressed', tab === x[0] ? 'true' : 'false');
       b.addEventListener('click', function () { tab = x[0]; editing = null; dash(); }); tabs.appendChild(b);
     });
     wrap.appendChild(tabs);
     var pane = el('div'); pane.style.cssText = 'display:flex;flex-direction:column;gap:18px';
-    ({ listings: listings, posts: posts, reviews: reviews, orders: orders, payouts: payouts, settings: settings })[tab](pane);
+    ({ listings: listings, posts: posts, reviews: reviews, offers: offers, orders: orders, payouts: payouts, settings: settings })[tab](pane);
     wrap.appendChild(pane);
     var out = el('button', 'Sign out', 'ghost'); out.type = 'button'; out.style.alignSelf = 'flex-start';
     out.addEventListener('click', function () { if (AS) { location.href = '/admin.html'; return; } JF.signOut(); location.reload(); });
@@ -159,13 +159,25 @@
     var stock = input('number', p ? p.stock : 1, { min: '0', max: '999', step: '1', required: '' });
     var ship = input('text', p ? (p.shipping === 'free' ? 'free' : p.shipping) : '', { placeholder: 'free, or e.g. 5.50' });
     var sec = select([['', 'None']].concat(D.sections.map(function (x) { return [x, x]; })), p && p.section);
+    // How it sells: buy now (with an optional lowest offer) or a timed auction.
+    var live = !!(p && p.auction && Date.parse(p.auction.ends) > Date.now());
+    var mode = select([['buy', 'Buy now (buyers can also make offers)'], ['auction', 'Auction (highest bid wins)']], p && p.auction ? 'auction' : 'buy');
+    var hours = select((live ? [['', 'Keep the current end time']] : []).concat([['24', '1 day'], ['72', '3 days'], ['120', '5 days'], ['168', '7 days'], ['240', '10 days'], ['336', '14 days'], ['1', '1 hour'], ['6', '6 hours']]), live ? '' : '168');
+    var minOffer = input('number', p && p.minOffer ? p.minOffer : '', { min: '0', step: '0.01', inputmode: 'decimal', placeholder: 'Optional' });
     var hidden = input('checkbox'); hidden.checked = !!(p && p.hidden);
     var hl = el('label', null, 'jf-check'); hl.appendChild(hidden); hl.appendChild(el('span', 'Hide it from the market for now'));
     var photo = input('file', null, { accept: 'image/*' });
     var go = el('button', p ? 'Save changes' : 'Add to my shop', 'solid'); go.type = 'submit';
     var m = status();
     f.appendChild(field('Name', name)); f.appendChild(field('Description', desc));
-    var two = el('div', null, 'two'); two.appendChild(field('Price (USD)', price)); two.appendChild(field('How many you have', stock)); f.appendChild(two);
+    f.appendChild(field('How it sells', mode));
+    var priceL = field('Price (USD)', price), stockL = field('How many you have', stock);
+    var two = el('div', null, 'two'); two.appendChild(priceL); two.appendChild(stockL); f.appendChild(two);
+    var hoursL = field('Auction length', hours, live ? 'Ends ' + new Date(p.auction.ends).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) + '. Last-minute bids add 2 minutes.' : 'Last-minute bids add 2 minutes, so nobody wins by sniping.');
+    var minL = field('Lowest offer you will look at (USD)', minOffer, 'Offers under this are declined for you automatically. You answer the rest in the Offers tab.');
+    f.appendChild(hoursL); f.appendChild(minL);
+    var showMode = function () { var a = mode.value === 'auction'; hoursL.hidden = !a; minL.hidden = a; stockL.hidden = a; priceL.firstChild.textContent = a ? 'Starting bid (USD)' : 'Price (USD)'; };
+    mode.addEventListener('change', showMode); showMode();
     var three = el('div', null, 'two'); three.appendChild(field('Shipping (USD, charged once per order)', ship, 'Leave empty or type free for free shipping.')); three.appendChild(field('Section', sec)); f.appendChild(three);
     f.appendChild(field('Photo', photo, p && p.photoUrl ? 'Pick a new one to replace the current photo.' : 'A clear, square-ish photo works best.'));
     f.appendChild(hl);
@@ -178,7 +190,7 @@
     c.appendChild(f);
     f.addEventListener('submit', function (ev) {
       ev.preventDefault(); go.disabled = true; m.textContent = 'Saving…';
-      JF.api('/api/market', { do: 'listing', t: tok, as: AS, ak: AK, id: p ? p.id : '', name: name.value, desc: desc.value, price: price.value, stock: stock.value, shipping: ship.value, section: sec.value, hidden: hidden.checked }).then(function (r) {
+      JF.api('/api/market', { do: 'listing', t: tok, as: AS, ak: AK, id: p ? p.id : '', name: name.value, desc: desc.value, price: price.value, stock: mode.value === 'auction' ? 1 : stock.value, shipping: ship.value, section: sec.value, hidden: hidden.checked, mode: mode.value, hours: hours.value, minOffer: mode.value === 'auction' ? '' : minOffer.value }).then(function (r) {
         if (r.error) { go.disabled = false; m.textContent = r.error; return; }
         var file = photo.files && photo.files[0];
         if (!file) return finish();
@@ -203,7 +215,8 @@
       r.appendChild(JF.picture({ id: p.id, name: p.name, photo: p.photoUrl }));
       var mid = el('div'); mid.style.cssText = 'flex:1;min-width:0;display:flex;flex-direction:column;gap:4px';
       mid.appendChild(el('b', p.name));
-      mid.appendChild(el('div', JF.usd(p.price) + ' · ' + (p.shipping === 'free' ? 'free shipping' : JF.usd(p.shipping) + ' shipping') + ' · ' + p.left + ' left of ' + p.stock + (p.sold ? ' · ' + p.sold + ' sold' : ''), 'small dim'));
+      if (p.auction) mid.appendChild(el('span', Date.parse(p.auction.ends) > Date.now() ? 'AUCTION · ENDS ' + new Date(p.auction.ends).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }).toUpperCase() : 'AUCTION ENDED', 'jf-badge wait'));
+      mid.appendChild(el('div', (p.auction ? 'Starting bid ' : '') + JF.usd(p.price) + ' · ' + (p.shipping === 'free' ? 'free shipping' : JF.usd(p.shipping) + ' shipping') + ' · ' + p.left + ' left of ' + p.stock + (p.sold ? ' · ' + p.sold + ' sold' : ''), 'small dim'));
       if (p.hidden) mid.appendChild(el('span', p.removed ? 'REMOVED' : 'HIDDEN', 'jf-badge'));
       var acts = el('div'); acts.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;margin-top:6px';
       var ed = el('button', 'Change', 'ghost'); ed.type = 'button'; ed.addEventListener('click', function () { editing = p; dash(); window.scrollTo(0, 0); });
@@ -250,6 +263,37 @@
       del.addEventListener('click', function () { if (!confirm('Delete this post?')) return; JF.api('/api/market', { do: 'unpost', t: tok, as: AS, ak: AK, id: x.id }).then(function () { load(); }); });
       card.appendChild(del);
       pane.appendChild(card);
+    });
+  }
+  // Offers on my pieces: accept, counter or decline. The buyer gets an email with a checkout link at the agreed price.
+  function offers(pane) {
+    pane.appendChild(el('div', 'Buyers can offer less than your price on buy-now pieces. Accepting holds the piece for them for 3 hours while they pay.', 'small dim'));
+    var box = el('div'); box.style.cssText = 'display:flex;flex-direction:column;gap:14px'; box.textContent = 'Loading offers…'; pane.appendChild(box);
+    JF.api('/api/market?do=offers&t=' + encodeURIComponent(tok) + (AS ? '&as=' + encodeURIComponent(AS) + '&ak=' + encodeURIComponent(AK) : '')).then(function (r) {
+      box.textContent = '';
+      if (!r.offers || !r.offers.length) { box.appendChild(el('div', r.error || 'No offers yet.', 'jf-empty')); return; }
+      var words = { pending: 'WAITING FOR YOU', accepted: 'ACCEPTED', countered: 'YOU COUNTERED', declined: 'DECLINED', auto: 'DECLINED (UNDER YOUR LOWEST)' };
+      r.offers.forEach(function (o) {
+        var c = el('section', null, 'card'); c.style.gap = '10px';
+        var top = el('div'); top.style.cssText = 'display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px';
+        top.appendChild(el('b', o.item + (o.q > 1 ? ' × ' + o.q : '')));
+        top.appendChild(el('span', words[o.status] || String(o.status).toUpperCase(), 'jf-badge ' + (o.status === 'pending' ? 'wait' : o.status === 'accepted' ? 'ok' : '')));
+        c.appendChild(top);
+        c.appendChild(el('div', o.buyer + ' offered ' + JF.cents(o.offer) + (o.q > 1 ? ' each' : '') + ' (your price ' + JF.cents(o.list) + ') · would pay with ' + (o.pay || '-') + ' · ' + new Date(o.at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }), 'small'));
+        if (o.status === 'countered') c.appendChild(el('div', 'You countered at ' + JF.cents(o.counter) + '.', 'small dim'));
+        if (o.t) {
+          var row = el('div'); row.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end';
+          var m = status();
+          var act = function (body, btn) { btn.disabled = true; m.textContent = 'Sending…'; body.t = o.t; JF.api('/api/offer', body).then(function (x) { btn.disabled = false; if (x.error) { m.textContent = x.error; return; } pane.textContent = ''; offers(pane); }); };
+          var yes = el('button', 'Accept ' + JF.cents(o.offer), 'solid'); yes.type = 'button'; yes.addEventListener('click', function () { act({ do: 'accept' }, yes); });
+          var cp = input('number', '', { min: '0', step: '0.01', placeholder: 'Counter price', inputmode: 'decimal' }); cp.style.maxWidth = '160px'; cp.setAttribute('aria-label', 'Your counter price for ' + o.item);
+          var ct = el('button', 'Counter', 'ghost'); ct.type = 'button'; ct.addEventListener('click', function () { act({ do: 'counter', price: cp.value }, ct); });
+          var no = el('button', 'Decline', 'ghost'); no.type = 'button'; no.addEventListener('click', function () { act({ do: 'decline' }, no); });
+          row.appendChild(yes); row.appendChild(cp); row.appendChild(ct); row.appendChild(no);
+          c.appendChild(row); c.appendChild(m);
+        }
+        box.appendChild(c);
+      });
     });
   }
   function reviews(pane) {

@@ -231,6 +231,17 @@ module.exports = async (req, res) => {
       const st = stripeBase.ready() ? await connect.status(seller).catch(() => ({ state: 'unknown' })) : { state: 'off' };
       return res.json({ email: me, seller: seller, fee: M.feePct(), sections: M.SECTIONS, listings: listings, orders: orders, payouts: outs, totals: M.totals(rows, outs), posts: feed, stripe: st, stats: myStats, reviews: myReviews });
     }
+    // Offers on my pieces. A pending one carries its answer key (t) for /api/offer: accept, counter or decline.
+    if (what === 'offers') {
+      if (!seller) return res.status(403).json({ error: 'Open a seller shop first.' });
+      const mine = {};
+      (await M.listings()).forEach((p) => { if (p.seller === seller.slug) mine[p.id] = p; });
+      const { list: ls } = await import('@vercel/blob');
+      const r = await ls({ prefix: 'offers/', limit: 1000 });
+      const all = (await Promise.all((r.blobs || []).map((x) => store.read(x.pathname)))).filter((o) => o && mine[o.pid]);
+      all.sort((a, b2) => (b2.at || 0) - (a.at || 0));
+      return res.json({ offers: all.slice(0, 100).map((o) => ({ n: o.n, pid: o.pid, item: o.item, q: o.q, offer: o.offer, list: o.list, buyer: o.buyer, pay: o.pay, status: o.status, at: o.at, until: o.until || 0, counter: o.counter || 0, t: o.status === 'pending' ? o.t : '' })) });
+    }
     if (req.method !== 'POST') return res.status(405).json({ error: 'Use POST.' });
 
     if (what === 'apply') {

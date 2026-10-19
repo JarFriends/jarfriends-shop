@@ -122,6 +122,9 @@ async function saveListing(seller, f) {
   const ship = shipRaw === '' || shipRaw === 'free' || Number(shipRaw) === 0 ? 'free' : Math.round(Number(shipRaw.replace(/[^0-9.]/g, '')) * 100) / 100;
   if (ship !== 'free' && !(ship > 0 && ship <= 200)) return { error: 'Shipping: free, or up to $200.' };
   const section = SECTIONS.indexOf(f.section) >= 0 ? f.section : '';
+  // Lowest offer the seller will look at: anything under it is declined on the spot. Optional.
+  const minOffer = f.minOffer === '' || f.minOffer == null ? 0 : Math.round(Number(String(f.minOffer).replace(/[^0-9.]/g, '')) * 100) / 100;
+  if (minOffer && !(minOffer > 0 && minOffer < price)) return { error: 'The lowest offer must be under the price.' };
   let id = String(f.id || '');
   let was = null;
   if (id) {
@@ -131,7 +134,17 @@ async function saveListing(seller, f) {
     if ((await listings()).filter((p) => p.seller === seller.slug).length >= 200) return { error: 'You have 200 listings already. Remove one first.' };
     id = 'S' + Date.now().toString(36).toUpperCase() + crypto.randomBytes(1).toString('hex').toUpperCase();
   }
-  const p = Object.assign({}, was || {}, { id: id, seller: seller.slug, name: name, desc: tidy(f.desc, 1200), price: price, min: 1, stock: stock, shipping: ship, section: section, hidden: !!f.hidden, updated: Date.now() }, was ? {} : { created: Date.now() });
+  // An auction: one piece, the price is the starting bid, bidding ends after the hours chosen (1 hour to 14 days).
+  // A running auction keeps its end time when the listing is edited, unless the seller picks a new length.
+  let auction = null;
+  if (f.mode === 'auction') {
+    const hrs = Number(f.hours);
+    const live = was && was.auction && Date.parse(was.auction.ends) > Date.now();
+    if (f.hours === '' || f.hours == null) { if (!live) return { error: 'Pick how long the auction runs.' }; auction = { start: price, ends: was.auction.ends }; }
+    else if (!(hrs >= 1 && hrs <= 336)) return { error: 'An auction runs from 1 hour to 14 days.' };
+    else auction = { start: price, ends: new Date(Date.now() + hrs * 3600000).toISOString() };
+  }
+  const p = Object.assign({}, was || {}, { id: id, seller: seller.slug, name: name, desc: tidy(f.desc, 1200), price: price, min: 1, stock: auction ? 1 : stock, shipping: ship, section: section, hidden: !!f.hidden, minOffer: auction ? 0 : minOffer, auction: auction, updated: Date.now() }, was ? {} : { created: Date.now() });
   await store.write('market/' + seller.slug + '/' + id + '.json', p);
   forget();
   return { listing: p };
@@ -269,4 +282,34 @@ async function statsAll(sellers) {
 // "Bea Buyer" -> "Bea B." : how a reviewer is shown.
 const shortName = (n) => { const w = String(n || '').replace(/\(.*?\)/g, ' ').trim().split(/\s+/).filter(Boolean); return w.length ? w[0].slice(0, 20) + (w[1] ? ' ' + w[1][0].toUpperCase() + '.' : '') : 'A buyer'; };
 
-module.exports = { reviews, saveReview, removeReview, stats, statsAll, statsFrom, shortName, completed, VERIFY_AFTER, posts, addPost, removePost, feePct, autoApprove, all, bySlug, byEmail, save, apply, pub, listings, products, isSellerPid, saveListing, setListing, removeListing, ledger, payouts, addPayout, totals, hashOf, SECTIONS, forget };
+// ---- Telling sellers about their sales and offers ----
+// The seller of a piece, or null for V2V's own pieces.
+async function sellerOf(pid) {
+  if (!isSellerPid(pid)) return null;
+  const p = (await listings()).filter((x) => x.id === pid)[0];
+  return p ? bySlug(p.seller) : null;
+}
+// Where an offer on a piece goes: to the seller for a seller's piece, otherwise to the owner.
+async function offerTo(pid, ownerEmail) {
+  try { const s = await sellerOf(pid); if (s && s.status === 'approved') return s.email; } catch (e) { /* fall back to the owner */ }
+  return ownerEmail;
+}
+// Email the seller about an order of one of their pieces. kind: 'placed' (waiting for a by-hand payment: do not
+// ship yet) or 'paid' (ship it). Each order and kind is emailed once.
+async function notifySale(n, kind) {
+  const { mail } = require('./_lib');
+  const sale = (await store.sales()).filter((x) => x.n === n)[0];
+  if (!sale) return 'none';
+  const seller = await sellerOf(sale.pid);
+  if (!seller) return 'none';
+  const d = (await store.read(sale.path)) || {};
+  const host = 'https://' + String(process.env.SITE_HOST || 'v2v-market.vercel.app').replace(/^https?:\/\//, '').replace(/\/+$/, '');
+  const portal = host + '/seller.html';
+  const paid = kind === 'paid';
+  const lines = paid
+    ? ['You made a sale on V2V: ' + (d.product || 'your piece') + ' x ' + sale.q + ' (order ' + n + ').', '', 'It is paid, so please ship it within 3 days.', 'Ship to: ' + (d.buyer ? d.buyer + ', ' : '') + (d.ship || 'see your seller portal'), '', 'When it ships, add the tracking number in your seller portal and the buyer is emailed:', portal]
+    : ['New order on V2V: ' + (d.product || 'your piece') + ' x ' + sale.q + ' (order ' + n + ').', '', 'The buyer is paying by ' + (d.pay || 'hand') + ', which is not confirmed yet. Do not ship until you get the "it is paid" email.', '', 'Your seller portal:', portal];
+  return mail(seller.email, (paid ? 'Paid, ship it: ' : 'New order (not paid yet): ') + (d.product || 'your piece'), lines, 'seller-sale-' + n + '-' + (paid ? 'paid' : 'placed')).catch((e) => { console.error('SELLER_NOTIFY_FAIL', n, String(e && e.message || e)); return 'failed'; });
+}
+
+module.exports = { sellerOf, offerTo, notifySale, reviews, saveReview, removeReview, stats, statsAll, statsFrom, shortName, completed, VERIFY_AFTER, posts, addPost, removePost, feePct, autoApprove, all, bySlug, byEmail, save, apply, pub, listings, products, isSellerPid, saveListing, setListing, removeListing, ledger, payouts, addPayout, totals, hashOf, SECTIONS, forget };

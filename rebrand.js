@@ -28,3 +28,13 @@ function paint(dir, keep) {
 paint(process.argv[2] || 'public', (f) => /\.(html|css|js)$/.test(f));
 paint('api', (f) => /\.js$/.test(f));
 console.log('rebrand: V2V on ' + n + ' files, host ' + HOST);
+
+// JarFriends-only extras that mean nothing on V2V: the jars (loyalty points) page and its back-office tab, and the
+// Customer Loyalty safe page and the "Next safes" tool. Their pages are removed and nothing links to them.
+const pub = process.argv[2] || 'public';
+['jars.html', 'safe.html', 'admin-jars.js', 'admin-safes.js'].forEach((f) => { const p = path.join(pub, f); if (fs.existsSync(p)) fs.unlinkSync(p); });
+const strip = (f, fn) => { const p = path.join(pub, f); if (!fs.existsSync(p)) return; const s = fs.readFileSync(p, 'utf8'), t = fn(s); if (t !== s) fs.writeFileSync(p, t); };
+strip('admin.html', (s) => s.replace(/<script src="\/admin-(jars|safes)\.js[^"]*"[^>]*><\/script>\n?/g, ''));
+strip('account.html', (s) => s.replace(/\s*<a [^>]*href="\/jars\.html"[^>]*>My jars<\/a>/, '').replace('function jarsCard() {', 'function jarsCard() { return; // V2V has no jars'));
+strip('admin-edit.js', (s) => s.replace("if (p.buyers) { var sl = el('a', 'Open the safe (admin view)');", "if (false) { var sl = el('a', 'Open the safe (admin view)');"));
+console.log('rebrand: removed the jars and safes pages');
