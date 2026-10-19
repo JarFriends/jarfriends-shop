@@ -39,7 +39,7 @@
   <div class="v-bar" role="group" aria-label="Filter and sort">
     <div class="jf-filters" id="views"></div>
     <label class="grow" style="display:block"><span class="jf-sr">Search</span><input id="find" type="search" placeholder="Search pins, cards, stickers, a character…" autocomplete="off"></label>
-    <div class="v-photo"><button type="button" class="pill" id="snap">📷 Search by photo</button><input type="file" id="snapFile" accept="image/*" capture="environment" hidden></div>
+    <div class="v-photo"><button type="button" class="pill" id="snap">📷 Search by photo</button><button type="button" class="pill" id="pasteBtn" title="Paste a picture you copied">📋 Paste</button><input type="file" id="snapFile" accept="image/*" capture="environment" hidden></div>
     <label style="display:flex;flex-direction:row;align-items:center;gap:8px;font-weight:700;font-size:15px">Seller
       <select class="jf-sel" id="seller"><option value="">All sellers</option></select></label>
     <label style="display:flex;flex-direction:row;align-items:center;gap:8px;font-weight:700;font-size:15px">Category
@@ -152,9 +152,25 @@
     if (clear) { var c = el('button', 'Clear', 'pill'); c.type = 'button'; c.addEventListener('click', function () { photoIds = null; bar.hidden = true; bar.style.display = 'none'; draw(); }); bar.appendChild(c); }
   }
   $('snap').addEventListener('click', function () { $('snapFile').click(); });
-  $('snapFile').addEventListener('change', function () {
-    var f = $('snapFile').files[0]; if (!f) return;
+  $('snapFile').addEventListener('change', function () { var f = $('snapFile').files[0]; if (f) runPhoto(f); });
+  // Paste: Ctrl+V / Cmd+V anywhere on the page with a picture copied, or the Paste button.
+  document.addEventListener('paste', function (ev) {
+    var items = (ev.clipboardData && ev.clipboardData.items) || [];
+    for (var i = 0; i < items.length; i++) if (items[i].type && items[i].type.indexOf('image/') === 0) { var f = items[i].getAsFile(); if (f) { ev.preventDefault(); runPhoto(f); } return; }
+  });
+  $('pasteBtn').addEventListener('click', function () {
+    if (!navigator.clipboard || !navigator.clipboard.read) { photoMsg('Copy a picture, then press Ctrl+V (Cmd+V on a Mac) on this page.', true); return; }
+    navigator.clipboard.read().then(function (list) {
+      for (var i = 0; i < list.length; i++) { var t = list[i].types.filter(function (x) { return x.indexOf('image/') === 0; })[0]; if (t) return list[i].getType(t).then(runPhoto); }
+      photoMsg('There is no picture copied. Copy a picture first, then press Paste.', true);
+    }).catch(function () { photoMsg('Your browser did not allow pasting here. Press Ctrl+V (Cmd+V on a Mac) instead, or use Search by photo.', true); });
+  });
+  // Drag a picture onto the page, too.
+  document.addEventListener('dragover', function (ev) { if (ev.dataTransfer && Array.prototype.some.call(ev.dataTransfer.types || [], function (t) { return t === 'Files'; })) ev.preventDefault(); });
+  document.addEventListener('drop', function (ev) { var f = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0]; if (f && /^image\//.test(f.type)) { ev.preventDefault(); runPhoto(f); } });
+  function runPhoto(f) {
     photoMsg('Looking at your photo…');
+    window.scrollTo({ top: $('views').getBoundingClientRect().top + window.scrollY - 20, behavior: 'smooth' });
     shrink(f).then(function (data) { return JF.api('/api/market', { do: 'photo-search', data: data }); }).then(function (r) {
       $('snapFile').value = '';
       if (r.error) { photoMsg(r.error, true); return; }
@@ -162,7 +178,7 @@
       else { photoIds = null; if (r.what) $('find').value = r.what; photoMsg('No exact match' + (r.what ? ', so here is a search for "' + r.what + '"' : '') + '.', true); }
       draw();
     }).catch(function (e) { photoMsg(e && e.message ? e.message : 'The photo search did not work. Try again.', true); });
-  });
+  }
   $('sort').addEventListener('change', function () { if ($('sort').value === 'ending') view = 'auctions'; else if (view === 'auctions' && $('sort').value !== 'ending') view = 'all'; views(); draw(); });
   views();
   JF.api('/api/market?do=shop').then(function (r) {
