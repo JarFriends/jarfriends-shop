@@ -14,6 +14,20 @@
   main.insertBefore(box, $('wOrders'));
   var css = el('style'); css.textContent = '.sx-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}.sx-tile{background:#11261C;border:1px solid #244536;padding:14px 16px;display:flex;flex-direction:column;gap:4px}.sx-tile b{font-family:"IBM Plex Mono",monospace;font-size:22px;font-weight:500}.sx-tile.gold{border-color:#C9A45C}.sx-tile.gold b{color:#C9A45C}.sx-b{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.1em;padding:3px 8px;border:1px solid #4E7A63}.sx-b.ok{border-color:#8FD3AE;color:#8FD3AE}.sx-b.wait{border-color:#C9A45C;color:#C9A45C}.sx-b.off{border-color:#E86A6A;color:#E86A6A}.sx-pay{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-top:8px}.sx-pay input,.sx-pay select{min-height:40px;font-size:15px;padding:6px 10px;background:#0B1A13;border:1px solid #4E7A63;color:#F7F2E6;border-radius:2px;font-family:inherit}';
   document.head.appendChild(css);
+  // Your own shops (SEED_SELLERS) get their own back office: a button at the top of this page opens it.
+  var mine = $('myShops'), shown = false;
+  function myShops() {
+    if (shown || !mine || !key()) return;
+    shown = true;
+    fetch('/api/market?do=admin&ak=' + encodeURIComponent(key()), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (r) {
+      var own = (r.sellers || []).filter(function (s) { return s.seeded; });
+      if (!own.length) { shown = false; return; }
+      mine.textContent = ''; mine.appendChild(el('span', 'This page runs the whole site. Your own shop has its own back office:', 'dim'));
+      own.forEach(function (s) { var a = el('a', 'Open my ' + s.name + ' shop back office', 'solid'); a.href = '/seller.html?as=' + encodeURIComponent(s.slug); a.style.cssText = 'padding:8px 14px;text-decoration:none'; mine.appendChild(a); });
+      mine.hidden = false;
+    }).catch(function () { shown = false; });
+  }
+  myShops(); var tries = setInterval(function () { if (shown) { clearInterval(tries); return; } myShops(); }, 3000);
   // Any other tab puts this one away.
   tabs.addEventListener('click', function (ev) { var b = ev.target.closest && ev.target.closest('button'); if (b && b !== btn && b.id !== 'out') { box.hidden = true; btn.setAttribute('aria-pressed', 'false'); } });
   btn.addEventListener('click', function () {

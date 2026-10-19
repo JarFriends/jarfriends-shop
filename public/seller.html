@@ -104,7 +104,14 @@
       else sl2.appendChild(el('span', D.stats.issues ? 'Not verified: ' + D.stats.issues + (D.stats.issues === 1 ? ' order has' : ' orders have') + ' an issue (a 1 or 2 star review, or a problem V2V flagged).' : 'Verified checkmark: ' + D.stats.completed + ' of ' + D.stats.need + ' completed sales with no issues.', 'small dim'));
       wrap.appendChild(sl2);
     }
-    if (AS) wrap.appendChild(el('div', 'You are viewing this shop as the V2V owner. Anything you change here is saved for this seller.', 'alert small'));
+    if (s.seeded) {
+      // The owner's own shop: this is "my shop" back office, with a jump to the site back office.
+      $('head').textContent = 'My shop back office · ' + s.name;
+      var site = el('div', null, 'small'); site.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;align-items:center';
+      site.appendChild(el('span', 'This is the back office for your own shop only. Everything for the whole site (all sellers, buyers, payouts, the giveaway wallet) is in the site back office.', 'dim'));
+      var sa = el('a', 'Open the site back office'); sa.href = '/admin.html'; site.appendChild(sa);
+      wrap.appendChild(site);
+    } else if (AS) wrap.appendChild(el('div', 'You are viewing this shop as the V2V owner. Anything you change here is saved for this seller.', 'alert small'));
     var tiles = el('div', null, 'jf-tiles');
     [['PAID SALES', String(t.sales), ''], ['SOLD (PIECES + SHIPPING)', JF.cents(t.gross), ''], ['JARFRIENDS FEE (' + D.fee + '%)', JF.cents(t.fee), ''], ['YOU EARNED', JF.cents(t.net), ''], ['PAID TO YOUR BANK BY STRIPE', JF.cents(t.byStripe || 0), ''], ['SENT BY V2V', JF.cents(t.paidOut), ''], ['V2V STILL OWES YOU', JF.cents(t.owed), 'gold']].forEach(function (x) {
       var d = el('div', null, 'jf-tile ' + x[2]); d.appendChild(el('span', x[0], 'label')); d.appendChild(el('b', x[1])); tiles.appendChild(d);
@@ -129,7 +136,7 @@
     wrap.appendChild(pane);
     var out = el('button', 'Sign out', 'ghost'); out.type = 'button'; out.style.alignSelf = 'flex-start';
     out.addEventListener('click', function () { if (AS) { location.href = '/admin.html'; return; } JF.signOut(); location.reload(); });
-    if (AS) out.textContent = 'Back to the back office';
+    if (AS) out.textContent = 'Back to the site back office';
     wrap.appendChild(out);
     box.appendChild(wrap);
   }
