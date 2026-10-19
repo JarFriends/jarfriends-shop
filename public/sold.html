@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Recently sold · JarFriends</title>
+<meta name="description" content="Pieces that have found new homes through JarFriends.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&family=IBM+Plex+Mono:wght@400;500&family=Playfair+Display:wght@600;700;800&display=swap">
+<link rel="stylesheet" href="/site.css">
+<link rel="stylesheet" href="/market.css">
+</head>
+<body>
+<header class="top"><div class="wrap bar"><a class="brand" href="/" style="text-decoration:none">JarFriends</a><span style="display:flex;align-items:center;gap:20px"><span class="mono dim">SOLD ARCHIVE</span><a class="home" href="/market.html">Market</a></span></div></header>
+<main class="wrap page" style="gap:28px">
+  <div class="stack-s">
+    <div class="mono gold">THE ARCHIVE</div>
+    <h1>Recently sold</h1>
+    <div class="small">Pieces that found new homes. Prices are what each one sold for. Buyers are never shown.</div>
+  </div>
+  <div class="small dim" id="count" role="status">Loading…</div>
+  <div class="jf-grid" id="grid"></div>
+</main>
+<script src="/jf.js"></script>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); }, el = JF.el;
+  JF.api('/api/market?do=sold').then(function (r) {
+    var g = $('grid');
+    if (!r.sold) { $('count').textContent = r.error || 'The archive did not load.'; return; }
+    $('count').textContent = r.sold.length ? 'The last ' + r.sold.length + ' sales' : '';
+    if (!r.sold.length) { var e = el('div', 'Nothing has sold yet. The first sale lands here.', 'jf-empty'); e.style.gridColumn = '1/-1'; g.appendChild(e); return; }
+    r.sold.forEach(function (s) {
+      var a = el('div', null, 'jf-item');
+      a.appendChild(JF.picture(s));
+      a.appendChild(el('span', 'SOLD', 'jf-tag out'));
+      a.appendChild(el('div', s.name, 'jf-name'));
+      var m = el('div', null, 'jf-meta');
+      m.appendChild(el('span', s.each ? JF.usd(s.each) + (s.q > 1 ? ' × ' + s.q : '') : '', 'jf-price'));
+      m.appendChild(el('span', new Date(s.at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), 'jf-by'));
+      a.appendChild(m);
+      a.appendChild(el('div', s.seller, 'jf-by'));
+      g.appendChild(a);
+    });
+  }).catch(function () { $('count').textContent = 'The archive did not load. Refresh to try again.'; });
+})();
+</script>
+</body>
+</html>

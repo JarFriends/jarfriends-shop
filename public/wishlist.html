@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>My wishlist · JarFriends</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&family=IBM+Plex+Mono:wght@400;500&family=Playfair+Display:wght@600;700;800&display=swap">
+<link rel="stylesheet" href="/site.css">
+<link rel="stylesheet" href="/market.css">
+</head>
+<body>
+<header class="top"><div class="wrap bar"><a class="brand" href="/" style="text-decoration:none">JarFriends</a><span style="display:flex;align-items:center;gap:20px"><span class="mono dim">MY WISHLIST</span><a class="home" href="/market.html">Market</a></span></div></header>
+<main class="wrap page" style="gap:28px">
+  <div class="stack-s">
+    <div class="mono gold" id="who">YOUR ACCOUNT</div>
+    <h1>My wishlist</h1>
+    <div class="small">Pieces you saved. Tap the heart on any piece in the market to add it here.</div>
+  </div>
+  <div id="signin" hidden></div>
+  <div class="jf-grid" id="grid"></div>
+  <div id="foot" hidden style="display:flex;flex-wrap:wrap;gap:10px"><a class="solid" href="/market.html" style="text-decoration:none">Browse the market</a><button type="button" class="ghost" id="out">Sign out</button></div>
+</main>
+<script src="/jf.js"></script>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); }, el = JF.el;
+  var qs = new URLSearchParams(location.search), tok = JF.token();
+  function draw(r) {
+    var g = $('grid'); g.textContent = ''; $('foot').hidden = false;
+    $('who').textContent = (JF.emailOf(tok) || 'YOUR ACCOUNT').toUpperCase();
+    if (!r.items.length) { var e = el('div', 'Nothing saved yet. Tap ♡ on a piece in the market to keep it here.', 'jf-empty'); e.style.gridColumn = '1/-1'; g.appendChild(e); return; }
+    r.items.forEach(function (p) {
+      var a = el('a', null, 'jf-item'); a.href = p.gone ? '/sold.html' : (p.auction ? '/auction.html?id=' : '/order.html?product=') + encodeURIComponent(p.id);
+      a.appendChild(JF.picture(p));
+      if (p.gone || p.left <= 0) a.appendChild(el('span', p.gone ? 'NO LONGER LISTED' : 'SOLD OUT', 'jf-tag out'));
+      a.appendChild(el('div', p.name, 'jf-name'));
+      var m = el('div', null, 'jf-meta'); m.appendChild(el('span', JF.usd(p.price), 'jf-price')); m.appendChild(el('span', p.sellerName || '', 'jf-by')); a.appendChild(m);
+      var h = el('button', '♥', 'jf-heart'); h.type = 'button'; h.setAttribute('aria-pressed', 'true'); h.setAttribute('aria-label', 'Remove from wishlist: ' + p.name);
+      h.addEventListener('click', function (ev) { ev.preventDefault(); ev.stopPropagation(); JF.api('/api/market', { do: 'wish', t: tok, id: p.id, on: false }).then(function (x) { if (x.items) draw(x); }); });
+      a.appendChild(h);
+      g.appendChild(a);
+    });
+  }
+  function start() {
+    $('signin').hidden = true;
+    var add = qs.get('add');
+    var go = add ? JF.api('/api/market', { do: 'wish', t: tok, id: add, on: true }) : JF.api('/api/market?do=wish&t=' + encodeURIComponent(tok));
+    go.then(function (r) {
+      if (r._status === 401) { JF.signOut(); tok = ''; ask(); return; }
+      if (add) history.replaceState(null, '', location.pathname);
+      if (r.items) draw(r); else $('grid').textContent = r.error || 'Could not load your wishlist.';
+    });
+  }
+  function ask() {
+    $('signin').hidden = false;
+    JF.signInBox($('signin'), qs.get('add') ? 'Sign in and that piece goes straight onto your wishlist.' : 'Sign in to see the pieces you saved.', function (t) { tok = t; start(); });
+  }
+  $('out').addEventListener('click', function () { JF.signOut(); location.href = '/market.html'; });
+  if (tok) start(); else ask();
+})();
+</script>
+</body>
+</html>

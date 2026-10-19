@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Market · JarFriends</title>
+<meta name="description" content="Collectibles from the JarFriends collection and from collectors who sell with us.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&family=IBM+Plex+Mono:wght@400;500&family=Playfair+Display:wght@600;700;800&display=swap">
+<link rel="stylesheet" href="/site.css">
+<link rel="stylesheet" href="/market.css">
+</head>
+<body>
+<header class="top"><div class="wrap bar"><a class="brand" href="/" style="text-decoration:none">JarFriends</a><span style="display:flex;align-items:center;gap:20px"><span class="mono dim">THE MARKET</span><a class="home" href="/wishlist.html">♥ Wishlist</a></span></div></header>
+<main class="wrap page" style="gap:28px">
+  <div class="stack-s">
+    <div class="mono gold" id="kicker">THE MARKET</div>
+    <h1 id="head">Everything for sale</h1>
+    <div class="small" id="lead">Pieces from the JarFriends collection, plus pieces from collectors who sell here. Tap a piece to see it and check out.</div>
+  </div>
+  <div class="jf-filters" id="views" role="group" aria-label="What to show"></div>
+  <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">
+    <label style="flex:1 1 240px;max-width:380px">Search<input id="find" type="search" placeholder="Name of a piece" autocomplete="off"></label>
+    <label style="flex:0 1 220px">Seller<select class="jf-sel" id="who"><option value="">Everyone</option><option value="jarfriends">JarFriends</option></select></label>
+    <label style="flex:0 1 220px">Sort<select class="jf-sel" id="sort"><option value="new">Newest first</option><option value="low">Price: low to high</option><option value="high">Price: high to low</option><option value="name">Name</option></select></label>
+  </div>
+  <div class="small dim" id="count" role="status" aria-live="polite">Loading…</div>
+  <div class="jf-grid" id="grid"></div>
+  <section class="card" style="gap:10px;max-width:760px">
+    <h2>Sell your pieces here</h2>
+    <div class="small">Open your own seller shop on JarFriends. List your pieces, we handle checkout and payment, and you ship. <span id="feeLine"></span></div>
+    <a class="solid" href="/seller.html" style="text-decoration:none">Become a seller</a>
+  </section>
+</main>
+<script src="/jf.js"></script>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); }, el = JF.el;
+  var qs = new URLSearchParams(location.search);
+  var D = null, wish = {}, view = qs.get('view') || 'all', section = '';
+  var tok = JF.token();
+  $('who').value = '';
+  function load() {
+    return JF.api('/api/market?do=shop' + (qs.get('seller') ? '&seller=' + encodeURIComponent(qs.get('seller')) : '')).then(function (r) {
+      if (r.error) { $('count').textContent = r.error; return; }
+      D = r;
+      $('feeLine').textContent = 'JarFriends keeps ' + r.fee + '% of each sale; the rest is yours.';
+      r.sellers.forEach(function (s) { if (!$('who').querySelector('option[value="' + s.slug + '"]')) { var o = el('option', s.name); o.value = s.slug; $('who').appendChild(o); } });
+      $('kicker').textContent = 'THE MARKET'; $('head').textContent = 'Everything for sale'; document.title = 'Market · JarFriends';
+      $('lead').textContent = 'Pieces from the JarFriends collection, plus pieces from collectors who sell here. Tap a piece to see it and check out.';
+      if (qs.get('seller')) {
+        $('who').value = qs.get('seller');
+        if (r.seller) { $('kicker').textContent = 'SELLER SHOP'; $('head').textContent = r.seller.name; $('lead').textContent = r.seller.about || ('Pieces from ' + r.seller.name + ', sold through JarFriends.'); document.title = r.seller.name + ' · JarFriends'; }
+        else if (qs.get('seller') === 'jarfriends') { $('kicker').textContent = 'THE COLLECTION'; $('head').textContent = 'JarFriends collection'; }
+        else { $('head').textContent = 'Shop not found'; $('lead').textContent = 'This seller is not open right now.'; }
+      }
+      views(); draw();
+    }).catch(function () { $('count').textContent = 'The market did not load. Refresh to try again.'; });
+  }
+  function views() {
+    var box = $('views'); box.textContent = '';
+    var opts = [['all', 'Everything'], ['buy', 'Buy now'], ['auctions', 'Auctions']].concat(D.sections.filter(function (s) { return D.products.some(function (p) { return String(p.section).toLowerCase().indexOf(s.toLowerCase()) >= 0; }); }).map(function (s) { return ['s:' + s, s]; }));
+    opts.forEach(function (o) {
+      var b = el('button', o[1], 'pill'); b.type = 'button';
+      var on = o[0].indexOf('s:') === 0 ? section === o[0].slice(2) : (!section && view === o[0]);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      b.addEventListener('click', function () { if (o[0].indexOf('s:') === 0) { section = section === o[0].slice(2) ? '' : o[0].slice(2); view = 'all'; } else { view = o[0]; section = ''; } views(); draw(); });
+      box.appendChild(b);
+    });
+  }
+  function draw() {
+    if (!D) return;
+    var q = $('find').value.trim().toLowerCase(), who = $('who').value, now = Date.now();
+    var list = D.products.filter(function (p) {
+      if (q && p.name.toLowerCase().indexOf(q) < 0) return false;
+      if (who === 'jarfriends' && p.seller) return false;
+      if (who && who !== 'jarfriends' && p.seller !== who) return false;
+      if (view === 'auctions' && !p.auction) return false;
+      if (view === 'buy' && p.auction) return false;
+      if (section && String(p.section).toLowerCase().indexOf(section.toLowerCase()) < 0) return false;
+      return true;
+    });
+    var s = $('sort').value;
+    list.sort(function (a, b) {
+      if ((a.left > 0) !== (b.left > 0)) return a.left > 0 ? -1 : 1;
+      if (s === 'low') return a.price - b.price;
+      if (s === 'high') return b.price - a.price;
+      if (s === 'name') return a.name.localeCompare(b.name);
+      return (b.added || 0) - (a.added || 0);
+    });
+    var g = $('grid'); g.textContent = '';
+    $('count').textContent = list.length ? list.length + (list.length === 1 ? ' piece' : ' pieces') : '';
+    if (!list.length) { var e = el('div', view === 'auctions' ? 'No auctions running right now. Check back soon.' : 'Nothing matches. Try another filter.', 'jf-empty'); e.style.gridColumn = '1/-1'; g.appendChild(e); return; }
+    list.forEach(function (p) {
+      var live = p.auction && p.auction.ends > now;
+      var a = el('a', null, 'jf-item'); a.href = p.auction ? '/auction.html?id=' + encodeURIComponent(p.id) : '/order.html?product=' + encodeURIComponent(p.id);
+      a.appendChild(JF.picture(p));
+      if (p.left <= 0 && !p.auction) a.appendChild(el('span', 'SOLD OUT', 'jf-tag out'));
+      else if (p.auction) a.appendChild(el('span', live ? 'LIVE AUCTION' : 'AUCTION ENDED', 'jf-tag' + (live ? '' : ' out')));
+      else if (p.left === 1) a.appendChild(el('span', 'LAST ONE', 'jf-tag'));
+      a.appendChild(el('div', p.name, 'jf-name'));
+      var m = el('div', null, 'jf-meta');
+      m.appendChild(el('span', p.auction ? 'from ' + JF.usd(p.auction.start || p.price) : JF.usd(p.price), 'jf-price'));
+      m.appendChild(el('span', p.sellerName, 'jf-by'));
+      a.appendChild(m);
+      var h = el('button', wish[p.id] ? '♥' : '♡', 'jf-heart'); h.type = 'button';
+      h.setAttribute('aria-pressed', wish[p.id] ? 'true' : 'false'); h.setAttribute('aria-label', (wish[p.id] ? 'Remove from' : 'Save to') + ' wishlist: ' + p.name);
+      h.addEventListener('click', function (ev) { ev.preventDefault(); ev.stopPropagation(); heart(p.id); });
+      a.appendChild(h);
+      g.appendChild(a);
+    });
+  }
+  function heart(id) {
+    if (!tok) { location.href = '/wishlist.html?add=' + encodeURIComponent(id); return; }
+    var on = !wish[id];
+    wish[id] = on; draw();
+    JF.api('/api/market', { do: 'wish', t: tok, id: id, on: on }).then(function (r) {
+      if (r._status === 401) { JF.signOut(); location.href = '/wishlist.html?add=' + encodeURIComponent(id); return; }
+      if (r.ids) { wish = {}; r.ids.forEach(function (x) { wish[x] = true; }); draw(); }
+    });
+  }
+  ['find', 'who', 'sort'].forEach(function (id) { $(id).addEventListener(id === 'find' ? 'input' : 'change', function () {
+    if (id === 'who') { var v = $('who').value; history.replaceState(null, '', v ? '?seller=' + encodeURIComponent(v) : location.pathname); qs = new URLSearchParams(location.search); load(); return; }
+    draw();
+  }); });
+  if (tok) JF.api('/api/market?do=wish&t=' + encodeURIComponent(tok)).then(function (r) { if (r.ids) { r.ids.forEach(function (x) { wish[x] = true; }); draw(); } });
+  load();
+})();
+</script>
+</body>
+</html>

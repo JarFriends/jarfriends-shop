@@ -1,0 +1,81 @@
+// The Sellers tab of the back office: approve or pause sellers, see their sales and your fee on each, and record
+// the money you send them.
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var el = function (tag, text, cls) { var e = document.createElement(tag); if (text != null) e.textContent = text; if (cls) e.className = cls; return e; };
+  var tabs = document.querySelector('.tabs'), main = $('main');
+  if (!tabs || !main) return;
+  var key = function () { try { return localStorage.getItem('adminKey') || ''; } catch (e) { return ''; } };
+  var money = function (c) { return '$' + ((c || 0) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+  var post = function (body) { body.ak = key(); return fetch('/api/market', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).then(function (r) { return r.json(); }); };
+  var btn = el('button', 'Sellers', 'ghost'); btn.type = 'button'; btn.setAttribute('aria-pressed', 'false');
+  tabs.insertBefore(btn, $('out'));
+  var box = el('div'); box.dataset.extraTab = 'sellers'; box.hidden = true; box.style.cssText = 'display:flex;flex-direction:column;gap:18px';
+  main.insertBefore(box, $('wOrders'));
+  var css = el('style'); css.textContent = '.sx-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}.sx-tile{background:#11261C;border:1px solid #244536;padding:14px 16px;display:flex;flex-direction:column;gap:4px}.sx-tile b{font-family:"IBM Plex Mono",monospace;font-size:22px;font-weight:500}.sx-tile.gold{border-color:#C9A45C}.sx-tile.gold b{color:#C9A45C}.sx-b{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.1em;padding:3px 8px;border:1px solid #4E7A63}.sx-b.ok{border-color:#8FD3AE;color:#8FD3AE}.sx-b.wait{border-color:#C9A45C;color:#C9A45C}.sx-b.off{border-color:#E86A6A;color:#E86A6A}.sx-pay{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-top:8px}.sx-pay input,.sx-pay select{min-height:40px;font-size:15px;padding:6px 10px;background:#0B1A13;border:1px solid #4E7A63;color:#F7F2E6;border-radius:2px;font-family:inherit}';
+  document.head.appendChild(css);
+  // Any other tab puts this one away.
+  tabs.addEventListener('click', function (ev) { var b = ev.target.closest && ev.target.closest('button'); if (b && b !== btn && b.id !== 'out') { box.hidden = true; btn.setAttribute('aria-pressed', 'false'); } });
+  btn.addEventListener('click', function () {
+    Array.prototype.forEach.call(tabs.querySelectorAll('button'), function (b) { if (b.id !== 'out') b.setAttribute('aria-pressed', b === btn ? 'true' : 'false'); });
+    ['wOrders', 'wPeople', 'wItems', 'none', 'offerWait'].forEach(function (id) { if ($(id)) $(id).hidden = true; });
+    Array.prototype.forEach.call(main.children, function (c) { if (c !== box && c.dataset && c.dataset.extraTab) c.hidden = true; });
+    box.hidden = false; load();
+  });
+
+  function load() {
+    box.textContent = 'Loading sellers…';
+    fetch('/api/market?do=admin&ak=' + encodeURIComponent(key()), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(draw).catch(function () { box.textContent = 'Could not load the sellers. Try again.'; });
+  }
+  function draw(r) {
+    box.textContent = '';
+    if (r.error) { box.textContent = r.error; return; }
+    var t = r.totals;
+    var tiles = el('div', null, 'sx-tiles');
+    [['YOUR FEES EARNED (' + r.fee + '%)', money(t.fee), 'gold'], ['SELLER SALES (PAID)', money(t.gross), ''], ['SENT TO SELLERS', money(t.paidOut), ''], ['STILL OWED TO SELLERS', money(t.owed), ''], ['SELLERS', String(r.sellers.length), '']].forEach(function (x) {
+      var d = el('div', null, 'sx-tile ' + x[2]); d.appendChild(el('span', x[0], 'label')); d.appendChild(el('b', x[1])); tiles.appendChild(d);
+    });
+    box.appendChild(tiles);
+    box.appendChild(el('div', 'Buyers pay JarFriends for seller pieces like any other order. You keep ' + r.fee + '% of the pieces plus shipping and owe the seller the rest. Sellers ship their own orders and add tracking in their portal, so do not buy a label for a seller order from the Orders tab. The fee rate is set by PLATFORM_FEE_PERCENT in the site settings.', 'small dim'));
+    if (!r.sellers.length) { box.appendChild(el('div', 'No sellers yet. Send people to /seller.html to open a shop.', 'card small')); return; }
+    r.sellers.slice().sort(function (a, b) { return (a.status === 'pending' ? 0 : 1) - (b.status === 'pending' ? 0 : 1) || b.at - a.at; }).forEach(function (s) {
+      var c = el('section', null, 'card'); c.style.gap = '10px';
+      var top = el('div'); top.style.cssText = 'display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;align-items:center';
+      var nm = el('div'); nm.appendChild(el('b', s.name + '  ')); nm.appendChild(el('span', s.status === 'approved' ? 'OPEN' : s.status === 'pending' ? 'NEEDS YOUR OK' : 'PAUSED', 'sx-b ' + (s.status === 'approved' ? 'ok' : s.status === 'pending' ? 'wait' : 'off')));
+      top.appendChild(nm);
+      var acts = el('div'); acts.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap';
+      var mk = function (label, status) { var b = el('button', label, 'ghost'); b.type = 'button'; b.addEventListener('click', function () { b.disabled = true; post({ do: 'status', slug: s.slug, status: status }).then(function (x) { if (x.error) alert(x.error); load(); }); }); acts.appendChild(b); };
+      if (s.status !== 'approved') mk(s.status === 'pending' ? 'Approve' : 'Re-open', 'approved');
+      if (s.status !== 'paused') mk('Pause', 'paused');
+      var shop = el('a', 'Shop page'); shop.href = '/market.html?seller=' + encodeURIComponent(s.slug); shop.target = '_blank'; shop.style.alignSelf = 'center'; acts.appendChild(shop);
+      top.appendChild(acts);
+      c.appendChild(top);
+      c.appendChild(el('div', s.email + ' · pay by ' + s.payHow + ': ' + s.payTo + ' · ' + s.listings + ' listings · joined ' + new Date(s.at).toLocaleDateString('en-US', { dateStyle: 'medium' }), 'small dim'));
+      if (s.about) c.appendChild(el('div', s.about, 'small'));
+      var st = s.totals;
+      c.appendChild(el('div', st.sales + ' paid sales · sold ' + money(st.gross) + ' · your fee ' + money(st.fee) + ' · their share ' + money(st.net) + ' · sent ' + money(st.paidOut) + ' · owed ' + money(st.owed), 'small'));
+      var f = el('form', null, 'sx-pay'); f.style.maxWidth = 'none';
+      var amt = el('input'); amt.type = 'number'; amt.step = '0.01'; amt.min = '0.01'; amt.placeholder = 'Amount'; amt.value = st.owed > 0 ? (st.owed / 100).toFixed(2) : ''; amt.style.width = '120px';
+      var how = el('input'); how.placeholder = 'How (e.g. Zelle)'; how.value = s.payHow || ''; how.style.width = '140px';
+      var note = el('input'); note.placeholder = 'Note (optional)'; note.style.flex = '1 1 160px';
+      var go = el('button', 'Record payout', 'ghost'); go.type = 'submit';
+      f.appendChild(amt); f.appendChild(how); f.appendChild(note); f.appendChild(go);
+      f.addEventListener('submit', function (ev) { ev.preventDefault(); if (!confirm('Record ' + money(Math.round(Number(amt.value) * 100)) + ' sent to ' + s.name + '? They get an email.')) return; go.disabled = true; post({ do: 'payout', slug: s.slug, amount: amt.value, how: how.value, note: note.value }).then(function (x) { if (x.error) { alert(x.error); go.disabled = false; return; } load(); }); });
+      c.appendChild(f);
+      box.appendChild(c);
+    });
+    if (r.sales.length) {
+      var w = el('div', null, 'scroll'), tb = el('table'), hr = el('tr');
+      ['Placed', 'Order', 'Seller', 'Piece', 'Buyer', 'Sold for', 'Your fee', 'Seller gets', 'Status'].forEach(function (h, i) { var th = el('th', h); if (i >= 5 && i <= 7) th.className = 'num'; hr.appendChild(th); });
+      var th = el('thead'); th.appendChild(hr); tb.appendChild(th); var bd = el('tbody');
+      var names = {}; r.sellers.forEach(function (s) { names[s.slug] = s.name; });
+      r.sales.forEach(function (o) {
+        var tr = el('tr');
+        [new Date(o.at).toLocaleDateString('en-US', { dateStyle: 'medium' }), o.n, names[o.seller] || o.seller, o.product + (o.q > 1 ? ' × ' + o.q : ''), o.buyer, money(o.gross), money(o.fee), money(o.net), !o.paid ? 'Waiting for payment' : o.tracking ? 'Shipped ' + o.tracking : 'Paid, seller to ship'].forEach(function (v, i) { var td = el('td', v); if (i >= 5 && i <= 7) td.className = 'num'; tr.appendChild(td); });
+        bd.appendChild(tr);
+      });
+      tb.appendChild(bd); w.appendChild(tb);
+      box.appendChild(el('h2', 'Seller sales')); box.appendChild(w);
+    }
+  }
+})();

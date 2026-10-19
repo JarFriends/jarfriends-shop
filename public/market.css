@@ -1,0 +1,41 @@
+/* Market, wishlist, sold archive and seller portal. Builds on site.css. */
+.jf-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:18px}
+.jf-item{position:relative;display:flex;flex-direction:column;gap:8px;color:#F7F2E6;text-decoration:none;background:#11261C;border:1px solid #244536;padding:10px;transition:border-color .15s,transform .15s}
+.jf-item:hover{border-color:#C9A45C;transform:translateY(-2px)}
+.jf-item:focus-visible{outline:2px solid #C9A45C;outline-offset:2px}
+.jf-pic{aspect-ratio:1/1;background:#0B1A13;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.jf-pic img{width:100%;height:100%;object-fit:cover;display:block}
+.jf-ini{font-family:'Playfair Display',Georgia,serif;font-size:34px;color:#4E7A63}
+.jf-name{font-size:15px;font-weight:700;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.6em}
+.jf-meta{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.jf-price{font-family:'IBM Plex Mono',monospace;font-size:16px;color:#C9A45C}
+.jf-by{font-size:12px;color:#A8BFB1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.jf-tag{position:absolute;top:16px;left:16px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.12em;background:#C9A45C;color:#0B1A13;padding:3px 8px}
+.jf-tag.out{background:#244536;color:#D6E2DA}
+.jf-heart{position:absolute;top:14px;right:14px;width:38px;height:38px;border-radius:999px;border:1px solid #4E7A63;background:rgba(11,26,19,.85);color:#F7F2E6;font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center;padding:0}
+.jf-heart[aria-pressed="true"]{color:#E86A6A;border-color:#E86A6A}
+.jf-filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.jf-filters .pill{min-height:38px;padding:7px 14px;font-size:14px}
+select.jf-sel,textarea.jf-ta{font-family:inherit;font-size:16px;padding:10px 12px;background:#0B1A13;border:1px solid #4E7A63;color:#F7F2E6;border-radius:2px}
+select.jf-sel{min-height:44px}
+textarea.jf-ta{min-height:96px;resize:vertical}
+.jf-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px}
+.jf-tile{background:#11261C;border:1px solid #244536;padding:16px;display:flex;flex-direction:column;gap:4px}
+.jf-tile b{font-family:'IBM Plex Mono',monospace;font-size:24px;font-weight:500;color:#F7F2E6}
+.jf-tile.gold{border-color:#C9A45C}.jf-tile.gold b{color:#C9A45C}
+.jf-table{width:100%;border-collapse:collapse;font-size:14px}
+.jf-table th{text-align:left;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.12em;color:#A8BFB1;font-weight:500;padding:8px 10px;border-bottom:1px solid #4E7A63;white-space:nowrap}
+.jf-table td{padding:10px;border-bottom:1px solid #244536;vertical-align:top}
+.jf-table .num{text-align:right;font-family:'IBM Plex Mono',monospace;white-space:nowrap}
+.jf-scroll{overflow-x:auto}
+.jf-row{display:flex;gap:14px;align-items:flex-start;padding:14px 0;border-top:1px solid #244536}
+.jf-row .jf-pic{width:84px;flex-shrink:0}
+.jf-tabs{display:flex;flex-wrap:wrap;gap:8px}
+.jf-tabs .pill{min-height:40px;padding:8px 16px;font-size:15px}
+.jf-badge{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;padding:3px 8px;border:1px solid #4E7A63;color:#D6E2DA}
+.jf-badge.ok{border-color:#8FD3AE;color:#8FD3AE}.jf-badge.wait{border-color:#C9A45C;color:#C9A45C}.jf-badge.off{border-color:#E86A6A;color:#E86A6A}
+.jf-empty{border:1px dashed #4E7A63;padding:28px;text-align:center;color:#A8BFB1}
+.jf-check{flex-direction:row!important;align-items:flex-start;gap:10px!important;font-weight:400!important}
+.jf-check input{width:20px;height:20px;min-height:0;margin-top:3px;flex:none}
+@media(max-width:520px){.jf-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.jf-heart{width:34px;height:34px;top:12px;right:12px}}
+@media(prefers-reduced-motion:reduce){.jf-item{transition:none}.jf-item:hover{transform:none}}

@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Seller portal · JarFriends</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&family=IBM+Plex+Mono:wght@400;500&family=Playfair+Display:wght@600;700;800&display=swap">
+<link rel="stylesheet" href="/site.css">
+<link rel="stylesheet" href="/market.css">
+</head>
+<body>
+<header class="top"><div class="wrap bar"><a class="brand" href="/" style="text-decoration:none">JarFriends</a><span style="display:flex;align-items:center;gap:20px"><span class="mono dim">SELLER PORTAL</span><a class="home" href="/market.html">Market</a></span></div></header>
+<main class="wrap page" style="gap:28px">
+  <div class="stack-s">
+    <div class="mono gold" id="kicker">SELL ON JARFRIENDS</div>
+    <h1 id="head">Seller portal</h1>
+    <div class="small" id="lead">List your collectibles in the JarFriends market. Buyers check out on JarFriends with card, crypto, Zelle, Venmo, Cash App or cash; you ship the piece and get paid.</div>
+  </div>
+  <div id="box"></div>
+</main>
+<script src="/jf.js"></script>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); }, el = JF.el;
+  var tok = JF.token(), D = null, tab = 'listings', editing = null;
+  var PAY = [['zelle', 'Zelle'], ['venmo', 'Venmo'], ['cashapp', 'Cash App'], ['paypal', 'PayPal']];
+  var box = $('box');
+  function field(label, input, hint) { var l = el('label', label); l.appendChild(input); if (hint) l.appendChild(el('span', hint, 'hint')); return l; }
+  function input(type, value, attrs) { var i = el('input'); i.type = type || 'text'; if (value != null) i.value = value; Object.keys(attrs || {}).forEach(function (k) { i.setAttribute(k, attrs[k]); }); return i; }
+  function select(opts, value) { var s = el('select', null, 'jf-sel'); opts.forEach(function (o) { var op = el('option', o[1]); op.value = o[0]; s.appendChild(op); }); if (value != null) s.value = value; return s; }
+  function status(text) { var m = el('div', text || '', 'small'); m.setAttribute('role', 'status'); return m; }
+
+  function load() {
+    return JF.api('/api/market?do=me&t=' + encodeURIComponent(tok)).then(function (r) {
+      if (r._status === 401) { JF.signOut(); tok = ''; return ask(); }
+      if (r.error) { box.textContent = r.error; return; }
+      D = r;
+      if (!r.seller) return applyForm();
+      dash();
+    }).catch(function () { box.textContent = 'The portal did not load. Refresh to try again.'; });
+  }
+  function ask() {
+    $('head').textContent = 'Seller portal';
+    JF.signInBox(box, 'Sign in or make an account to open your seller shop. Already a seller? Sign in with the same email.', function (t) { tok = t; load(); });
+  }
+
+  // ---- Opening a shop ----
+  function applyForm() {
+    $('kicker').textContent = 'OPEN YOUR SHOP'; $('head').textContent = 'Become a seller';
+    box.textContent = '';
+    var c = el('section', null, 'card'); c.style.gap = '18px';
+    var how = el('div', null, 'rows');
+    [['You list', 'Add pieces with a photo, price, stock and shipping cost. They show in the JarFriends market.'],
+     ['Buyers pay JarFriends', 'Checkout, payment and receipts are handled for you.'],
+     ['You ship', 'Once an order is paid you see the address here. Ship it and add the tracking number.'],
+     ['You get paid', 'JarFriends keeps ' + D.fee + '% of each sale (pieces + shipping). The rest is sent to you by the way you choose below.']].forEach(function (x) {
+      var r = el('div', null, 'row'); r.appendChild(el('b', x[0])); var s = el('span', x[1], 'dim'); s.style.textAlign = 'right'; s.style.maxWidth = '70%'; r.appendChild(s); how.appendChild(r);
+    });
+    c.appendChild(el('h2', 'How it works')); c.appendChild(how);
+    var f = el('form');
+    var name = input('text', '', { maxlength: '40', required: '', placeholder: 'e.g. Wolf Den Cards' });
+    var about = el('textarea', null, 'jf-ta'); about.maxLength = 400; about.placeholder = 'What you collect and sell. Shown on your shop page.';
+    var payHow = select([['', 'Choose…']].concat(PAY)), payTo = input('text', '', { maxlength: '80', required: '', placeholder: 'Your handle, phone or email for it' });
+    var agree = input('checkbox'); var al = el('label', null, 'jf-check'); al.appendChild(agree);
+    al.appendChild(el('span', 'I agree: JarFriends keeps ' + D.fee + '% of each paid sale of my pieces (the price of the pieces plus shipping) and pays me the rest. I ship within 3 days of payment, describe my pieces honestly, and only sell what I own.'));
+    var go = el('button', 'Open my shop', 'solid'); go.type = 'submit'; var m = status();
+    f.appendChild(field('Shop name', name)); f.appendChild(field('About your shop', about, 'Optional.'));
+    var two = el('div', null, 'two'); two.appendChild(field('Pay me by', payHow)); two.appendChild(field('Send it to', payTo)); f.appendChild(two);
+    f.appendChild(al); f.appendChild(go); f.appendChild(m);
+    c.appendChild(el('h2', 'Your shop')); c.appendChild(f);
+    c.appendChild(el('div', 'Signed in as ' + D.email, 'small dim'));
+    box.appendChild(c);
+    f.addEventListener('submit', function (ev) {
+      ev.preventDefault(); go.disabled = true; m.textContent = 'Opening your shop…';
+      JF.api('/api/market', { do: 'apply', t: tok, name: name.value, about: about.value, payHow: payHow.value, payTo: payTo.value, agree: agree.checked }).then(function (r) {
+        go.disabled = false;
+        if (r.error) { m.textContent = r.error; return; }
+        load();
+      });
+    });
+  }
+
+  // ---- The dashboard ----
+  function dash() {
+    var s = D.seller, t = D.totals;
+    $('kicker').textContent = 'SELLER PORTAL'; $('head').textContent = s.name;
+    $('lead').textContent = s.status === 'approved' ? 'Your shop is open. Your pieces show in the market.' : s.status === 'pending' ? 'Your shop is waiting for JarFriends to approve it. You can add your pieces now; they go live the moment you are approved.' : 'Your shop is paused. Contact JarFriends.';
+    box.textContent = '';
+    var wrap = el('div'); wrap.style.cssText = 'display:flex;flex-direction:column;gap:24px';
+    var badge = el('span', s.status === 'approved' ? 'OPEN' : s.status === 'pending' ? 'WAITING FOR APPROVAL' : 'PAUSED', 'jf-badge ' + (s.status === 'approved' ? 'ok' : s.status === 'pending' ? 'wait' : 'off'));
+    var line = el('div', null, 'small'); line.style.cssText = 'display:flex;flex-wrap:wrap;gap:12px;align-items:center'; line.appendChild(badge);
+    if (s.status === 'approved') { var sl = el('a', 'See your shop page'); sl.href = '/market.html?seller=' + encodeURIComponent(s.slug); line.appendChild(sl); }
+    wrap.appendChild(line);
+    var tiles = el('div', null, 'jf-tiles');
+    [['PAID SALES', String(t.sales), ''], ['SOLD (PIECES + SHIPPING)', JF.cents(t.gross), ''], ['JARFRIENDS FEE (' + D.fee + '%)', JF.cents(t.fee), ''], ['YOU EARNED', JF.cents(t.net), ''], ['PAID TO YOU', JF.cents(t.paidOut), ''], ['OWED TO YOU', JF.cents(t.owed), 'gold']].forEach(function (x) {
+      var d = el('div', null, 'jf-tile ' + x[2]); d.appendChild(el('span', x[0], 'label')); d.appendChild(el('b', x[1])); tiles.appendChild(d);
+    });
+    wrap.appendChild(tiles);
+    if (t.unpaidGross) wrap.appendChild(el('div', JF.cents(t.unpaidGross) + ' more is in orders waiting for the buyer to pay. It counts once they pay.', 'small dim'));
+    var tabs = el('div', null, 'jf-tabs');
+    var toShip = D.orders.filter(function (o) { return o.paid && !o.tracking; }).length;
+    [['listings', 'My pieces (' + D.listings.length + ')'], ['orders', 'Orders' + (toShip ? ' · ' + toShip + ' to ship' : '')], ['payouts', 'Payouts'], ['settings', 'Shop settings']].forEach(function (x) {
+      var b = el('button', x[1], 'pill'); b.type = 'button'; b.setAttribute('aria-pressed', tab === x[0] ? 'true' : 'false');
+      b.addEventListener('click', function () { tab = x[0]; editing = null; dash(); }); tabs.appendChild(b);
+    });
+    wrap.appendChild(tabs);
+    var pane = el('div'); pane.style.cssText = 'display:flex;flex-direction:column;gap:18px';
+    ({ listings: listings, orders: orders, payouts: payouts, settings: settings })[tab](pane);
+    wrap.appendChild(pane);
+    var out = el('button', 'Sign out', 'ghost'); out.type = 'button'; out.style.alignSelf = 'flex-start';
+    out.addEventListener('click', function () { JF.signOut(); location.reload(); });
+    wrap.appendChild(out);
+    box.appendChild(wrap);
+  }
+
+  // A photo, shrunk on the phone or computer before it is sent: at most 1200 pixels on the long side, as a JPEG.
+  function shrink(file) {
+    return new Promise(function (ok, bad) {
+      var img = new Image(), url = URL.createObjectURL(file);
+      img.onload = function () {
+        var k = Math.min(1, 1200 / Math.max(img.width, img.height)), c = document.createElement('canvas');
+        c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
+        ok(c.toDataURL('image/jpeg', 0.85));
+      };
+      img.onerror = function () { bad(new Error('That file is not a picture we can use.')); };
+      img.src = url;
+    });
+  }
+
+  function listingForm(p) {
+    var c = el('section', null, 'card'); c.style.gap = '14px';
+    c.appendChild(el('h2', p ? 'Change this piece' : 'Add a piece'));
+    var f = el('form'); f.style.maxWidth = '720px';
+    var name = input('text', p && p.name, { maxlength: '120', required: '' });
+    var desc = el('textarea', null, 'jf-ta'); desc.maxLength = 1200; desc.value = (p && p.desc) || ''; desc.placeholder = 'Condition, grade, edition, what is included.';
+    var price = input('number', p && p.price, { min: '1', step: '0.01', required: '', inputmode: 'decimal' });
+    var stock = input('number', p ? p.stock : 1, { min: '0', max: '999', step: '1', required: '' });
+    var ship = input('text', p ? (p.shipping === 'free' ? 'free' : p.shipping) : '', { placeholder: 'free, or e.g. 5.50' });
+    var sec = select([['', 'None']].concat(D.sections.map(function (x) { return [x, x]; })), p && p.section);
+    var hidden = input('checkbox'); hidden.checked = !!(p && p.hidden);
+    var hl = el('label', null, 'jf-check'); hl.appendChild(hidden); hl.appendChild(el('span', 'Hide it from the market for now'));
+    var photo = input('file', null, { accept: 'image/*' });
+    var go = el('button', p ? 'Save changes' : 'Add to my shop', 'solid'); go.type = 'submit';
+    var m = status();
+    f.appendChild(field('Name', name)); f.appendChild(field('Description', desc));
+    var two = el('div', null, 'two'); two.appendChild(field('Price (USD)', price)); two.appendChild(field('How many you have', stock)); f.appendChild(two);
+    var three = el('div', null, 'two'); three.appendChild(field('Shipping (USD, charged once per order)', ship, 'Leave empty or type free for free shipping.')); three.appendChild(field('Section', sec)); f.appendChild(three);
+    f.appendChild(field('Photo', photo, p && p.photoUrl ? 'Pick a new one to replace the current photo.' : 'A clear, square-ish photo works best.'));
+    f.appendChild(hl);
+    var price2 = el('div', '', 'small dim');
+    var calc = function () { var v = Number(price.value) || 0; price2.textContent = v ? 'At ' + JF.usd(v) + ' you get ' + JF.usd(v * (1 - D.fee / 100)) + ' after the ' + D.fee + '% JarFriends fee (plus shipping, less its fee).' : ''; };
+    price.addEventListener('input', calc); calc(); f.appendChild(price2);
+    var row = el('div'); row.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px'; row.appendChild(go);
+    if (p) { var cancel = el('button', 'Cancel', 'ghost'); cancel.type = 'button'; cancel.addEventListener('click', function () { editing = null; dash(); }); row.appendChild(cancel); }
+    f.appendChild(row); f.appendChild(m);
+    c.appendChild(f);
+    f.addEventListener('submit', function (ev) {
+      ev.preventDefault(); go.disabled = true; m.textContent = 'Saving…';
+      JF.api('/api/market', { do: 'listing', t: tok, id: p ? p.id : '', name: name.value, desc: desc.value, price: price.value, stock: stock.value, shipping: ship.value, section: sec.value, hidden: hidden.checked }).then(function (r) {
+        if (r.error) { go.disabled = false; m.textContent = r.error; return; }
+        var file = photo.files && photo.files[0];
+        if (!file) return finish();
+        m.textContent = 'Uploading the photo…';
+        return shrink(file).then(function (data) { return JF.api('/api/market', { do: 'photo', t: tok, id: r.listing.id, data: data }); }).then(function (x) {
+          if (x.error) { go.disabled = false; m.textContent = 'Saved, but the photo did not upload: ' + x.error; return; }
+          finish();
+        }).catch(function (e) { go.disabled = false; m.textContent = 'Saved, but the photo did not upload: ' + e.message; });
+      });
+      function finish() { editing = null; load(); }
+    });
+    return c;
+  }
+  function listings(pane) {
+    if (editing) { pane.appendChild(listingForm(editing)); return; }
+    pane.appendChild(listingForm(null));
+    if (!D.listings.length) { pane.appendChild(el('div', 'No pieces yet. Add your first one above.', 'jf-empty')); return; }
+    var list = el('section', null, 'card'); list.style.gap = '0';
+    list.appendChild(el('h2', 'Your pieces'));
+    D.listings.forEach(function (p) {
+      var r = el('div', null, 'jf-row');
+      r.appendChild(JF.picture({ id: p.id, name: p.name, photo: p.photoUrl }));
+      var mid = el('div'); mid.style.cssText = 'flex:1;min-width:0;display:flex;flex-direction:column;gap:4px';
+      mid.appendChild(el('b', p.name));
+      mid.appendChild(el('div', JF.usd(p.price) + ' · ' + (p.shipping === 'free' ? 'free shipping' : JF.usd(p.shipping) + ' shipping') + ' · ' + p.left + ' left of ' + p.stock + (p.sold ? ' · ' + p.sold + ' sold' : ''), 'small dim'));
+      if (p.hidden) mid.appendChild(el('span', p.removed ? 'REMOVED' : 'HIDDEN', 'jf-badge'));
+      var acts = el('div'); acts.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;margin-top:6px';
+      var ed = el('button', 'Change', 'ghost'); ed.type = 'button'; ed.addEventListener('click', function () { editing = p; dash(); window.scrollTo(0, 0); });
+      var rm = el('button', 'Remove', 'ghost'); rm.type = 'button';
+      rm.addEventListener('click', function () {
+        if (!confirm('Remove "' + p.name + '" from your shop?')) return;
+        JF.api('/api/market', { do: 'remove', t: tok, id: p.id }).then(function (x) { if (x.error) alert(x.error); load(); });
+      });
+      acts.appendChild(ed); acts.appendChild(rm);
+      if (!p.hidden) { var v = el('a', 'View'); v.href = '/order.html?product=' + encodeURIComponent(p.id); v.style.alignSelf = 'center'; acts.appendChild(v); }
+      mid.appendChild(acts);
+      r.appendChild(mid);
+      list.appendChild(r);
+    });
+    pane.appendChild(list);
+  }
+  function orders(pane) {
+    if (!D.orders.length) { pane.appendChild(el('div', 'No orders yet. When someone buys one of your pieces it shows here.', 'jf-empty')); return; }
+    D.orders.forEach(function (o) {
+      var c = el('section', null, 'card'); c.style.gap = '10px';
+      var top = el('div'); top.style.cssText = 'display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px';
+      top.appendChild(el('b', o.product + (o.q > 1 ? ' × ' + o.q : '')));
+      top.appendChild(el('span', !o.paid ? 'WAITING FOR PAYMENT' : o.tracking ? 'SHIPPED' : 'PAID · SHIP IT', 'jf-badge ' + (!o.paid ? '' : o.tracking ? 'ok' : 'wait')));
+      c.appendChild(top);
+      c.appendChild(el('div', 'Order ' + o.n + ' · ' + new Date(o.at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) + (o.pay ? ' · paid with ' + o.pay : ''), 'small dim'));
+      var rows = el('div', null, 'rows');
+      [['Sold for (pieces + shipping)', JF.cents(o.gross)], ['JarFriends fee (' + o.rate + '%)', '−' + JF.cents(o.fee)], ['You get', JF.cents(o.net)]].forEach(function (x, i) { var r = el('div', null, 'row' + (i === 2 ? ' total' : '')); r.appendChild(el('span', x[0])); r.appendChild(el('span', x[1])); rows.appendChild(r); });
+      c.appendChild(rows);
+      if (o.paid) {
+        var ship = el('div', null, 'addr'); ship.textContent = 'Ship to: ' + (o.buyer ? o.buyer + ', ' : '') + (o.ship || 'see the order'); c.appendChild(ship);
+        if (o.tracking) c.appendChild(el('div', 'Tracking: ' + o.tracking + ' · the buyer was emailed.', 'small'));
+        else {
+          var f = el('form'); f.style.cssText = 'flex-direction:row;flex-wrap:wrap;align-items:flex-end;gap:10px;max-width:none';
+          var tr = input('text', '', { placeholder: 'Tracking number', required: '', autocomplete: 'off' }); var l = field('Shipped? Add the tracking number', tr); l.style.flex = '1 1 260px';
+          var go = el('button', 'Mark shipped', 'solid'); go.type = 'submit'; var m = status();
+          f.appendChild(l); f.appendChild(go); c.appendChild(f); c.appendChild(m);
+          f.addEventListener('submit', function (ev) { ev.preventDefault(); go.disabled = true; JF.api('/api/market', { do: 'ship', t: tok, n: o.n, tracking: tr.value }).then(function (r) { go.disabled = false; if (r.error) { m.textContent = r.error; return; } load(); }); });
+        }
+      } else c.appendChild(el('div', 'The address shows here once the buyer pays. Do not ship before then.', 'small dim'));
+      pane.appendChild(c);
+    });
+  }
+  function payouts(pane) {
+    var t = D.totals;
+    var c = el('section', null, 'card'); c.style.gap = '10px';
+    c.appendChild(el('h2', 'Money sent to you'));
+    c.appendChild(el('div', 'JarFriends pays you by ' + (PAY.filter(function (x) { return x[0] === D.seller.payHow; })[0] || ['', D.seller.payHow])[1] + ' (' + D.seller.payTo + '). Owed to you right now: ' + JF.cents(t.owed) + '.', 'small'));
+    if (!D.payouts.length) c.appendChild(el('div', 'No payouts yet.', 'small dim'));
+    else {
+      var tb = el('table', null, 'jf-table'), h = el('tr'); ['Date', 'How', 'Note', 'Amount'].forEach(function (x, i) { var th = el('th', x); if (i === 3) th.className = 'num'; h.appendChild(th); });
+      var th = el('thead'); th.appendChild(h); tb.appendChild(th); var bd = el('tbody');
+      D.payouts.forEach(function (p) { var r = el('tr'); [new Date(p.at).toLocaleDateString('en-US', { dateStyle: 'medium' }), p.how || '', p.note || '', JF.cents(p.cents)].forEach(function (x, i) { var td = el('td', x); if (i === 3) td.className = 'num'; r.appendChild(td); }); bd.appendChild(r); });
+      tb.appendChild(bd); var sc = el('div', null, 'jf-scroll'); sc.appendChild(tb); c.appendChild(sc);
+    }
+    pane.appendChild(c);
+  }
+  function settings(pane) {
+    var s = D.seller;
+    var c = el('section', null, 'card'); c.style.gap = '14px';
+    c.appendChild(el('h2', 'Shop settings'));
+    var f = el('form');
+    var about = el('textarea', null, 'jf-ta'); about.maxLength = 400; about.value = s.about || '';
+    var payHow = select(PAY, s.payHow), payTo = input('text', s.payTo, { maxlength: '80', required: '' });
+    var go = el('button', 'Save', 'solid'); go.type = 'submit'; var m = status();
+    f.appendChild(field('About your shop', about));
+    var two = el('div', null, 'two'); two.appendChild(field('Pay me by', payHow)); two.appendChild(field('Send it to', payTo)); f.appendChild(two);
+    f.appendChild(go); f.appendChild(m);
+    c.appendChild(f);
+    c.appendChild(el('div', 'Shop name: ' + s.name + ' · Signed in as ' + D.email + ' · JarFriends fee: ' + D.fee + '% of each sale. To rename your shop, contact JarFriends.', 'small dim'));
+    pane.appendChild(c);
+    f.addEventListener('submit', function (ev) { ev.preventDefault(); go.disabled = true; JF.api('/api/market', { do: 'profile', t: tok, about: about.value, payHow: payHow.value, payTo: payTo.value }).then(function (r) { go.disabled = false; m.textContent = r.error || 'Saved.'; if (!r.error) D.seller = r.seller; }); });
+  }
+  if (tok) load(); else ask();
+})();
+</script>
+</body>
+</html>

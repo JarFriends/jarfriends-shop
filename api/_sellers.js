@@ -1,0 +1,180 @@
+// The marketplace: other people sell on JarFriends from their own seller portal (seller.html).
+// The buyer pays JarFriends as usual. JarFriends keeps PLATFORM_FEE_PERCENT (5.55 unless set) of each paid seller sale
+// (pieces plus shipping; sales tax and the card fee are not the seller's money, so no fee is taken on them),
+// and owes the seller the rest. The owner pays sellers out and records each payout in the back office.
+//
+// Storage (the site's private Blob store):
+//   sellers/s/<slug>.json          a seller: { slug, name, email, about, payHow, payTo, status, at }
+//                                  status: pending (waiting for the owner), approved, or paused
+//   sellers/e/<email hash>.json    { slug }: which seller an email belongs to
+//   market/<slug>/<product id>.json  one listing, in the same shape as the owner's products, plus seller
+//   fees/<invoice>.json            the fee rate in force when a sale was first counted, so a later rate change
+//                                  never rewrites old sales
+//   payouts/<slug>/<time>.json     { cents, how, note, at }
+const store = require('./_store');
+const crypto = require('crypto');
+
+const feePct = () => { const v = Number((process.env.PLATFORM_FEE_PERCENT || '').trim() || 5.55); return v >= 0 && v <= 50 ? v : 5.55; };
+const autoApprove = () => /^(1|yes|true)$/i.test((process.env.SELLER_AUTO_APPROVE || '').trim());
+const hashOf = (e) => crypto.createHash('sha1').update(String(e).trim().toLowerCase()).digest('hex').slice(0, 24);
+const slugify = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30);
+const SECTIONS = ['Comics', 'Cards', 'NFTs', 'Graded', 'Pokemon', 'Watches'];
+
+async function paths(prefix) {
+  if (!store.on()) return [];
+  const { list } = await import('@vercel/blob');
+  const out = [];
+  let cursor;
+  do {
+    const r = await list({ prefix: prefix, cursor: cursor, limit: 1000 });
+    (r.blobs || []).forEach((b) => out.push({ path: b.pathname, url: b.url }));
+    cursor = r.hasMore ? r.cursor : null;
+  } while (cursor);
+  return out;
+}
+
+// ---- Sellers ----
+let sMemo = null;
+async function all() {
+  if (sMemo && Date.now() - sMemo.at < 5000) return sMemo.v;
+  const v = (await Promise.all((await paths('sellers/s/')).map((p) => store.read(p.path)))).filter((s) => s && s.slug);
+  v.sort((a, b) => (a.at || 0) - (b.at || 0));
+  sMemo = { at: Date.now(), v: v };
+  return v;
+}
+const forget = () => { sMemo = null; lMemo = null; };
+async function bySlug(slug) { return /^[a-z0-9-]{2,30}$/.test(String(slug || '')) ? store.read('sellers/s/' + slug + '.json') : null; }
+async function byEmail(email) {
+  if (!email) return null;
+  const m = await store.read('sellers/e/' + hashOf(email) + '.json');
+  return m && m.slug ? bySlug(m.slug) : null;
+}
+async function save(s) { await store.write('sellers/s/' + s.slug + '.json', s); forget(); return s; }
+
+// A new seller from the portal's sign-up form. Returns { seller } or { error }.
+async function apply(email, f) {
+  const tidy = (v, n) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n);
+  if (await byEmail(email)) return { error: 'This email already has a seller shop.' };
+  const name = tidy(f.name, 40);
+  if (name.length < 2) return { error: 'Give your shop a name.' };
+  let slug = slugify(name);
+  if (slug.length < 2) return { error: 'Use letters or numbers in your shop name.' };
+  if (['jarfriends', 'admin', 'owner', 'shop'].indexOf(slug) >= 0 || await bySlug(slug)) slug = (slug + '-' + crypto.randomBytes(2).toString('hex')).slice(0, 30);
+  const payHow = ['zelle', 'venmo', 'cashapp', 'paypal'].indexOf(f.payHow) >= 0 ? f.payHow : '';
+  const payTo = tidy(f.payTo, 80);
+  if (!payHow || payTo.length < 3) return { error: 'Tell us how to pay you: pick a way and enter your handle, phone or email for it.' };
+  if (!f.agree) return { error: 'Tick the box to agree to the seller terms.' };
+  const s = { slug: slug, name: name, email: String(email).trim().toLowerCase(), about: tidy(f.about, 400), payHow: payHow, payTo: payTo, status: autoApprove() ? 'approved' : 'pending', at: Date.now(), agreedFee: feePct() };
+  await save(s);
+  await store.write('sellers/e/' + hashOf(email) + '.json', { slug: slug });
+  return { seller: s };
+}
+// What anyone may see of a seller.
+const pub = (s) => ({ slug: s.slug, name: s.name, about: s.about || '', since: s.at });
+
+// ---- Listings ----
+let lMemo = null;
+async function listings() {
+  if (lMemo && Date.now() - lMemo.at < 4000) return lMemo.v;
+  const v = (await Promise.all((await paths('market/')).map((p) => store.read(p.path)))).filter((x) => x && x.id && x.seller);
+  lMemo = { at: Date.now(), v: v };
+  return v;
+}
+// Listings from approved sellers, in the same shape as the owner's products, ready to sit beside them in the shop.
+// A paused seller's pieces leave the shop at once. Hidden listings stay out too.
+async function products() {
+  if (!store.on()) return [];
+  const sellers = {};
+  (await all()).forEach((s) => { sellers[s.slug] = s; });
+  return (await listings()).filter((p) => sellers[p.seller] && sellers[p.seller].status === 'approved' && !p.hidden)
+    .map((p) => Object.assign({}, p, { sellerName: sellers[p.seller].name, shelf: false }));
+}
+const isSellerPid = (id) => /^S[0-9A-Z]{5,19}$/.test(String(id || ''));
+// One listing saved by its seller. New listings get an id starting with S.
+async function saveListing(seller, f) {
+  const tidy = (v, n) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n);
+  const name = tidy(f.name, 120);
+  if (name.length < 3) return { error: 'Give the piece a name.' };
+  const price = Math.round(Number(String(f.price || '').replace(/[^0-9.]/g, '')) * 100) / 100;
+  if (!(price >= 1 && price <= 100000)) return { error: 'Price: $1 to $100,000.' };
+  const stock = Math.floor(Number(f.stock));
+  if (!(stock >= 0 && stock <= 999)) return { error: 'How many you have: 0 to 999.' };
+  const shipRaw = String(f.shipping == null ? '' : f.shipping).trim().toLowerCase();
+  const ship = shipRaw === '' || shipRaw === 'free' || Number(shipRaw) === 0 ? 'free' : Math.round(Number(shipRaw.replace(/[^0-9.]/g, '')) * 100) / 100;
+  if (ship !== 'free' && !(ship > 0 && ship <= 200)) return { error: 'Shipping: free, or up to $200.' };
+  const section = SECTIONS.indexOf(f.section) >= 0 ? f.section : '';
+  let id = String(f.id || '');
+  let was = null;
+  if (id) {
+    was = await store.read('market/' + seller.slug + '/' + id + '.json');
+    if (!was || was.seller !== seller.slug) return { error: 'That listing was not found.' };
+  } else {
+    if ((await listings()).filter((p) => p.seller === seller.slug).length >= 200) return { error: 'You have 200 listings already. Remove one first.' };
+    id = 'S' + Date.now().toString(36).toUpperCase() + crypto.randomBytes(1).toString('hex').toUpperCase();
+  }
+  const p = Object.assign({}, was || {}, { id: id, seller: seller.slug, name: name, desc: tidy(f.desc, 1200), price: price, min: 1, stock: stock, shipping: ship, section: section, hidden: !!f.hidden, updated: Date.now() }, was ? {} : { created: Date.now() });
+  await store.write('market/' + seller.slug + '/' + id + '.json', p);
+  forget();
+  return { listing: p };
+}
+async function setListing(seller, id, fields) {
+  const was = await store.read('market/' + seller.slug + '/' + id + '.json');
+  if (!was || was.seller !== seller.slug) return null;
+  const p = Object.assign(was, fields, { updated: Date.now() });
+  await store.write('market/' + seller.slug + '/' + id + '.json', p);
+  forget();
+  return p;
+}
+async function removeListing(seller, id) {
+  const was = await store.read('market/' + seller.slug + '/' + id + '.json');
+  if (!was || was.seller !== seller.slug) return false;
+  const { del } = await import('@vercel/blob');
+  const hit = (await paths('market/' + seller.slug + '/' + id + '.json'))[0];
+  if (hit) await del(hit.url);
+  forget();
+  return true;
+}
+
+// ---- Money ----
+const dollars = (v) => Math.round(Number(String(v == null ? '' : v).replace(/[^0-9.\-]/g, '')) * 100) || 0;
+// Is this sale paid? Same rule as the back office: not "payment due", or marked paid since.
+function paidOf(d, m) { return !/payment due/i.test(d.status || '') || !!(m.paidAt || m.shippedAt || m.labelPdf); }
+// Every sale of a seller's pieces with the fee and what the seller gets. slug null = every seller.
+async function ledger(slug) {
+  const mine = {};
+  (await listings()).forEach((p) => { if (!slug || p.seller === slug) mine[p.id] = p; });
+  const sales = (await store.sales()).filter((s) => mine[s.pid]);
+  const rows = await Promise.all(sales.map(async (s) => {
+    const got = await Promise.all([store.read(s.path), store.read('meta/' + s.n + '.json'), store.read('fees/' + s.n + '.json')]);
+    const d = got[0] || {}, m = got[1] || {};
+    let rate = got[2] && got[2].pct;
+    if (rate == null) { rate = feePct(); await store.write('fees/' + s.n + '.json', { pct: rate, at: Date.now() }).catch(() => null); }
+    const gross = dollars(d.items) + dollars(d.shipping);
+    const fee = Math.round(gross * rate / 100);
+    return { n: s.n, pid: s.pid, seller: mine[s.pid].seller, product: d.product || mine[s.pid].name, q: s.q, at: d.at || s.at, buyer: d.buyer || '', email: d.email || '', ship: d.ship || '', pay: d.pay || '',
+      gross: gross, rate: rate, fee: fee, net: gross - fee, paid: paidOf(d, m), tracking: m.tracking || '', shippedAt: m.shippedAt || 0 };
+  }));
+  return rows.sort((a, b) => b.at - a.at);
+}
+async function payouts(slug) {
+  const v = (await Promise.all((await paths('payouts/' + (slug ? slug + '/' : ''))).map(async (p) => {
+    const x = await store.read(p.path), m = /^payouts\/([a-z0-9-]+)\//.exec(p.path);
+    return x && m ? Object.assign({ seller: m[1] }, x) : null;
+  }))).filter(Boolean);
+  return v.sort((a, b) => b.at - a.at);
+}
+async function addPayout(slug, cents, how, note) {
+  const p = { cents: cents, how: String(how || '').slice(0, 30), note: String(note || '').slice(0, 200), at: Date.now() };
+  await store.write('payouts/' + slug + '/' + p.at + '.json', p);
+  return p;
+}
+// Totals for one seller's rows and payouts. Only paid sales count toward what is owed.
+function totals(rows, outs) {
+  const t = { sales: 0, gross: 0, fee: 0, net: 0, unpaidGross: 0, paidOut: 0 };
+  rows.forEach((r) => { if (r.paid) { t.sales++; t.gross += r.gross; t.fee += r.fee; t.net += r.net; } else t.unpaidGross += r.gross; });
+  outs.forEach((p) => { t.paidOut += p.cents; });
+  t.owed = t.net - t.paidOut;
+  return t;
+}
+
+module.exports = { feePct, autoApprove, all, bySlug, byEmail, save, apply, pub, listings, products, isSellerPid, saveListing, setListing, removeListing, ledger, payouts, addPayout, totals, hashOf, SECTIONS, forget };
