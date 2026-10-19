@@ -173,7 +173,7 @@ async function ledger(slug) {
     return { n: s.n, pid: s.pid, seller: mine[s.pid].seller, product: d.product || mine[s.pid].name, q: s.q, at: d.at || s.at, buyer: d.buyer || '', email: d.email || '', ship: d.ship || '', pay: d.pay || '',
       gross: gross, rate: rate, fee: fee, net: gross - fee, paid: paidOf(d, m), tracking: m.tracking || '', shippedAt: m.shippedAt || 0,
       // Paid by card straight to the seller's own Stripe (see _connect.js): Stripe pays the seller, nothing is owed.
-      direct: !!m.direct };
+      direct: !!m.direct, issue: m.issue || null };
   }));
   return rows.sort((a, b) => b.at - a.at);
 }
@@ -223,4 +223,50 @@ async function removePost(seller, id) {
   return true;
 }
 
-module.exports = { posts, addPost, removePost, feePct, autoApprove, all, bySlug, byEmail, save, apply, pub, listings, products, isSellerPid, saveListing, setListing, removeListing, ledger, payouts, addPayout, totals, hashOf, SECTIONS, forget };
+// ---- Reviews and the verified checkmark ----
+// reviews/<slug>/<invoice>.json  { n, stars (1-5), text, name ("Bea B."), product, at, reply, replyAt }
+// Only the buyer of a completed order (paid and shipped with tracking) can review it, once per order (they may edit).
+// A seller is verified at VERIFY_AFTER (10) completed sales with no issues. An issue is a review of 1 or 2 stars, or
+// an order the owner flagged in the back office. The owner can also switch the checkmark on or off by hand
+// (seller.verify: 'on' | 'off'; anything else follows the rule).
+const VERIFY_AFTER = () => { const v = Math.floor(Number((process.env.VERIFY_AFTER || '').trim() || 10)); return v >= 1 && v <= 1000 ? v : 10; };
+const completed = (r) => r.paid && !!r.tracking;
+async function reviews(slug) {
+  const v = (await Promise.all((await paths('reviews/' + slug + '/')).map((p) => store.read(p.path)))).filter((x) => x && x.stars);
+  return v.sort((a, b) => b.at - a.at);
+}
+async function saveReview(slug, r) { await store.write('reviews/' + slug + '/' + r.n + '.json', r); }
+async function removeReview(slug, n) {
+  const hit = (await paths('reviews/' + slug + '/' + n + '.json'))[0];
+  if (!hit) return false;
+  const { del } = await import('@vercel/blob');
+  await del(hit.url);
+  return true;
+}
+// Rating and checkmark for one seller, from their ledger rows and reviews.
+function statsFrom(seller, rows, revs) {
+  const done = rows.filter(completed);
+  const low = {};
+  revs.forEach((r) => { if (r.stars <= 2) low[r.n] = true; });
+  const issues = done.filter((r) => low[r.n] || r.issue).length + rows.filter((r) => !completed(r) && r.issue).length;
+  const clean = done.filter((r) => !low[r.n] && !r.issue).length;
+  const sum = revs.reduce((t, r) => t + r.stars, 0);
+  let verified = done.length >= VERIFY_AFTER() && issues === 0;
+  if (seller.verify === 'on') verified = true;
+  if (seller.verify === 'off') verified = false;
+  return { rating: revs.length ? Math.round(sum / revs.length * 10) / 10 : 0, reviews: revs.length, completed: done.length, clean: clean, issues: issues,
+    verified: verified, need: VERIFY_AFTER(), override: seller.verify === 'on' || seller.verify === 'off' ? seller.verify : '' };
+}
+async function stats(seller, rows) {
+  return statsFrom(seller, rows || (await ledger(seller.slug)), await reviews(seller.slug));
+}
+// Stats for many sellers at once (one ledger read).
+async function statsAll(sellers) {
+  const rows = await ledger(null), out = {};
+  await Promise.all(sellers.map(async (s) => { out[s.slug] = statsFrom(s, rows.filter((r) => r.seller === s.slug), await reviews(s.slug)); }));
+  return out;
+}
+// "Bea Buyer" -> "Bea B." : how a reviewer is shown.
+const shortName = (n) => { const w = String(n || '').replace(/\(.*?\)/g, ' ').trim().split(/\s+/).filter(Boolean); return w.length ? w[0].slice(0, 20) + (w[1] ? ' ' + w[1][0].toUpperCase() + '.' : '') : 'A buyer'; };
+
+module.exports = { reviews, saveReview, removeReview, stats, statsAll, statsFrom, shortName, completed, VERIFY_AFTER, posts, addPost, removePost, feePct, autoApprove, all, bySlug, byEmail, save, apply, pub, listings, products, isSellerPid, saveListing, setListing, removeListing, ledger, payouts, addPayout, totals, hashOf, SECTIONS, forget };

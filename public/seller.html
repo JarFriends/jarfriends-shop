@@ -97,6 +97,13 @@
     var line = el('div', null, 'small'); line.style.cssText = 'display:flex;flex-wrap:wrap;gap:12px;align-items:center'; line.appendChild(badge);
     if (s.status === 'approved') { var sl = el('a', 'See your shop page'); sl.href = '/shop.html?s=' + encodeURIComponent(s.slug); line.appendChild(sl); }
     wrap.appendChild(line);
+    if (D.stats) {
+      var sl2 = el('div'); sl2.style.cssText = 'display:flex;flex-wrap:wrap;gap:12px;align-items:center';
+      sl2.appendChild(JF.stars(D.stats.rating, D.stats.reviews));
+      if (D.stats.verified) sl2.appendChild(JF.check());
+      else sl2.appendChild(el('span', D.stats.issues ? 'Not verified: ' + D.stats.issues + (D.stats.issues === 1 ? ' order has' : ' orders have') + ' an issue (a 1 or 2 star review, or a problem V2V flagged).' : 'Verified checkmark: ' + D.stats.completed + ' of ' + D.stats.need + ' completed sales with no issues.', 'small dim'));
+      wrap.appendChild(sl2);
+    }
     if (AS) wrap.appendChild(el('div', 'You are viewing this shop as the V2V owner. Anything you change here is saved for this seller.', 'alert small'));
     var tiles = el('div', null, 'jf-tiles');
     [['PAID SALES', String(t.sales), ''], ['SOLD (PIECES + SHIPPING)', JF.cents(t.gross), ''], ['JARFRIENDS FEE (' + D.fee + '%)', JF.cents(t.fee), ''], ['YOU EARNED', JF.cents(t.net), ''], ['PAID TO YOUR BANK BY STRIPE', JF.cents(t.byStripe || 0), ''], ['SENT BY V2V', JF.cents(t.paidOut), ''], ['V2V STILL OWES YOU', JF.cents(t.owed), 'gold']].forEach(function (x) {
@@ -112,13 +119,13 @@
     if (t.unpaidGross) wrap.appendChild(el('div', JF.cents(t.unpaidGross) + ' more is in orders waiting for the buyer to pay. It counts once they pay.', 'small dim'));
     var tabs = el('div', null, 'jf-tabs');
     var toShip = D.orders.filter(function (o) { return o.paid && !o.tracking; }).length;
-    [['listings', 'My pieces (' + D.listings.length + ')'], ['posts', 'Community posts'], ['orders', 'Orders' + (toShip ? ' · ' + toShip + ' to ship' : '')], ['payouts', 'Payouts'], ['settings', 'Shop settings']].forEach(function (x) {
+    [['listings', 'My pieces (' + D.listings.length + ')'], ['posts', 'Community posts'], ['reviews', 'Reviews (' + ((D.reviews || []).length) + ')'], ['orders', 'Orders' + (toShip ? ' · ' + toShip + ' to ship' : '')], ['payouts', 'Payouts'], ['settings', 'Shop settings']].forEach(function (x) {
       var b = el('button', x[1], 'pill'); b.type = 'button'; b.setAttribute('aria-pressed', tab === x[0] ? 'true' : 'false');
       b.addEventListener('click', function () { tab = x[0]; editing = null; dash(); }); tabs.appendChild(b);
     });
     wrap.appendChild(tabs);
     var pane = el('div'); pane.style.cssText = 'display:flex;flex-direction:column;gap:18px';
-    ({ listings: listings, posts: posts, orders: orders, payouts: payouts, settings: settings })[tab](pane);
+    ({ listings: listings, posts: posts, reviews: reviews, orders: orders, payouts: payouts, settings: settings })[tab](pane);
     wrap.appendChild(pane);
     var out = el('button', 'Sign out', 'ghost'); out.type = 'button'; out.style.alignSelf = 'flex-start';
     out.addEventListener('click', function () { if (AS) { location.href = '/admin.html'; return; } JF.signOut(); location.reload(); });
@@ -243,6 +250,24 @@
       del.addEventListener('click', function () { if (!confirm('Delete this post?')) return; JF.api('/api/market', { do: 'unpost', t: tok, as: AS, ak: AK, id: x.id }).then(function () { load(); }); });
       card.appendChild(del);
       pane.appendChild(card);
+    });
+  }
+  function reviews(pane) {
+    var list = D.reviews || [];
+    pane.appendChild(el('div', 'Buyers can review an order once you add its tracking number. A sale counts as completed when it is paid and shipped. ' + D.stats.need + ' completed sales with no 1 or 2 star reviews and no problems flagged by V2V earns your verified checkmark.', 'small dim'));
+    if (!list.length) { pane.appendChild(el('div', 'No reviews yet.', 'jf-empty')); return; }
+    list.forEach(function (x) {
+      var c = el('article', null, 'card'); c.style.gap = '8px';
+      var top = el('div'); top.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between';
+      var st = JF.stars(x.stars, 1); st.lastChild.textContent = ''; st.setAttribute('aria-label', x.stars + ' out of 5 stars'); top.appendChild(st);
+      top.appendChild(el('span', x.name + ' · ' + x.product + ' · ' + new Date(x.at).toLocaleDateString('en-US', { dateStyle: 'medium' }), 'small dim'));
+      c.appendChild(top);
+      if (x.text) { var t = el('div', x.text); t.style.whiteSpace = 'pre-wrap'; c.appendChild(t); }
+      var rt = el('textarea', null, 'jf-ta'); rt.maxLength = 600; rt.value = x.reply || ''; rt.placeholder = 'Reply in public (optional)'; rt.setAttribute('aria-label', 'Your reply to ' + x.name); rt.style.minHeight = '60px';
+      var go = el('button', x.reply ? 'Update reply' : 'Reply', 'ghost'); go.type = 'button'; go.style.alignSelf = 'flex-start'; var m = status();
+      go.addEventListener('click', function () { go.disabled = true; JF.api('/api/market', { do: 'reply', t: tok, as: AS, ak: AK, n: x.n, text: rt.value }).then(function (r) { go.disabled = false; m.textContent = r.error || 'Saved.'; }); });
+      c.appendChild(rt); c.appendChild(go); c.appendChild(m);
+      pane.appendChild(c);
     });
   }
   function orders(pane) {

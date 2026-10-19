@@ -60,7 +60,11 @@ module.exports = async (req, res) => {
     // ---------- Anyone ----------
     if (req.method === 'GET' && what === 'shop') {
       let items = await shopItems();
-      const sellers = (await M.all()).filter((s) => s.status === 'approved').map(M.pub);
+      const open = (await M.all()).filter((s) => s.status === 'approved');
+      const st = await M.statsAll(open);
+      // Each shop with its rating and checkmark; pieces carry their seller's checkmark for the cards.
+      const sellers = open.map((s) => Object.assign(M.pub(s), { rating: st[s.slug].rating, reviews: st[s.slug].reviews, verified: st[s.slug].verified }));
+      items.forEach((p) => { if (p.seller && st[p.seller]) p.sellerVerified = st[p.seller].verified; });
       const one = q.seller ? sellers.filter((s) => s.slug === String(q.seller))[0] : null;
       if (q.seller === '_house') items = items.filter((p) => !p.seller);
       else if (q.seller) items = one ? items.filter((p) => p.seller === one.slug) : [];
@@ -69,7 +73,16 @@ module.exports = async (req, res) => {
     // Which seller a piece belongs to, for "Sold by" on checkout.
     if (req.method === 'GET' && what === 'item') {
       const p = (await shopItems()).filter((x) => x.id === String(q.id || ''))[0];
-      return p ? res.json({ id: p.id, seller: p.seller, sellerName: p.sellerName }) : res.status(404).json({ error: 'Not found.' });
+      if (!p) return res.status(404).json({ error: 'Not found.' });
+      const s = p.seller ? await M.bySlug(p.seller) : null, st = s ? await M.stats(s) : null;
+      return res.json({ id: p.id, seller: p.seller, sellerName: p.sellerName, rating: st ? st.rating : 0, reviews: st ? st.reviews : 0, verified: st ? st.verified : false });
+    }
+    // A shop's rating, checkmark and reviews (newest first). Reviewers show as first name and initial.
+    if (req.method === 'GET' && what === 'reviews') {
+      const s = await M.bySlug(String(q.seller || ''));
+      if (!s || s.status !== 'approved') return res.json({ stats: null, reviews: [] });
+      const revs = await M.reviews(s.slug);
+      return res.json({ stats: await M.stats(s), reviews: revs.slice(0, 100).map((r) => ({ stars: r.stars, text: r.text || '', name: r.name, product: r.product || '', at: r.at, reply: r.reply || '', replyAt: r.replyAt || 0 })) });
     }
     // Community posts: one seller's (?seller=) or the newest from every open seller.
     if (req.method === 'GET' && what === 'posts') {
@@ -100,7 +113,7 @@ module.exports = async (req, res) => {
     }
 
     // ---------- The owner ----------
-    if (what === 'admin' || what === 'status' || what === 'payout') {
+    if (what === 'admin' || what === 'status' || what === 'payout' || what === 'issue' || what === 'review-remove' || what === 'verify') {
       if (!gate.isAdmin(req.method === 'POST' ? b.ak : q.ak)) return res.status(401).json({ error: 'Sign in to the back office again.' });
       if (req.method === 'GET') {
         const [sellers, rows, outs, listings] = await Promise.all([M.all(), M.ledger(null), M.payouts(null), M.listings()]);
@@ -111,10 +124,26 @@ module.exports = async (req, res) => {
           return Object.assign({}, s, { listings: listings.filter((p) => p.seller === s.slug).length, totals: M.totals(mine, paid), payouts: paid });
         });
         const all = M.totals(rows, outs);
+        const st = await M.statsAll(sellers);
+        await Promise.all(list.map(async (x) => { x.stats = st[x.slug]; x.reviewList = (await M.reviews(x.slug)).map((r) => ({ n: r.n, stars: r.stars, text: r.text || '', name: r.name, product: r.product || '', at: r.at })); }));
         return res.json({ fee: M.feePct(), sellers: list, sales: rows, totals: all });
+      }
+      // Flag an order as a problem (or clear it). A flagged order counts as an issue against the seller's checkmark.
+      if (what === 'issue') {
+        const n = String(b.n || '');
+        if (!/^[A-Z0-9]{4,20}$/.test(n)) return res.status(400).json({ error: 'That order was not found.' });
+        const was = (await store.read('meta/' + n + '.json')) || {};
+        await store.write('meta/' + n + '.json', Object.assign(was, { issue: b.on ? { note: String(b.note || '').slice(0, 300), at: Date.now() } : null }));
+        return res.json({ ok: true });
       }
       const s = await M.bySlug(String(b.slug || ''));
       if (!s) return res.status(404).json({ error: 'That seller was not found.' });
+      if (what === 'review-remove') return res.json({ ok: await M.removeReview(s.slug, String(b.n || '')) });
+      if (what === 'verify') {
+        s.verify = b.mode === 'on' || b.mode === 'off' ? b.mode : '';
+        await M.save(s);
+        return res.json({ ok: true, stats: await M.stats(s) });
+      }
       if (what === 'status') {
         if (['approved', 'paused', 'pending'].indexOf(b.status) < 0) return res.status(400).json({ error: 'Pick approve or pause.' });
         const was = s.status;
@@ -160,6 +189,28 @@ module.exports = async (req, res) => {
       return res.json({ ids: ids, items: ids.map((id) => live[id] || (names[id] ? { id: id, name: names[id].name, price: Number(names[id].price).toFixed(2), left: 0, gone: true, photo: photoOf(names[id]), sellerName: names[id].sellerName || 'JarFriends' } : null)).filter(Boolean) });
     }
 
+    // My completed orders from sellers, with my review of each (if any).
+    if (what === 'reviewable') {
+      const sellers = {};
+      (await M.all()).forEach((x) => { sellers[x.slug] = x; });
+      const mine = (await M.ledger(null)).filter((r) => String(r.email || '').toLowerCase() === me && M.completed(r) && sellers[r.seller]);
+      const out = await Promise.all(mine.map(async (r) => {
+        const rv = await store.read('reviews/' + r.seller + '/' + r.n + '.json');
+        return { n: r.n, product: r.product, at: r.at, seller: r.seller, sellerName: sellers[r.seller].name, review: rv ? { stars: rv.stars, text: rv.text || '', reply: rv.reply || '' } : null };
+      }));
+      return res.json({ orders: out });
+    }
+    if (what === 'review' && req.method === 'POST') {
+      const n = String(b.n || ''), stars = Math.round(Number(b.stars));
+      if (!(stars >= 1 && stars <= 5)) return res.status(400).json({ error: 'Pick 1 to 5 stars.' });
+      const row = (await M.ledger(null)).filter((r) => r.n === n)[0];
+      if (!row || String(row.email || '').toLowerCase() !== me) return res.status(404).json({ error: 'That order was not found on your account.' });
+      if (!M.completed(row)) return res.status(400).json({ error: 'You can review this order once it has shipped.' });
+      const was = (await store.read('reviews/' + row.seller + '/' + n + '.json')) || {};
+      const r = Object.assign(was, { n: n, stars: stars, text: String(b.text || '').replace(/\r/g, '').trim().slice(0, 1000), name: M.shortName(row.buyer), product: row.product, at: Date.now() });
+      await M.saveReview(row.seller, r);
+      return res.json({ ok: true });
+    }
     let seller = await M.byEmail(me);
     // The owner's own shops (SEED_SELLERS) open only from the back office or an emailed sign-in link, never from a
     // password sign-in, since anyone could set a password for an email they do not own.
@@ -174,9 +225,11 @@ module.exports = async (req, res) => {
         .map((p) => Object.assign({}, p, { sold: sold[p.id] || 0, left: Math.max(0, p.stock - (sold[p.id] || 0)), photoUrl: photoOf(p) }));
       // The seller ships their own orders, so they see the ship-to address, but only once the order is paid.
       const orders = rows.map((r) => Object.assign({}, r, r.paid ? {} : { ship: '', email: '' }));
+      const myStats = M.statsFrom(seller, rows, await M.reviews(seller.slug));
+      const myReviews = (await M.reviews(seller.slug)).map((r) => ({ n: r.n, stars: r.stars, text: r.text || '', name: r.name, product: r.product || '', at: r.at, reply: r.reply || '' }));
       const feed = (await M.posts(seller.slug, 50)).map((x) => Object.assign({}, x, { photoUrl: x.photo ? '/api/photo?id=' + x.id + '&v=' + x.photo : '' }));
       const st = stripeBase.ready() ? await connect.status(seller).catch(() => ({ state: 'unknown' })) : { state: 'off' };
-      return res.json({ email: me, seller: seller, fee: M.feePct(), sections: M.SECTIONS, listings: listings, orders: orders, payouts: outs, totals: M.totals(rows, outs), posts: feed, stripe: st });
+      return res.json({ email: me, seller: seller, fee: M.feePct(), sections: M.SECTIONS, listings: listings, orders: orders, payouts: outs, totals: M.totals(rows, outs), posts: feed, stripe: st, stats: myStats, reviews: myReviews });
     }
     if (req.method !== 'POST') return res.status(405).json({ error: 'Use POST.' });
 
@@ -195,6 +248,14 @@ module.exports = async (req, res) => {
       if (!stripeBase.ready()) return res.status(503).json({ error: 'Automatic payouts are not switched on for V2V yet.' });
       try { return res.json({ url: await connect.onboardingLink(seller, 'https://' + req.headers.host, actAs ? seller.slug : '') }); }
       catch (e) { console.error('STRIPE_SETUP_FAIL', seller.slug, String(e && e.message || e)); return res.status(502).json({ error: 'Stripe could not open the payout setup just now. Try again in a minute.' }); }
+    }
+    // The seller answers a review on their shop page.
+    if (what === 'reply') {
+      const n = String(b.n || ''), r = /^[A-Z0-9]{4,20}$/.test(n) ? await store.read('reviews/' + seller.slug + '/' + n + '.json') : null;
+      if (!r) return res.status(404).json({ error: 'That review was not found.' });
+      r.reply = String(b.text || '').replace(/\r/g, '').trim().slice(0, 600); r.replyAt = r.reply ? Date.now() : 0;
+      await M.saveReview(seller.slug, r);
+      return res.json({ ok: true });
     }
     if (what === 'profile') {
       const tidy = (v, n) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n);
@@ -252,7 +313,7 @@ module.exports = async (req, res) => {
       if (row.email) {
         // USPS numbers are all digits (20 to 22 long); other carriers get the number alone.
         const link = /^9\d{19,21}$/.test(tracking) ? 'https://tools.usps.com/go/TrackConfirmAction?tLabels=' + tracking : '';
-        await mail(row.email, 'Your order ' + n + ' has shipped', ['Your ' + row.product + ' (order ' + n + ') is on its way from ' + seller.name + '.', '', 'Tracking number: ' + tracking].concat(link ? [link] : []), 'seller-ship-' + n).catch(() => null);
+        await mail(row.email, 'Your order ' + n + ' has shipped', ['Your ' + row.product + ' (order ' + n + ') is on its way from ' + seller.name + '.', '', 'Tracking number: ' + tracking].concat(link ? [link] : []).concat(['', 'Once it arrives, rate ' + seller.name + ' in My account: https://' + req.headers.host + '/me.html']), 'seller-ship-' + n).catch(() => null);
       }
       return res.json({ ok: true });
     }

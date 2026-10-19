@@ -54,6 +54,27 @@
       c.appendChild(el('div', s.stripeOn ? 'Card sales: paid automatically to their Stripe' : s.stripe ? 'Card sales: Stripe payout setup not finished, so card money comes to you' : 'Card sales: no Stripe payouts yet, so card money comes to you', 'sx-b ' + (s.stripeOn ? 'ok' : 'wait')));
       c.appendChild(el('div', s.email + ' · pay by ' + s.payHow + ': ' + s.payTo + ' · ' + s.listings + ' listings · joined ' + new Date(s.at).toLocaleDateString('en-US', { dateStyle: 'medium' }), 'small dim'));
       if (s.about) c.appendChild(el('div', s.about, 'small'));
+      // Rating and the verified checkmark, with a way to set it by hand.
+      var vs = s.stats || {};
+      var vl = el('div'); vl.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;align-items:center';
+      vl.appendChild(el('span', (vs.reviews ? '★ ' + vs.rating.toFixed(1) + ' (' + vs.reviews + ' reviews)' : 'No reviews') + ' · ' + (vs.completed || 0) + ' completed · ' + (vs.issues || 0) + ' issues · ' + (vs.verified ? '✓ VERIFIED' : 'not verified'), 'small'));
+      var vsel = el('select'); vsel.style.cssText = 'font-family:inherit;font-size:14px;height:36px;padding:0 8px;background:#0B1A13;border:1px solid #4E7A63;color:#F7F2E6;border-radius:2px';
+      [['', 'Checkmark: automatic (' + (vs.need || 10) + ' clean sales)'], ['on', 'Checkmark: always on'], ['off', 'Checkmark: off']].forEach(function (o) { var op = el('option', o[1]); op.value = o[0]; vsel.appendChild(op); });
+      vsel.value = vs.override || ''; vsel.setAttribute('aria-label', 'Verified checkmark for ' + s.name);
+      vsel.addEventListener('change', function () { post({ do: 'verify', slug: s.slug, mode: vsel.value }).then(function (x) { if (x.error) alert(x.error); load(); }); });
+      vl.appendChild(vsel);
+      c.appendChild(vl);
+      if (s.reviewList && s.reviewList.length) {
+        var det = el('details'), sum = el('summary', 'Reviews (' + s.reviewList.length + ')'); sum.style.cursor = 'pointer'; det.appendChild(sum);
+        s.reviewList.forEach(function (r) {
+          var rr = el('div'); rr.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start;justify-content:space-between;padding:8px 0;border-top:1px solid #244536';
+          rr.appendChild(el('span', '★'.repeat(r.stars) + ' ' + r.name + ' · ' + r.product + (r.text ? ': ' + r.text : ''), 'small'));
+          var rm = el('button', 'Remove review', 'ghost'); rm.type = 'button';
+          rm.addEventListener('click', function () { if (!confirm('Remove this review? Do this only for abuse or a review that is not about the order.')) return; post({ do: 'review-remove', slug: s.slug, n: r.n }).then(function () { load(); }); });
+          rr.appendChild(rm); det.appendChild(rr);
+        });
+        c.appendChild(det);
+      }
       var st = s.totals;
       c.appendChild(el('div', st.sales + ' paid sales · sold ' + money(st.gross) + ' · your fee ' + money(st.fee) + ' · their share ' + money(st.net) + ' · paid by Stripe ' + money(st.byStripe || 0) + ' · sent by you ' + money(st.paidOut) + ' · you owe ' + money(st.owed), 'small'));
       var f = el('form', null, 'sx-pay'); f.style.maxWidth = 'none';
@@ -68,12 +89,21 @@
     });
     if (r.sales.length) {
       var w = el('div', null, 'scroll'), tb = el('table'), hr = el('tr');
-      ['Placed', 'Order', 'Seller', 'Piece', 'Buyer', 'Sold for', 'Your fee', 'Seller gets', 'Status'].forEach(function (h, i) { var th = el('th', h); if (i >= 5 && i <= 7) th.className = 'num'; hr.appendChild(th); });
+      ['Placed', 'Order', 'Seller', 'Piece', 'Buyer', 'Sold for', 'Your fee', 'Seller gets', 'Status', 'Issue'].forEach(function (h, i) { var th = el('th', h); if (i >= 5 && i <= 7) th.className = 'num'; hr.appendChild(th); });
       var th = el('thead'); th.appendChild(hr); tb.appendChild(th); var bd = el('tbody');
       var names = {}; r.sellers.forEach(function (s) { names[s.slug] = s.name; });
       r.sales.forEach(function (o) {
         var tr = el('tr');
         [new Date(o.at).toLocaleDateString('en-US', { dateStyle: 'medium' }), o.n, names[o.seller] || o.seller, o.product + (o.q > 1 ? ' × ' + o.q : ''), o.buyer, money(o.gross), money(o.fee), money(o.net), (!o.paid ? 'Waiting for payment' : o.tracking ? 'Shipped ' + o.tracking : 'Paid, seller to ship') + (o.direct ? ' · paid to their Stripe' : '')].forEach(function (v, i) { var td = el('td', v); if (i >= 5 && i <= 7) td.className = 'num'; tr.appendChild(td); });
+        // Flag a problem with this order (or clear it). Flagged orders count against the seller's checkmark.
+        var tdI = el('td'), fb = el('button', o.issue ? 'Clear issue' : 'Flag issue', 'ghost'); fb.type = 'button'; fb.style.cssText = 'padding:6px 10px;min-height:0;font-size:13px';
+        if (o.issue) { fb.title = o.issue.note || ''; tdI.appendChild(el('div', '⚠ ' + (o.issue.note || 'Flagged'), 'small')); }
+        fb.addEventListener('click', function () {
+          var note = '';
+          if (!o.issue) { note = prompt('What went wrong with order ' + o.n + '? (Shown only to you.)', ''); if (note === null) return; }
+          post({ do: 'issue', n: o.n, on: !o.issue, note: note }).then(function () { load(); });
+        });
+        tdI.appendChild(fb); tr.appendChild(tdI);
         bd.appendChild(tr);
       });
       tb.appendChild(bd); w.appendChild(tb);

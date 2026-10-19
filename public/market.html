@@ -98,7 +98,7 @@
       a.appendChild(el('div', p.name, 'jf-name'));
       var m = el('div', null, 'jf-meta');
       m.appendChild(el('span', p.auction ? 'from ' + JF.usd(p.auction.start || p.price) : JF.usd(p.price), 'jf-price'));
-      m.appendChild(el('span', p.sellerName, 'jf-by'));
+      var by = el('span', p.sellerName + ' ', 'jf-by'); if (p.sellerVerified) by.appendChild(JF.check(true)); m.appendChild(by);
       a.appendChild(m);
       var h = el('button', wish[p.id] ? '♥' : '♡', 'jf-heart'); h.type = 'button';
       h.setAttribute('aria-pressed', wish[p.id] ? 'true' : 'false'); h.setAttribute('aria-label', (wish[p.id] ? 'Remove from' : 'Save to') + ' wishlist: ' + p.name);

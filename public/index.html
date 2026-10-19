@@ -157,7 +157,7 @@
     a.appendChild(JF.picture(p));
     if (p.left <= 0 && !p.auction) a.appendChild(el('span', 'SOLD OUT', 'jf-tag out'));
     a.appendChild(el('div', p.name, 'jf-name'));
-    var m = el('div', null, 'jf-meta'); m.appendChild(el('span', JF.usd(p.price), 'jf-price')); m.appendChild(el('span', p.sellerName, 'jf-by')); a.appendChild(m);
+    var m = el('div', null, 'jf-meta'); m.appendChild(el('span', JF.usd(p.price), 'jf-price')); var by = el('span', p.sellerName + ' ', 'jf-by'); if (p.sellerVerified) by.appendChild(JF.check(true)); m.appendChild(by); a.appendChild(m);
     return a;
   }
   JF.api('/api/market?do=shop').then(function (r) {
@@ -169,7 +169,8 @@
     r.sellers.forEach(function (s) {
       var a = el('a', null, 'v-seller'); a.href = '/shop.html?s=' + encodeURIComponent(s.slug);
       a.appendChild(el('div', initials(s.name), 'av'));
-      a.appendChild(el('b', s.name));
+      var nm = el('b', s.name + ' '); if (s.verified) nm.appendChild(JF.check(true)); a.appendChild(nm);
+      a.appendChild(JF.stars(s.rating, s.reviews));
       a.appendChild(el('span', s.about || 'A shop on V2V.', 'small dim'));
       a.appendChild(el('span', (count[s.slug] || 0) + ' pieces · visit shop →', 'mono gold'));
       sb.appendChild(a);

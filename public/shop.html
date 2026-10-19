@@ -29,6 +29,7 @@
     <div class="stack-s" style="gap:8px;flex:1;min-width:240px">
       <div class="mono gold">SHOP ON V2V</div>
       <h1 id="name">Loading…</h1>
+      <div id="rate" style="display:flex;flex-wrap:wrap;gap:12px;align-items:center"></div>
       <div class="small" id="about"></div>
       <div class="small dim" id="since"></div>
     </div>
@@ -36,6 +37,7 @@
   <div class="jf-tabs" role="tablist" aria-label="Shop sections">
     <button type="button" class="pill" role="tab" id="tShop" aria-selected="true" aria-pressed="true">Shop</button>
     <button type="button" class="pill" role="tab" id="tPosts" aria-selected="false" aria-pressed="false">Community posts</button>
+    <button type="button" class="pill" role="tab" id="tRev" aria-selected="false" aria-pressed="false">Reviews</button>
   </div>
   <section id="pShop" role="tabpanel" aria-labelledby="tShop" style="display:flex;flex-direction:column;gap:16px">
     <div class="small dim" id="count"></div>
@@ -44,6 +46,9 @@
   <section id="pPosts" role="tabpanel" aria-labelledby="tPosts" hidden>
     <div class="s-feed" id="feed"></div>
   </section>
+  <section id="pRev" role="tabpanel" aria-labelledby="tRev" hidden>
+    <div class="s-feed" id="revs"></div>
+  </section>
 </main>
 <script src="/jf.js"></script>
 <script>
@@ -51,15 +56,15 @@
   var $ = function (id) { return document.getElementById(id); }, el = JF.el;
   var slug = new URLSearchParams(location.search).get('s') || '';
   var tok = JF.token(), wish = {}, items = [];
+  var TABS = { shop: ['tShop', 'pShop'], posts: ['tPosts', 'pPosts'], reviews: ['tRev', 'pRev'] };
   function tab(which) {
-    var shop = which === 'shop';
-    $('pShop').hidden = !shop; $('pPosts').hidden = shop;
-    ['tShop', 'tPosts'].forEach(function (id) { var on = (id === 'tShop') === shop; $(id).setAttribute('aria-selected', on ? 'true' : 'false'); $(id).setAttribute('aria-pressed', on ? 'true' : 'false'); });
-    history.replaceState(null, '', location.pathname + location.search + (shop ? '' : '#posts'));
+    Object.keys(TABS).forEach(function (k) { var on = k === which; $(TABS[k][1]).hidden = !on; $(TABS[k][0]).setAttribute('aria-selected', on ? 'true' : 'false'); $(TABS[k][0]).setAttribute('aria-pressed', on ? 'true' : 'false'); });
+    history.replaceState(null, '', location.pathname + location.search + (which === 'shop' ? '' : '#' + which));
   }
   $('tShop').addEventListener('click', function () { tab('shop'); });
   $('tPosts').addEventListener('click', function () { tab('posts'); });
-  if (location.hash === '#posts') tab('posts');
+  $('tRev').addEventListener('click', function () { tab('reviews'); });
+  if (location.hash === '#posts' || location.hash === '#reviews') tab(location.hash.slice(1));
   function draw() {
     var g = $('grid'); g.textContent = '';
     $('count').textContent = items.length ? items.length + (items.length === 1 ? ' piece' : ' pieces') : '';
@@ -93,6 +98,29 @@
     draw();
   });
   if (tok) JF.api('/api/market?do=wish&t=' + encodeURIComponent(tok)).then(function (r) { if (r.ids) { r.ids.forEach(function (x) { wish[x] = true; }); draw(); } });
+  // Rating, checkmark and reviews.
+  JF.api('/api/market?do=reviews&seller=' + encodeURIComponent(slug)).then(function (r) {
+    var st = r.stats, box = $('rate'); box.textContent = '';
+    if (!st) return;
+    var a = el('a'); a.href = '#reviews'; a.style.textDecoration = 'none'; a.addEventListener('click', function (e) { e.preventDefault(); tab('reviews'); $('tRev').focus(); }); a.appendChild(JF.stars(st.rating, st.reviews)); box.appendChild(a);
+    if (st.verified) box.appendChild(JF.check());
+    box.appendChild(el('span', st.completed + (st.completed === 1 ? ' completed sale' : ' completed sales'), 'small dim'));
+    $('tRev').textContent = 'Reviews (' + st.reviews + ')';
+    var f = $('revs'); f.textContent = '';
+    if (st.verified) f.appendChild(el('div', 'Verified: this seller has ' + st.completed + ' completed sales with no issues.', 'alert small'));
+    if (!r.reviews.length) { f.appendChild(el('div', 'No reviews yet. Buyers can review an order once it has shipped.', 'jf-empty')); return; }
+    r.reviews.forEach(function (x) {
+      var c = el('article', null, 'jf-review');
+      var top = el('div'); top.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between';
+      top.appendChild(JF.stars(x.stars, 1)); top.lastChild.lastChild.textContent = ''; top.lastChild.setAttribute('aria-label', x.stars + ' out of 5 stars');
+      top.appendChild(el('span', x.name + ' · ' + new Date(x.at).toLocaleDateString('en-US', { dateStyle: 'medium' }), 'small dim'));
+      c.appendChild(top);
+      if (x.product) c.appendChild(el('div', 'Bought: ' + x.product, 'small dim'));
+      if (x.text) c.appendChild(el('p', x.text));
+      if (x.reply) { var rp = el('div', null, 'jf-reply'); rp.appendChild(el('b', 'Reply from the seller: ')); rp.appendChild(document.createTextNode(x.reply)); c.appendChild(rp); }
+      f.appendChild(c);
+    });
+  });
   JF.api('/api/market?do=posts&seller=' + encodeURIComponent(slug)).then(function (r) {
     var f = $('feed'); f.textContent = '';
     if (!r.posts || !r.posts.length) { f.appendChild(el('div', 'No posts yet.', 'jf-empty')); return; }

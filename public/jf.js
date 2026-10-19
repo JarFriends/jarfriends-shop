@@ -106,5 +106,22 @@
     });
     host.insertBefore(bar, host.firstChild);
   }
-  window.JF = { modeBar: modeBar, token: token, emailOf: emailOf, signOut: signOut, el: el, usd: usd, cents: cents, api: api, signInBox: signInBox, picture: picture };
+  // Stars for a rating (0 to 5, halves rounded), with the number for screen readers.
+  function stars(rating, count) {
+    var w = el('span', null, 'jf-stars'); var r = Math.round((Number(rating) || 0) * 2) / 2;
+    w.setAttribute('aria-label', count ? (Number(rating) || 0).toFixed(1) + ' out of 5 stars, ' + count + (count === 1 ? ' review' : ' reviews') : 'No reviews yet');
+    var full = el('span', '', 'on'); full.setAttribute('aria-hidden', 'true');
+    var t = '', whole = Math.round(r); for (var i = 1; i <= 5; i++) t += i <= whole ? '★' : '☆';
+    full.textContent = count ? t : '☆☆☆☆☆'; w.appendChild(full);
+    var n = el('span', count ? ' ' + (Number(rating) || 0).toFixed(1) + ' (' + count + ')' : ' No reviews yet', 'jf-stars-n'); n.setAttribute('aria-hidden', 'true'); w.appendChild(n);
+    return w;
+  }
+  // The verified checkmark: 10 completed sales with no issues.
+  function check(small) {
+    var c = el('span', null, 'jf-check-v' + (small ? ' s' : '')); c.title = 'Verified seller: completed sales with no issues';
+    var i = el('span', '✓', 'i'); i.setAttribute('aria-hidden', 'true'); c.appendChild(i);
+    if (!small) c.appendChild(document.createTextNode(' Verified')); else { var sr = el('span', 'Verified seller', 'jf-sr'); c.appendChild(sr); }
+    return c;
+  }
+  window.JF = { stars: stars, check: check, modeBar: modeBar, token: token, emailOf: emailOf, signOut: signOut, el: el, usd: usd, cents: cents, api: api, signInBox: signInBox, picture: picture };
 })();

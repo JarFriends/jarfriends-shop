@@ -28,7 +28,7 @@
   function field(label, input, hint) { var l = el('label', label); l.appendChild(input); if (hint) l.appendChild(el('span', hint, 'hint')); return l; }
   function input(v, attrs) { var i = el('input'); if (v != null) i.value = v; Object.keys(attrs || {}).forEach(function (k) { i.setAttribute(k, attrs[k]); }); return i; }
   function status() { var m = el('div', '', 'small'); m.setAttribute('role', 'status'); return m; }
-  function post(body) { body.t = tok; return JF.api('/api/me', body); }
+  function post(body) { body.t = tok; return JF.api(body.do === 'review' ? '/api/market' : '/api/me', body); }
 
   function load() {
     var added = qs.get('added');
@@ -59,6 +59,7 @@
     var links = el('div'); links.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px';
     [['My orders', '/account.html'], ['My wishlist', '/wishlist.html'], ['Browse the market', '/market.html']].forEach(function (x) { var a = el('a', x[0], 'ghost'); a.href = x[1]; a.style.textDecoration = 'none'; links.appendChild(a); });
     wrap.appendChild(links);
+    wrap.appendChild(reviewCard());
     wrap.appendChild(payCard());
     wrap.appendChild(addrCard());
     wrap.appendChild(profileCard());
@@ -68,6 +69,39 @@
     box.appendChild(wrap);
   }
 
+  // Review your purchases: every shipped order from a seller, with a 1-5 star pick and a few words.
+  function reviewCard() {
+    var c = el('section', null, 'card'); c.style.gap = '6px'; c.hidden = true;
+    c.appendChild(el('h2', 'Review your purchases'));
+    c.appendChild(el('div', 'Your stars show on the seller’s page with your first name and last initial. Low ratings count against a seller’s verified checkmark, so be fair and specific.', 'small dim'));
+    JF.api('/api/market?do=reviewable&t=' + encodeURIComponent(tok)).then(function (r) {
+      if (!r.orders || !r.orders.length) return;
+      c.hidden = false;
+      r.orders.forEach(function (o) {
+        var row = el('div', null, 'jf-review');
+        var t = el('div'); t.appendChild(el('b', o.product)); t.appendChild(el('span', ' from ' + o.sellerName + ' · order ' + o.n, 'small dim')); row.appendChild(t);
+        var pick = 0, pk = el('div', null, 'jf-starpick'); pk.setAttribute('role', 'group'); pk.setAttribute('aria-label', 'Stars for ' + o.product);
+        var btns = [1, 2, 3, 4, 5].map(function (n) {
+          var b = el('button', '★'); b.type = 'button'; b.setAttribute('aria-label', n + (n === 1 ? ' star' : ' stars'));
+          b.addEventListener('click', function () { pick = n; btns.forEach(function (x, i) { x.setAttribute('aria-pressed', i < n ? 'true' : 'false'); }); });
+          pk.appendChild(b); return b;
+        });
+        var txt = el('textarea', null, 'jf-ta'); txt.maxLength = 1000; txt.placeholder = 'How was the piece, the packing and the shipping?'; txt.setAttribute('aria-label', 'Your review of ' + o.product); txt.style.minHeight = '70px';
+        var go = el('button', o.review ? 'Update review' : 'Post review', 'ghost'); go.type = 'button'; go.style.alignSelf = 'flex-start';
+        var m = status();
+        if (o.review) { pick = o.review.stars; btns.forEach(function (x, i) { x.setAttribute('aria-pressed', i < pick ? 'true' : 'false'); }); txt.value = o.review.text; }
+        go.addEventListener('click', function () {
+          if (!pick) { m.textContent = 'Pick 1 to 5 stars first.'; return; }
+          go.disabled = true; m.textContent = 'Saving…';
+          post({ do: 'review', n: o.n, stars: pick, text: txt.value }).then(function (x) { go.disabled = false; m.textContent = x.error || 'Thanks, your review is posted.'; if (!x.error) go.textContent = 'Update review'; });
+        });
+        row.appendChild(pk); row.appendChild(txt); row.appendChild(go); row.appendChild(m);
+        if (o.review && o.review.reply) { var rp = el('div', null, 'jf-reply'); rp.appendChild(el('b', 'Seller replied: ')); rp.appendChild(document.createTextNode(o.review.reply)); row.appendChild(rp); }
+        c.appendChild(row);
+      });
+    });
+    return c;
+  }
   function payCard() {
     var c = el('section', null, 'card'); c.style.gap = '12px';
     c.appendChild(el('h2', 'How I pay'));
