@@ -37,7 +37,9 @@ module.exports = async (req, res) => {
       if (slow(email)) return res.status(429).json({ error: 'Too many tries. Wait 15 minutes, or sign in with Google.' });
       const has = await U.hasPassword(email);
       // Test sites can skip the emailed code, but never for the owner, sellers or past buyers (see _users.guarded).
-      const skip = U.skipCode() && !(await U.guarded(email));
+      // The owner, already signed in to the back office on this browser (ak), proves the owner's email is theirs.
+      const ownerKey = !!b.ak && email === String(process.env.OWNER_EMAIL || '').trim().toLowerCase() && require('./_gate').isAdmin(b.ak);
+      const skip = ownerKey || (U.skipCode() && !(await U.guarded(email)));
       if (b.do === 'signup') {
         // An account that never confirmed its email can be started again (by whoever really owns the email).
         if (has) { const u0 = await U.get(email); if (!u0 || pwConfirmed(u0)) return res.status(409).json({ error: 'This email already has an account. Sign in instead.' }); }

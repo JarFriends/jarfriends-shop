@@ -60,16 +60,43 @@ let seeded = false;
 async function seed() {
   if (seeded) return;
   seeded = true;
+  await retire();
+  const gone = String(process.env.REMOVE_SELLERS || '').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean);
   const want = String(process.env.SEED_SELLERS || '').split(',').map((x) => x.split('|').map((y) => y.trim())).filter((x) => x[0] && /@/.test(x[1] || ''));
   for (const [name, email] of want) {
     try {
       if (await store.read('sellers/e/' + hashOf(email) + '.json')) continue;
       const slug = slugify(name);
-      if (!slug || await bySlug(slug)) continue;
+      if (!slug || gone.indexOf(slug) >= 0 || await bySlug(slug)) continue;
       await store.write('sellers/s/' + slug + '.json', { slug: slug, name: name.slice(0, 40), email: email.toLowerCase(), about: '', payHow: 'zelle', payTo: email.toLowerCase(), status: 'approved', at: Date.now(), agreedFee: feePct(), seeded: true });
       await store.write('sellers/e/' + hashOf(email) + '.json', { slug: slug });
     } catch (e) { console.error('SEED_FAIL', name, String(e && e.message || e)); }
   }
+}
+// REMOVE_SELLERS: shops to delete for good, by their shop name in the link (e.g. "jarfriends"), comma-separated.
+// Everything of theirs goes: the shop, its pieces and photos, posts, reviews, trades, costs and payout records.
+// Sales already made stay in the order records. Runs once per shop (sellers/removed/<slug>.json marks it done).
+async function retire() {
+  const list = String(process.env.REMOVE_SELLERS || '').split(',').map((x) => x.trim().toLowerCase()).filter((x) => /^[a-z0-9-]{1,30}$/.test(x));
+  if (!list.length || !store.on()) return;
+  const { del } = await import('@vercel/blob');
+  for (const slug of list) {
+    try {
+      if (await store.read('sellers/removed/' + slug + '.json')) continue;
+      const s = await store.read('sellers/s/' + slug + '.json');
+      const pieces = await paths('market/' + slug + '/');
+      const ids = pieces.map((p) => (/\/([^\/]+)\.json$/.exec(p.path) || [])[1]).filter(Boolean);
+      const photos = (await paths('photos/')).filter((p) => ids.some((id) => p.path === 'photos/' + id + '.jpg'));
+      let urls = pieces.concat(photos).map((p) => p.url);
+      for (const pre of ['posts/', 'reviews/', 'trades/', 'cogs/', 'payouts/']) urls = urls.concat((await paths(pre + slug + '/')).map((p) => p.url));
+      const one = (await paths('sellers/s/' + slug + '.json')).concat(s && s.email ? await paths('sellers/e/' + hashOf(s.email) + '.json') : []);
+      urls = urls.concat(one.map((p) => p.url));
+      for (let i = 0; i < urls.length; i += 100) await del(urls.slice(i, i + 100));
+      await store.write('sellers/removed/' + slug + '.json', { at: Date.now(), name: s ? s.name : '', pieces: ids.length, files: urls.length });
+      console.log('SELLER_REMOVED', slug, ids.length, 'pieces', urls.length, 'files');
+    } catch (e) { console.error('RETIRE_FAIL', slug, String(e && e.message || e)); }
+  }
+  sMemo = null; lMemo = null;
 }
 async function all() {
   if (sMemo && Date.now() - sMemo.at < 5000) return sMemo.v;

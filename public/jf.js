@@ -73,6 +73,8 @@
     f.addEventListener('submit', function (ev) {
       ev.preventDefault(); go.disabled = true; msg.textContent = pending ? 'Checking…' : mode === 'signup' ? 'Creating your account…' : 'Signing in…';
       var body = pending ? { do: 'verify', email: pending, code: c.value } : { do: mode, email: e.value, password: p.value, name: n.value };
+      // Signed in to the back office on this browser: lets the owner's own email skip the emailed code.
+      try { var ak0 = localStorage.getItem('adminKey'); if (ak0 && !pending) body.ak = ak0; } catch (x) {}
       api('/api/auth', body).then(function (r) {
         go.disabled = false;
         if (r.token) { keep(r.token); msg.textContent = ''; done(r.token, !!r.created); return; }

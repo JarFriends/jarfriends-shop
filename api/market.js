@@ -424,6 +424,30 @@ module.exports = async (req, res) => {
       return res.json({ ok: await M.removeListing(seller, id) });
     }
     // Bring an eBay listing over from its link, or check the seller's eBay-linked pieces right now (see _ebay.js).
+    // AI suggests a title, description and category from a photo of the piece. Needs ANTHROPIC_API_KEY.
+    if (what === 'listing-ai') {
+      const key = (process.env.ANTHROPIC_API_KEY || '').trim();
+      if (!key) return res.status(503).json({ error: 'AI suggestions are not switched on yet (the V2V owner adds ANTHROPIC_API_KEY). Type the title yourself for now.' });
+      const now = Date.now(), k = 'L' + seller.slug, seen = (photoHits.get(k) || []).filter((t) => now - t < 3600000);
+      if (seen.length >= 40) return res.status(429).json({ error: 'That is a lot of photos this hour. Try again a little later.' });
+      seen.push(now); photoHits.set(k, seen);
+      const data = String(b.data || '').replace(/^data:image\/jpeg;base64,/, '');
+      if (data.length < 1000 || data.length > 2500000) return res.status(400).json({ error: 'That photo could not be used. Try another one.' });
+      const r = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST', signal: AbortSignal.timeout(25000),
+        headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+        body: JSON.stringify({ model: (process.env.AI_MODEL || 'claude-haiku-5-5').trim(), max_tokens: 600,
+          system: 'You help sellers list collectibles (mostly VeeFriends: cards, graded slabs, comics, pins, stickers, toys, NFTs) on a marketplace. From the photo, write a listing. Reply with JSON only: {"title": "a clear, searchable title under 90 characters: character or item name, set or series, edition, grade if a slab label is visible", "description": "2 to 4 short sentences describing exactly what is shown: what it is, any visible edition, number, grade or condition details, and what is included. Do not invent facts you cannot see; say \'see photos\' for condition if unclear.", "category": "one of: ' + M.SECTIONS.join(', ') + '"}',
+          messages: [{ role: 'user', content: [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: data } }, { type: 'text', text: 'Write the listing for this piece.' }] }] })
+      }).catch((e) => ({ ok: false, status: 0, text: async () => String(e) }));
+      if (!r.ok) { console.error('LISTING_AI_FAIL', r.status, (await r.text()).slice(0, 300)); return res.status(503).json({ error: 'AI could not look at the photo just now. Try again, or type the title yourself.' }); }
+      const j = await r.json();
+      const txt = (j.content || []).filter((c) => c.type === 'text').map((c) => c.text).join('');
+      let out = {};
+      try { out = JSON.parse(txt.slice(txt.indexOf('{'), txt.lastIndexOf('}') + 1)); } catch (e) { out = {}; }
+      if (!out.title) return res.status(503).json({ error: 'AI could not tell what that is. Try a clearer photo, or type the title yourself.' });
+      return res.json({ title: String(out.title).slice(0, 120), description: String(out.description || '').slice(0, 1200), category: M.SECTIONS.indexOf(out.category) >= 0 ? out.category : '' });
+    }
     if (what === 'ebay-import') { const r = await require('./_ebay').bring(seller, String(b.url || '').slice(0, 500)); return res.status(r.error ? 400 : 200).json(r); }
     if (what === 'photo') {
       const id = String(b.id || '');

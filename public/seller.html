@@ -206,6 +206,27 @@
     var photo = input('file', null, { accept: 'image/*' });
     var go = el('button', p ? 'Save changes' : 'Add to my shop', 'solid'); go.type = 'submit';
     var m = status();
+    // Snap a photo and AI suggests a title, description and category (api/market.js, do=listing-ai).
+    var aiBox = el('div'); aiBox.style.cssText = 'display:flex;flex-direction:column;gap:8px;border:1px dashed #4A4F5E;padding:12px 14px';
+    var aiBtn = el('button', '📷 Take a photo, AI fills in the title', 'ghost'); aiBtn.type = 'button'; aiBtn.style.alignSelf = 'flex-start';
+    var aiFile = input('file', null, { accept: 'image/*', capture: 'environment' }); aiFile.hidden = true;
+    var aiMsg = el('div', 'AI looks at the picture and suggests a title, description and category. You check and change anything before saving. The photo is also used as the piece\'s photo.', 'small dim');
+    aiBox.appendChild(aiBtn); aiBox.appendChild(aiFile); aiBox.appendChild(aiMsg);
+    f.appendChild(aiBox);
+    aiBtn.addEventListener('click', function () { aiFile.click(); });
+    aiFile.addEventListener('change', function () {
+      var file = aiFile.files[0]; if (!file) return;
+      try { var dt = new DataTransfer(); dt.items.add(file); photo.files = dt.files; } catch (e) { /* older browsers: they pick the photo again below */ }
+      aiBtn.disabled = true; aiMsg.className = 'small'; aiMsg.textContent = 'Looking at your photo…';
+      shrink(file).then(function (data) { return JF.api('/api/market', { do: 'listing-ai', t: tok, as: AS, ak: AK, data: data }); }).then(function (r) {
+        aiBtn.disabled = false;
+        if (r.error) { aiMsg.textContent = r.error; return; }
+        var fill = function (node, v) { if (v && (!node.value || confirm('Replace "' + node.value.slice(0, 60) + '" with the AI suggestion "' + v.slice(0, 60) + '"?'))) node.value = v; };
+        fill(name, r.title); fill(desc, r.description);
+        if (r.category && D.sections.indexOf(r.category) >= 0 && !sec.value) sec.value = r.category;
+        aiMsg.textContent = 'Filled in from your photo' + (r.category ? ' (category: ' + r.category + ')' : '') + '. Check it is right, add the condition and price, then save.' + (photo.files && photo.files.length ? '' : ' Pick the photo again under Photo.');
+      }).catch(function (e) { aiBtn.disabled = false; aiMsg.textContent = e && e.message ? e.message : 'That did not work. Try again.'; });
+    });
     f.appendChild(field('Name', name)); f.appendChild(field('Description', desc));
     f.appendChild(field('How it sells', mode));
     var priceL = field('Price (USD)', price), stockL = field('How many you have', stock);
