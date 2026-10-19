@@ -5,22 +5,22 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>V2V · Collectibles from collectors</title>
 <meta name="description" content="V2V is a marketplace for collectibles. Buy now or bid, from shops run by collectors.">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&family=IBM+Plex+Mono:wght@400;500&family=Playfair+Display:wght@600;700;800&display=swap">
 <link rel="stylesheet" href="/site.css">
 <link rel="stylesheet" href="/market.css">
 <style>
-.v-logo{font-family:'Space Grotesk',system-ui,sans-serif;font-weight:800;font-size:28px;letter-spacing:.02em;color:#F7F2E6;text-decoration:none}
-.v-logo span{color:#FF6B3D}
+.v-logo{font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:28px;letter-spacing:.02em;color:#F7F2E6;text-decoration:none}
+.v-logo span{color:#C9A45C}
 .v-intro{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;justify-content:space-between;padding:22px 0 6px}
-.v-intro p{margin:8px 0 0;max-width:680px;color:#D9DCE5;font-size:16px}
-.v-wallet{font-size:14px;color:#A3A8B8;border-left:3px solid #FF6B3D;padding:4px 12px;margin:10px 0 0}
+.v-intro p{margin:8px 0 0;max-width:680px;color:#D6E2DA;font-size:16px}
+.v-wallet{font-size:14px;color:#A8BFB1;border-left:3px solid #C9A45C;padding:4px 12px;margin:10px 0 0}
 .v-bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:18px 0}
 .v-bar .pill{min-height:40px;padding:8px 16px;font-size:15px}
 .v-bar .grow{flex:1 1 200px}
 .v-bar input[type=search]{width:100%;min-height:42px;font-size:16px}
-.jf-time{font-family:'IBM Plex Mono',monospace;font-size:12px;color:#FF6B3D}
-.v-foot{padding-top:40px;padding-bottom:60px;color:#A3A8B8;font-size:14px;display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between}
-.v-foot a{color:#D9DCE5}
+.jf-time{font-family:'IBM Plex Mono',monospace;font-size:12px;color:#C9A45C}
+.v-foot{padding-top:40px;padding-bottom:60px;color:#A8BFB1;font-size:14px;display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between}
+.v-foot a{color:#D6E2DA}
 </style>
 </head>
 <body>
@@ -126,7 +126,5 @@
   if (tok) JF.api('/api/market?do=wish&t=' + encodeURIComponent(tok)).then(function (r) { if (r.ids) { r.ids.forEach(function (x) { wish[x] = true; }); draw(); } });
 })();
 </script>
-<script defer src="/_vercel/insights/script.js"></script>
-<script src="/nav.js" defer></script>
 </body>
 </html>

@@ -1,5 +1,5 @@
-// The marketplace: other people sell on V2V from their own seller portal (seller.html).
-// The buyer pays V2V as usual. V2V keeps PLATFORM_FEE_PERCENT (5.55 unless set) of each paid seller sale
+// The marketplace: other people sell on JarFriends from their own seller portal (seller.html).
+// The buyer pays JarFriends as usual. JarFriends keeps PLATFORM_FEE_PERCENT (5.55 unless set) of each paid seller sale
 // (pieces plus shipping; sales tax and the card fee are not the seller's money, so no fee is taken on them),
 // and owes the seller the rest. The owner pays sellers out and records each payout in the back office.
 //
@@ -39,7 +39,7 @@ async function paths(prefix) {
 // ---- Sellers ----
 let sMemo = null;
 // SEED_SELLERS starts the marketplace with sellers already open, so the owner's own shops need no sign-up:
-// "Name|email" pairs separated by commas, e.g. "V2V|me@example.com". Each is made once, approved.
+// "Name|email" pairs separated by commas, e.g. "JarFriends|me@example.com". Each is made once, approved.
 let seeded = false;
 async function seed() {
   if (seeded) return;
