@@ -27,13 +27,16 @@ const SECTIONS = ['Collectibles', 'Cards', 'Graded', 'NFTs', 'Pins', 'Stickers',
 const GUESS = [['Graded', /\b(psa|bgs|cgc|sgc|graded|slab)\b/i], ['NFTs', /\bnft\b|\btoken\b/i], ['Pins', /\bpins?\b/i], ['Stickers', /\bstickers?\b|\bdecals?\b/i],
   ['Mystery Boxes', /mystery|blind box|\bbox(es)?\b|\bpacks?\b/i], ['Plush & Toys', /plush|toy|stuffed/i], ['Figures', /figure|figurine|vinyl|statue/i], ['Books', /\bbooks?\b/i],
   ['Comics', /comic/i], ['Apparel', /shirt|hoodie|\bhat\b|apparel|jacket|sock/i], ['Art & Prints', /print|poster|canvas|artwork|\bart\b/i], ['Signed', /signed|autograph/i],
-  ['Event Tickets', /ticket|veecon|admission/i], ['Cards', /\bcards?\b/i]];
+  ['Event Tickets', /ticket|veecon|admission/i], ['Collectibles', /binder|coin|medal/i], ['Cards', /\bcards?\b|rainbow|parallel|one of one|toploader/i]];
+// Pieces brought over from jarfriends.com (jfid) keep their old label only when nothing better is found,
+// until the seller picks a category in their portal (sectionSet).
 const sectionOf = (p) => {
-  if (SECTIONS.indexOf(p.section) >= 0) return p.section;
+  const kept = SECTIONS.indexOf(p.section) >= 0;
+  if (kept && (!p.jfid || p.sectionSet)) return p.section;
   if (p.nft && p.nft !== 'no') return 'NFTs';
   const t = (p.name || '') + ' ' + (p.desc || '');
   const g = GUESS.filter((x) => x[1].test(t))[0];
-  return g ? g[0] : 'Collectibles';
+  return g ? g[0] : kept ? p.section : 'Collectibles';
 };
 
 async function paths(prefix) {
@@ -165,7 +168,7 @@ async function saveListing(seller, f) {
     else if (!(hrs >= 1 && hrs <= 336)) return { error: 'An auction runs from 1 hour to 14 days.' };
     else auction = { start: price, ends: new Date(Date.now() + hrs * 3600000).toISOString() };
   }
-  const p = Object.assign({}, was || {}, { id: id, seller: seller.slug, name: name, desc: tidy(f.desc, 1200), price: price, min: 1, stock: auction ? 1 : stock, shipping: ship, section: section, hidden: !!f.hidden, minOffer: auction ? 0 : minOffer, auction: auction, shipMode: shipMode, pkg: pkg, updated: Date.now() }, was ? {} : { created: Date.now() });
+  const p = Object.assign({}, was || {}, { id: id, seller: seller.slug, name: name, desc: tidy(f.desc, 1200), price: price, min: 1, stock: auction ? 1 : stock, shipping: ship, section: section, sectionSet: !!section, hidden: !!f.hidden, minOffer: auction ? 0 : minOffer, auction: auction, shipMode: shipMode, pkg: pkg, updated: Date.now() }, was ? {} : { created: Date.now() });
   await store.write('market/' + seller.slug + '/' + id + '.json', p);
   forget();
   return { listing: p };
