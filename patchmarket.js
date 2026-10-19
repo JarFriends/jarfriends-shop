@@ -7,7 +7,12 @@ const changes = [
   ['api/_edits.js', 'const full = list.concat(d.added).map(',
     "let sellerItems = [];\n  try { sellerItems = await require('./_sellers').products(); } catch (err) { console.error('SELLERS_READ_FAIL', String(err && err.message || err)); }\n  const full = list.concat(d.added, sellerItems).map("],
   ['api/order.js', '  const promo = code ? offline.promo(code, p.id, await offline.promoGroup(p.id)) : null;',
-    "  if (code && /^S[0-9A-Z]{5,19}$/.test(p.id)) return res.status(400).json({ error: 'Promo codes work on JarFriends pieces only, not on pieces from other sellers. Remove the code to continue.' });\n  const promo = code ? offline.promo(code, p.id, await offline.promoGroup(p.id)) : null;"]
+    "  if (code && /^S[0-9A-Z]{5,19}$/.test(p.id)) return res.status(400).json({ error: 'Promo codes work on JarFriends pieces only, not on pieces from other sellers. Remove the code to continue.' });\n  const promo = code ? offline.promo(code, p.id, await offline.promoGroup(p.id)) : null;"],
+  // 3. Card payments for a seller who set up payouts go straight to the seller's Stripe, with V2V's cut as the
+  //    application fee (see api/_connect.js). Everything else about the card page stays the same.
+  ['api/stripe.js', "  if (!inv || !isCard(inv) || !(inv.u > 0)) return stop(res, 400, 'This payment link is not valid. Place the order again.');\n",
+    "  if (!inv || !isCard(inv) || !(inv.u > 0)) return stop(res, 400, 'This payment link is not valid. Place the order again.');\n  const stripe = await require('./_connect').clientFor(inv);\n"],
+  ['api/stripe.js', '  const label = offline.labelLink(host, token, inv);', "  await require('./_connect').markDirect(inv, stripe).catch((e) => console.error('MARK_DIRECT_FAIL', inv.n, String(e && e.message || e)));\n  const label = offline.labelLink(host, token, inv);"]
 ];
 changes.forEach(([f, find, put]) => {
   const s = fs.readFileSync(f, 'utf8');

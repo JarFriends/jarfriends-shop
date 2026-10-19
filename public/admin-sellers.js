@@ -32,11 +32,11 @@
     if (r.error) { box.textContent = r.error; return; }
     var t = r.totals;
     var tiles = el('div', null, 'sx-tiles');
-    [['YOUR FEES EARNED (' + r.fee + '%)', money(t.fee), 'gold'], ['SELLER SALES (PAID)', money(t.gross), ''], ['SENT TO SELLERS', money(t.paidOut), ''], ['STILL OWED TO SELLERS', money(t.owed), ''], ['SELLERS', String(r.sellers.length), '']].forEach(function (x) {
+    [['YOUR FEES EARNED (' + r.fee + '%)', money(t.fee), 'gold'], ['SELLER SALES (PAID)', money(t.gross), ''], ['PAID TO SELLERS BY STRIPE', money(t.byStripe || 0), ''], ['SENT BY YOU', money(t.paidOut), ''], ['YOU STILL OWE SELLERS', money(t.owed), ''], ['SELLERS', String(r.sellers.length), '']].forEach(function (x) {
       var d = el('div', null, 'sx-tile ' + x[2]); d.appendChild(el('span', x[0], 'label')); d.appendChild(el('b', x[1])); tiles.appendChild(d);
     });
     box.appendChild(tiles);
-    box.appendChild(el('div', 'Buyers pay JarFriends for seller pieces like any other order. You keep ' + r.fee + '% of the pieces plus shipping and owe the seller the rest. Sellers ship their own orders and add tracking in their portal, so do not buy a label for a seller order from the Orders tab. The fee rate is set by PLATFORM_FEE_PERCENT in the site settings.', 'small dim'));
+    box.appendChild(el('div', 'Buyers pay JarFriends for seller pieces like any other order. You keep ' + r.fee + '% of the pieces plus shipping. Card sales of sellers with Stripe payouts on go straight to them (your cut arrives in your Stripe automatically); for everything else you owe the seller the rest. Sellers ship their own orders and add tracking in their portal, so do not buy a label for a seller order from the Orders tab. The fee rate is set by PLATFORM_FEE_PERCENT in the site settings.', 'small dim'));
     if (!r.sellers.length) { box.appendChild(el('div', 'No sellers yet. Send people to /seller.html to open a shop. Sellers listed in SEED_SELLERS open by themselves the first time the site is visited.', 'card small')); return; }
     r.sellers.slice().sort(function (a, b) { return (a.status === 'pending' ? 0 : 1) - (b.status === 'pending' ? 0 : 1) || b.at - a.at; }).forEach(function (s) {
       var c = el('section', null, 'card'); c.style.gap = '10px';
@@ -51,10 +51,11 @@
       var portal = el('a', 'Open their portal'); portal.href = '/seller.html?as=' + encodeURIComponent(s.slug); portal.target = '_blank'; portal.style.alignSelf = 'center'; acts.appendChild(portal);
       top.appendChild(acts);
       c.appendChild(top);
+      c.appendChild(el('div', s.stripeOn ? 'Card sales: paid automatically to their Stripe' : s.stripe ? 'Card sales: Stripe payout setup not finished, so card money comes to you' : 'Card sales: no Stripe payouts yet, so card money comes to you', 'sx-b ' + (s.stripeOn ? 'ok' : 'wait')));
       c.appendChild(el('div', s.email + ' · pay by ' + s.payHow + ': ' + s.payTo + ' · ' + s.listings + ' listings · joined ' + new Date(s.at).toLocaleDateString('en-US', { dateStyle: 'medium' }), 'small dim'));
       if (s.about) c.appendChild(el('div', s.about, 'small'));
       var st = s.totals;
-      c.appendChild(el('div', st.sales + ' paid sales · sold ' + money(st.gross) + ' · your fee ' + money(st.fee) + ' · their share ' + money(st.net) + ' · sent ' + money(st.paidOut) + ' · owed ' + money(st.owed), 'small'));
+      c.appendChild(el('div', st.sales + ' paid sales · sold ' + money(st.gross) + ' · your fee ' + money(st.fee) + ' · their share ' + money(st.net) + ' · paid by Stripe ' + money(st.byStripe || 0) + ' · sent by you ' + money(st.paidOut) + ' · you owe ' + money(st.owed), 'small'));
       var f = el('form', null, 'sx-pay'); f.style.maxWidth = 'none';
       var amt = el('input'); amt.type = 'number'; amt.step = '0.01'; amt.min = '0.01'; amt.placeholder = 'Amount'; amt.value = st.owed > 0 ? (st.owed / 100).toFixed(2) : ''; amt.style.width = '120px';
       var how = el('input'); how.placeholder = 'How (e.g. Zelle)'; how.value = s.payHow || ''; how.style.width = '140px';
@@ -72,7 +73,7 @@
       var names = {}; r.sellers.forEach(function (s) { names[s.slug] = s.name; });
       r.sales.forEach(function (o) {
         var tr = el('tr');
-        [new Date(o.at).toLocaleDateString('en-US', { dateStyle: 'medium' }), o.n, names[o.seller] || o.seller, o.product + (o.q > 1 ? ' × ' + o.q : ''), o.buyer, money(o.gross), money(o.fee), money(o.net), !o.paid ? 'Waiting for payment' : o.tracking ? 'Shipped ' + o.tracking : 'Paid, seller to ship'].forEach(function (v, i) { var td = el('td', v); if (i >= 5 && i <= 7) td.className = 'num'; tr.appendChild(td); });
+        [new Date(o.at).toLocaleDateString('en-US', { dateStyle: 'medium' }), o.n, names[o.seller] || o.seller, o.product + (o.q > 1 ? ' × ' + o.q : ''), o.buyer, money(o.gross), money(o.fee), money(o.net), (!o.paid ? 'Waiting for payment' : o.tracking ? 'Shipped ' + o.tracking : 'Paid, seller to ship') + (o.direct ? ' · paid to their Stripe' : '')].forEach(function (v, i) { var td = el('td', v); if (i >= 5 && i <= 7) td.className = 'num'; tr.appendChild(td); });
         bd.appendChild(tr);
       });
       tb.appendChild(bd); w.appendChild(tb);

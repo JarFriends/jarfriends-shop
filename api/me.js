@@ -17,6 +17,7 @@ const gate = require('./_gate');
 const U = require('./_users');
 const M = require('./_sellers');
 const stripe = require('./_stripe');
+const connect = require('./_connect');
 const offline = require('./_offline');
 const { verify, isCard, mail, sendCardPaidEmail } = require('./_lib');
 
@@ -48,15 +49,17 @@ async function owns(u, pm) {
 
 // A card order is paid: the same steps as Stripe's own card page (api/stripe.js) — record it, email the receipt,
 // tell the owner, and give the card fee back on a debit or prepaid card.
-async function paid(inv, token, host, pi) {
+async function paid(inv, token, host, pi, client) {
+  client = client || stripe;
   const ch = pi.latest_charge && typeof pi.latest_charge === 'object' ? pi.latest_charge : {};
   const cd = ch.payment_method_details && ch.payment_method_details.card;
   const pay = { id: pi.id, receipt: ch.receipt_url || '', card: cd ? String(cd.brand || 'card').toUpperCase() + ' ending ' + cd.last4 : 'Saved card' };
   let back = '';
   if (inv.cf && cd && (cd.funding === 'debit' || cd.funding === 'prepaid') && !(ch.amount_refunded > 0)) {
-    const rf = await stripe.call('POST', '/refunds', { payment_intent: pi.id, amount: inv.cf, 'metadata[invoice]': inv.n, 'metadata[reason]': 'card fee back, not a credit card' }, 'feeback-' + inv.n).catch(() => ({ ok: false }));
+    const rf = await client.call('POST', '/refunds', { payment_intent: pi.id, amount: inv.cf, 'metadata[invoice]': inv.n, 'metadata[reason]': 'card fee back, not a credit card' }, 'feeback-' + inv.n).catch(() => ({ ok: false }));
     back = rf.ok ? 'Debit card: the ' + money(inv.cf) + ' card fee was refunded to the buyer.' : 'Debit card: the ' + money(inv.cf) + ' card fee refund did NOT go through. Refund it by hand in Stripe.';
   }
+  await connect.markDirect(inv, client).catch((e) => console.error('MARK_DIRECT_FAIL', inv.n, String(e && e.message || e)));
   const label = offline.labelLink(host, token, inv);
   const owner = (process.env.OWNER_EMAIL || '').trim();
   await Promise.all([
@@ -80,9 +83,10 @@ module.exports = async (req, res) => {
       const token = String(q.inv || ''), inv = verify(token), pid = String(q.payment_intent || '');
       const go = (url) => { res.statusCode = 303; res.setHeader('Location', url); res.end(); };
       if (!inv || !isCard(inv) || !/^pi_[A-Za-z0-9_]{8,80}$/.test(pid)) return go(host + '/');
-      const pi = await stripe.call('GET', '/payment_intents/' + pid + '?expand[]=latest_charge');
+      const client = await connect.clientFor(inv);
+      const pi = await client.call('GET', '/payment_intents/' + pid + '?expand[]=latest_charge');
       if (!pi.ok || pi.body.metadata.invoice !== inv.n || pi.body.amount !== inv.u || pi.body.status !== 'succeeded') return go(host + '/api/stripe?inv=' + encodeURIComponent(token));
-      return go(await paid(inv, token, host, pi.body));
+      return go(await paid(inv, token, host, pi.body, client));
     }
 
     const me = gate.emailOf(req.method === 'POST' ? b.t : q.t);
@@ -150,13 +154,22 @@ module.exports = async (req, res) => {
       const c = await cards(u);
       const pm = b.pm || c.def;
       if (!pm || !(await owns(u, pm))) return res.status(400).json({ error: 'Pick a saved card.' });
-      const pi = await stripe.call('POST', '/payment_intents?expand[]=latest_charge', {
-        amount: inv.u, currency: 'usd', customer: u.stripe, payment_method: pm, confirm: 'true', 'payment_method_types[0]': 'card',
+      const client = await connect.clientFor(inv);
+      const base = { amount: inv.u, currency: 'usd', confirm: 'true', 'payment_method_types[0]': 'card',
         description: 'Invoice ' + inv.n, 'metadata[invoice]': inv.n, receipt_email: me,
-        return_url: host + '/api/me?do=qp-return&inv=' + encodeURIComponent(token)
-      }, 'qp-' + inv.n + '-' + pm);
+        return_url: host + '/api/me?do=qp-return&inv=' + encodeURIComponent(token) };
+      let pi;
+      if (client.acct) {
+        // A seller with payouts on: the saved card is copied onto the seller's Stripe account for this one payment
+        // (V2V keeps the card; the seller's account gets a one-time copy), and V2V's cut rides along as the fee.
+        const cp = await client.call('POST', '/payment_methods', { customer: u.stripe, payment_method: pm }, 'qp-pm-' + inv.n + '-' + pm);
+        if (!cp.ok || !cp.body.id) { console.error('QP_CLONE_FAIL', inv.n, cp.status); return res.json({ fallback: host + '/api/stripe?inv=' + encodeURIComponent(token), error: 'Your saved card could not be used for this seller. Opening the card page instead.' }); }
+        pi = await client.call('POST', '/payment_intents?expand[]=latest_charge', Object.assign({}, base, { payment_method: cp.body.id, application_fee_amount: client.fee, 'metadata[v2v_fee]': client.fee }), 'qp-' + inv.n + '-' + pm);
+      } else {
+        pi = await stripe.call('POST', '/payment_intents?expand[]=latest_charge', Object.assign({}, base, { customer: u.stripe, payment_method: pm }), 'qp-' + inv.n + '-' + pm);
+      }
       const p = pi.body || {};
-      if (pi.ok && p.status === 'succeeded') return res.json({ ok: true, link: await paid(inv, token, host, p) });
+      if (pi.ok && p.status === 'succeeded') return res.json({ ok: true, link: await paid(inv, token, host, p, client) });
       if (pi.ok && p.status === 'requires_action' && p.next_action && p.next_action.type === 'redirect_to_url') return res.json({ redirect: p.next_action.redirect_to_url.url });
       const why = (p.error && p.error.message) || (p.last_payment_error && p.last_payment_error.message) || '';
       console.error('QUICKPAY_FAIL', inv.n, pi.status, p.status || '', why.slice(0, 200));

@@ -99,10 +99,16 @@
     wrap.appendChild(line);
     if (AS) wrap.appendChild(el('div', 'You are viewing this shop as the V2V owner. Anything you change here is saved for this seller.', 'alert small'));
     var tiles = el('div', null, 'jf-tiles');
-    [['PAID SALES', String(t.sales), ''], ['SOLD (PIECES + SHIPPING)', JF.cents(t.gross), ''], ['JARFRIENDS FEE (' + D.fee + '%)', JF.cents(t.fee), ''], ['YOU EARNED', JF.cents(t.net), ''], ['PAID TO YOU', JF.cents(t.paidOut), ''], ['OWED TO YOU', JF.cents(t.owed), 'gold']].forEach(function (x) {
+    [['PAID SALES', String(t.sales), ''], ['SOLD (PIECES + SHIPPING)', JF.cents(t.gross), ''], ['JARFRIENDS FEE (' + D.fee + '%)', JF.cents(t.fee), ''], ['YOU EARNED', JF.cents(t.net), ''], ['PAID TO YOUR BANK BY STRIPE', JF.cents(t.byStripe || 0), ''], ['SENT BY V2V', JF.cents(t.paidOut), ''], ['V2V STILL OWES YOU', JF.cents(t.owed), 'gold']].forEach(function (x) {
       var d = el('div', null, 'jf-tile ' + x[2]); d.appendChild(el('span', x[0], 'label')); d.appendChild(el('b', x[1])); tiles.appendChild(d);
     });
     wrap.appendChild(tiles);
+    if (D.stripe && (D.stripe.state === 'none' || D.stripe.state === 'started')) {
+      var nudge = el('div', null, 'alert small'); nudge.style.cssText = 'flex-direction:row;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between';
+      nudge.appendChild(el('span', D.stripe.state === 'started' ? 'Finish linking your bank so card sales pay you automatically.' : 'Get paid automatically: link your bank with Stripe and card sales go straight to you.'));
+      var nb = el('button', 'Set up payouts', 'solid'); nb.type = 'button'; nb.addEventListener('click', function () { tab = 'payouts'; dash(); });
+      nudge.appendChild(nb); wrap.appendChild(nudge);
+    }
     if (t.unpaidGross) wrap.appendChild(el('div', JF.cents(t.unpaidGross) + ' more is in orders waiting for the buyer to pay. It counts once they pay.', 'small dim'));
     var tabs = el('div', null, 'jf-tabs');
     var toShip = D.orders.filter(function (o) { return o.paid && !o.tracking; }).length;
@@ -246,6 +252,7 @@
       var top = el('div'); top.style.cssText = 'display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px';
       top.appendChild(el('b', o.product + (o.q > 1 ? ' × ' + o.q : '')));
       top.appendChild(el('span', !o.paid ? 'WAITING FOR PAYMENT' : o.tracking ? 'SHIPPED' : 'PAID · SHIP IT', 'jf-badge ' + (!o.paid ? '' : o.tracking ? 'ok' : 'wait')));
+      if (o.direct) top.appendChild(el('span', 'PAID TO YOUR STRIPE', 'jf-badge ok'));
       c.appendChild(top);
       c.appendChild(el('div', 'Order ' + o.n + ' · ' + new Date(o.at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) + (o.pay ? ' · paid with ' + o.pay : ''), 'small dim'));
       var rows = el('div', null, 'rows');
@@ -265,10 +272,34 @@
       pane.appendChild(c);
     });
   }
+  function stripeCard() {
+    var st = D.stripe || { state: 'off' };
+    var c = el('section', null, 'card'); c.style.gap = '12px';
+    c.appendChild(el('h2', 'Automatic payouts for card sales'));
+    if (st.state === 'off') { c.appendChild(el('div', 'Automatic payouts are not switched on for V2V yet. Until then, V2V pays you for every sale.', 'small dim')); return c; }
+    var line = el('div'); line.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;align-items:center';
+    line.appendChild(el('span', st.state === 'on' ? 'ON' : st.state === 'started' ? 'FINISH SETUP' : 'NOT SET UP', 'jf-badge ' + (st.state === 'on' ? 'ok' : 'wait')));
+    if (st.schedule) line.appendChild(el('span', 'Paid to your bank ' + st.schedule, 'small dim'));
+    c.appendChild(line);
+    c.appendChild(el('div', st.state === 'on'
+      ? 'When a buyer pays by card, the money goes straight to your Stripe account and Stripe sends it to your bank. Stripe takes its own card fee from you, and V2V\u2019s ' + D.fee + '% is taken at the time of sale. See every payment and payout at dashboard.stripe.com.'
+      : 'Link your bank once, on Stripe\u2019s secure page (like setting up payouts on eBay). After that, card sales go straight to your Stripe account and Stripe pays you out automatically. Stripe charges you its normal card fee; V2V\u2019s ' + D.fee + '% is taken at the time of sale. V2V never sees your bank or tax details.', 'small'));
+    c.appendChild(el('div', 'Sales paid by Zelle, Venmo, Cash App, cash or crypto go to V2V, and V2V sends you your share by ' + ((PAY.filter(function (x) { return x[0] === D.seller.payHow; })[0] || ['', D.seller.payHow])[1]) + '.', 'small dim'));
+    var m = status();
+    if (st.state === 'on') { var a = el('a', 'Open my Stripe dashboard', 'ghost'); a.href = 'https://dashboard.stripe.com/'; a.target = '_blank'; a.rel = 'noopener'; a.style.cssText = 'text-decoration:none;align-self:flex-start'; c.appendChild(a); }
+    else {
+      var b = el('button', st.state === 'started' ? 'Finish setting up payouts' : 'Set up payouts with Stripe', 'solid'); b.type = 'button';
+      b.addEventListener('click', function () { b.disabled = true; m.textContent = 'Opening Stripe\u2026'; JF.api('/api/market', { do: 'stripe-setup', t: tok, as: AS, ak: AK }).then(function (r) { if (r.url) location.href = r.url; else { b.disabled = false; m.textContent = r.error || 'Could not open Stripe.'; } }); });
+      c.appendChild(b);
+    }
+    c.appendChild(m);
+    return c;
+  }
   function payouts(pane) {
+    pane.appendChild(stripeCard());
     var t = D.totals;
     var c = el('section', null, 'card'); c.style.gap = '10px';
-    c.appendChild(el('h2', 'Money sent to you'));
+    c.appendChild(el('h2', 'Payments from V2V (non-card sales)'));
     c.appendChild(el('div', 'JarFriends pays you by ' + (PAY.filter(function (x) { return x[0] === D.seller.payHow; })[0] || ['', D.seller.payHow])[1] + ' (' + D.seller.payTo + '). Owed to you right now: ' + JF.cents(t.owed) + '.', 'small'));
     if (!D.payouts.length) c.appendChild(el('div', 'No payouts yet.', 'small dim'));
     else {
@@ -294,6 +325,14 @@
     c.appendChild(el('div', 'Shop name: ' + s.name + ' · Signed in as ' + D.email + ' · JarFriends fee: ' + D.fee + '% of each sale. To rename your shop, contact JarFriends.', 'small dim'));
     pane.appendChild(c);
     f.addEventListener('submit', function (ev) { ev.preventDefault(); go.disabled = true; JF.api('/api/market', { do: 'profile', t: tok, as: AS, ak: AK, about: about.value, payHow: payHow.value, payTo: payTo.value }).then(function (r) { go.disabled = false; m.textContent = r.error || 'Saved.'; if (!r.error) D.seller = r.seller; }); });
+  }
+  // Back from Stripe's payout setup: show the payouts tab. "again" means the link ran out, so open a fresh one.
+  var sq = new URLSearchParams(location.search).get('stripe');
+  if (sq) {
+    tab = 'payouts';
+    var clean = location.pathname + (AS ? '?as=' + encodeURIComponent(AS) : '');
+    history.replaceState(null, '', clean);
+    if (sq === 'again') JF.api('/api/market', { do: 'stripe-setup', t: tok, as: AS, ak: AK }).then(function (r) { if (r.url) location.href = r.url; });
   }
   if (tok || AS) load(); else ask();
 })();

@@ -171,7 +171,9 @@ async function ledger(slug) {
     const gross = dollars(d.items) + dollars(d.shipping);
     const fee = Math.round(gross * rate / 100);
     return { n: s.n, pid: s.pid, seller: mine[s.pid].seller, product: d.product || mine[s.pid].name, q: s.q, at: d.at || s.at, buyer: d.buyer || '', email: d.email || '', ship: d.ship || '', pay: d.pay || '',
-      gross: gross, rate: rate, fee: fee, net: gross - fee, paid: paidOf(d, m), tracking: m.tracking || '', shippedAt: m.shippedAt || 0 };
+      gross: gross, rate: rate, fee: fee, net: gross - fee, paid: paidOf(d, m), tracking: m.tracking || '', shippedAt: m.shippedAt || 0,
+      // Paid by card straight to the seller's own Stripe (see _connect.js): Stripe pays the seller, nothing is owed.
+      direct: !!m.direct };
   }));
   return rows.sort((a, b) => b.at - a.at);
 }
@@ -189,10 +191,11 @@ async function addPayout(slug, cents, how, note) {
 }
 // Totals for one seller's rows and payouts. Only paid sales count toward what is owed.
 function totals(rows, outs) {
-  const t = { sales: 0, gross: 0, fee: 0, net: 0, unpaidGross: 0, paidOut: 0 };
-  rows.forEach((r) => { if (r.paid) { t.sales++; t.gross += r.gross; t.fee += r.fee; t.net += r.net; } else t.unpaidGross += r.gross; });
+  // byStripe: the seller's share of card sales Stripe paid to them directly. Only the rest is owed by hand.
+  const t = { sales: 0, gross: 0, fee: 0, net: 0, unpaidGross: 0, paidOut: 0, byStripe: 0 };
+  rows.forEach((r) => { if (r.paid) { t.sales++; t.gross += r.gross; t.fee += r.fee; t.net += r.net; if (r.direct) t.byStripe += r.net; } else t.unpaidGross += r.gross; });
   outs.forEach((p) => { t.paidOut += p.cents; });
-  t.owed = t.net - t.paidOut;
+  t.owed = t.net - t.byStripe - t.paidOut;
   return t;
 }
 

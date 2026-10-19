@@ -23,6 +23,8 @@ const M = require('./_sellers');
 const PRODUCTS = require('./_products');
 const edits = require('./_edits');
 const { mail, esc } = require('./_lib');
+const connect = require('./_connect');
+const stripeBase = require('./_stripe');
 
 const usd = (c) => (c / 100).toFixed(2);
 const photoOf = (p) => (p.photo ? '/api/photo?id=' + p.id + '&v=' + p.photo : '');
@@ -102,6 +104,8 @@ module.exports = async (req, res) => {
       if (!gate.isAdmin(req.method === 'POST' ? b.ak : q.ak)) return res.status(401).json({ error: 'Sign in to the back office again.' });
       if (req.method === 'GET') {
         const [sellers, rows, outs, listings] = await Promise.all([M.all(), M.ledger(null), M.payouts(null), M.listings()]);
+        // Sellers part-way through Stripe setup: check again, so card sales start going to them once Stripe says yes.
+        if (stripeBase.ready()) await Promise.all(sellers.filter((x) => x.stripe && !x.stripeOn).map((x) => connect.status(x).catch(() => null)));
         const list = sellers.map((s) => {
           const mine = rows.filter((r) => r.seller === s.slug), paid = outs.filter((p) => p.seller === s.slug);
           return Object.assign({}, s, { listings: listings.filter((p) => p.seller === s.slug).length, totals: M.totals(mine, paid), payouts: paid });
@@ -171,7 +175,8 @@ module.exports = async (req, res) => {
       // The seller ships their own orders, so they see the ship-to address, but only once the order is paid.
       const orders = rows.map((r) => Object.assign({}, r, r.paid ? {} : { ship: '', email: '' }));
       const feed = (await M.posts(seller.slug, 50)).map((x) => Object.assign({}, x, { photoUrl: x.photo ? '/api/photo?id=' + x.id + '&v=' + x.photo : '' }));
-      return res.json({ email: me, seller: seller, fee: M.feePct(), sections: M.SECTIONS, listings: listings, orders: orders, payouts: outs, totals: M.totals(rows, outs), posts: feed });
+      const st = stripeBase.ready() ? await connect.status(seller).catch(() => ({ state: 'unknown' })) : { state: 'off' };
+      return res.json({ email: me, seller: seller, fee: M.feePct(), sections: M.SECTIONS, listings: listings, orders: orders, payouts: outs, totals: M.totals(rows, outs), posts: feed, stripe: st });
     }
     if (req.method !== 'POST') return res.status(405).json({ error: 'Use POST.' });
 
@@ -185,6 +190,12 @@ module.exports = async (req, res) => {
     if (!seller) return res.status(403).json({ error: 'Open a seller shop first.' });
     if (seller.status === 'paused') return res.status(403).json({ error: 'Your seller shop is paused. Contact JarFriends.' });
 
+    // Automatic card payouts: opens Stripe's own page where the seller links their bank (see _connect.js).
+    if (what === 'stripe-setup') {
+      if (!stripeBase.ready()) return res.status(503).json({ error: 'Automatic payouts are not switched on for V2V yet.' });
+      try { return res.json({ url: await connect.onboardingLink(seller, 'https://' + req.headers.host, actAs ? seller.slug : '') }); }
+      catch (e) { console.error('STRIPE_SETUP_FAIL', seller.slug, String(e && e.message || e)); return res.status(502).json({ error: 'Stripe could not open the payout setup just now. Try again in a minute.' }); }
+    }
     if (what === 'profile') {
       const tidy = (v, n) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n);
       if (b.about != null) seller.about = tidy(b.about, 400);
