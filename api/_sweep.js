@@ -173,7 +173,7 @@ async function arrivals(now, mail) {
   const subject = items.length === 1 ? 'New at JarFriends: ' + items[0].name : items.length + ' new pieces at JarFriends';
   const cost = (p) => (p.auction ? 'Auction: bidding starts at $' + p.auction.start + ', ends ' + new Date(p.auction.ends).toLocaleString('en-US', { timeZone: 'America/Chicago', weekday: 'long', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) + ' Central' : '$' + p.price + (p.eth ? ' (about ' + p.eth + ' ETH)' : '')) + (p.nft ? '' : Number(p.ship) > 0 ? ' + $' + p.ship + ' shipping' : ', free shipping');
   const linkOf = (p) => p.auction ? HOST + '/auction.html?id=' + encodeURIComponent(p.id) : HOST + '/order.html?product=' + encodeURIComponent(p.id);
-  const tip = 'Pay with crypto and take 1% off. There is no wallet to connect and nothing to sign: you just send the payment to the address shown.';
+  const tip = 'You can pay with crypto: there is no wallet to connect and nothing to sign, you just send the payment to the address shown.';
   for (const e of todo.slice(0, 12)) {
     if (await gone(e)) { log.done[hashOf(e)] = 1; continue; }
     const stop = HOST + '/api/unsub?t=' + lib.sign({ un: 1, e: e });
@@ -280,7 +280,7 @@ async function repriced(now, mail, opt) {
   const usd = (n) => '$' + Number(n).toFixed(2);
   const subject = items.length === 1 ? 'Price drop: ' + items[0].name + ' is now ' + usd(items[0].price) : items.length + ' price drops at JarFriends';
   const ship = (p) => (p.nft ? '' : Number(p.ship) > 0 ? ' + $' + p.ship + ' shipping' : ', free shipping');
-  const tip = 'Pay with crypto and take 1% off. There is no wallet to connect and nothing to sign: you just send the payment to the address shown.';
+  const tip = 'You can pay with crypto: there is no wallet to connect and nothing to sign, you just send the payment to the address shown.';
   for (const e of todo.slice(0, max)) {
     if (await gone(e)) { log.done[hashOf(e)] = 1; continue; }
     const stop = HOST + '/api/unsub?t=' + lib.sign({ un: 1, e: e });

@@ -69,7 +69,7 @@ function build(g, name, stop, addr) {
     lines.push('Every Deal of the day safe has been opened. New ones are coming soon.', '');
     html += head('DEAL OF THE DAY') + '<div style="font-size:15px;line-height:1.5;margin:0 0 14px">Every safe has been cracked open. New ones are coming soon. Who will open them first?</div>';
   }
-  const tip = 'Pay with crypto and take 1% off. There is no wallet to connect and nothing to sign: you just send the payment to the address shown.';
+  const tip = 'You can pay with crypto: there is no wallet to connect and nothing to sign, you just send the payment to the address shown.';
   lines.push(tip, '', 'You are getting this because you ordered from JarFriends or subscribed.' + (addr ? ' JarFriends, ' + addr + '.' : ''), 'Unsubscribe: ' + stop);
   const full = '<div style="background:#0B1712;padding:28px 16px;font-family:Arial,Helvetica,sans-serif;color:#E6EFE9"><div style="max-width:520px;margin:0 auto">' +
     '<div style="font-size:13px;letter-spacing:2px;color:#C9A45C">JARFRIENDS UPDATE</div><h1 style="font-size:26px;margin:8px 0 12px;color:#8FD3AE">What is new at JarFriends</h1>' +

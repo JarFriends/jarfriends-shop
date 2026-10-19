@@ -3,8 +3,8 @@
 const fs = require('fs');
 const R = String.raw;
 const changes = [
-  ['api/order.js', R`  const tax = !isNft && (st === 'il' || st === 'ill' || st === 'illinois') ? Math.round((list - cut) * taxPct() / 100) : 0;`, R`  // Crypto discount: 1% off the pieces after any promo code or accepted offer.
-  const cd = !cash && !card ? Math.round((list - cut) * 1 / 100) : 0;
+  ['api/order.js', R`  const tax = !isNft && (st === 'il' || st === 'ill' || st === 'illinois') ? Math.round((list - cut) * taxPct() / 100) : 0;`, R`  // No crypto discount on V2V (cd stays 0, so nothing comes off).
+  const cd = 0;
   const tax = !isNft && (st === 'il' || st === 'ill' || st === 'illinois') ? Math.round((list - cut - cd) * taxPct() / 100) : 0;`],
   // JAR10 is the first-order code from the checkout reminder email: it only works for an email with no order yet.
   ['api/order.js', R`  if (promo && deal) return res.status(400).json({ error: 'A promo code cannot be added to an accepted offer. Remove the code to continue.' });`, R`  if (promo && deal) return res.status(400).json({ error: 'A promo code cannot be added to an accepted offer. Remove the code to continue.' });
@@ -20,13 +20,13 @@ const changes = [
   ['api/_offline.js', R`const costLines = (inv) => (inv.pc ? ['Promo code ' + promoLine(inv)] : []).concat(`, R`const costLines = (inv) => (inv.pc ? ['Promo code ' + promoLine(inv)] : []).concat(inv.cd ? ['Crypto discount (1%): -' + money(inv.cd)] : [], `],
   ['public/order.html', R`        <div class="row" id="rShip">`, R`        <div class="row" id="rCrypto" hidden><span class="dim">Crypto discount (1%)</span><span id="sCrypto"></span></div>
         <div class="row" id="rShip">`],
-  ['public/order.html', R`    var tax = !nft && taxPct && (st === 'il' || st === 'ill' || st === 'illinois') ? Math.round((list - cut) * taxPct / 100) : 0;`, R`    var cd = m === 'crypto' ? Math.round((list - cut) * 1 / 100) : 0;
+  ['public/order.html', R`    var tax = !nft && taxPct && (st === 'il' || st === 'ill' || st === 'illinois') ? Math.round((list - cut) * taxPct / 100) : 0;`, R`    var cd = 0;
     $('rCrypto').hidden = !cd; $('sCrypto').textContent = '-' + usd(cd);
     var tax = !nft && taxPct && (st === 'il' || st === 'ill' || st === 'illinois') ? Math.round((list - cut - cd) * taxPct / 100) : 0;`],
   ['public/order.html', R`    var base = list - cut + ship + tax;`, R`    var base = list - cut - cd + ship + tax;`],
   // An NFT also shows roughly what its price comes to in ETH (see the end of this file).
   ['public/order.html', R`    $('unit').textContent = '$' + p.price + ' per unit. ' +`, R`    $('unit').textContent = '$' + p.price + (p.eth ? ' (about ' + p.eth + ' ETH)' : '') + ' per unit. ' +`],
-  ['public/order.html', R`<strong>Crypto</strong>`, R`<strong>Crypto <span style="font-weight:400;font-size:14px">(1% off)</span></strong>`]
+  ['public/order.html', R`<strong>Crypto</strong>`, R`<strong>Crypto</strong>`]
 ];
 const files = {};
 changes.forEach((c) => {

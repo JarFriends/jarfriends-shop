@@ -144,7 +144,7 @@
   var id = new URLSearchParams(location.search).get('id') || '', tok = '', A = null, P = null, pick = 0, way = '', chosen = 0;
   // A full sign-in (Google or the emailed link) or a bidder sign-in made here with an email and password.
   try { tok = localStorage.getItem('acct_token') || localStorage.getItem('bid_token') || ''; } catch (e) { tok = ''; }
-  var WAYS = { card: ['Credit or debit card', 'Pay online with your card.'], crypto: ['Crypto', 'Ethereum, USDC or USDT. Take 1% off.'], zelle: ['Zelle', 'From your bank app.'], venmo: ['Venmo', 'From the Venmo app.'], cashapp: ['Cash App', 'From Cash App.'], cash: ['Cash or ACH', 'Bank transfer or cash.'] };
+  var WAYS = { card: ['Credit or debit card', 'Pay online with your card.'], crypto: ['Crypto', 'Ethereum, USDC or USDT.'], zelle: ['Zelle', 'From your bank app.'], venmo: ['Venmo', 'From the Venmo app.'], cashapp: ['Cash App', 'From Cash App.'], cash: ['Cash or ACH', 'Bank transfer or cash.'] };
   var open = ['crypto', 'cash'];
   var money = function (c) { return '$' + (c / 100).toFixed(2); };
   var cents = function (v) { return Math.round(Number(String(v || '').replace(/[^0-9.]/g, '')) * 100); };
