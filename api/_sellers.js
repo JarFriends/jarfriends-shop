@@ -35,8 +35,26 @@ async function paths(prefix) {
 
 // ---- Sellers ----
 let sMemo = null;
+// SEED_SELLERS starts the marketplace with sellers already open, so the owner's own shops need no sign-up:
+// "Name|email" pairs separated by commas, e.g. "JarFriends|me@example.com". Each is made once, approved.
+let seeded = false;
+async function seed() {
+  if (seeded) return;
+  seeded = true;
+  const want = String(process.env.SEED_SELLERS || '').split(',').map((x) => x.split('|').map((y) => y.trim())).filter((x) => x[0] && /@/.test(x[1] || ''));
+  for (const [name, email] of want) {
+    try {
+      if (await store.read('sellers/e/' + hashOf(email) + '.json')) continue;
+      const slug = slugify(name);
+      if (!slug || await bySlug(slug)) continue;
+      await store.write('sellers/s/' + slug + '.json', { slug: slug, name: name.slice(0, 40), email: email.toLowerCase(), about: '', payHow: 'zelle', payTo: email.toLowerCase(), status: 'approved', at: Date.now(), agreedFee: feePct(), seeded: true });
+      await store.write('sellers/e/' + hashOf(email) + '.json', { slug: slug });
+    } catch (e) { console.error('SEED_FAIL', name, String(e && e.message || e)); }
+  }
+}
 async function all() {
   if (sMemo && Date.now() - sMemo.at < 5000) return sMemo.v;
+  await seed();
   const v = (await Promise.all((await paths('sellers/s/')).map((p) => store.read(p.path)))).filter((s) => s && s.slug);
   v.sort((a, b) => (a.at || 0) - (b.at || 0));
   sMemo = { at: Date.now(), v: v };
@@ -46,6 +64,7 @@ const forget = () => { sMemo = null; lMemo = null; };
 async function bySlug(slug) { return /^[a-z0-9-]{2,30}$/.test(String(slug || '')) ? store.read('sellers/s/' + slug + '.json') : null; }
 async function byEmail(email) {
   if (!email) return null;
+  await seed();
   const m = await store.read('sellers/e/' + hashOf(email) + '.json');
   return m && m.slug ? bySlug(m.slug) : null;
 }
@@ -59,7 +78,7 @@ async function apply(email, f) {
   if (name.length < 2) return { error: 'Give your shop a name.' };
   let slug = slugify(name);
   if (slug.length < 2) return { error: 'Use letters or numbers in your shop name.' };
-  if (['jarfriends', 'admin', 'owner', 'shop'].indexOf(slug) >= 0 || await bySlug(slug)) slug = (slug + '-' + crypto.randomBytes(2).toString('hex')).slice(0, 30);
+  if (['v2v', 'admin', 'owner', 'shop', 'house', 'market'].indexOf(slug) >= 0 || await bySlug(slug)) slug = (slug + '-' + crypto.randomBytes(2).toString('hex')).slice(0, 30);
   const payHow = ['zelle', 'venmo', 'cashapp', 'paypal'].indexOf(f.payHow) >= 0 ? f.payHow : '';
   const payTo = tidy(f.payTo, 80);
   if (!payHow || payTo.length < 3) return { error: 'Tell us how to pay you: pick a way and enter your handle, phone or email for it.' };
@@ -177,4 +196,28 @@ function totals(rows, outs) {
   return t;
 }
 
-module.exports = { feePct, autoApprove, all, bySlug, byEmail, save, apply, pub, listings, products, isSellerPid, saveListing, setListing, removeListing, ledger, payouts, addPayout, totals, hashOf, SECTIONS, forget };
+// ---- Community posts ----
+// posts/<slug>/<id>.json  { id, slug, text, photo (time saved, or 0), pid (a listing it points at), at }
+async function posts(slug, limit) {
+  const ps = await paths('posts/' + (slug ? slug + '/' : ''));
+  const byTime = ps.map((p) => ({ p: p, t: parseInt((/\/P([0-9A-Z]+)[0-9A-F]{2}\.json$/.exec(p.path) || [])[1] || '0', 36) })).sort((a, b) => b.t - a.t).slice(0, limit || 50);
+  return (await Promise.all(byTime.map((x) => store.read(x.p.path)))).filter(Boolean);
+}
+async function addPost(seller, f) {
+  const text = String(f.text == null ? '' : f.text).replace(/\r/g, '').replace(/\n{3,}/g, '\n\n').trim().slice(0, 1500);
+  if (!text && !f.photo) return { error: 'Write something or add a photo.' };
+  const id = 'P' + Date.now().toString(36).toUpperCase() + crypto.randomBytes(1).toString('hex').toUpperCase();
+  const post = { id: id, slug: seller.slug, text: text, photo: f.photo || 0, pid: /^[A-Za-z0-9_-]{1,20}$/.test(String(f.pid || '')) ? String(f.pid) : '', at: Date.now() };
+  await store.write('posts/' + seller.slug + '/' + id + '.json', post);
+  return { post: post };
+}
+async function removePost(seller, id) {
+  if (!/^P[0-9A-Z]{6,19}$/.test(String(id || ''))) return false;
+  const hit = (await paths('posts/' + seller.slug + '/' + id + '.json'))[0];
+  if (!hit) return false;
+  const { del } = await import('@vercel/blob');
+  await del(hit.url);
+  return true;
+}
+
+module.exports = { posts, addPost, removePost, feePct, autoApprove, all, bySlug, byEmail, save, apply, pub, listings, products, isSellerPid, saveListing, setListing, removeListing, ledger, payouts, addPayout, totals, hashOf, SECTIONS, forget };

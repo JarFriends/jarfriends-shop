@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>V2V · The collectors' marketplace</title>
+<meta name="description" content="V2V is a marketplace for collectibles. Open your own shop, build a community around it, and sell to collectors.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&family=IBM+Plex+Mono:wght@400;500&family=Playfair+Display:wght@600;700;800&display=swap">
+<link rel="stylesheet" href="/site.css">
+<link rel="stylesheet" href="/market.css">
+<style>
+.v-top .bar{gap:12px}
+.v-nav{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.v-nav a.lk{color:#F7F2E6;text-decoration:none;font-weight:700;font-size:15px}
+.v-nav a.lk:hover{color:#C9A45C}
+.v-logo{font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:28px;letter-spacing:.02em;color:#F7F2E6;text-decoration:none}
+.v-logo span{color:#C9A45C}
+.v-hero{padding:72px 0 56px;display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:48px;align-items:center}
+.v-hero h1{font-size:clamp(38px,5.2vw,72px);line-height:.98;text-transform:none}
+.v-hero h1 em{font-style:normal;color:#C9A45C}
+.v-lede{font-size:clamp(17px,1.6vw,20px);color:#D6E2DA;max-width:560px}
+.v-ctas{display:flex;flex-wrap:wrap;gap:12px}
+.v-ctas a{text-decoration:none;display:inline-flex;align-items:center}
+.v-big{font-size:18px;padding:16px 28px;min-height:54px}
+.v-stack{position:relative;aspect-ratio:1/1;max-width:440px;justify-self:end;width:100%}
+.v-card{position:absolute;width:62%;background:#11261C;border:1px solid #244536;padding:10px;box-shadow:0 24px 50px rgba(0,0,0,.45);display:flex;flex-direction:column;gap:8px}
+.v-card .jf-pic{aspect-ratio:4/5}
+.v-card:nth-child(1){left:0;top:10%;transform:rotate(-7deg)}
+.v-card:nth-child(2){right:0;top:0;transform:rotate(6deg)}
+.v-card:nth-child(3){left:19%;bottom:0;transform:rotate(-1deg);z-index:2;border-color:#C9A45C}
+.v-card .t{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.v-card .p{font-family:'IBM Plex Mono',monospace;font-size:13px;color:#C9A45C}
+.v-sec{padding:56px 0;border-top:1px solid #244536;display:flex;flex-direction:column;gap:28px}
+.v-sec h2{font-size:clamp(26px,3vw,38px);text-transform:none}
+.v-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:12px}
+.v-feats{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+.v-feat{background:#11261C;border:1px solid #244536;padding:22px;display:flex;flex-direction:column;gap:8px}
+.v-feat b{font-size:18px}
+.v-feat .n{font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.14em;color:#C9A45C}
+.v-two{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:24px}
+.v-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.v-list li{padding:12px 0;border-top:1px solid #244536;display:flex;gap:12px;font-size:16px}
+.v-list li::before{content:'→';color:#C9A45C;font-weight:700}
+.v-comm{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:32px;align-items:start}
+.v-sellers{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
+.v-seller{display:flex;flex-direction:column;gap:6px;padding:20px;background:#11261C;border:1px solid #244536;color:#F7F2E6;text-decoration:none}
+.v-seller:hover{border-color:#C9A45C}
+.v-seller .av{width:52px;height:52px;border-radius:999px;background:#C9A45C;color:#0B1A13;display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:22px}
+.v-post{background:#11261C;border:1px solid #244536;padding:16px;display:flex;flex-direction:column;gap:10px}
+.v-post .who{display:flex;justify-content:space-between;gap:8px;font-size:13px;color:#A8BFB1}
+.v-post .who a{color:#F7F2E6;font-weight:700;text-decoration:none}
+.v-post p{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:15px}
+.v-post img{width:100%;max-height:320px;object-fit:cover;display:block}
+.v-fee{display:grid;grid-template-columns:auto 1fr;gap:28px;align-items:center;background:#11261C;border:1px solid #C9A45C;padding:32px}
+.v-fee .pct{font-family:'IBM Plex Mono',monospace;font-size:clamp(48px,7vw,84px);color:#C9A45C;line-height:1}
+.v-foot{padding:40px 0 100px;border-top:1px solid #244536;display:flex;flex-wrap:wrap;justify-content:space-between;gap:16px;color:#A8BFB1;font-size:14px}
+.v-foot a{color:#D6E2DA}
+@media(max-width:860px){.v-hero{grid-template-columns:1fr;padding-top:40px}.v-stack{justify-self:center;max-width:340px}.v-comm{grid-template-columns:1fr}.v-fee{grid-template-columns:1fr}}
+@media(max-width:520px){.v-nav a.lk.hide{display:none}}
+</style>
+</head>
+<body>
+<header class="top v-top"><div class="wrap bar">
+  <a class="v-logo" href="/">V2V<span>.</span></a>
+  <nav class="v-nav" aria-label="Main">
+    <a class="lk hide" href="/market.html">Market</a>
+    <a class="lk hide" href="/market.html?view=auctions">Auctions</a>
+    <a class="lk" href="/wishlist.html">Wishlist</a>
+    <a class="solid" href="/seller.html" style="text-decoration:none;padding:10px 16px;min-height:0;font-size:15px">Become a seller</a>
+  </nav>
+</div></header>
+
+<main class="wrap">
+  <section class="v-hero">
+    <div class="stack-s" style="gap:22px">
+      <div class="mono gold">THE COLLECTORS' MARKETPLACE</div>
+      <h1>Your shop. Your community. <em>Your collectors.</em></h1>
+      <p class="v-lede" style="margin:0">V2V is where collectors buy and sell. Anyone can open a shop in minutes, post to their own community and sell to collectors, who can buy now, make an offer or bid in an auction. We handle checkout and payment; you ship and get paid.</p>
+      <div class="v-ctas">
+        <a class="solid v-big" href="/seller.html">Become a seller</a>
+        <a class="ghost v-big" href="/market.html">Browse the market</a>
+      </div>
+      <div class="small dim" id="heroNote">Free to open a shop. V2V keeps <span class="fee">5.55</span>% of each sale.</div>
+    </div>
+    <div class="v-stack" id="stack" aria-hidden="true"></div>
+  </section>
+
+  <section class="v-sec" aria-labelledby="whatH">
+    <div class="v-head"><div class="stack-s"><div class="mono gold">WHAT V2V DOES</div><h2 id="whatH">Everything a collector's shop needs</h2></div></div>
+    <div class="v-feats">
+      <div class="v-feat"><span class="n">01 · YOUR SHOP</span><b>Open a shop in minutes</b><span class="small">Your own page with your name, your story and your pieces. Add photos, prices, stock and shipping from your phone.</span></div>
+      <div class="v-feat"><span class="n">02 · YOUR COMMUNITY</span><b>Post to your community</b><span class="small">Every shop has its own feed. Share new drops, pulls, behind-the-scenes and announcements, and point posts at a piece for sale.</span></div>
+      <div class="v-feat"><span class="n">03 · WAYS TO BUY</span><b>Buy now, offers and auctions</b><span class="small">Buyers check out right away, send an offer, or bid in a timed auction that stays open while the bidding is hot.</span></div>
+      <div class="v-feat"><span class="n">04 · PAYMENT</span><b>Checkout is handled</b><span class="small">Card, crypto, Zelle, Venmo, Cash App or cash. Receipts and order emails go out for you.</span></div>
+      <div class="v-feat"><span class="n">05 · SHIPPING</span><b>Ship and track</b><span class="small">See the buyer's address once they pay, add your tracking number, and the buyer is told it is on the way.</span></div>
+      <div class="v-feat"><span class="n">06 · GETTING PAID</span><b>Know what you earned</b><span class="small">Your seller portal shows every sale, the fee, what you earned and every payout to you.</span></div>
+    </div>
+  </section>
+
+  <section class="v-sec" aria-labelledby="commH">
+    <div class="v-comm">
+      <div class="stack-s" style="gap:16px">
+        <div class="mono gold">EVERY SHOP IS ITS OWN COMMUNITY</div>
+        <h2 id="commH">One marketplace. Many little worlds.</h2>
+        <p class="small" style="margin:0">On V2V, each seller is more than a list of products. Every shop has its own marketplace of pieces and its own community feed, so collectors can come back to the people they trust and see what they are working on.</p>
+        <p class="small" style="margin:0">JarFriends is one of them: its own collection, its own drops and its own posts, inside V2V. Your shop works the same way.</p>
+        <ul class="v-list">
+          <li>Your own shop page with its pieces for sale</li>
+          <li>Your own feed of posts, photos and drop announcements</li>
+          <li>Buyers save your pieces to their wishlist</li>
+          <li>All of it reaches everyone browsing the V2V market</li>
+        </ul>
+        <div class="v-ctas"><a class="solid" href="/seller.html">Start your shop</a></div>
+      </div>
+      <div class="stack-s" style="gap:14px">
+        <div class="label">FROM THE COMMUNITY</div>
+        <div id="posts" class="stack-s" style="gap:14px"><div class="small dim">Loading posts…</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="v-sec" aria-labelledby="shopsH">
+    <div class="v-head"><div class="stack-s"><div class="mono gold">SHOPS ON V2V</div><h2 id="shopsH">Meet the sellers</h2></div><a href="/seller.html">Open yours →</a></div>
+    <div class="v-sellers" id="sellers"></div>
+  </section>
+
+  <section class="v-sec" aria-labelledby="newH">
+    <div class="v-head"><div class="stack-s"><div class="mono gold">JUST LISTED</div><h2 id="newH">New in the market</h2></div><a href="/market.html">See everything →</a></div>
+    <div class="jf-grid" id="fresh"></div>
+  </section>
+
+  <section class="v-sec" aria-labelledby="feeH">
+    <div class="v-fee">
+      <div class="pct"><span class="fee">5.55</span>%</div>
+      <div class="stack-s" style="gap:12px">
+        <h2 id="feeH">Simple pricing for sellers</h2>
+        <div class="small">Opening a shop is free. When a piece sells, V2V keeps <span class="fee">5.55</span>% of the sale (the piece plus shipping) and the rest is yours. No listing fees, no monthly fees.</div>
+        <div class="v-ctas"><a class="solid" href="/seller.html">Become a seller</a><a class="ghost" href="/market.html" style="text-decoration:none">Shop first</a></div>
+      </div>
+    </div>
+  </section>
+</main>
+<footer class="wrap v-foot">
+  <span>V2V · the collectors' marketplace</span>
+  <span style="display:flex;gap:18px;flex-wrap:wrap"><a href="/market.html">Market</a><a href="/sold.html">Recently sold</a><a href="/account.html">My orders</a><a href="/seller.html">Seller portal</a></span>
+</footer>
+<script src="/jf.js"></script>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); }, el = JF.el;
+  var initials = function (n) { return String(n || '?').replace(/[^A-Za-z0-9 ]/g, '').split(/\s+/).filter(Boolean).slice(0, 2).map(function (w) { return w[0]; }).join('').toUpperCase() || '?'; };
+  var ago = function (t) { var s = (Date.now() - t) / 1000; return s < 3600 ? Math.max(1, Math.round(s / 60)) + 'm' : s < 86400 ? Math.round(s / 3600) + 'h' : Math.round(s / 86400) + 'd'; };
+  function card(p) {
+    var a = el('a', null, 'jf-item'); a.href = p.auction ? '/auction.html?id=' + encodeURIComponent(p.id) : '/order.html?product=' + encodeURIComponent(p.id);
+    a.appendChild(JF.picture(p));
+    if (p.left <= 0 && !p.auction) a.appendChild(el('span', 'SOLD OUT', 'jf-tag out'));
+    a.appendChild(el('div', p.name, 'jf-name'));
+    var m = el('div', null, 'jf-meta'); m.appendChild(el('span', JF.usd(p.price), 'jf-price')); m.appendChild(el('span', p.sellerName, 'jf-by')); a.appendChild(m);
+    return a;
+  }
+  JF.api('/api/market?do=shop').then(function (r) {
+    if (r.error) return;
+    Array.prototype.forEach.call(document.querySelectorAll('.fee'), function (s) { s.textContent = r.fee; });
+    // Shops
+    var sb = $('sellers'); sb.textContent = '';
+    var count = {}; r.products.forEach(function (p) { if (p.seller) count[p.seller] = (count[p.seller] || 0) + 1; });
+    r.sellers.forEach(function (s) {
+      var a = el('a', null, 'v-seller'); a.href = '/shop.html?s=' + encodeURIComponent(s.slug);
+      a.appendChild(el('div', initials(s.name), 'av'));
+      a.appendChild(el('b', s.name));
+      a.appendChild(el('span', s.about || 'A shop on V2V.', 'small dim'));
+      a.appendChild(el('span', (count[s.slug] || 0) + ' pieces · visit shop →', 'mono gold'));
+      sb.appendChild(a);
+    });
+    var join = el('a', null, 'v-seller'); join.href = '/seller.html'; join.style.borderStyle = 'dashed';
+    join.appendChild(el('div', '+', 'av')); join.appendChild(el('b', 'Your shop here')); join.appendChild(el('span', 'Open a shop and start selling today.', 'small dim'));
+    sb.appendChild(join);
+    // Fresh pieces
+    var live = r.products.filter(function (p) { return p.left > 0 || p.auction; }).sort(function (a, b) { return (b.added || 0) - (a.added || 0); });
+    var g = $('fresh'); g.textContent = '';
+    if (!live.length) { var e = el('div', null, 'jf-empty'); e.style.gridColumn = '1/-1'; e.appendChild(document.createTextNode('The first pieces are on their way. ')); var l = el('a', 'Be one of the first sellers.'); l.href = '/seller.html'; e.appendChild(l); g.appendChild(e); }
+    live.slice(0, 8).forEach(function (p) { g.appendChild(card(p)); });
+    // Hero stack: three real pieces when there are some, otherwise plain tiles.
+    var st = $('stack'), pick = live.slice(0, 3);
+    while (pick.length < 3) pick.push({ id: 'x' + pick.length, name: ['Graded cards', 'Comics', 'Coins & medals'][pick.length], price: '' });
+    pick.forEach(function (p) {
+      var c = el('div', null, 'v-card'); c.appendChild(JF.picture(p)); c.appendChild(el('div', p.name, 't'));
+      if (p.price) c.appendChild(el('div', JF.usd(p.price) + ' · ' + (p.sellerName || ''), 'p'));
+      st.appendChild(c);
+    });
+  });
+  JF.api('/api/market?do=posts').then(function (r) {
+    var b = $('posts'); b.textContent = '';
+    if (!r.posts || !r.posts.length) { b.appendChild(el('div', 'Shop posts show up here: new drops, pulls and news from sellers.', 'jf-empty')); return; }
+    r.posts.slice(0, 4).forEach(function (x) {
+      var c = el('article', null, 'v-post');
+      var w = el('div', null, 'who'); var a = el('a', x.sellerName); a.href = '/shop.html?s=' + encodeURIComponent(x.seller) + '#posts'; w.appendChild(a); w.appendChild(el('span', ago(x.at))); c.appendChild(w);
+      if (x.photo) { var i = el('img'); i.src = x.photo; i.alt = ''; i.loading = 'lazy'; c.appendChild(i); }
+      if (x.text) c.appendChild(el('p', x.text.length > 260 ? x.text.slice(0, 257) + '…' : x.text));
+      if (x.piece) { var pl = el('a', '→ ' + x.piece.name + ' · ' + JF.usd(x.piece.price)); pl.href = '/order.html?product=' + encodeURIComponent(x.piece.id); pl.className = 'small'; c.appendChild(pl); }
+      b.appendChild(c);
+    });
+  });
+})();
+</script>
+</body>
+</html>

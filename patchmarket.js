@@ -15,3 +15,9 @@ changes.forEach(([f, find, put]) => {
   fs.writeFileSync(f, s.replace(find, () => put));
 });
 console.log('patchmarket: seller listings joined to the shop');
+// 3. V2V starts empty: none of the JarFriends products. JarFriends lists its pieces as a seller, like everyone else.
+//    Pieces the owner adds in the back office (Products tab) still work; they show as sold by V2V.
+{
+  const f = 'api/_products.js', s = fs.readFileSync(f, 'utf8');
+  if (s.indexOf('V2V starts empty') < 0) fs.writeFileSync(f, s + '\n// V2V starts empty: the JarFriends products above are not sold here.\nmodule.exports.splice(0, module.exports.length);\n');
+}

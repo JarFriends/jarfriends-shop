@@ -3,31 +3,31 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Market · JarFriends</title>
-<meta name="description" content="Collectibles from the JarFriends collection and from collectors who sell with us.">
+<title>Market · V2V</title>
+<meta name="description" content="Collectibles from every shop on V2V.">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&family=IBM+Plex+Mono:wght@400;500&family=Playfair+Display:wght@600;700;800&display=swap">
 <link rel="stylesheet" href="/site.css">
 <link rel="stylesheet" href="/market.css">
 </head>
 <body>
-<header class="top"><div class="wrap bar"><a class="brand" href="/" style="text-decoration:none">JarFriends</a><span style="display:flex;align-items:center;gap:20px"><span class="mono dim">THE MARKET</span><a class="home" href="/wishlist.html">♥ Wishlist</a></span></div></header>
+<header class="top"><div class="wrap bar"><a class="brand" href="/" style="text-decoration:none">V2V</a><span style="display:flex;align-items:center;gap:20px"><span class="mono dim">THE MARKET</span><a class="home" href="/wishlist.html">♥ Wishlist</a></span></div></header>
 <main class="wrap page" style="gap:28px">
   <div class="stack-s">
     <div class="mono gold" id="kicker">THE MARKET</div>
     <h1 id="head">Everything for sale</h1>
-    <div class="small" id="lead">Pieces from the JarFriends collection, plus pieces from collectors who sell here. Tap a piece to see it and check out.</div>
+    <div class="small" id="lead">Pieces from every shop on V2V. Tap a piece to see it and check out.</div>
   </div>
   <div class="jf-filters" id="views" role="group" aria-label="What to show"></div>
   <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">
     <label style="flex:1 1 240px;max-width:380px">Search<input id="find" type="search" placeholder="Name of a piece" autocomplete="off"></label>
-    <label style="flex:0 1 220px">Seller<select class="jf-sel" id="who"><option value="">Everyone</option><option value="jarfriends">JarFriends</option></select></label>
+    <label style="flex:0 1 220px">Seller<select class="jf-sel" id="who"><option value="">Everyone</option></select></label>
     <label style="flex:0 1 220px">Sort<select class="jf-sel" id="sort"><option value="new">Newest first</option><option value="low">Price: low to high</option><option value="high">Price: high to low</option><option value="name">Name</option></select></label>
   </div>
   <div class="small dim" id="count" role="status" aria-live="polite">Loading…</div>
   <div class="jf-grid" id="grid"></div>
   <section class="card" style="gap:10px;max-width:760px">
     <h2>Sell your pieces here</h2>
-    <div class="small">Open your own seller shop on JarFriends. List your pieces, we handle checkout and payment, and you ship. <span id="feeLine"></span></div>
+    <div class="small">Open your own shop on V2V. List your pieces, post to your community, we handle checkout and payment, and you ship. <span id="feeLine"></span></div>
     <a class="solid" href="/seller.html" style="text-decoration:none">Become a seller</a>
   </section>
 </main>
@@ -43,15 +43,14 @@
     return JF.api('/api/market?do=shop' + (qs.get('seller') ? '&seller=' + encodeURIComponent(qs.get('seller')) : '')).then(function (r) {
       if (r.error) { $('count').textContent = r.error; return; }
       D = r;
-      $('feeLine').textContent = 'JarFriends keeps ' + r.fee + '% of each sale; the rest is yours.';
+      $('feeLine').textContent = 'V2V keeps ' + r.fee + '% of each sale; the rest is yours.';
       r.sellers.forEach(function (s) { if (!$('who').querySelector('option[value="' + s.slug + '"]')) { var o = el('option', s.name); o.value = s.slug; $('who').appendChild(o); } });
-      $('kicker').textContent = 'THE MARKET'; $('head').textContent = 'Everything for sale'; document.title = 'Market · JarFriends';
-      $('lead').textContent = 'Pieces from the JarFriends collection, plus pieces from collectors who sell here. Tap a piece to see it and check out.';
+      $('kicker').textContent = 'THE MARKET'; $('head').textContent = 'Everything for sale'; document.title = 'Market · V2V';
+      $('lead').textContent = 'Pieces from every shop on V2V. Tap a piece to see it and check out.';
+      // An old shop link (market.html?seller=...) opens that seller's own shop page.
       if (qs.get('seller')) {
-        $('who').value = qs.get('seller');
-        if (r.seller) { $('kicker').textContent = 'SELLER SHOP'; $('head').textContent = r.seller.name; $('lead').textContent = r.seller.about || ('Pieces from ' + r.seller.name + ', sold through JarFriends.'); document.title = r.seller.name + ' · JarFriends'; }
-        else if (qs.get('seller') === 'jarfriends') { $('kicker').textContent = 'THE COLLECTION'; $('head').textContent = 'JarFriends collection'; }
-        else { $('head').textContent = 'Shop not found'; $('lead').textContent = 'This seller is not open right now.'; }
+        if (r.seller) { location.replace('/shop.html?s=' + encodeURIComponent(r.seller.slug)); return; }
+        $('head').textContent = 'Shop not found'; $('lead').textContent = 'This seller is not open right now.';
       }
       views(); draw();
     }).catch(function () { $('count').textContent = 'The market did not load. Refresh to try again.'; });
@@ -72,8 +71,7 @@
     var q = $('find').value.trim().toLowerCase(), who = $('who').value, now = Date.now();
     var list = D.products.filter(function (p) {
       if (q && p.name.toLowerCase().indexOf(q) < 0) return false;
-      if (who === 'jarfriends' && p.seller) return false;
-      if (who && who !== 'jarfriends' && p.seller !== who) return false;
+      if (who && p.seller !== who) return false;
       if (view === 'auctions' && !p.auction) return false;
       if (view === 'buy' && p.auction) return false;
       if (section && String(p.section).toLowerCase().indexOf(section.toLowerCase()) < 0) return false;
@@ -119,7 +117,6 @@
     });
   }
   ['find', 'who', 'sort'].forEach(function (id) { $(id).addEventListener(id === 'find' ? 'input' : 'change', function () {
-    if (id === 'who') { var v = $('who').value; history.replaceState(null, '', v ? '?seller=' + encodeURIComponent(v) : location.pathname); qs = new URLSearchParams(location.search); load(); return; }
     draw();
   }); });
   if (tok) JF.api('/api/market?do=wish&t=' + encodeURIComponent(tok)).then(function (r) { if (r.ids) { r.ids.forEach(function (x) { wish[x] = true; }); draw(); } });

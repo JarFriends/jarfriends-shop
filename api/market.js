@@ -59,9 +59,26 @@ module.exports = async (req, res) => {
       let items = await shopItems();
       const sellers = (await M.all()).filter((s) => s.status === 'approved').map(M.pub);
       const one = q.seller ? sellers.filter((s) => s.slug === String(q.seller))[0] : null;
-      if (q.seller === 'jarfriends') items = items.filter((p) => !p.seller);
+      if (q.seller === '_house') items = items.filter((p) => !p.seller);
       else if (q.seller) items = one ? items.filter((p) => p.seller === one.slug) : [];
       return res.json({ fee: M.feePct(), products: items, sellers: sellers, seller: one || null, sections: M.SECTIONS });
+    }
+    // Which seller a piece belongs to, for "Sold by" on checkout.
+    if (req.method === 'GET' && what === 'item') {
+      const p = (await shopItems()).filter((x) => x.id === String(q.id || ''))[0];
+      return p ? res.json({ id: p.id, seller: p.seller, sellerName: p.sellerName }) : res.status(404).json({ error: 'Not found.' });
+    }
+    // Community posts: one seller's (?seller=) or the newest from every open seller.
+    if (req.method === 'GET' && what === 'posts') {
+      const open = {};
+      (await M.all()).filter((x) => x.status === 'approved').forEach((x) => { open[x.slug] = x; });
+      const slug = String(q.seller || '');
+      if (slug && !open[slug]) return res.json({ posts: [] });
+      const items = {};
+      (await shopItems()).forEach((p) => { items[p.id] = p; });
+      const list = (await M.posts(slug || null, slug ? 50 : 40)).filter((x) => open[x.slug]).slice(0, slug ? 50 : 12);
+      return res.json({ posts: list.map((x) => ({ id: x.id, text: x.text, at: x.at, photo: x.photo ? '/api/photo?id=' + x.id + '&v=' + x.photo : '', seller: x.slug, sellerName: open[x.slug].name,
+        piece: items[x.pid] ? { id: x.pid, name: items[x.pid].name, price: items[x.pid].price, photo: items[x.pid].photo, left: items[x.pid].left } : null })) });
     }
     if (req.method === 'GET' && what === 'sold') {
       const names = {};
@@ -112,7 +129,12 @@ module.exports = async (req, res) => {
     }
 
     // ---------- Signed in ----------
-    const me = await signedIn(req.method === 'POST' ? b.t : q.t);
+    // The owner can open any seller's portal from the back office (Sellers tab, "Open their portal").
+    let me = '';
+    const as = String((req.method === 'POST' ? b.as : q.as) || '');
+    let actAs = false;
+    if (as && gate.isAdmin(req.method === 'POST' ? b.ak : q.ak)) { const who = await M.bySlug(as); if (who) { me = who.email; actAs = true; } }
+    if (!me) me = await signedIn(req.method === 'POST' ? b.t : q.t);
     if (!me) return res.status(401).json({ error: 'Sign in first.' });
 
     if (what === 'wish') {
@@ -134,6 +156,10 @@ module.exports = async (req, res) => {
     }
 
     let seller = await M.byEmail(me);
+    // The owner's own shops (SEED_SELLERS) open only from the back office or an emailed sign-in link, never from a
+    // password sign-in, since anyone could set a password for an email they do not own.
+    const verified = actAs || !!gate.emailOf(req.method === 'POST' ? b.t : q.t);
+    if (seller && seller.seeded && !verified) return res.status(403).json({ error: 'Open this shop from the V2V back office (Sellers tab, Open their portal).' });
     if (what === 'me') {
       if (!seller) return res.json({ email: me, seller: null, fee: M.feePct(), sections: M.SECTIONS });
       const [rows, outs, all] = await Promise.all([M.ledger(seller.slug), M.payouts(seller.slug), M.listings()]);
@@ -143,7 +169,8 @@ module.exports = async (req, res) => {
         .map((p) => Object.assign({}, p, { sold: sold[p.id] || 0, left: Math.max(0, p.stock - (sold[p.id] || 0)), photoUrl: photoOf(p) }));
       // The seller ships their own orders, so they see the ship-to address, but only once the order is paid.
       const orders = rows.map((r) => Object.assign({}, r, r.paid ? {} : { ship: '', email: '' }));
-      return res.json({ email: me, seller: seller, fee: M.feePct(), sections: M.SECTIONS, listings: listings, orders: orders, payouts: outs, totals: M.totals(rows, outs) });
+      const feed = (await M.posts(seller.slug, 50)).map((x) => Object.assign({}, x, { photoUrl: x.photo ? '/api/photo?id=' + x.id + '&v=' + x.photo : '' }));
+      return res.json({ email: me, seller: seller, fee: M.feePct(), sections: M.SECTIONS, listings: listings, orders: orders, payouts: outs, totals: M.totals(rows, outs), posts: feed });
     }
     if (req.method !== 'POST') return res.status(405).json({ error: 'Use POST.' });
 
@@ -189,6 +216,19 @@ module.exports = async (req, res) => {
       const p = await M.setListing(seller, id, { photo: Date.now() });
       return res.json({ ok: true, photo: photoOf(p) });
     }
+    if (what === 'post') {
+      let photo = 0, buf = null;
+      if (b.data) {
+        buf = Buffer.from(String(b.data).replace(/^data:image\/jpeg;base64,/, ''), 'base64');
+        if (buf.length < 1000 || buf.length > 1500000 || buf[0] !== 0xFF || buf[1] !== 0xD8) return res.status(400).json({ error: 'That photo could not be used. Try another one.' });
+        photo = Date.now();
+      }
+      const r = await M.addPost(seller, { text: b.text, pid: b.pid, photo: photo });
+      if (r.error) return res.status(400).json(r);
+      if (buf) { const { put } = await import('@vercel/blob'); await put('photos/' + r.post.id + '.jpg', buf, { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'image/jpeg' }); }
+      return res.json(r);
+    }
+    if (what === 'unpost') return res.json({ ok: await M.removePost(seller, b.id) });
     if (what === 'ship') {
       const n = String(b.n || ''), tracking = String(b.tracking || '').replace(/\s+/g, '').slice(0, 40);
       if (!/^[A-Za-z0-9]{8,40}$/.test(tracking)) return res.status(400).json({ error: 'Enter the tracking number.' });

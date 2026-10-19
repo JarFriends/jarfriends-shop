@@ -15,7 +15,7 @@
   <div class="stack-s">
     <div class="mono gold" id="kicker">SELL ON JARFRIENDS</div>
     <h1 id="head">Seller portal</h1>
-    <div class="small" id="lead">List your collectibles in the JarFriends market. Buyers check out on JarFriends with card, crypto, Zelle, Venmo, Cash App or cash; you ship the piece and get paid.</div>
+    <div class="small" id="lead">List your collectibles in the JarFriends market. Buyers check out on V2V with card, crypto, Zelle, Venmo, Cash App or cash; you ship the piece and get paid.</div>
   </div>
   <div id="box"></div>
 </main>
@@ -24,6 +24,9 @@
 (function () {
   var $ = function (id) { return document.getElementById(id); }, el = JF.el;
   var tok = JF.token(), D = null, tab = 'listings', editing = null;
+  // The owner can open any seller's portal from the back office: seller.html?as=<shop>. Uses the back-office key.
+  var AS = new URLSearchParams(location.search).get('as') || '', AK = '';
+  if (AS) { try { AK = localStorage.getItem('adminKey') || ''; } catch (e) { AK = ''; } }
   var PAY = [['zelle', 'Zelle'], ['venmo', 'Venmo'], ['cashapp', 'Cash App'], ['paypal', 'PayPal']];
   var box = $('box');
   function field(label, input, hint) { var l = el('label', label); l.appendChild(input); if (hint) l.appendChild(el('span', hint, 'hint')); return l; }
@@ -32,8 +35,8 @@
   function status(text) { var m = el('div', text || '', 'small'); m.setAttribute('role', 'status'); return m; }
 
   function load() {
-    return JF.api('/api/market?do=me&t=' + encodeURIComponent(tok)).then(function (r) {
-      if (r._status === 401) { JF.signOut(); tok = ''; return ask(); }
+    return JF.api('/api/market?do=me&t=' + encodeURIComponent(tok) + (AS ? '&as=' + encodeURIComponent(AS) + '&ak=' + encodeURIComponent(AK) : '')).then(function (r) {
+      if (r._status === 401) { if (AS) { box.textContent = 'Your back-office sign-in has run out. Sign in to the back office again, then reopen this portal from the Sellers tab.'; return; } JF.signOut(); tok = ''; return ask(); }
       if (r.error) { box.textContent = r.error; return; }
       D = r;
       if (!r.seller) return applyForm();
@@ -73,7 +76,7 @@
     box.appendChild(c);
     f.addEventListener('submit', function (ev) {
       ev.preventDefault(); go.disabled = true; m.textContent = 'Opening your shop…';
-      JF.api('/api/market', { do: 'apply', t: tok, name: name.value, about: about.value, payHow: payHow.value, payTo: payTo.value, agree: agree.checked }).then(function (r) {
+      JF.api('/api/market', { do: 'apply', t: tok, as: AS, ak: AK, name: name.value, about: about.value, payHow: payHow.value, payTo: payTo.value, agree: agree.checked }).then(function (r) {
         go.disabled = false;
         if (r.error) { m.textContent = r.error; return; }
         load();
@@ -90,8 +93,9 @@
     var wrap = el('div'); wrap.style.cssText = 'display:flex;flex-direction:column;gap:24px';
     var badge = el('span', s.status === 'approved' ? 'OPEN' : s.status === 'pending' ? 'WAITING FOR APPROVAL' : 'PAUSED', 'jf-badge ' + (s.status === 'approved' ? 'ok' : s.status === 'pending' ? 'wait' : 'off'));
     var line = el('div', null, 'small'); line.style.cssText = 'display:flex;flex-wrap:wrap;gap:12px;align-items:center'; line.appendChild(badge);
-    if (s.status === 'approved') { var sl = el('a', 'See your shop page'); sl.href = '/market.html?seller=' + encodeURIComponent(s.slug); line.appendChild(sl); }
+    if (s.status === 'approved') { var sl = el('a', 'See your shop page'); sl.href = '/shop.html?s=' + encodeURIComponent(s.slug); line.appendChild(sl); }
     wrap.appendChild(line);
+    if (AS) wrap.appendChild(el('div', 'You are viewing this shop as the V2V owner. Anything you change here is saved for this seller.', 'alert small'));
     var tiles = el('div', null, 'jf-tiles');
     [['PAID SALES', String(t.sales), ''], ['SOLD (PIECES + SHIPPING)', JF.cents(t.gross), ''], ['JARFRIENDS FEE (' + D.fee + '%)', JF.cents(t.fee), ''], ['YOU EARNED', JF.cents(t.net), ''], ['PAID TO YOU', JF.cents(t.paidOut), ''], ['OWED TO YOU', JF.cents(t.owed), 'gold']].forEach(function (x) {
       var d = el('div', null, 'jf-tile ' + x[2]); d.appendChild(el('span', x[0], 'label')); d.appendChild(el('b', x[1])); tiles.appendChild(d);
@@ -100,16 +104,17 @@
     if (t.unpaidGross) wrap.appendChild(el('div', JF.cents(t.unpaidGross) + ' more is in orders waiting for the buyer to pay. It counts once they pay.', 'small dim'));
     var tabs = el('div', null, 'jf-tabs');
     var toShip = D.orders.filter(function (o) { return o.paid && !o.tracking; }).length;
-    [['listings', 'My pieces (' + D.listings.length + ')'], ['orders', 'Orders' + (toShip ? ' · ' + toShip + ' to ship' : '')], ['payouts', 'Payouts'], ['settings', 'Shop settings']].forEach(function (x) {
+    [['listings', 'My pieces (' + D.listings.length + ')'], ['posts', 'Community posts'], ['orders', 'Orders' + (toShip ? ' · ' + toShip + ' to ship' : '')], ['payouts', 'Payouts'], ['settings', 'Shop settings']].forEach(function (x) {
       var b = el('button', x[1], 'pill'); b.type = 'button'; b.setAttribute('aria-pressed', tab === x[0] ? 'true' : 'false');
       b.addEventListener('click', function () { tab = x[0]; editing = null; dash(); }); tabs.appendChild(b);
     });
     wrap.appendChild(tabs);
     var pane = el('div'); pane.style.cssText = 'display:flex;flex-direction:column;gap:18px';
-    ({ listings: listings, orders: orders, payouts: payouts, settings: settings })[tab](pane);
+    ({ listings: listings, posts: posts, orders: orders, payouts: payouts, settings: settings })[tab](pane);
     wrap.appendChild(pane);
     var out = el('button', 'Sign out', 'ghost'); out.type = 'button'; out.style.alignSelf = 'flex-start';
-    out.addEventListener('click', function () { JF.signOut(); location.reload(); });
+    out.addEventListener('click', function () { if (AS) { location.href = '/admin.html'; return; } JF.signOut(); location.reload(); });
+    if (AS) out.textContent = 'Back to the back office';
     wrap.appendChild(out);
     box.appendChild(wrap);
   }
@@ -158,12 +163,12 @@
     c.appendChild(f);
     f.addEventListener('submit', function (ev) {
       ev.preventDefault(); go.disabled = true; m.textContent = 'Saving…';
-      JF.api('/api/market', { do: 'listing', t: tok, id: p ? p.id : '', name: name.value, desc: desc.value, price: price.value, stock: stock.value, shipping: ship.value, section: sec.value, hidden: hidden.checked }).then(function (r) {
+      JF.api('/api/market', { do: 'listing', t: tok, as: AS, ak: AK, id: p ? p.id : '', name: name.value, desc: desc.value, price: price.value, stock: stock.value, shipping: ship.value, section: sec.value, hidden: hidden.checked }).then(function (r) {
         if (r.error) { go.disabled = false; m.textContent = r.error; return; }
         var file = photo.files && photo.files[0];
         if (!file) return finish();
         m.textContent = 'Uploading the photo…';
-        return shrink(file).then(function (data) { return JF.api('/api/market', { do: 'photo', t: tok, id: r.listing.id, data: data }); }).then(function (x) {
+        return shrink(file).then(function (data) { return JF.api('/api/market', { do: 'photo', t: tok, as: AS, ak: AK, id: r.listing.id, data: data }); }).then(function (x) {
           if (x.error) { go.disabled = false; m.textContent = 'Saved, but the photo did not upload: ' + x.error; return; }
           finish();
         }).catch(function (e) { go.disabled = false; m.textContent = 'Saved, but the photo did not upload: ' + e.message; });
@@ -190,7 +195,7 @@
       var rm = el('button', 'Remove', 'ghost'); rm.type = 'button';
       rm.addEventListener('click', function () {
         if (!confirm('Remove "' + p.name + '" from your shop?')) return;
-        JF.api('/api/market', { do: 'remove', t: tok, id: p.id }).then(function (x) { if (x.error) alert(x.error); load(); });
+        JF.api('/api/market', { do: 'remove', t: tok, as: AS, ak: AK, id: p.id }).then(function (x) { if (x.error) alert(x.error); load(); });
       });
       acts.appendChild(ed); acts.appendChild(rm);
       if (!p.hidden) { var v = el('a', 'View'); v.href = '/order.html?product=' + encodeURIComponent(p.id); v.style.alignSelf = 'center'; acts.appendChild(v); }
@@ -199,6 +204,38 @@
       list.appendChild(r);
     });
     pane.appendChild(list);
+  }
+  function posts(pane) {
+    var c = el('section', null, 'card'); c.style.gap = '14px';
+    c.appendChild(el('h2', 'Post to your community'));
+    c.appendChild(el('div', 'Posts show on your shop page and on the V2V home page. Share new drops, pulls, news, or point people at a piece.', 'small dim'));
+    var f = el('form'); f.style.maxWidth = '720px';
+    var text = el('textarea', null, 'jf-ta'); text.maxLength = 1500; text.placeholder = 'What is new in your shop?';
+    var photo = input('file', null, { accept: 'image/*' });
+    var piece = select([['', 'None']].concat(D.listings.filter(function (p) { return !p.hidden; }).map(function (p) { return [p.id, p.name]; })));
+    var go = el('button', 'Post', 'solid'); go.type = 'submit'; var m = status();
+    f.appendChild(field('Your post', text)); f.appendChild(field('Photo', photo, 'Optional.')); f.appendChild(field('Link one of your pieces', piece, 'Optional. Shows a buy link under the post.'));
+    f.appendChild(go); f.appendChild(m); c.appendChild(f); pane.appendChild(c);
+    f.addEventListener('submit', function (ev) {
+      ev.preventDefault(); go.disabled = true; m.textContent = 'Posting…';
+      var file = photo.files && photo.files[0];
+      (file ? shrink(file) : Promise.resolve('')).then(function (data) {
+        return JF.api('/api/market', { do: 'post', t: tok, as: AS, ak: AK, text: text.value, pid: piece.value, data: data });
+      }).then(function (r) { go.disabled = false; if (r.error) { m.textContent = r.error; return; } load(); })
+        .catch(function (e) { go.disabled = false; m.textContent = e.message || 'Could not post.'; });
+    });
+    var list = D.posts || [];
+    if (!list.length) { pane.appendChild(el('div', 'No posts yet. Your first one shows on your shop page right away.', 'jf-empty')); return; }
+    list.forEach(function (x) {
+      var card = el('article', null, 'card'); card.style.gap = '10px';
+      card.appendChild(el('div', new Date(x.at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }), 'small dim'));
+      if (x.photoUrl) { var i = el('img'); i.src = x.photoUrl; i.alt = ''; i.style.cssText = 'max-width:100%;max-height:320px;object-fit:contain;align-self:flex-start'; card.appendChild(i); }
+      if (x.text) { var t = el('div', x.text); t.style.whiteSpace = 'pre-wrap'; card.appendChild(t); }
+      var del = el('button', 'Delete post', 'ghost'); del.type = 'button';
+      del.addEventListener('click', function () { if (!confirm('Delete this post?')) return; JF.api('/api/market', { do: 'unpost', t: tok, as: AS, ak: AK, id: x.id }).then(function () { load(); }); });
+      card.appendChild(del);
+      pane.appendChild(card);
+    });
   }
   function orders(pane) {
     if (!D.orders.length) { pane.appendChild(el('div', 'No orders yet. When someone buys one of your pieces it shows here.', 'jf-empty')); return; }
@@ -220,7 +257,7 @@
           var tr = input('text', '', { placeholder: 'Tracking number', required: '', autocomplete: 'off' }); var l = field('Shipped? Add the tracking number', tr); l.style.flex = '1 1 260px';
           var go = el('button', 'Mark shipped', 'solid'); go.type = 'submit'; var m = status();
           f.appendChild(l); f.appendChild(go); c.appendChild(f); c.appendChild(m);
-          f.addEventListener('submit', function (ev) { ev.preventDefault(); go.disabled = true; JF.api('/api/market', { do: 'ship', t: tok, n: o.n, tracking: tr.value }).then(function (r) { go.disabled = false; if (r.error) { m.textContent = r.error; return; } load(); }); });
+          f.addEventListener('submit', function (ev) { ev.preventDefault(); go.disabled = true; JF.api('/api/market', { do: 'ship', t: tok, as: AS, ak: AK, n: o.n, tracking: tr.value }).then(function (r) { go.disabled = false; if (r.error) { m.textContent = r.error; return; } load(); }); });
         }
       } else c.appendChild(el('div', 'The address shows here once the buyer pays. Do not ship before then.', 'small dim'));
       pane.appendChild(c);
@@ -254,9 +291,9 @@
     c.appendChild(f);
     c.appendChild(el('div', 'Shop name: ' + s.name + ' · Signed in as ' + D.email + ' · JarFriends fee: ' + D.fee + '% of each sale. To rename your shop, contact JarFriends.', 'small dim'));
     pane.appendChild(c);
-    f.addEventListener('submit', function (ev) { ev.preventDefault(); go.disabled = true; JF.api('/api/market', { do: 'profile', t: tok, about: about.value, payHow: payHow.value, payTo: payTo.value }).then(function (r) { go.disabled = false; m.textContent = r.error || 'Saved.'; if (!r.error) D.seller = r.seller; }); });
+    f.addEventListener('submit', function (ev) { ev.preventDefault(); go.disabled = true; JF.api('/api/market', { do: 'profile', t: tok, as: AS, ak: AK, about: about.value, payHow: payHow.value, payTo: payTo.value }).then(function (r) { go.disabled = false; m.textContent = r.error || 'Saved.'; if (!r.error) D.seller = r.seller; }); });
   }
-  if (tok) load(); else ask();
+  if (tok || AS) load(); else ask();
 })();
 </script>
 </body>

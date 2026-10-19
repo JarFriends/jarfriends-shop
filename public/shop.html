@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shop · V2V</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&family=IBM+Plex+Mono:wght@400;500&family=Playfair+Display:wght@600;700;800&display=swap">
+<link rel="stylesheet" href="/site.css">
+<link rel="stylesheet" href="/market.css">
+<style>
+.s-head{display:flex;flex-wrap:wrap;gap:22px;align-items:center}
+.s-av{width:88px;height:88px;border-radius:999px;background:#C9A45C;color:#0B1A13;display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:36px;flex-shrink:0}
+.s-head h1{text-transform:none}
+.s-feed{display:flex;flex-direction:column;gap:16px;max-width:680px}
+.s-post{background:#11261C;border:1px solid #244536;padding:18px;display:flex;flex-direction:column;gap:12px}
+.s-post .when{font-size:13px;color:#A8BFB1}
+.s-post p{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.s-post img{width:100%;max-height:520px;object-fit:contain;background:#0B1A13;display:block}
+.s-piece{display:flex;gap:12px;align-items:center;border:1px solid #4E7A63;padding:8px;color:#F7F2E6;text-decoration:none}
+.s-piece:hover{border-color:#C9A45C}
+.s-piece .jf-pic{width:56px;flex-shrink:0}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap bar"><a class="brand" href="/" style="text-decoration:none">V2V</a><span style="display:flex;align-items:center;gap:20px"><span class="mono dim">SELLER SHOP</span><a class="home" href="/market.html">Market</a></span></div></header>
+<main class="wrap page" style="gap:28px">
+  <div class="s-head">
+    <div class="s-av" id="av" aria-hidden="true">·</div>
+    <div class="stack-s" style="gap:8px;flex:1;min-width:240px">
+      <div class="mono gold">SHOP ON V2V</div>
+      <h1 id="name">Loading…</h1>
+      <div class="small" id="about"></div>
+      <div class="small dim" id="since"></div>
+    </div>
+  </div>
+  <div class="jf-tabs" role="tablist" aria-label="Shop sections">
+    <button type="button" class="pill" role="tab" id="tShop" aria-selected="true" aria-pressed="true">Shop</button>
+    <button type="button" class="pill" role="tab" id="tPosts" aria-selected="false" aria-pressed="false">Community posts</button>
+  </div>
+  <section id="pShop" role="tabpanel" aria-labelledby="tShop" style="display:flex;flex-direction:column;gap:16px">
+    <div class="small dim" id="count"></div>
+    <div class="jf-grid" id="grid"></div>
+  </section>
+  <section id="pPosts" role="tabpanel" aria-labelledby="tPosts" hidden>
+    <div class="s-feed" id="feed"></div>
+  </section>
+</main>
+<script src="/jf.js"></script>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); }, el = JF.el;
+  var slug = new URLSearchParams(location.search).get('s') || '';
+  var tok = JF.token(), wish = {}, items = [];
+  function tab(which) {
+    var shop = which === 'shop';
+    $('pShop').hidden = !shop; $('pPosts').hidden = shop;
+    ['tShop', 'tPosts'].forEach(function (id) { var on = (id === 'tShop') === shop; $(id).setAttribute('aria-selected', on ? 'true' : 'false'); $(id).setAttribute('aria-pressed', on ? 'true' : 'false'); });
+    history.replaceState(null, '', location.pathname + location.search + (shop ? '' : '#posts'));
+  }
+  $('tShop').addEventListener('click', function () { tab('shop'); });
+  $('tPosts').addEventListener('click', function () { tab('posts'); });
+  if (location.hash === '#posts') tab('posts');
+  function draw() {
+    var g = $('grid'); g.textContent = '';
+    $('count').textContent = items.length ? items.length + (items.length === 1 ? ' piece' : ' pieces') : '';
+    if (!items.length) { var e = el('div', 'No pieces listed right now. Check the community posts for what is coming.', 'jf-empty'); e.style.gridColumn = '1/-1'; g.appendChild(e); return; }
+    items.forEach(function (p) {
+      var a = el('a', null, 'jf-item'); a.href = (p.auction ? '/auction.html?id=' : '/order.html?product=') + encodeURIComponent(p.id);
+      a.appendChild(JF.picture(p));
+      if (p.left <= 0 && !p.auction) a.appendChild(el('span', 'SOLD OUT', 'jf-tag out')); else if (p.left === 1) a.appendChild(el('span', 'LAST ONE', 'jf-tag'));
+      a.appendChild(el('div', p.name, 'jf-name'));
+      var m = el('div', null, 'jf-meta'); m.appendChild(el('span', JF.usd(p.price), 'jf-price')); a.appendChild(m);
+      var h = el('button', wish[p.id] ? '♥' : '♡', 'jf-heart'); h.type = 'button'; h.setAttribute('aria-pressed', wish[p.id] ? 'true' : 'false'); h.setAttribute('aria-label', (wish[p.id] ? 'Remove from' : 'Save to') + ' wishlist: ' + p.name);
+      h.addEventListener('click', function (ev) {
+        ev.preventDefault(); ev.stopPropagation();
+        if (!tok) { location.href = '/wishlist.html?add=' + encodeURIComponent(p.id); return; }
+        wish[p.id] = !wish[p.id]; draw();
+        JF.api('/api/market', { do: 'wish', t: tok, id: p.id, on: wish[p.id] }).then(function (r) { if (r._status === 401) { JF.signOut(); location.href = '/wishlist.html?add=' + encodeURIComponent(p.id); } });
+      });
+      a.appendChild(h);
+      g.appendChild(a);
+    });
+  }
+  JF.api('/api/market?do=shop&seller=' + encodeURIComponent(slug)).then(function (r) {
+    if (!r.seller) { $('name').textContent = 'Shop not found'; $('about').textContent = 'This shop is not open right now.'; $('av').textContent = '?'; document.querySelector('.jf-tabs').hidden = true; $('pShop').hidden = true; return; }
+    var s = r.seller;
+    document.title = s.name + ' · V2V';
+    $('name').textContent = s.name;
+    $('av').textContent = s.name.replace(/[^A-Za-z0-9 ]/g, '').split(/\s+/).filter(Boolean).slice(0, 2).map(function (w) { return w[0]; }).join('').toUpperCase() || '?';
+    $('about').textContent = s.about || '';
+    $('since').textContent = 'On V2V since ' + new Date(s.since).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    items = r.products.sort(function (a, b) { return ((b.left > 0) - (a.left > 0)) || (b.added || 0) - (a.added || 0); });
+    draw();
+  });
+  if (tok) JF.api('/api/market?do=wish&t=' + encodeURIComponent(tok)).then(function (r) { if (r.ids) { r.ids.forEach(function (x) { wish[x] = true; }); draw(); } });
+  JF.api('/api/market?do=posts&seller=' + encodeURIComponent(slug)).then(function (r) {
+    var f = $('feed'); f.textContent = '';
+    if (!r.posts || !r.posts.length) { f.appendChild(el('div', 'No posts yet.', 'jf-empty')); return; }
+    r.posts.forEach(function (x) {
+      var c = el('article', null, 's-post');
+      c.appendChild(el('div', new Date(x.at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }), 'when'));
+      if (x.photo) { var i = el('img'); i.src = x.photo; i.alt = ''; i.loading = 'lazy'; c.appendChild(i); }
+      if (x.text) c.appendChild(el('p', x.text));
+      if (x.piece) {
+        var a = el('a', null, 's-piece'); a.href = '/order.html?product=' + encodeURIComponent(x.piece.id);
+        a.appendChild(JF.picture(x.piece));
+        var t = el('div'); t.appendChild(el('b', x.piece.name)); t.appendChild(el('div', JF.usd(x.piece.price) + (x.piece.left > 0 ? '' : ' · sold out'), 'jf-price')); a.appendChild(t);
+        c.appendChild(a);
+      }
+      f.appendChild(c);
+    });
+  });
+})();
+</script>
+</body>
+</html>
