@@ -15,14 +15,14 @@
     + '.jfn-acct a[aria-current="page"]{background:#C9A45C;color:#0B1A13}.jfn-acct a:hover{color:#F7F2E6}'
     + '.jfn-acct a.jfn-si{padding:6px 14px}'
     + '@media(max-width:520px){header.top .bar>span>.mono,header.top .bar>span>a.home{display:none}}'
-    + '.jfn-give{display:block;background:#FF6B3D;color:#0E0F13;text-align:center;padding:8px 16px;font:700 14px/1.35 "Space Grotesk",Archivo,system-ui,sans-serif;text-decoration:none}'
-    + '.jfn-give:hover,.jfn-give:focus-visible{text-decoration:underline;outline:none}.jfn-give b{font-weight:800}'
+    + '.jfn-give{display:block;background:#FF6B3D;color:#0E0F13;text-align:center;padding:8px 16px;font:700 14px/1.35 "Space Grotesk",Archivo,system-ui,sans-serif;text-decoration:none!important}'
+    + '.jfn-give:hover,.jfn-give:focus-visible{text-decoration:underline!important;outline:none}.jfn-give b{font-weight:800}@media(max-width:520px){.jfn-give .jfn-nft{display:none}}'
     + '@media print{.jfn-btn,.jfn-panel,.jfn-acct,.jfn-give{display:none}}';
   // The community banner at the very top of every page: 2% of every sale goes back to the community.
   function banner() {
     if (document.querySelector('.jfn-give') || location.pathname === '/giveaway.html') return;
     var a = document.createElement('a'); a.className = 'jfn-give'; a.href = '/giveaway.html';
-    a.innerHTML = '<b>2% of every sale goes back to the community</b> · VeeFriends Series 1 &amp; 2 NFT giveaways · <span class="jfn-w"></span>Vote →';
+    a.innerHTML = '<b>2% of every sale goes back to the community</b><span class="jfn-nft"> · VeeFriends Series 1 &amp; 2 NFT giveaways</span> · <span class="jfn-w"></span>Vote →';
     document.body.insertBefore(a, document.body.firstChild);
     var show = function (c) { if (c > 0) a.querySelector('.jfn-w').textContent = 'Wallet $' + (c / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' · '; };
     var kept = null; try { kept = JSON.parse(sessionStorage.getItem('v2vWallet') || 'null'); } catch (e) { kept = null; }
