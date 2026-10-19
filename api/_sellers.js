@@ -144,7 +144,14 @@ async function saveListing(seller, f) {
   if (shipMode === 'flat' && !(ship > 0 && ship <= 200)) return { error: 'Flat shipping: enter a price up to $200, or pick free or calculated shipping.' };
   const PRE = require('./_ship').PRESETS;
   const pkgOz = Number(f.pkgOz);
-  const pkg = { preset: PRE[f.pkgPreset] ? f.pkgPreset : 'mailer', oz: pkgOz > 0 && pkgOz <= 1120 ? Math.round(pkgOz * 10) / 10 : 0 };
+  const pkg = { preset: PRE[f.pkgPreset] || f.pkgPreset === 'custom' ? f.pkgPreset : 'mailer', oz: pkgOz > 0 && pkgOz <= 1120 ? Math.round(pkgOz * 10) / 10 : 0 };
+  // A custom size: length, width and height in inches (USPS takes up to 108 in), and a weight is needed.
+  if (pkg.preset === 'custom') {
+    const d = [f.pkgL, f.pkgW, f.pkgH].map((v) => Math.round(Number(v) * 10) / 10);
+    if (!d.every((v) => v > 0 && v <= 108)) return { error: 'Custom package: type the length, width and height in inches.' };
+    if (!pkg.oz) return { error: 'Custom package: type the packed weight (pounds and ounces).' };
+    pkg.length = d[0]; pkg.width = d[1]; pkg.height = d[2];
+  }
   const section = SECTIONS.indexOf(f.section) >= 0 ? f.section : '';
   // Lowest offer the seller will look at: anything under it is declined on the spot. Optional.
   const minOffer = f.minOffer === '' || f.minOffer == null ? 0 : Math.round(Number(String(f.minOffer).replace(/[^0-9.]/g, '')) * 100) / 100;

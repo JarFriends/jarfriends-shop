@@ -131,7 +131,9 @@ async function quoteLabel(seller, n, q) {
   if (o.error) return o;
   const listing = (await M.listings()).filter((x) => x.id === o.row.pid)[0] || {};
   const own = q && (q.preset || q.oz || q.l) ? { pkg: { preset: q.preset || (listing.pkg || {}).preset, oz: q.oz, length: q.l, width: q.w, height: q.h } } : listing;
-  const parcel = packageOf(own, o.row.q);
+  if (q && q.preset === 'custom' && ![q.l, q.w, q.h].every((v) => Number(v) > 0 && Number(v) <= 108)) return { error: 'Custom package: type the length, width and height in inches.' };
+  // A weight the seller typed is for the whole box already, so it is not multiplied again by the number of pieces.
+  const parcel = packageOf(own, own === listing ? o.row.q : 1);
   try {
     const r = await cheapest(from, o.to, parcel);
     const plan = await payPlan(seller, r.cents);
