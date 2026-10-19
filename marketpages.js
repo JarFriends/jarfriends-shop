@@ -11,6 +11,7 @@ fs.readdirSync(dir).filter((f) => /\.html$/.test(f)).forEach((f) => {
   if (s.indexOf('/nav.js') < 0 && f !== 'label.html') add.push('<script src="/nav.js" defer></script>');
   if (f === 'order.html' && s.indexOf('/soldby.js') < 0) add.push('<script src="/soldby.js" defer></script>');
   if (f === 'order.html' && s.indexOf('/trade.js') < 0) add.push('<script src="/trade.js" defer></script>');
+  if (f === 'order.html' && s.indexOf('/checkout.js') < 0) add.push('<script src="/checkout.js" defer></script>');
   if (f === 'order.html' && s.indexOf('/quickpay.js') < 0) { add.push('<link rel="stylesheet" href="/market.css">'); add.push('<script src="/quickpay.js"></script>'); }
   if (f === 'admin.html' && s.indexOf('/admin-sellers.js') < 0) add.push('<script src="/admin-sellers.js" defer></script>');
   if (f === 'admin.html' && s.indexOf('/admin-emails.js') < 0) add.push('<script src="/admin-emails.js" defer></script>');

@@ -20,10 +20,13 @@
   }
   fetch('/api/market?do=item&id=' + encodeURIComponent(id), { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (p) {
     if (!p || !p.seller) return;
-    var card = el('section', null, 'card'); card.style.gap = '12px';
-    card.appendChild(el('h2', 'Or propose a trade'));
-    card.appendChild(el('div', 'Have something ' + (p.sellerName || 'the seller') + ' might want? Send a photo of it, say what it is, and whether you would add money, want money back, or swap even. They accept or pass, and if they accept you both get each other\'s email to arrange the swap.', 'small'));
-    var open = el('button', 'Propose a trade', 'ghost'); open.type = 'button'; open.style.alignSelf = 'flex-start';
+    // On the simple checkout (checkout.js) this starts as one small link; the card appears when it is pressed.
+    var compact = document.documentElement.classList.contains('co');
+    var card = el('section', null, compact ? '' : 'card'); card.style.cssText = 'display:flex;flex-direction:column;gap:12px';
+    var intro = [el('h2', 'Propose a trade'), el('div', 'Have something ' + (p.sellerName || 'the seller') + ' might want? Send a photo of it, say what it is, and whether you would add money, want money back, or swap even. They accept or pass, and if they accept you both get each other\'s email to arrange the swap.', 'small')];
+    if (!compact) intro.forEach(function (n) { card.appendChild(n); });
+    var open = el('button', compact ? 'Propose a trade instead' : 'Propose a trade', compact ? 'co-link' : 'ghost'); open.type = 'button'; open.style.alignSelf = 'flex-start';
+    if (compact) open.addEventListener('click', function () { card.className = 'card'; intro.forEach(function (n, i) { card.insertBefore(n, card.children[i] || null); }); });
     card.appendChild(open);
     var form = el('form'); form.hidden = true; form.style.cssText = 'display:flex;flex-direction:column;gap:12px';
     card.appendChild(form);
