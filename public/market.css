@@ -39,3 +39,11 @@ textarea.jf-ta{min-height:96px;resize:vertical}
 .jf-check input{width:20px;height:20px;min-height:0;margin-top:3px;flex:none}
 @media(max-width:520px){.jf-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.jf-heart{width:34px;height:34px;top:12px;right:12px}}
 @media(prefers-reduced-motion:reduce){.jf-item{transition:none}.jf-item:hover{transform:none}}
+.jf-mode{display:inline-flex;border:1px solid #4E7A63;border-radius:999px;padding:4px;gap:4px;align-self:flex-start}
+.jf-mode a{padding:9px 20px;border-radius:999px;color:#D6E2DA;text-decoration:none;font-weight:700;font-size:15px}
+.jf-mode a[aria-current="page"]{background:#C9A45C;color:#0B1A13}
+.jf-mode a:focus-visible{outline:2px solid #C9A45C;outline-offset:2px}
+.jf-cardrow{display:flex;align-items:center;gap:14px;padding:14px 0;border-top:1px solid #244536;flex-wrap:wrap}
+.jf-cc{width:54px;height:36px;border-radius:6px;background:#244536;display:flex;align-items:center;justify-content:center;font:700 11px 'IBM Plex Mono',monospace;color:#F7F2E6;flex-shrink:0}
+.jf-modal{position:fixed;inset:0;z-index:2147483001;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;padding:16px}
+.jf-modal .card{max-width:440px;width:100%;gap:16px}

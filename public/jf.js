@@ -1,6 +1,7 @@
 // Shared bits for the market pages: sign-in, money, cards. Exposes window.JF.
 (function () {
-  var KEYS = ['acct_token', 'bid_token'];
+  // acct_token is the V2V account sign-in. bid_token is an older auction-page sign-in that other pages no longer accept.
+  var KEYS = ['acct_token'];
   function token() {
     try { for (var i = 0; i < KEYS.length; i++) { var t = localStorage.getItem(KEYS[i]); if (t) return t; } } catch (e) {}
     return '';
@@ -9,7 +10,7 @@
   function emailOf(t) {
     try { var j = JSON.parse(atob(String(t).split('.')[0].replace(/-/g, '+').replace(/_/g, '/'))); return j.x * 1000 > Date.now() ? j.e || '' : ''; } catch (e) { return ''; }
   }
-  function signOut() { try { KEYS.forEach(function (k) { localStorage.removeItem(k); }); } catch (e) {} }
+  function signOut() { try { ['acct_token', 'bid_token'].forEach(function (k) { localStorage.removeItem(k); }); } catch (e) {} }
   function el(tag, text, cls) { var e = document.createElement(tag); if (text != null) e.textContent = text; if (cls) e.className = cls; return e; }
   function usd(v) { return '$' + Number(v || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
   function cents(c) { return usd((c || 0) / 100); }
@@ -17,34 +18,73 @@
     var o = body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) } : { cache: 'no-store' };
     return fetch(path, o).then(function (r) { return r.json().catch(function () { return { error: 'The site did not answer. Try again.' }; }).then(function (j) { j._status = r.status; return j; }); });
   }
-  // A sign-in box: email and password. The first time makes the account; after that the same password signs in.
-  // Also offers the emailed link for people who ordered before.
-  function signInBox(host, lead, done) {
+  // The V2V sign-in box: Continue with Google, or an email and password. A new password account confirms its
+  // email with a 6-digit code first. done(token) runs once signed in; the token is kept as acct_token.
+  var gLoad = null;
+  function google(host, msg, done, or) {
+    gLoad = gLoad || fetch('/api/google', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (c) {
+      if (!c.clientId) return null;
+      return new Promise(function (ok) { var sc = document.createElement('script'); sc.src = 'https://accounts.google.com/gsi/client'; sc.async = true; sc.onload = function () { ok(c.clientId); }; sc.onerror = function () { ok(null); }; document.head.appendChild(sc); });
+    }).catch(function () { return null; });
+    gLoad.then(function (cid) {
+      if (!cid || !window.google) { host.hidden = true; host.dataset.off = '1'; if (or) { or.hidden = true; or.dataset.off = '1'; } return; }
+      window.google.accounts.id.initialize({ client_id: cid, callback: function (resp) {
+        msg.textContent = 'Signing you in…';
+        api('/api/google', { credential: resp.credential }).then(function (r) { if (!r.token) { msg.textContent = r.error || 'Could not sign in with Google.'; return; } keep(r.token); done(r.token); });
+      } });
+      window.google.accounts.id.renderButton(host, { theme: 'filled_black', size: 'large', text: 'continue_with', shape: 'rectangular', width: 300 });
+    });
+  }
+  function keep(t) { try { localStorage.setItem('acct_token', t); localStorage.removeItem('bid_token'); } catch (x) {} }
+  function signInBox(host, lead, done, startMode) {
+    var mode = startMode === 'signup' ? 'signup' : 'login', pending = '';
     host.textContent = '';
-    var card = el('section', null, 'card'); card.style.gap = '14px';
-    card.appendChild(el('h2', 'Sign in'));
-    if (lead) card.appendChild(el('div', lead, 'small'));
+    var card = el('section', null, 'card'); card.style.cssText = 'gap:16px;max-width:520px';
+    var head = el('h2'), sub = el('div', lead || '', 'small');
+    var g = el('div'); g.style.minHeight = '44px';
+    var or = el('div', 'or with your email', 'label'); or.style.textAlign = 'center';
     var f = el('form'); f.style.gap = '12px';
+    var ln = el('label', 'Your name'), n = el('input'); n.autocomplete = 'name'; n.maxLength = 80; ln.appendChild(n);
     var le = el('label', 'Email'), e = el('input'); e.type = 'email'; e.required = true; e.autocomplete = 'email'; e.placeholder = 'you@example.com'; le.appendChild(e);
-    var lp = el('label', 'Password'), p = el('input'); p.type = 'password'; p.required = true; p.minLength = 6; p.autocomplete = 'current-password'; lp.appendChild(p);
-    lp.appendChild(el('span', 'New here? Pick a password (6+ characters) and your account is made.', 'hint'));
-    var go = el('button', 'Sign in', 'solid'); go.type = 'submit';
-    var msg = el('div', '', 'small'); msg.setAttribute('role', 'status');
-    f.appendChild(le); f.appendChild(lp); f.appendChild(go); f.appendChild(msg);
-    card.appendChild(f);
-    var alt = el('div', null, 'small dim'); alt.appendChild(document.createTextNode('Ordered before? You can also '));
-    var a = el('a', 'get an emailed sign-in link'); a.href = '/account.html?next=' + encodeURIComponent(location.pathname + location.search); alt.appendChild(a); alt.appendChild(document.createTextNode('.'));
-    card.appendChild(alt);
+    var lp = el('label', 'Password'), p = el('input'); p.type = 'password'; p.required = true; p.minLength = 8; lp.appendChild(p);
+    var lc = el('label', 'The 6-digit code we emailed you'), c = el('input'); c.inputMode = 'numeric'; c.autocomplete = 'one-time-code'; c.maxLength = 6; c.pattern = '[0-9]{6}'; lc.appendChild(c);
+    var go = el('button', '', 'solid'); go.type = 'submit';
+    var msg = el('div', '', 'small'); msg.setAttribute('role', 'status'); msg.setAttribute('aria-live', 'polite');
+    var swap = el('button', '', 'ghost'); swap.type = 'button'; swap.style.alignSelf = 'flex-start';
+    var again = el('button', 'Email me a new code', 'ghost'); again.type = 'button'; again.style.alignSelf = 'flex-start';
+    [ln, le, lp, lc, go, msg].forEach(function (x) { f.appendChild(x); });
+    [head, sub, g, or, f, swap, again].forEach(function (x) { card.appendChild(x); });
     host.appendChild(card);
+    function show() {
+      var code = !!pending;
+      head.textContent = code ? 'Check your email' : mode === 'signup' ? 'Create your account' : 'Sign in';
+      ln.hidden = code || mode !== 'signup'; le.hidden = code; lp.hidden = code; lc.hidden = !code; g.hidden = code || !!g.dataset.off; or.hidden = code || !!or.dataset.off;
+      p.autocomplete = mode === 'signup' ? 'new-password' : 'current-password';
+      lp.querySelector('.hint') || lp.appendChild(el('span', '', 'hint'));
+      lp.querySelector('.hint').textContent = mode === 'signup' ? 'At least 8 characters.' : '';
+      e.required = !code; p.required = !code; c.required = code;
+      go.textContent = code ? 'Confirm my email' : mode === 'signup' ? 'Create account' : 'Sign in';
+      swap.textContent = code ? 'Use a different email' : mode === 'signup' ? 'Already have an account? Sign in' : 'New to V2V? Create an account';
+      again.hidden = !code;
+      if (code) { sub.textContent = 'We sent a 6-digit code to ' + pending + '. It works for 20 minutes (check spam too).'; c.focus(); } else sub.textContent = lead || '';
+    }
+    swap.addEventListener('click', function () { if (pending) pending = ''; else mode = mode === 'signup' ? 'login' : 'signup'; msg.textContent = ''; show(); });
+    again.addEventListener('click', function () { api('/api/auth', { do: 'resend', email: pending }).then(function () { msg.textContent = 'A new code is on its way.'; }); });
     f.addEventListener('submit', function (ev) {
-      ev.preventDefault(); go.disabled = true; msg.textContent = 'Signing in…';
-      api('/api/login', { email: e.value, password: p.value }).then(function (r) {
+      ev.preventDefault(); go.disabled = true; msg.textContent = pending ? 'Checking…' : mode === 'signup' ? 'Creating your account…' : 'Signing in…';
+      var body = pending ? { do: 'verify', email: pending, code: c.value } : { do: mode, email: e.value, password: p.value, name: n.value };
+      api('/api/auth', body).then(function (r) {
         go.disabled = false;
-        if (!r.token) { msg.textContent = r.error || 'Could not sign you in.'; return; }
-        try { localStorage.setItem('bid_token', r.token); } catch (x) {}
-        done(r.token, !!r.created);
+        if (r.token) { keep(r.token); msg.textContent = ''; done(r.token, !!r.created); return; }
+        if (r.code) { pending = r.email; msg.textContent = ''; show(); return; }
+        msg.textContent = r.error || 'Could not sign you in.';
+        if (r._status === 409) { mode = 'login'; show(); }
       }).catch(function () { go.disabled = false; msg.textContent = 'Could not reach the site. Try again.'; });
     });
+    show();
+    or.hidden = true; or.dataset.off = '1';
+    google(g, msg, done, null);
+    gLoad.then(function (cid) { if (cid && window.google) { delete or.dataset.off; show(); } });
   }
   // The picture for a piece: its uploaded photo, else the shop's own photo files, else a plain tile with its initials.
   function picture(p) {
@@ -56,5 +96,15 @@
     if (tries.length) { img.src = tries[0]; box.appendChild(img); } else none();
     return box;
   }
-  window.JF = { token: token, emailOf: emailOf, signOut: signOut, el: el, usd: usd, cents: cents, api: api, signInBox: signInBox, picture: picture };
+  // The Buyer / Seller switch at the top of the account pages. One account, two sides.
+  function modeBar(host, side) {
+    var bar = el('div', null, 'jf-mode'); bar.setAttribute('role', 'group'); bar.setAttribute('aria-label', 'Account side');
+    [['buyer', 'Buyer', '/me.html'], ['seller', 'Seller', '/seller.html']].forEach(function (x) {
+      var a = el('a', x[1]); a.href = x[2]; a.setAttribute('aria-current', side === x[0] ? 'page' : 'false');
+      a.addEventListener('click', function () { var t = token(); if (t && side !== x[0]) { try { navigator.sendBeacon && navigator.sendBeacon('/api/me', new Blob([JSON.stringify({ do: 'mode', t: t, mode: x[0] })], { type: 'application/json' })); } catch (e) {} } });
+      bar.appendChild(a);
+    });
+    host.insertBefore(bar, host.firstChild);
+  }
+  window.JF = { modeBar: modeBar, token: token, emailOf: emailOf, signOut: signOut, el: el, usd: usd, cents: cents, api: api, signInBox: signInBox, picture: picture };
 })();

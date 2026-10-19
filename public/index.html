@@ -66,6 +66,7 @@
     <a class="lk hide" href="/market.html">Market</a>
     <a class="lk hide" href="/market.html?view=auctions">Auctions</a>
     <a class="lk" href="/wishlist.html">Wishlist</a>
+    <a class="lk" href="/me.html" id="acctLink">Sign in</a>
     <a class="solid" href="/seller.html" style="text-decoration:none;padding:10px 16px;min-height:0;font-size:15px">Become a seller</a>
   </nav>
 </div></header>
@@ -148,6 +149,7 @@
 <script>
 (function () {
   var $ = function (id) { return document.getElementById(id); }, el = JF.el;
+  if (JF.token() && JF.emailOf(JF.token())) $('acctLink').textContent = 'My account';
   var initials = function (n) { return String(n || '?').replace(/[^A-Za-z0-9 ]/g, '').split(/\s+/).filter(Boolean).slice(0, 2).map(function (w) { return w[0]; }).join('').toUpperCase() || '?'; };
   var ago = function (t) { var s = (Date.now() - t) / 1000; return s < 3600 ? Math.max(1, Math.round(s / 60)) + 'm' : s < 86400 ? Math.round(s / 3600) + 'h' : Math.round(s / 86400) + 'd'; };
   function card(p) {

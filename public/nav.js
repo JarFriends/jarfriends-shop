@@ -2,12 +2,14 @@
 // sold archive and seller portal. Added to each page at build time (marketpages.js).
 (function () {
   if (window.__jfNav) return; window.__jfNav = 1;
-  var links = [['Market', '/market.html'], ['Auctions', '/market.html?view=auctions'], ['My wishlist', '/wishlist.html'], ['Recently sold', '/sold.html'], ['My orders', '/account.html'], ['Sell on JarFriends', '/seller.html']];
+  var links = [['Market', '/market.html'], ['Auctions', '/market.html?view=auctions'], ['My wishlist', '/wishlist.html'], ['Recently sold', '/sold.html'], ['My account', '/me.html'], ['My orders', '/account.html'], ['Seller portal', '/seller.html']];
   var css = '.jfn-btn{position:fixed;left:16px;bottom:16px;z-index:2147483000;background:#C9A45C;color:#0B1A13;border:0;border-radius:999px;padding:12px 18px;font:700 15px Archivo,system-ui,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.35);cursor:pointer}'
     + '.jfn-btn:focus-visible{outline:2px solid #F7F2E6;outline-offset:3px}'
     + '.jfn-panel{position:fixed;left:16px;bottom:72px;z-index:2147483000;background:#0B1A13;border:1px solid #C9A45C;min-width:220px;padding:8px 0;box-shadow:0 10px 30px rgba(0,0,0,.45);font:16px Archivo,system-ui,sans-serif}'
     + '.jfn-panel a{display:block;padding:11px 18px;color:#F7F2E6;text-decoration:none}.jfn-panel a:hover,.jfn-panel a:focus-visible{background:#11261C;color:#C9A45C;outline:none}'
     + '.jfn-panel a.here{color:#C9A45C}'
+    + '.jfn-btn.in-bar{position:static;box-shadow:none;padding:9px 16px;font-size:15px;border-radius:2px}'
+    + '.jfn-panel.in-bar{position:absolute;left:auto;right:0;top:calc(100% + 8px);bottom:auto}'
     + '@media print{.jfn-btn,.jfn-panel{display:none}}';
   function go() {
     var st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
@@ -19,7 +21,15 @@
     b.addEventListener('click', function () { toggle(p.hidden); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !p.hidden) { toggle(false); b.focus(); } });
     document.addEventListener('click', function (e) { if (!p.hidden && !p.contains(e.target) && e.target !== b) toggle(false); });
-    document.body.appendChild(p); document.body.appendChild(b);
+    // Pages with a header bar get the menu button in the header; others get it floating in the corner.
+    var bar = document.querySelector('header.top .bar');
+    if (bar) {
+      var slot = document.createElement('span'); slot.style.cssText = 'position:relative;display:inline-flex';
+      b.classList.add('in-bar'); p.classList.add('in-bar');
+      slot.appendChild(b); slot.appendChild(p);
+      var last = bar.lastElementChild;
+      (last && last.tagName === 'SPAN' ? last : bar).appendChild(slot);
+    } else { document.body.appendChild(p); document.body.appendChild(b); }
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go); else go();
 })();

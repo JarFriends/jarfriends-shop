@@ -45,13 +45,14 @@
   }
   function ask() {
     $('head').textContent = 'Seller portal';
-    JF.signInBox(box, 'Sign in or make an account to open your seller shop. Already a seller? Sign in with the same email.', function (t) { tok = t; load(); });
+    JF.signInBox(box, 'Your V2V account works for buying and selling. Sign in, or create one, to open your shop.', function (t) { tok = t; load(); }, 'signup');
   }
 
   // ---- Opening a shop ----
   function applyForm() {
     $('kicker').textContent = 'OPEN YOUR SHOP'; $('head').textContent = 'Become a seller';
     box.textContent = '';
+    var top = el('div'); box.appendChild(top); JF.modeBar(top, 'seller'); top.style.marginBottom = '18px';
     var c = el('section', null, 'card'); c.style.gap = '18px';
     var how = el('div', null, 'rows');
     [['You list', 'Add pieces with a photo, price, stock and shipping cost. They show in the JarFriends market.'],
@@ -91,6 +92,7 @@
     $('lead').textContent = s.status === 'approved' ? 'Your shop is open. Your pieces show in the market.' : s.status === 'pending' ? 'Your shop is waiting for JarFriends to approve it. You can add your pieces now; they go live the moment you are approved.' : 'Your shop is paused. Contact JarFriends.';
     box.textContent = '';
     var wrap = el('div'); wrap.style.cssText = 'display:flex;flex-direction:column;gap:24px';
+    if (!AS) JF.modeBar(wrap, 'seller');
     var badge = el('span', s.status === 'approved' ? 'OPEN' : s.status === 'pending' ? 'WAITING FOR APPROVAL' : 'PAUSED', 'jf-badge ' + (s.status === 'approved' ? 'ok' : s.status === 'pending' ? 'wait' : 'off'));
     var line = el('div', null, 'small'); line.style.cssText = 'display:flex;flex-wrap:wrap;gap:12px;align-items:center'; line.appendChild(badge);
     if (s.status === 'approved') { var sl = el('a', 'See your shop page'); sl.href = '/shop.html?s=' + encodeURIComponent(s.slug); line.appendChild(sl); }

@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>My account · V2V</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&family=IBM+Plex+Mono:wght@400;500&family=Playfair+Display:wght@600;700;800&display=swap">
+<link rel="stylesheet" href="/site.css">
+<link rel="stylesheet" href="/market.css">
+</head>
+<body>
+<header class="top"><div class="wrap bar"><a class="brand" href="/" style="text-decoration:none">V2V</a><span style="display:flex;align-items:center;gap:20px"><span class="mono dim">MY ACCOUNT</span><a class="home" href="/market.html">Market</a></span></div></header>
+<main class="wrap page" style="gap:28px" id="page">
+  <div class="stack-s">
+    <div class="mono gold" id="who">YOUR ACCOUNT</div>
+    <h1 id="head">My account</h1>
+    <div class="small" id="lead">One account for buying and selling on V2V.</div>
+  </div>
+  <div id="box"></div>
+</main>
+<script src="/jf.js"></script>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); }, el = JF.el;
+  var qs = new URLSearchParams(location.search), tok = JF.token(), D = null, box = $('box');
+  var WAYS = [['card', 'Saved card'], ['crypto', 'Crypto'], ['zelle', 'Zelle'], ['venmo', 'Venmo'], ['cashapp', 'Cash App'], ['cash', 'Cash']];
+  function field(label, input, hint) { var l = el('label', label); l.appendChild(input); if (hint) l.appendChild(el('span', hint, 'hint')); return l; }
+  function input(v, attrs) { var i = el('input'); if (v != null) i.value = v; Object.keys(attrs || {}).forEach(function (k) { i.setAttribute(k, attrs[k]); }); return i; }
+  function status() { var m = el('div', '', 'small'); m.setAttribute('role', 'status'); return m; }
+  function post(body) { body.t = tok; return JF.api('/api/me', body); }
+
+  function load() {
+    var added = qs.get('added');
+    var go = added ? JF.api('/api/me?do=card-done&session=' + encodeURIComponent(added) + '&t=' + encodeURIComponent(tok)) : Promise.resolve(null);
+    return go.then(function (r) {
+      if (added) history.replaceState(null, '', location.pathname);
+      var note = r ? (r.ok ? 'Your card is saved and set as your default.' : r.error) : '';
+      return JF.api('/api/me?t=' + encodeURIComponent(tok)).then(function (m) {
+        if (m._status === 401) { JF.signOut(); tok = ''; return ask(); }
+        if (m.error) { box.textContent = m.error; return; }
+        D = m; draw(note);
+      });
+    });
+  }
+  function ask() {
+    $('head').textContent = 'Sign in';
+    $('lead').textContent = 'Sign in or create your V2V account. One account lets you buy, and open a shop whenever you want.';
+    JF.signInBox(box, '', function (t) { tok = t; $('lead').textContent = 'One account for buying and selling on V2V.'; $('head').textContent = 'My account'; load(); }, qs.get('new') ? 'signup' : 'login');
+  }
+
+  function draw(note) {
+    $('who').textContent = D.email.toUpperCase();
+    $('head').textContent = D.name ? 'Hi, ' + D.name.split(' ')[0] : 'My account';
+    box.textContent = '';
+    var wrap = el('div'); wrap.style.cssText = 'display:flex;flex-direction:column;gap:22px';
+    JF.modeBar(wrap, 'buyer');
+    if (note) wrap.appendChild(el('div', note, 'alert small'));
+    var links = el('div'); links.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px';
+    [['My orders', '/account.html'], ['My wishlist', '/wishlist.html'], ['Browse the market', '/market.html']].forEach(function (x) { var a = el('a', x[0], 'ghost'); a.href = x[1]; a.style.textDecoration = 'none'; links.appendChild(a); });
+    wrap.appendChild(links);
+    wrap.appendChild(payCard());
+    wrap.appendChild(addrCard());
+    wrap.appendChild(profileCard());
+    var out = el('button', 'Sign out', 'ghost'); out.type = 'button'; out.style.alignSelf = 'flex-start';
+    out.addEventListener('click', function () { JF.signOut(); location.href = '/'; });
+    wrap.appendChild(out);
+    box.appendChild(wrap);
+  }
+
+  function payCard() {
+    var c = el('section', null, 'card'); c.style.gap = '12px';
+    c.appendChild(el('h2', 'How I pay'));
+    c.appendChild(el('div', 'Save a card and checkout asks one question: "Use this card?" Cards are kept by Stripe, our payment processor. V2V never sees or stores your card number.', 'small dim'));
+    var m = status();
+    if (!D.cardsOn) c.appendChild(el('div', 'Saving cards is not switched on for this site yet. You can still pick your favorite way to pay below.', 'small'));
+    else {
+      if (D.cardTest) c.appendChild(el('div', 'TEST MODE: use Stripe test card 4242 4242 4242 4242, any future date, any CVC. No real money moves.', 'jf-badge wait'));
+      if (!D.cards.length) c.appendChild(el('div', 'No saved cards yet.', 'small dim'));
+      D.cards.forEach(function (k) {
+        var r = el('div', null, 'jf-cardrow');
+        r.appendChild(el('span', k.brand.slice(0, 4), 'jf-cc'));
+        var t = el('div'); t.style.flex = '1'; t.appendChild(el('b', k.brand + ' ending ' + k.last4)); t.appendChild(el('div', 'Expires ' + k.exp + (k.funding ? ' · ' + k.funding : ''), 'small dim')); r.appendChild(t);
+        if (k.id === D.defaultCard) r.appendChild(el('span', 'DEFAULT', 'jf-badge ok'));
+        else { var d = el('button', 'Make default', 'ghost'); d.type = 'button'; d.addEventListener('click', function () { d.disabled = true; post({ do: 'card-default', pm: k.id }).then(function (x) { if (x.error) m.textContent = x.error; else load(); }); }); r.appendChild(d); }
+        var rm = el('button', 'Remove', 'ghost'); rm.type = 'button';
+        rm.addEventListener('click', function () { if (!confirm('Remove ' + k.brand + ' ending ' + k.last4 + '?')) return; rm.disabled = true; post({ do: 'card-remove', pm: k.id }).then(function (x) { if (x.error) m.textContent = x.error; else load(); }); });
+        r.appendChild(rm);
+        c.appendChild(r);
+      });
+      var add = el('button', D.cards.length ? 'Add another card' : 'Add a card', 'solid'); add.type = 'button';
+      add.addEventListener('click', function () { add.disabled = true; m.textContent = 'Opening Stripe’s secure card page…'; post({ do: 'card-add' }).then(function (x) { if (x.url) location.href = x.url; else { add.disabled = false; m.textContent = x.error || 'Could not open the card page.'; } }); });
+      c.appendChild(add);
+    }
+    c.appendChild(el('div', 'Pick first at checkout', 'label'));
+    var pills = el('div', null, 'pills');
+    WAYS.forEach(function (w) {
+      if (w[0] === 'card' && !D.cardsOn) return;
+      var b = el('button', w[1], 'pill'); b.type = 'button'; b.setAttribute('aria-pressed', D.prefer === w[0] ? 'true' : 'false');
+      b.addEventListener('click', function () { var v = D.prefer === w[0] ? '' : w[0]; post({ do: 'prefer', method: v }).then(function (x) { if (x.error) { m.textContent = x.error; return; } D.prefer = x.prefer; Array.prototype.forEach.call(pills.children, function (p, i) { p.setAttribute('aria-pressed', 'false'); }); if (v) b.setAttribute('aria-pressed', 'true'); m.textContent = v ? w[1] + ' is picked first at checkout.' : 'No favorite set.'; }); });
+      pills.appendChild(b);
+    });
+    c.appendChild(pills);
+    c.appendChild(m);
+    return c;
+  }
+  function addrCard() {
+    var a = D.address || {};
+    var c = el('section', null, 'card'); c.style.gap = '12px';
+    c.appendChild(el('h2', 'Ship to'));
+    c.appendChild(el('div', 'Checkout fills this in for you. US addresses only.', 'small dim'));
+    var f = el('form');
+    var n = input(a.name || D.name, { maxlength: '80', autocomplete: 'name' }), st = input(a.street, { maxlength: '120', autocomplete: 'address-line1' }), l2 = input(a.line2, { maxlength: '60', autocomplete: 'address-line2' });
+    var ci = input(a.city, { maxlength: '60', autocomplete: 'address-level2' }), sa = input(a.state, { maxlength: '30', autocomplete: 'address-level1' }), z = input(a.zip, { maxlength: '10', autocomplete: 'postal-code', inputmode: 'numeric' });
+    f.appendChild(field('Name', n));
+    var two = el('div', null, 'two'); two.appendChild(field('Street address', st)); two.appendChild(field('Apt or unit', l2, 'Optional.')); f.appendChild(two);
+    var three = el('div', null, 'two'); three.appendChild(field('City', ci)); three.appendChild(field('State', sa)); three.appendChild(field('ZIP code', z)); f.appendChild(three);
+    var go = el('button', 'Save address', 'solid'); go.type = 'submit'; var m = status(); f.appendChild(go); f.appendChild(m);
+    f.addEventListener('submit', function (ev) { ev.preventDefault(); go.disabled = true; post({ do: 'address', name: n.value, street: st.value, line2: l2.value, city: ci.value, state: sa.value, zip: z.value }).then(function (x) { go.disabled = false; m.textContent = x.error || 'Saved.'; }); });
+    c.appendChild(f);
+    return c;
+  }
+  function profileCard() {
+    var c = el('section', null, 'card'); c.style.gap = '12px';
+    c.appendChild(el('h2', 'Selling'));
+    if (D.seller) {
+      c.appendChild(el('div', 'Your shop: ' + D.seller.name + (D.seller.status === 'pending' ? ' (waiting for approval)' : D.seller.status === 'paused' ? ' (paused)' : ''), 'small'));
+      var a = el('a', 'Switch to seller', 'solid'); a.href = '/seller.html'; a.style.textDecoration = 'none'; c.appendChild(a);
+    } else {
+      c.appendChild(el('div', 'Got pieces to sell? Open your own shop on this same account. It takes a minute.', 'small'));
+      var b = el('a', 'Become a seller', 'solid'); b.href = '/seller.html'; b.style.textDecoration = 'none'; c.appendChild(b);
+    }
+    return c;
+  }
+  if (tok) load(); else ask();
+})();
+</script>
+</body>
+</html>

@@ -10,6 +10,7 @@ fs.readdirSync(dir).filter((f) => /\.html$/.test(f)).forEach((f) => {
   const add = [];
   if (s.indexOf('/nav.js') < 0 && f !== 'label.html' && f !== 'index.html') add.push('<script src="/nav.js" defer></script>');
   if (f === 'order.html' && s.indexOf('/soldby.js') < 0) add.push('<script src="/soldby.js" defer></script>');
+  if (f === 'order.html' && s.indexOf('/quickpay.js') < 0) { add.push('<link rel="stylesheet" href="/market.css">'); add.push('<script src="/quickpay.js"></script>'); }
   if (f === 'admin.html' && s.indexOf('/admin-sellers.js') < 0) add.push('<script src="/admin-sellers.js" defer></script>');
   if (!add.length) return;
   s = s.replace(/<\/body>(?![\s\S]*<\/body>)/, () => add.join('\n') + '\n</body>');

@@ -44,7 +44,8 @@ async function shopItems() {
   });
 }
 
-async function signedIn(t) { return gate.bidderOf(t); }
+// Only a confirmed sign-in (Google, or an email and password whose email was confirmed with a code).
+async function signedIn(t) { return gate.emailOf(t); }
 
 module.exports = async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
