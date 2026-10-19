@@ -39,17 +39,21 @@
   <div class="v-bar" role="group" aria-label="Filter and sort">
     <div class="jf-filters" id="views"></div>
     <label class="grow" style="display:block"><span class="jf-sr">Search</span><input id="find" type="search" placeholder="Search pins, cards, stickers, a character…" autocomplete="off"></label>
+    <div class="v-photo"><button type="button" class="pill" id="snap">📷 Search by photo</button><input type="file" id="snapFile" accept="image/*" capture="environment" hidden></div>
+    <label style="display:flex;flex-direction:row;align-items:center;gap:8px;font-weight:700;font-size:15px">Seller
+      <select class="jf-sel" id="seller"><option value="">All sellers</option></select></label>
     <label style="display:flex;flex-direction:row;align-items:center;gap:8px;font-weight:700;font-size:15px">Category
       <select class="jf-sel" id="cat"><option value="">All categories</option></select></label>
     <label style="display:flex;flex-direction:row;align-items:center;gap:8px;font-weight:700;font-size:15px">Sort
       <select class="jf-sel" id="sort"><option value="low">Price: low to high</option><option value="high">Price: high to low</option><option value="ending">Auctions ending soonest</option><option value="new">Newest</option></select></label>
   </div>
+  <div class="small" id="photoBar" hidden style="display:flex;flex-wrap:wrap;gap:10px;align-items:center"></div>
   <div class="small dim" id="count" role="status" aria-live="polite">Loading…</div>
   <div class="jf-grid" id="grid" style="margin-top:14px"></div>
 </main>
 <footer class="wrap v-foot">
   <span>V2V</span>
-  <span style="display:flex;gap:16px;flex-wrap:wrap"><a href="/market.html">Shops and sellers</a><a href="/sold.html">Recently sold</a><a href="/me.html">My account</a><a href="/seller.html">Sell on V2V</a></span>
+  <span style="display:flex;gap:16px;flex-wrap:wrap"><a href="/market.html">Shops and sellers</a><a href="/sold.html">Sold prices</a><a href="/me.html">My account</a><a href="/seller.html">Sell on V2V</a></span>
 </footer>
 <script src="/jf.js"></script>
 <script>
@@ -59,7 +63,7 @@
   var qs = new URLSearchParams(location.search);
   if (qs.get('sort')) $('sort').value = qs.get('sort');
   if (qs.get('view')) view = qs.get('view');
-  var wantCat = qs.get('cat') || '';
+  var wantCat = qs.get('cat') || '', wantSeller = qs.get('seller') || '', photoIds = null;
   function left(ms) { var s = Math.max(0, Math.floor((ms - Date.now()) / 1000)); if (!s) return 'Ended'; var d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60); return d ? d + 'd ' + h + 'h left' : h ? h + 'h ' + m + 'm left' : m + 'm ' + (s % 60) + 's left'; }
   function views() {
     var box = $('views'); box.textContent = '';
@@ -68,6 +72,7 @@
       b.addEventListener('click', function () { view = o[0]; if (view === 'auctions' && $('sort').value !== 'ending') $('sort').value = 'ending'; views(); draw(); });
       box.appendChild(b);
     });
+    var sold = el('a', 'Sold prices', 'pill'); sold.href = '/sold.html'; sold.style.textDecoration = 'none'; box.appendChild(sold);
   }
   function draw() {
     if (!D) return;
@@ -80,9 +85,12 @@
       if (view === 'buy' && p.auction) return false;
       if (sort === 'ending' && !p.auction) return false;
       if ($('cat').value && p.section !== $('cat').value) return false;
+      if ($('seller').value && p.seller !== $('seller').value) return false;
+      if (photoIds && photoIds.indexOf(p.id) < 0) return false;
       return !q || (p.name + ' ' + p.sellerName + ' ' + (p.section || '') + ' ' + (p.desc || '')).toLowerCase().indexOf(q) >= 0;
     });
     list.sort(function (a, b) {
+      if (photoIds) return photoIds.indexOf(a.id) - photoIds.indexOf(b.id);
       if (sort === 'low') return Number(a.price) - Number(b.price);
       if (sort === 'high') return Number(b.price) - Number(a.price);
       if (sort === 'ending') return a.auction.ends - b.auction.ends;
@@ -120,6 +128,41 @@
   setInterval(function () { Array.prototype.forEach.call(document.querySelectorAll('.jf-time'), function (t) { t.textContent = left(Number(t.dataset.ends)); }); }, 1000);
   $('find').addEventListener('input', draw);
   $('cat').addEventListener('change', draw);
+  $('seller').addEventListener('change', function () { sellerLink(); draw(); });
+  // The chosen seller gets a link straight to their shop.
+  function sellerLink() {
+    var bar = $('photoBar'), old = document.getElementById('shopLink'); if (old) old.remove();
+    var sv = $('seller').value; if (!sv || !D) return;
+    var s = (D.sellers || []).filter(function (x) { return x.slug === sv; })[0]; if (!s) return;
+    var a = el('a', 'Visit ' + s.name + '\'s shop →'); a.id = 'shopLink'; a.href = '/shop.html?s=' + encodeURIComponent(s.slug); a.style.fontWeight = '700';
+    $('count').parentNode.insertBefore(a, $('count'));
+  }
+  // Search by photo: the picture is shrunk on the phone, then AI says what it shows and which pieces match.
+  function shrink(file) {
+    return new Promise(function (ok, bad) {
+      var img = new Image(), url = URL.createObjectURL(file);
+      img.onload = function () { var k = Math.min(1, 1000 / Math.max(img.width, img.height)), c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url); ok(c.toDataURL('image/jpeg', 0.82)); };
+      img.onerror = function () { bad(new Error('That file is not a picture we can use.')); };
+      img.src = url;
+    });
+  }
+  function photoMsg(text, clear) {
+    var bar = $('photoBar'); bar.textContent = ''; bar.hidden = false; bar.style.display = 'flex';
+    bar.appendChild(el('span', text));
+    if (clear) { var c = el('button', 'Clear', 'pill'); c.type = 'button'; c.addEventListener('click', function () { photoIds = null; bar.hidden = true; bar.style.display = 'none'; draw(); }); bar.appendChild(c); }
+  }
+  $('snap').addEventListener('click', function () { $('snapFile').click(); });
+  $('snapFile').addEventListener('change', function () {
+    var f = $('snapFile').files[0]; if (!f) return;
+    photoMsg('Looking at your photo…');
+    shrink(f).then(function (data) { return JF.api('/api/market', { do: 'photo-search', data: data }); }).then(function (r) {
+      $('snapFile').value = '';
+      if (r.error) { photoMsg(r.error, true); return; }
+      if (r.ids && r.ids.length) { photoIds = r.ids; photoMsg('Matches for your photo' + (r.what ? ': ' + r.what : ''), true); }
+      else { photoIds = null; if (r.what) $('find').value = r.what; photoMsg('No exact match' + (r.what ? ', so here is a search for "' + r.what + '"' : '') + '.', true); }
+      draw();
+    }).catch(function (e) { photoMsg(e && e.message ? e.message : 'The photo search did not work. Try again.', true); });
+  });
   $('sort').addEventListener('change', function () { if ($('sort').value === 'ending') view = 'auctions'; else if (view === 'auctions' && $('sort').value !== 'ending') view = 'all'; views(); draw(); });
   views();
   JF.api('/api/market?do=shop').then(function (r) {
@@ -129,6 +172,8 @@
     var n = {}; r.products.forEach(function (p) { n[p.section] = (n[p.section] || 0) + 1; });
     (r.sections || []).forEach(function (s) { var o = el('option', s + (n[s] ? ' (' + n[s] + ')' : '')); o.value = s; $('cat').appendChild(o); });
     if (wantCat) $('cat').value = wantCat;
+    (r.sellers || []).slice().sort(function (a, b) { return a.name.localeCompare(b.name); }).forEach(function (s) { var o = el('option', s.name + (s.verified ? ' ✓' : '')); o.value = s.slug; $('seller').appendChild(o); });
+    if (wantSeller) { $('seller').value = wantSeller; sellerLink(); }
     if (r.wallet != null) $('wallet').textContent = 'V2V keeps ' + r.fee + '% of each sale. ' + r.giveaway + '% of every sale comes out of that fee and goes into the V2V giveaway wallet, used for giveaways to active buyers and sellers. Buyers and sellers pay nothing extra. In the wallet so far: ' + JF.usd(r.wallet / 100) + '.';
     draw();
   }).catch(function () { $('count').textContent = 'The pieces did not load. Refresh to try again.'; });

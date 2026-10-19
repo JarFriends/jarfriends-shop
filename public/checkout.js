@@ -65,6 +65,8 @@
       if (p.photo) { img.src = p.photo; img.hidden = false; }
       var usd = function (v) { return '$' + Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
       sub.textContent = usd(p.price) + (Number(p.ship) > 0 ? ' + ' + usd(p.ship) + ' shipping' : ' · free shipping');
+      // A quick way to check the price against what similar pieces sold for.
+      var fmv = el('a', 'See what similar pieces sold for'); fmv.href = '/sold.html?q=' + encodeURIComponent(String(p.name || '').split(/\s+/).slice(0, 2).join(' ')); fmv.className = 'small'; fmv.style.display = 'block'; txt.appendChild(fmv);
       if (Number(p.left) <= 1) hide(qtyL);
     }).catch(function () {});
     // 2. Fewer fields: no company, short pay choices.

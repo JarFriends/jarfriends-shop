@@ -29,6 +29,7 @@ const stripeBase = require('./_stripe');
 const usd = (c) => (c / 100).toFixed(2);
 const photoOf = (p) => (p.photo ? '/api/photo?id=' + p.id + '&v=' + p.photo : '');
 const wishKey = (e) => 'wish/' + M.hashOf(e) + '.json';
+const photoHits = new Map();
 // Party pricing and Deal of the day pieces have pages of their own, so the market lists everything else.
 
 
@@ -109,7 +110,7 @@ module.exports = async (req, res) => {
     if (req.method === 'GET' && what === 'sold') {
       const names = {};
       (await edits.apply(PRODUCTS, { all: true })).forEach((p) => { names[p.id] = p; });
-      const recent = (await store.sales()).sort((a, b) => b.at - a.at).slice(0, 80);
+      const recent = (await store.sales()).sort((a, b) => b.at - a.at).slice(0, 600);
       const rows = (await Promise.all(recent.map(async (s) => {
         const d = (await store.read(s.path)) || {};
         if (/^(Test|Deal) Piece/.test(d.product || '')) return null;
@@ -117,7 +118,8 @@ module.exports = async (req, res) => {
         if (/payment due/i.test(d.status || '')) { const m = (await store.read('meta/' + s.n + '.json')) || {}; if (!(m.paidAt || m.shippedAt || m.labelPdf)) return null; }
         const p = names[s.pid] || {};
         const each = Math.round(Number(String(d.items || '').replace(/[^0-9.]/g, '')) * 100 / Math.max(1, s.q));
-        return { id: s.pid, name: p.name || d.product || 'A piece', q: s.q, each: each > 0 ? usd(each) : '', at: s.at, photo: photoOf(p), seller: p.sellerName || 'JarFriends' };
+        const nm = p.name || d.product || 'A piece';
+        return { id: s.pid, name: nm, q: s.q, each: each > 0 ? usd(each) : '', at: s.at, photo: photoOf(p), seller: p.sellerName || 'JarFriends', slug: p.seller || '', section: M.sectionOf({ name: nm, desc: p.desc, section: p.section, nft: p.nft, jfid: p.jfid, sectionSet: p.sectionSet }) };
       }))).filter(Boolean);
       return res.json({ sold: rows });
     }
@@ -202,6 +204,35 @@ module.exports = async (req, res) => {
       return res.json({ ok: true, payout: p });
     }
 
+    // ---------- Search by photo (public) ----------
+    // A buyer's photo goes to AI with the list of pieces for sale; it answers what the photo shows and which pieces
+    // match. Needs ANTHROPIC_API_KEY. Limited to 12 searches an hour for each visitor, since each one costs money.
+    if (what === 'photo-search' && req.method === 'POST') {
+      const key = (process.env.ANTHROPIC_API_KEY || '').trim();
+      if (!key) return res.status(503).json({ error: 'Photo search is not switched on yet.' });
+      const ip = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || 'x';
+      const now = Date.now(), seen = (photoHits.get(ip) || []).filter((t) => now - t < 3600000);
+      if (seen.length >= 12) return res.status(429).json({ error: 'That is a lot of photo searches. Try again in a little while, or type what you are looking for.' });
+      seen.push(now); photoHits.set(ip, seen); if (photoHits.size > 5000) photoHits.clear();
+      const data = String(b.data || '').replace(/^data:image\/jpeg;base64,/, '');
+      if (data.length < 1000 || data.length > 2000000) return res.status(400).json({ error: 'That photo could not be used. Try another one.' });
+      const items = (await shopItems()).filter((p) => p.left > 0 || p.auction).slice(0, 400);
+      const list = items.map((p) => p.id + ': ' + p.name + (p.section ? ' [' + p.section + ']' : '')).join('\n');
+      const r = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST', signal: AbortSignal.timeout(25000),
+        headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+        body: JSON.stringify({ model: (process.env.AI_MODEL || 'claude-haiku-5-5').trim(), max_tokens: 400,
+          system: 'You help shoppers on a marketplace for VeeFriends collectibles (cards, graded slabs, comics, pins, stickers, toys and more). Look at the shopper\'s photo and find matching pieces in the list. Reply with JSON only: {"what": "a short plain description of the item in the photo, under 8 words, good as search words", "ids": ["up to 8 ids from the list that are the same item or very close, best match first"]}. Use only ids from the list. If nothing is close, use an empty ids list.',
+          messages: [{ role: 'user', content: [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: data } }, { type: 'text', text: 'Pieces for sale:\n' + (list || '(none)') }] }] })
+      }).catch((e) => ({ ok: false, status: 0, text: async () => String(e) }));
+      if (!r.ok) { console.error('PHOTO_SEARCH_FAIL', r.status, (await r.text()).slice(0, 300)); return res.status(503).json({ error: 'Photo search is not working right now. Type what you are looking for instead.' }); }
+      const j = await r.json();
+      const txt = (j.content || []).filter((c) => c.type === 'text').map((c) => c.text).join('');
+      let out = {};
+      try { out = JSON.parse(txt.slice(txt.indexOf('{'), txt.lastIndexOf('}') + 1)); } catch (e) { out = {}; }
+      const have = {}; items.forEach((p) => { have[p.id] = true; });
+      return res.json({ what: String(out.what || '').slice(0, 80), ids: (Array.isArray(out.ids) ? out.ids : []).map(String).filter((x) => have[x]).slice(0, 8) });
+    }
     // ---------- Signed in ----------
     // The owner can open any seller's portal from the back office (Sellers tab, "Open their portal").
     let me = '';

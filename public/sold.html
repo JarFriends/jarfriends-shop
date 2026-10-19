@@ -3,44 +3,97 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Recently sold · JarFriends</title>
+<title>Sold prices · JarFriends</title>
 <meta name="description" content="Pieces that have found new homes through JarFriends.">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&family=IBM+Plex+Mono:wght@400;500&family=Playfair+Display:wght@600;700;800&display=swap">
 <link rel="stylesheet" href="/site.css">
 <link rel="stylesheet" href="/market.css">
+<style>#fmvTiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}#fmvTiles .jf-tile{padding:12px 14px}#fmvTiles .jf-tile b{font-size:20px}</style>
 </head>
 <body>
 <header class="top"><div class="wrap bar"><a class="brand" href="/" style="text-decoration:none">JarFriends</a><span style="display:flex;align-items:center;gap:20px"><span class="mono dim">SOLD ARCHIVE</span><a class="home" href="/market.html">Market</a></span></div></header>
-<main class="wrap page" style="gap:28px">
+<main class="wrap page" style="gap:22px">
   <div class="stack-s">
     <div class="mono gold">THE ARCHIVE</div>
-    <h1>Recently sold</h1>
-    <div class="small">Pieces that found new homes. Prices are what each one sold for. Buyers are never shown.</div>
+    <h1>Sold prices</h1>
+    <div class="small">What pieces actually sold for on V2V, so you can tell what something is worth before you buy, sell or trade. Search a character or item to see its fair market value. Buyers are never shown.</div>
   </div>
+  <div class="v-sbar" role="group" aria-label="Filter sold pieces" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+    <label style="flex:1 1 240px"><span class="jf-sr">Search</span><input id="find" type="search" placeholder="Search sold pieces, e.g. Zombie, Gary pin" autocomplete="off" style="width:100%;min-height:42px;font-size:16px"></label>
+    <select class="jf-sel" id="cat" aria-label="Category"><option value="">All categories</option></select>
+    <select class="jf-sel" id="seller" aria-label="Seller"><option value="">All sellers</option></select>
+    <select class="jf-sel" id="when" aria-label="When"><option value="0">Any time</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option><option value="365">Last year</option></select>
+    <select class="jf-sel" id="sort" aria-label="Sort"><option value="new">Newest first</option><option value="high">Price: high to low</option><option value="low">Price: low to high</option></select>
+  </div>
+  <section class="card" id="fmv" hidden style="gap:10px">
+    <div class="mono gold" id="fmvHead">FAIR MARKET VALUE</div>
+    <div class="jf-tiles" id="fmvTiles"></div>
+    <div class="small dim" id="fmvNote"></div>
+  </section>
   <div class="small dim" id="count" role="status">Loading…</div>
   <div class="jf-grid" id="grid"></div>
 </main>
 <script src="/jf.js"></script>
 <script>
 (function () {
-  var $ = function (id) { return document.getElementById(id); }, el = JF.el;
-  JF.api('/api/market?do=sold').then(function (r) {
-    var g = $('grid');
-    if (!r.sold) { $('count').textContent = r.error || 'The archive did not load.'; return; }
-    $('count').textContent = r.sold.length ? 'The last ' + r.sold.length + ' sales' : '';
-    if (!r.sold.length) { var e = el('div', 'Nothing has sold yet. The first sale lands here.', 'jf-empty'); e.style.gridColumn = '1/-1'; g.appendChild(e); return; }
-    r.sold.forEach(function (s) {
+  var $ = function (id) { return document.getElementById(id); }, el = JF.el, all = [];
+  var qs = new URLSearchParams(location.search);
+  if (qs.get('q')) $('find').value = qs.get('q');
+  var money = function (c) { return '$' + (c / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+  function draw() {
+    var q = $('find').value.trim().toLowerCase(), cat = $('cat').value, sl = $('seller').value, days = Number($('when').value), now = Date.now();
+    var words = q.split(/\s+/).filter(Boolean);
+    var list = all.filter(function (s) {
+      if (cat && s.section !== cat) return false;
+      if (sl && s.slug !== sl) return false;
+      if (days && now - s.at > days * 86400000) return false;
+      var t = (s.name + ' ' + s.seller + ' ' + (s.section || '')).toLowerCase();
+      return words.every(function (w) { return t.indexOf(w) >= 0; });
+    });
+    var sort = $('sort').value;
+    list.sort(function (a, b) { return sort === 'high' ? b.c - a.c : sort === 'low' ? a.c - b.c : b.at - a.at; });
+    // Fair market value: the typical (median) price each, with the average, range and number of sales.
+    var prices = list.map(function (s) { return s.c; }).filter(function (c) { return c > 0; }).sort(function (a, b) { return a - b; });
+    var box = $('fmv');
+    if (prices.length && (q || cat || sl || days)) {
+      var mid = prices.length % 2 ? prices[(prices.length - 1) / 2] : Math.round((prices[prices.length / 2 - 1] + prices[prices.length / 2]) / 2);
+      var avg = Math.round(prices.reduce(function (t, c) { return t + c; }, 0) / prices.length);
+      $('fmvHead').textContent = 'FAIR MARKET VALUE' + (q ? ' · "' + $('find').value.trim().toUpperCase() + '"' : '');
+      var tiles = $('fmvTiles'); tiles.textContent = '';
+      [['TYPICAL PRICE (MEDIAN)', money(mid), 'gold'], ['AVERAGE', money(avg), ''], ['LOW', money(prices[0]), ''], ['HIGH', money(prices[prices.length - 1]), ''], ['SALES', String(prices.length), '']].forEach(function (x) {
+        var d = el('div', null, 'jf-tile ' + x[2]); d.appendChild(el('span', x[0], 'label')); d.appendChild(el('b', x[1])); tiles.appendChild(d);
+      });
+      $('fmvNote').textContent = prices.length < 3 ? 'Only ' + prices.length + (prices.length === 1 ? ' sale matches' : ' sales match') + ', so treat this as a rough guide.' : 'Price each, from the sales listed below. Different grades, editions and bundles sell for different prices, so narrow the search for a closer number.';
+      box.hidden = false;
+    } else box.hidden = true;
+    var g = $('grid'); g.textContent = '';
+    $('count').textContent = all.length ? list.length + (list.length === 1 ? ' sale' : ' sales') + (q || cat || sl || days ? ' match' + (list.length === 1 ? 'es' : '') : ' on record') : '';
+    if (!list.length) { var e = el('div', all.length ? 'No sales match. Try fewer words.' : 'Nothing has sold yet. The first sale lands here.', 'jf-empty'); e.style.gridColumn = '1/-1'; g.appendChild(e); return; }
+    list.slice(0, 200).forEach(function (s) {
       var a = el('div', null, 'jf-item');
       a.appendChild(JF.picture(s));
       a.appendChild(el('span', 'SOLD', 'jf-tag out'));
       a.appendChild(el('div', s.name, 'jf-name'));
       var m = el('div', null, 'jf-meta');
-      m.appendChild(el('span', s.each ? JF.usd(s.each) + (s.q > 1 ? ' × ' + s.q : '') : '', 'jf-price'));
-      m.appendChild(el('span', new Date(s.at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), 'jf-by'));
+      m.appendChild(el('span', s.each ? JF.usd(s.each) + (s.q > 1 ? ' each × ' + s.q : '') : '', 'jf-price'));
+      m.appendChild(el('span', new Date(s.at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }), 'jf-by'));
       a.appendChild(m);
-      a.appendChild(el('div', s.seller, 'jf-by'));
+      a.appendChild(el('div', s.seller + (s.section ? ' · ' + s.section : ''), 'jf-by'));
       g.appendChild(a);
     });
+  }
+  ['find'].forEach(function (k) { $(k).addEventListener('input', draw); });
+  ['cat', 'seller', 'when', 'sort'].forEach(function (k) { $(k).addEventListener('change', draw); });
+  JF.api('/api/market?do=sold').then(function (r) {
+    if (!r.sold) { $('count').textContent = r.error || 'The archive did not load.'; return; }
+    all = r.sold.map(function (s) { s.c = Math.round(Number(s.each || 0) * 100); return s; });
+    var cats = {}, sellers = {};
+    all.forEach(function (s) { if (s.section) cats[s.section] = (cats[s.section] || 0) + 1; if (s.slug) sellers[s.slug] = s.seller; });
+    Object.keys(cats).sort().forEach(function (c) { var o = el('option', c + ' (' + cats[c] + ')'); o.value = c; $('cat').appendChild(o); });
+    Object.keys(sellers).sort(function (a, b) { return sellers[a].localeCompare(sellers[b]); }).forEach(function (k) { var o = el('option', sellers[k]); o.value = k; $('seller').appendChild(o); });
+    if (qs.get('cat')) $('cat').value = qs.get('cat');
+    if (qs.get('seller')) $('seller').value = qs.get('seller');
+    draw();
   }).catch(function () { $('count').textContent = 'The archive did not load. Refresh to try again.'; });
 })();
 </script>
