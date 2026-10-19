@@ -2,7 +2,7 @@
 // sold archive and seller portal. Added to each page at build time (marketpages.js).
 (function () {
   if (window.__jfNav) return; window.__jfNav = 1;
-  var links = [['Market', '/market.html'], ['Auctions', '/market.html?view=auctions'], ['My wishlist', '/wishlist.html'], ['Recently sold', '/sold.html'], ['My account', '/me.html'], ['My orders', '/account.html'], ['Seller portal', '/seller.html']];
+  var links = [['Market', '/market.html'], ['Auctions', '/market.html?view=auctions'], ['My wishlist', '/wishlist.html'], ['Giveaway and vote', '/giveaway.html'], ['Sold prices', '/sold.html'], ['My account', '/me.html'], ['My orders', '/account.html'], ['Seller portal', '/seller.html']];
   var css = '.jfn-btn{position:fixed;left:16px;bottom:16px;z-index:2147483000;background:#C9A45C;color:#0B1A13;border:0;border-radius:999px;padding:12px 18px;font:700 15px Archivo,system-ui,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.35);cursor:pointer}'
     + '.jfn-btn:focus-visible{outline:2px solid #F7F2E6;outline-offset:3px}'
     + '.jfn-panel{position:fixed;left:16px;bottom:72px;z-index:2147483000;background:#0B1A13;border:1px solid #C9A45C;min-width:220px;padding:8px 0;box-shadow:0 10px 30px rgba(0,0,0,.45);font:16px Archivo,system-ui,sans-serif}'
@@ -15,9 +15,25 @@
     + '.jfn-acct a[aria-current="page"]{background:#C9A45C;color:#0B1A13}.jfn-acct a:hover{color:#F7F2E6}'
     + '.jfn-acct a.jfn-si{padding:6px 14px}'
     + '@media(max-width:520px){header.top .bar>span>.mono,header.top .bar>span>a.home{display:none}}'
-    + '@media print{.jfn-btn,.jfn-panel,.jfn-acct{display:none}}';
+    + '.jfn-give{display:block;background:#FF6B3D;color:#0E0F13;text-align:center;padding:8px 16px;font:700 14px/1.35 "Space Grotesk",Archivo,system-ui,sans-serif;text-decoration:none}'
+    + '.jfn-give:hover,.jfn-give:focus-visible{text-decoration:underline;outline:none}.jfn-give b{font-weight:800}'
+    + '@media print{.jfn-btn,.jfn-panel,.jfn-acct,.jfn-give{display:none}}';
+  // The community banner at the very top of every page: 2% of every sale goes back to the community.
+  function banner() {
+    if (document.querySelector('.jfn-give') || location.pathname === '/giveaway.html') return;
+    var a = document.createElement('a'); a.className = 'jfn-give'; a.href = '/giveaway.html';
+    a.innerHTML = '<b>2% of every sale goes back to the community</b> · VeeFriends Series 1 &amp; 2 NFT giveaways · <span class="jfn-w"></span>Vote →';
+    document.body.insertBefore(a, document.body.firstChild);
+    var show = function (c) { if (c > 0) a.querySelector('.jfn-w').textContent = 'Wallet $' + (c / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' · '; };
+    var kept = null; try { kept = JSON.parse(sessionStorage.getItem('v2vWallet') || 'null'); } catch (e) { kept = null; }
+    if (kept && Date.now() - kept.at < 120000) return show(kept.c);
+    fetch('/api/market?do=giveaway', { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+      if (!j) return; show(j.wallet); try { sessionStorage.setItem('v2vWallet', JSON.stringify({ c: j.wallet, at: Date.now() })); } catch (e) {}
+    }).catch(function () {});
+  }
   function go() {
     var st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
+    banner();
     var b = document.createElement('button'); b.type = 'button'; b.className = 'jfn-btn'; b.textContent = 'Menu'; b.setAttribute('aria-expanded', 'false'); b.setAttribute('aria-controls', 'jfnPanel');
     var p = document.createElement('nav'); p.className = 'jfn-panel'; p.id = 'jfnPanel'; p.hidden = true; p.setAttribute('aria-label', 'Site menu');
     // Who is signed in, read from the sign-in kept on this device (the site checks it on every request).

@@ -50,6 +50,20 @@
       var d = el('div', null, 'sx-tile ' + x[2]); d.appendChild(el('span', x[0], 'label')); d.appendChild(el('b', x[1])); tiles.appendChild(d);
     });
     box.appendChild(tiles);
+    // The community vote: which VeeFriends series the giveaway wallet buys (see api/_giveaway.js).
+    var gv = el('section', null, 'card'); gv.style.gap = '10px'; box.appendChild(gv);
+    fetch('/api/market?do=giveaway', { cache: 'no-store' }).then(function (x) { return x.json(); }).then(function (g) {
+      gv.appendChild(el('b', 'Giveaway vote, round ' + g.round + (g.open ? ' (open)' : ' (closed)')));
+      gv.appendChild(el('div', g.choices.map(function (c) { return c + ': ' + (g.tally[c] || 0) + ' votes from ' + (g.people[c] || 0) + ' people'; }).join(' · ') + ' · wallet ' + money(g.wallet), 'small'));
+      gv.appendChild(el('div', 'Everyone with an account gets 1 vote; people with ' + g.doubleAfter + ' or more completed sales as a buyer or seller get 2 (VOTE_DOUBLE_AFTER changes this). The public page is /giveaway.html.', 'small dim'));
+      var row = el('div'); row.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap';
+      [[g.open ? 'Close voting' : 'Reopen voting', g.open ? 'close' : 'open'], ['Start a new round', 'new']].forEach(function (x) {
+        var bt = el('button', x[0], 'ghost'); bt.type = 'button';
+        bt.addEventListener('click', function () { if (x[1] === 'new' && !confirm('Start a new vote? The current results stay saved, and everyone votes again.')) return; bt.disabled = true; post({ do: 'giveaway-round', action: x[1] }).then(function (r) { if (r.error) alert(r.error); load(); }); });
+        row.appendChild(bt);
+      });
+      gv.appendChild(row);
+    }).catch(function () { gv.textContent = 'The giveaway vote did not load.'; });
     box.appendChild(el('div', 'Buyers pay JarFriends for seller pieces like any other order. You keep ' + r.fee + '% of the pieces plus shipping. Card sales of sellers with Stripe payouts on go straight to them (your cut arrives in your Stripe automatically); for everything else you owe the seller the rest. Sellers ship their own orders and add tracking in their portal, so do not buy a label for a seller order from the Orders tab. The fee rate is set by PLATFORM_FEE_PERCENT in the site settings.', 'small dim'));
     if (!r.sellers.length) { box.appendChild(el('div', 'No sellers yet. Send people to /seller.html to open a shop. Sellers listed in SEED_SELLERS open by themselves the first time the site is visited.', 'card small')); return; }
     r.sellers.slice().sort(function (a, b) { return (a.status === 'pending' ? 0 : 1) - (b.status === 'pending' ? 0 : 1) || b.at - a.at; }).forEach(function (s) {

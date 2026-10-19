@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Community giveaway · JarFriends</title>
+<meta name="description" content="2% of every sale on JarFriends goes back to the community as VeeFriends Series 1 and Series 2 NFT giveaways. Vote on which series we buy.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&family=IBM+Plex+Mono:wght@400;500&family=Playfair+Display:wght@600;700;800&display=swap">
+<link rel="stylesheet" href="/site.css">
+<link rel="stylesheet" href="/market.css">
+<style>
+.gv-big{font-family:"IBM Plex Mono",monospace;font-size:clamp(34px,8vw,56px);color:#C9A45C;line-height:1}
+.gv-steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:0;padding:0;list-style:none;counter-reset:s}
+.gv-steps li{border:1px solid #244536;padding:14px 16px;display:flex;flex-direction:column;gap:6px;counter-increment:s}
+.gv-steps li:before{content:counter(s);font-family:"IBM Plex Mono",monospace;color:#C9A45C;font-size:13px}
+.gv-pick{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.gv-pick button{min-height:84px;font-size:20px;font-weight:800;border:2px solid #4E7A63;background:transparent;color:#F7F2E6;border-radius:2px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+.gv-pick button[aria-pressed="true"]{border-color:#C9A45C;background:#C9A45C;color:#0B1A13}
+.gv-pick button:disabled{opacity:.55;cursor:default}
+.gv-pick button small{font-size:13px;font-weight:500}
+.gv-bar{height:12px;background:#11261C;border-radius:999px;overflow:hidden}.gv-bar span{display:block;height:100%;background:#C9A45C}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap bar"><a class="brand" href="/" style="text-decoration:none">JarFriends</a><span style="display:flex;align-items:center;gap:20px"><span class="mono dim">COMMUNITY</span><a class="home" href="/">Shop</a></span></div></header>
+<main class="wrap page" style="gap:24px">
+  <div class="stack-s">
+    <div class="mono gold">GIVING BACK</div>
+    <h1>2% goes back to the community</h1>
+    <div class="small" id="lead">JarFriends keeps 5.55% of each sale. 2% of every sale comes out of that fee and goes into the community giveaway wallet. Buyers and sellers pay nothing extra.</div>
+  </div>
+  <section class="card" style="gap:10px">
+    <div class="mono dim">IN THE GIVEAWAY WALLET</div>
+    <div class="gv-big" id="wallet">$0.00</div>
+    <div class="small dim">Grows with every sale on JarFriends.</div>
+  </section>
+  <section class="card" style="gap:14px">
+    <h2>Where it goes: VeeFriends Series 1 and Series 2 NFTs</h2>
+    <ol class="gv-steps">
+      <li><b>Every sale adds 2%</b><span class="small">Out of the JarFriends fee, from every sale by every seller.</span></li>
+      <li><b>The community votes</b><span class="small">Everyone with an account votes on whether the wallet buys a VeeFriends Series 1 or a Series 2 NFT.</span></li>
+      <li><b>We buy and give it away</b><span class="small">The winning series is bought with the wallet and given away to active buyers and sellers on JarFriends.</span></li>
+    </ol>
+  </section>
+  <section class="card" style="gap:14px" id="voteCard">
+    <h2 id="vHead">Vote: Series 1 or Series 2?</h2>
+    <div class="small" id="vRules"></div>
+    <div class="gv-pick" id="pick"></div>
+    <div class="small" id="vMsg" role="status"></div>
+    <div id="results" style="display:flex;flex-direction:column;gap:12px"></div>
+  </section>
+</main>
+<script src="/jf.js"></script>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); }, el = JF.el, tok = JF.token(), D = null;
+  var money = function (c) { return '$' + ((c || 0) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+  function draw() {
+    $('wallet').textContent = money(D.wallet);
+    $('lead').textContent = 'JarFriends keeps ' + D.fee + '% of each sale. ' + D.pct + '% of every sale comes out of that fee and goes into the community giveaway wallet. Buyers and sellers pay nothing extra.';
+    $('vHead').textContent = D.open ? 'Vote: ' + D.choices.join(' or ') + '?' : 'Voting is closed for this round';
+    $('vRules').textContent = 'Anyone with a JarFriends account gets 1 vote. Buyers and sellers who have completed ' + D.doubleAfter + ' or more sales on JarFriends get 2 votes, because they keep the wallet growing. You can change your vote while voting is open.';
+    var pick = $('pick'); pick.textContent = '';
+    D.choices.forEach(function (c) {
+      var b = el('button'); b.type = 'button';
+      b.appendChild(document.createTextNode(c));
+      b.appendChild(el('small', 'VeeFriends ' + c + ' NFT'));
+      b.setAttribute('aria-pressed', D.me && D.me.choice === c ? 'true' : 'false');
+      b.disabled = !D.open;
+      b.addEventListener('click', function () { cast(c); });
+      pick.appendChild(b);
+    });
+    if (!tok) $('vMsg').innerHTML = '<a href="/me.html">Sign in or make a free account</a> to vote.';
+    else if (D.me) $('vMsg').textContent = (D.me.choice ? 'You voted ' + D.me.choice + '. ' : '') + 'Your vote counts ' + (D.me.weight === 2 ? 'twice, because you have completed ' + D.me.trades + ' sales on JarFriends.' : 'once' + (D.me.trades ? ' (' + D.me.trades + ' of ' + D.doubleAfter + ' sales for a double vote).' : '. Complete ' + D.doubleAfter + ' sales as a buyer or seller to get a double vote.'));
+    var res = $('results'); res.textContent = '';
+    var total = D.choices.reduce(function (t, c) { return t + (D.tally[c] || 0); }, 0);
+    res.appendChild(el('div', 'Results so far: ' + D.voters + (D.voters === 1 ? ' person has' : ' people have') + ' voted.', 'small dim'));
+    D.choices.forEach(function (c) {
+      var n = D.tally[c] || 0, pct = total ? Math.round(n * 100 / total) : 0;
+      var row = el('div'); row.style.cssText = 'display:flex;flex-direction:column;gap:6px';
+      var top = el('div'); top.style.cssText = 'display:flex;justify-content:space-between;gap:10px;font-weight:700';
+      top.appendChild(el('span', c)); top.appendChild(el('span', pct + '% · ' + n + (n === 1 ? ' vote' : ' votes')));
+      var bar = el('div', null, 'gv-bar'); var fill = el('span'); fill.style.width = pct + '%'; bar.appendChild(fill);
+      row.appendChild(top); row.appendChild(bar); res.appendChild(row);
+    });
+  }
+  function load() {
+    JF.api('/api/market?do=giveaway' + (tok ? '&t=' + encodeURIComponent(tok) : '')).then(function (r) { if (r.error) { $('vMsg').textContent = r.error; return; } D = r; draw(); })
+      .catch(function () { $('vMsg').textContent = 'The giveaway did not load. Refresh to try again.'; });
+  }
+  function cast(c) {
+    if (!tok) { location.href = '/me.html'; return; }
+    $('vMsg').textContent = 'Saving your vote…';
+    JF.api('/api/market', { do: 'vote', t: tok, choice: c }).then(function (r) {
+      if (r._status === 401) { JF.signOut(); tok = ''; $('vMsg').innerHTML = '<a href="/me.html">Sign in again</a> to vote.'; return; }
+      if (r.error) { $('vMsg').textContent = r.error; return; }
+      load();
+    });
+  }
+  load();
+})();
+</script>
+</body>
+</html>

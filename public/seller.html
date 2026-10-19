@@ -259,9 +259,30 @@
     if (editing) { pane.appendChild(listingForm(editing)); return; }
     if (adding) { pane.appendChild(listingForm(null)); return; }
     // Your pieces come first; the form only opens when you press Add a product.
-    var add = el('button', '+ Add a product', 'solid'); add.type = 'button'; add.style.alignSelf = 'flex-start';
+    var add = el('button', '+ Add a product', 'solid'); add.type = 'button';
     add.addEventListener('click', function () { adding = true; dash(); window.scrollTo(0, 0); });
-    pane.appendChild(add);
+    // Bring a listing over from eBay by pasting its link (see api/_ebay.js).
+    var eb = el('button', 'Bring over from eBay', 'ghost'); eb.type = 'button';
+    var acts0 = el('div'); acts0.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px'; acts0.appendChild(add); acts0.appendChild(eb); pane.appendChild(acts0);
+    var ebBox = el('section', null, 'card'); ebBox.hidden = true; ebBox.style.gap = '10px';
+    ebBox.appendChild(el('b', 'Bring a listing over from eBay'));
+    ebBox.appendChild(el('div', 'Paste the link to one of your eBay Buy It Now listings. We copy its title, price, shipping, description and photo here. If it sells or ends on eBay, we take it down here and email you. If it sells here first, end it on eBay yourself (the sale email reminds you).', 'small dim'));
+    var ebRow = el('div'); ebRow.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px';
+    var ebUrl = input('url', '', { placeholder: 'https://www.ebay.com/itm/…', autocomplete: 'off' }); ebUrl.style.cssText = 'flex:1 1 260px;min-width:0';
+    var ebGo = el('button', 'Bring it over', 'solid'); ebGo.type = 'button';
+    ebRow.appendChild(ebUrl); ebRow.appendChild(ebGo); ebBox.appendChild(ebRow);
+    var ebMsg = el('div', '', 'small'); ebMsg.setAttribute('role', 'status'); ebBox.appendChild(ebMsg);
+    pane.appendChild(ebBox);
+    eb.addEventListener('click', function () { ebBox.hidden = !ebBox.hidden; if (!ebBox.hidden) ebUrl.focus(); });
+    ebGo.addEventListener('click', function () {
+      ebGo.disabled = true; ebMsg.textContent = 'Reading the eBay listing…';
+      JF.api('/api/market', { do: 'ebay-import', t: tok, as: AS, ak: AK, url: ebUrl.value }).then(function (r) {
+        ebGo.disabled = false;
+        if (r.error) { ebMsg.textContent = r.error; return; }
+        ebMsg.textContent = (r.updated ? 'Updated "' : 'Listed "') + r.listing.name + '" on V2V.' + (r.photo ? '' : ' Add a photo with Change.') + (r.shipUnknown ? ' Shipping was not clear, so it is set to calculated: check it with Change.' : '');
+        ebUrl.value = ''; setTimeout(load, 1200);
+      }).catch(function () { ebGo.disabled = false; ebMsg.textContent = 'That did not work. Try again.'; });
+    });
     if (!D.listings.length) { pane.appendChild(el('div', 'No pieces yet. Press Add a product to list your first one.', 'jf-empty')); return; }
     var list = el('section', null, 'card'); list.style.gap = '0';
     list.appendChild(el('h2', 'Your pieces (' + D.listings.length + ')'));
@@ -272,7 +293,8 @@
       mid.appendChild(el('b', p.name));
       if (p.auction) mid.appendChild(el('span', Date.parse(p.auction.ends) > Date.now() ? 'AUCTION · ENDS ' + new Date(p.auction.ends).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }).toUpperCase() : 'AUCTION ENDED', 'jf-badge wait'));
       mid.appendChild(el('div', (p.auction ? 'Starting bid ' : '') + JF.usd(p.price) + ' · ' + (p.shipMode === 'calc' ? 'calculated shipping' : p.shipping === 'free' ? 'free shipping' : JF.usd(p.shipping) + ' shipping') + ' · ' + p.left + ' left of ' + p.stock + (p.sold ? ' · ' + p.sold + ' sold' : ''), 'small dim'));
-      if (p.hidden) mid.appendChild(el('span', p.removed ? 'REMOVED' : 'HIDDEN', 'jf-badge'));
+      if (p.hidden) mid.appendChild(el('span', p.ebay && p.ebay.status === 'gone' ? 'SOLD OR ENDED ON EBAY · TAKEN DOWN' : p.removed ? 'REMOVED' : 'HIDDEN', 'jf-badge'));
+      else if (p.ebay && p.ebay.url) { var eba = el('a', 'Also on eBay ↗'); eba.href = p.ebay.url; eba.target = '_blank'; eba.rel = 'noopener'; eba.className = 'small'; mid.appendChild(eba); }
       var acts = el('div'); acts.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;margin-top:6px';
       var ed = el('button', 'Change', 'ghost'); ed.type = 'button'; ed.addEventListener('click', function () { editing = p; dash(); window.scrollTo(0, 0); });
       var rm = el('button', 'Remove', 'ghost'); rm.type = 'button';
@@ -618,11 +640,13 @@
     var a2 = el('div', null, 'two'); a2.appendChild(field('Street address', fs1)); a2.appendChild(field('Apt or unit', fs2, 'Optional.')); f.appendChild(a2);
     var a3 = el('div', null, 'two'); a3.appendChild(field('City', fc)); a3.appendChild(field('State', fst)); a3.appendChild(field('ZIP code', fz)); f.appendChild(a3);
     f.appendChild(field('Phone', fp, 'Optional. Some carriers ask for it.'));
+    var ebayU = input('text', s.ebayUser || '', { maxlength: '64', autocomplete: 'off', placeholder: 'Your eBay user name' });
+    f.appendChild(field('eBay user name', ebayU, 'Optional. Needed to bring your eBay listings over, so we know they are yours.'));
     f.appendChild(go); f.appendChild(m);
     c.appendChild(f);
     c.appendChild(el('div', 'Shop name: ' + s.name + ' · Signed in as ' + D.email + ' · JarFriends fee: ' + D.fee + '% of each sale. To rename your shop, contact JarFriends.', 'small dim'));
     pane.appendChild(c);
-    f.addEventListener('submit', function (ev) { ev.preventDefault(); go.disabled = true; JF.api('/api/market', { do: 'profile', t: tok, as: AS, ak: AK, shipFrom: { name: fn.value, street1: fs1.value, street2: fs2.value, city: fc.value, state: fst.value, zip: fz.value, phone: fp.value }, about: about.value, payHow: payHow.value, payTo: payTo.value }).then(function (r) { go.disabled = false; m.textContent = r.error || 'Saved.'; if (!r.error) D.seller = r.seller; }); });
+    f.addEventListener('submit', function (ev) { ev.preventDefault(); go.disabled = true; JF.api('/api/market', { do: 'profile', t: tok, as: AS, ak: AK, shipFrom: { name: fn.value, street1: fs1.value, street2: fs2.value, city: fc.value, state: fst.value, zip: fz.value, phone: fp.value }, about: about.value, payHow: payHow.value, payTo: payTo.value, ebayUser: ebayU.value }).then(function (r) { go.disabled = false; m.textContent = r.error || 'Saved.'; if (!r.error) D.seller = r.seller; }); });
   }
   // Back from Stripe's payout setup: show the payouts tab. "again" means the link ran out, so open a fresh one.
   var sq = new URLSearchParams(location.search).get('stripe');

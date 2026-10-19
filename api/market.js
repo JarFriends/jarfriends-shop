@@ -30,6 +30,14 @@ const usd = (c) => (c / 100).toFixed(2);
 const photoOf = (p) => (p.photo ? '/api/photo?id=' + p.id + '&v=' + p.photo : '');
 const wishKey = (e) => 'wish/' + M.hashOf(e) + '.json';
 const photoHits = new Map();
+// The giveaway wallet in cents: GIVEAWAY_PERCENT (2) of every paid sale. Worked out at most once a minute.
+let walletMemo = null;
+async function walletCents() {
+  if (walletMemo && Date.now() - walletMemo.at < 60000) return walletMemo.v;
+  const v = Math.round((await M.ledger(null)).filter((r) => r.paid).reduce((t, r) => t + r.gross, 0) * M.giveawayPct() / 100);
+  walletMemo = { at: Date.now(), v: v };
+  return v;
+}
 // Party pricing and Deal of the day pieces have pages of their own, so the market lists everything else.
 
 
@@ -78,7 +86,7 @@ module.exports = async (req, res) => {
       if (q.seller === '_house') items = items.filter((p) => !p.seller);
       else if (q.seller) items = one ? items.filter((p) => p.seller === one.slug) : [];
       // The giveaway wallet: GIVEAWAY_PERCENT (2) of every paid sale (pieces plus shipping), in cents.
-      const wallet = Math.round((await M.ledger(null)).filter((r) => r.paid).reduce((t, r) => t + r.gross, 0) * M.giveawayPct() / 100);
+      const wallet = await walletCents();
       return res.json({ fee: M.feePct(), products: items, sellers: sellers, seller: one || null, sections: M.SECTIONS, wallet: wallet, giveaway: M.giveawayPct() });
     }
     // Which seller a piece belongs to, for "Sold by" on checkout.
@@ -125,8 +133,9 @@ module.exports = async (req, res) => {
     }
 
     // ---------- The owner ----------
-    if (what === 'admin' || what === 'status' || what === 'payout' || what === 'issue' || what === 'review-remove' || what === 'verify' || what === 'charge' || what === 'import' || what === 'emails' || what === 'email-save' || what === 'email-ai' || what === 'email-test') {
+    if (what === 'admin' || what === 'status' || what === 'payout' || what === 'issue' || what === 'review-remove' || what === 'verify' || what === 'charge' || what === 'import' || what === 'emails' || what === 'email-save' || what === 'email-ai' || what === 'email-test' || what === 'giveaway-round') {
       if (!gate.isAdmin(req.method === 'POST' ? b.ak : q.ak)) return res.status(401).json({ error: 'Sign in to the back office again.' });
+      if (what === 'giveaway-round') { const r = await require('./_giveaway').setRound(String(b.action || '')); return res.status(r.error ? 400 : 200).json(r); }
       // The Emails tab: every automatic email, which are off, and the owner's own words in them (see _emails.js).
       if (what === 'emails' || what === 'email-save' || what === 'email-ai' || what === 'email-test') {
         const E = require('./_emails');
@@ -204,6 +213,14 @@ module.exports = async (req, res) => {
       return res.json({ ok: true, payout: p });
     }
 
+    // ---------- The community giveaway (public): the wallet, the vote and, when signed in, your own vote ----------
+    if (req.method === 'GET' && what === 'giveaway') {
+      const G = require('./_giveaway');
+      const out = Object.assign({ wallet: await walletCents(), pct: M.giveawayPct(), fee: M.feePct() }, await G.results());
+      const who = q.t ? await signedIn(q.t) : '';
+      if (who) out.me = await G.mine(who);
+      return res.json(out);
+    }
     // ---------- Search by photo (public) ----------
     // A buyer's photo goes to AI with the list of pieces for sale; it answers what the photo shows and which pieces
     // match. Needs ANTHROPIC_API_KEY. Limited to 12 searches an hour for each visitor, since each one costs money.
@@ -282,6 +299,8 @@ module.exports = async (req, res) => {
       await M.saveReview(row.seller, r);
       return res.json({ ok: true });
     }
+    // A vote in the giveaway: one per account, two for people who have traded on V2V (see _giveaway.js).
+    if (what === 'vote' && req.method === 'POST') { const r = await require('./_giveaway').vote(me, String(b.choice || '')); return res.status(r.error ? 400 : 200).json(r); }
     // ---------- Offers, as a buyer: every offer they made, with its history ----------
     if (what === 'myoffers') {
       const { list: ls } = await import('@vercel/blob');
@@ -371,6 +390,8 @@ module.exports = async (req, res) => {
       if (b.about != null) seller.about = tidy(b.about, 400);
       if (['zelle', 'venmo', 'cashapp', 'paypal'].indexOf(b.payHow) >= 0) seller.payHow = b.payHow;
       if (b.payTo != null && tidy(b.payTo, 80).length >= 3) seller.payTo = tidy(b.payTo, 80);
+      // Their eBay user name: eBay listings they bring over must be theirs (see _ebay.js).
+      if (b.ebayUser != null) seller.ebayUser = tidy(b.ebayUser, 64).replace(/^@/, '');
       // Where packages ship from: needed for calculated shipping and labels.
       if (b.shipFrom && typeof b.shipFrom === 'object') {
         const a = b.shipFrom, f = { name: tidy(a.name, 60), street1: tidy(a.street1, 120), street2: tidy(a.street2, 60), city: tidy(a.city, 60), state: tidy(a.state, 30), zip: tidy(a.zip, 10), phone: tidy(a.phone, 20) };
@@ -402,6 +423,8 @@ module.exports = async (req, res) => {
       if (rows.some((r) => r.pid === id)) { await M.setListing(seller, id, { hidden: true, removed: true }); return res.json({ ok: true, hidden: true }); }
       return res.json({ ok: await M.removeListing(seller, id) });
     }
+    // Bring an eBay listing over from its link, or check the seller's eBay-linked pieces right now (see _ebay.js).
+    if (what === 'ebay-import') { const r = await require('./_ebay').bring(seller, String(b.url || '').slice(0, 500)); return res.status(r.error ? 400 : 200).json(r); }
     if (what === 'photo') {
       const id = String(b.id || '');
       if (!M.isSellerPid(id)) return res.status(400).json({ error: 'Save the listing first, then add its photo.' });

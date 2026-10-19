@@ -33,7 +33,7 @@
     <div>
       <h1 style="font-size:clamp(28px,4vw,44px);text-transform:none">Collectibles from collectors</h1>
       <p>Buy now or bid, from shops run by collectors. Every shop has its own page and community.</p>
-      <p class="v-wallet" id="wallet">V2V keeps 5.55% of each sale. 2% of every sale comes out of that fee and goes into the V2V giveaway wallet, used for giveaways to active buyers and sellers. Buyers and sellers pay nothing extra.</p>
+      <p class="v-wallet" id="wallet">V2V keeps 5.55% of each sale. 2% of every sale comes out of that fee and goes into the community giveaway wallet, which buys VeeFriends Series 1 and Series 2 NFTs to give away to active buyers and sellers. Buyers and sellers pay nothing extra. <a href="/giveaway.html">Vote on the next one</a>.</p>
     </div>
   </div>
   <div class="v-bar" role="group" aria-label="Filter and sort">
@@ -190,7 +190,7 @@
     if (wantCat) $('cat').value = wantCat;
     (r.sellers || []).slice().sort(function (a, b) { return a.name.localeCompare(b.name); }).forEach(function (s) { var o = el('option', s.name + (s.verified ? ' ✓' : '')); o.value = s.slug; $('seller').appendChild(o); });
     if (wantSeller) { $('seller').value = wantSeller; sellerLink(); }
-    if (r.wallet != null) $('wallet').textContent = 'V2V keeps ' + r.fee + '% of each sale. ' + r.giveaway + '% of every sale comes out of that fee and goes into the V2V giveaway wallet, used for giveaways to active buyers and sellers. Buyers and sellers pay nothing extra. In the wallet so far: ' + JF.usd(r.wallet / 100) + '.';
+    if (r.wallet != null) { $('wallet').textContent = 'V2V keeps ' + r.fee + '% of each sale. ' + r.giveaway + '% of every sale comes out of that fee and goes into the community giveaway wallet (' + JF.usd(r.wallet / 100) + ' so far), which buys VeeFriends Series 1 and Series 2 NFTs to give away to active buyers and sellers. Buyers and sellers pay nothing extra. '; var vl = el('a', 'Vote on the next one'); vl.href = '/giveaway.html'; $('wallet').appendChild(vl); }
     draw();
   }).catch(function () { $('count').textContent = 'The pieces did not load. Refresh to try again.'; });
   if (tok) JF.api('/api/market?do=wish&t=' + encodeURIComponent(tok)).then(function (r) { if (r.ids) { r.ids.forEach(function (x) { wish[x] = true; }); draw(); } });
