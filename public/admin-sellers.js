@@ -22,8 +22,8 @@
     fetch('/api/market?do=admin&ak=' + encodeURIComponent(key()), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (r) {
       var own = (r.sellers || []).filter(function (s) { return s.seeded; });
       if (!own.length) { shown = false; return; }
-      mine.textContent = ''; mine.appendChild(el('span', 'This page runs the whole site. Your own shop has its own back office:', 'dim'));
-      own.forEach(function (s) { var a = el('a', 'Open my ' + s.name + ' shop back office', 'solid'); a.href = '/seller.html?as=' + encodeURIComponent(s.slug); a.style.cssText = 'padding:8px 14px;text-decoration:none'; mine.appendChild(a); });
+      mine.textContent = ''; mine.appendChild(el('span', 'This is the back office: it runs the whole site. Your own store has its own store office:', 'dim'));
+      own.forEach(function (s) { var a = el('a', 'Open my ' + s.name + ' store office', 'solid'); a.href = '/seller.html?as=' + encodeURIComponent(s.slug); a.style.cssText = 'padding:8px 14px;text-decoration:none'; mine.appendChild(a); });
       mine.hidden = false;
     }).catch(function () { shown = false; });
   }

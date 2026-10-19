@@ -289,6 +289,14 @@ async function createInvoice(f) {
 async function mail(to, subject, lines, idem, html, attachments) {
   const key = (process.env.RESEND_API_KEY || '').trim(), from = (process.env.EMAIL_FROM || '').trim();
   if (!key || !from || !to) { console.log('EMAIL_OFF', JSON.stringify({ key: !!key, from: !!from, to: !!to })); return 'off'; }
+  // The owner's settings from the back office Emails tab: turned off, or with their own words added.
+  if (!/^emailtest-/.test(String(idem))) {
+    try {
+      const plan = await require('./_emails').apply(subject, lines, html);
+      if (plan.off) { console.log('EMAIL_TURNED_OFF', plan.kind); return 'off'; }
+      subject = plan.subject; lines = plan.lines; html = plan.html;
+    } catch (e) { console.error('EMAIL_SETTINGS_FAIL', String(e && e.message || e)); }
+  }
   const owner = (process.env.OWNER_EMAIL || '').trim();
   const body = { from: from, to: [to], subject: subject, text: lines.join('\n') };
   if (html) body.html = html;

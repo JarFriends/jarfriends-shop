@@ -115,8 +115,15 @@ module.exports = async (req, res) => {
     }
 
     // ---------- The owner ----------
-    if (what === 'admin' || what === 'status' || what === 'payout' || what === 'issue' || what === 'review-remove' || what === 'verify' || what === 'charge' || what === 'import') {
+    if (what === 'admin' || what === 'status' || what === 'payout' || what === 'issue' || what === 'review-remove' || what === 'verify' || what === 'charge' || what === 'import' || what === 'emails' || what === 'email-save' || what === 'email-ai' || what === 'email-test') {
       if (!gate.isAdmin(req.method === 'POST' ? b.ak : q.ak)) return res.status(401).json({ error: 'Sign in to the back office again.' });
+      // The Emails tab: every automatic email, which are off, and the owner's own words in them (see _emails.js).
+      if (what === 'emails' || what === 'email-save' || what === 'email-ai' || what === 'email-test') {
+        const E = require('./_emails');
+        if (req.method === 'GET') return res.json(await E.list());
+        const r = what === 'email-save' ? await E.save(String(b.id || ''), b) : what === 'email-ai' ? await E.polish(b.text, b.how, b.about) : await E.test(String(b.id || ''));
+        return res.status(r.error ? 400 : 200).json(r);
+      }
       // Bring the JarFriends shop's pieces into a seller shop (see _import.js). ?do=import&ak=&slug=jarfriends&from=0
       if (req.method === 'GET' && what === 'import') {
         const r = await require('./_import').run(String(q.slug || 'jarfriends'), Math.max(0, Math.floor(Number(q.from) || 0)), Math.min(10, Math.max(1, Math.floor(Number(q.limit) || 5))));

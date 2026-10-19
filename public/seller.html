@@ -106,10 +106,10 @@
     }
     if (s.seeded) {
       // The owner's own shop: this is "my shop" back office, with a jump to the site back office.
-      $('head').textContent = 'My shop back office · ' + s.name;
+      $('head').textContent = 'Store office · ' + s.name;
       var site = el('div', null, 'small'); site.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;align-items:center';
-      site.appendChild(el('span', 'This is the back office for your own shop only. Everything for the whole site (all sellers, buyers, payouts, the giveaway wallet) is in the site back office.', 'dim'));
-      var sa = el('a', 'Open the site back office'); sa.href = '/admin.html'; site.appendChild(sa);
+      site.appendChild(el('span', 'This is your store office: your own store only. Everything for the whole site (all sellers, buyers, payouts, emails, the giveaway wallet) is in the back office.', 'dim'));
+      var sa = el('a', 'Open the back office'); sa.href = '/admin.html'; site.appendChild(sa);
       wrap.appendChild(site);
     } else if (AS) wrap.appendChild(el('div', 'You are viewing this shop as the V2V owner. Anything you change here is saved for this seller.', 'alert small'));
     var tiles = el('div', null, 'jf-tiles');
@@ -136,7 +136,7 @@
     wrap.appendChild(pane);
     var out = el('button', 'Sign out', 'ghost'); out.type = 'button'; out.style.alignSelf = 'flex-start';
     out.addEventListener('click', function () { if (AS) { location.href = '/admin.html'; return; } JF.signOut(); location.reload(); });
-    if (AS) out.textContent = 'Back to the site back office';
+    if (AS) out.textContent = 'Back to the back office';
     wrap.appendChild(out);
     box.appendChild(wrap);
   }
