@@ -1,5 +1,5 @@
-// The marketplace: other people sell on JarFriends from their own seller portal (seller.html).
-// The buyer pays JarFriends as usual. JarFriends keeps PLATFORM_FEE_PERCENT (5.55 unless set) of each paid seller sale
+// The marketplace: other people sell on V2V from their own seller portal (seller.html).
+// The buyer pays V2V as usual. V2V keeps PLATFORM_FEE_PERCENT (5.55 unless set) of each paid seller sale
 // (pieces plus shipping; sales tax and the card fee are not the seller's money, so no fee is taken on them),
 // and owes the seller the rest. The owner pays sellers out and records each payout in the back office.
 //
@@ -16,7 +16,8 @@ const crypto = require('crypto');
 
 const feePct = () => { const v = Number((process.env.PLATFORM_FEE_PERCENT || '').trim() || 5.55); return v >= 0 && v <= 50 ? v : 5.55; };
 // The giveaway wallet: this percent of every sale is set aside for giveaways to active buyers and sellers.
-const giveawayPct = () => { const v = Number((process.env.GIVEAWAY_PERCENT || '').trim() || 2); return v >= 0 && v <= 50 ? v : 2; };
+// It comes out of the platform fee, so it can never be more than the fee.
+const giveawayPct = () => { const v = Number((process.env.GIVEAWAY_PERCENT || '').trim() || 2); return Math.min(v >= 0 && v <= 50 ? v : 2, feePct()); };
 const autoApprove = () => /^(1|yes|true)$/i.test((process.env.SELLER_AUTO_APPROVE || '').trim());
 const hashOf = (e) => crypto.createHash('sha1').update(String(e).trim().toLowerCase()).digest('hex').slice(0, 24);
 const slugify = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30);
@@ -38,7 +39,7 @@ async function paths(prefix) {
 // ---- Sellers ----
 let sMemo = null;
 // SEED_SELLERS starts the marketplace with sellers already open, so the owner's own shops need no sign-up:
-// "Name|email" pairs separated by commas, e.g. "JarFriends|me@example.com". Each is made once, approved.
+// "Name|email" pairs separated by commas, e.g. "V2V|me@example.com". Each is made once, approved.
 let seeded = false;
 async function seed() {
   if (seeded) return;
