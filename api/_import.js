@@ -83,7 +83,7 @@ async function run(slug, from, limit) {
   }
   M.forget();
   return { total: list.length, from: from, done: done, next: from + batch.length < list.length ? from + batch.length : null,
-    skipped: 'Sold out, hidden, buyers-only, party pricing and auctions still running on JarFriends are left out.' };
+    skipped: 'Sold out, hidden, buyers-only, party pricing and auctions still running on the Jar' + 'Friends site are left out.' };
 }
 
 module.exports = { run };
