@@ -172,7 +172,7 @@
     var pkgOz = input('number', p && p.pkg && p.pkg.oz ? p.pkg.oz : '', { min: '0', step: '0.1', inputmode: 'decimal' });
     var ozHint = function () { var k = PRE[pkgPreset.value]; pkgOz.placeholder = k ? k.oz + ' (usual)' : ''; };
     pkgPreset.addEventListener('change', ozHint); ozHint();
-    var sec = select([['', 'None']].concat(D.sections.map(function (x) { return [x, x]; })), p && p.section);
+    var sec = select([['', 'Pick a category']].concat(D.sections.map(function (x) { return [x, x]; })), p && p.section);
     // How it sells: buy now (with an optional lowest offer) or a timed auction.
     var live = !!(p && p.auction && Date.parse(p.auction.ends) > Date.now());
     var mode = select([['buy', 'Buy now (buyers can also make offers)'], ['auction', 'Auction (highest bid wins)']], p && p.auction ? 'auction' : 'buy');
@@ -204,7 +204,7 @@
         : 'Buyers pay this price. The label is your cost: if it costs more, the difference is yours to pay; if less, you keep it.';
     };
     shipMode.addEventListener('change', showShip); showShip();
-    f.appendChild(field('Section', sec));
+    f.appendChild(field('Category (buyers filter by this)', sec));
     f.appendChild(field('Photo', photo, p && p.photoUrl ? 'Pick a new one to replace the current photo.' : 'A clear, square-ish photo works best.'));
     f.appendChild(hl);
     var price2 = el('div', '', 'small dim');

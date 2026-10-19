@@ -38,7 +38,9 @@
   </div>
   <div class="v-bar" role="group" aria-label="Filter and sort">
     <div class="jf-filters" id="views"></div>
-    <label class="grow" style="display:block"><span class="jf-sr">Search</span><input id="find" type="search" placeholder="Search pieces" autocomplete="off"></label>
+    <label class="grow" style="display:block"><span class="jf-sr">Search</span><input id="find" type="search" placeholder="Search pins, cards, stickers, a character…" autocomplete="off"></label>
+    <label style="display:flex;flex-direction:row;align-items:center;gap:8px;font-weight:700;font-size:15px">Category
+      <select class="jf-sel" id="cat"><option value="">All categories</option></select></label>
     <label style="display:flex;flex-direction:row;align-items:center;gap:8px;font-weight:700;font-size:15px">Sort
       <select class="jf-sel" id="sort"><option value="low">Price: low to high</option><option value="high">Price: high to low</option><option value="ending">Auctions ending soonest</option><option value="new">Newest</option></select></label>
   </div>
@@ -57,6 +59,7 @@
   var qs = new URLSearchParams(location.search);
   if (qs.get('sort')) $('sort').value = qs.get('sort');
   if (qs.get('view')) view = qs.get('view');
+  var wantCat = qs.get('cat') || '';
   function left(ms) { var s = Math.max(0, Math.floor((ms - Date.now()) / 1000)); if (!s) return 'Ended'; var d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60); return d ? d + 'd ' + h + 'h left' : h ? h + 'h ' + m + 'm left' : m + 'm ' + (s % 60) + 's left'; }
   function views() {
     var box = $('views'); box.textContent = '';
@@ -76,7 +79,8 @@
       if (view === 'auctions' && !p.auction) return false;
       if (view === 'buy' && p.auction) return false;
       if (sort === 'ending' && !p.auction) return false;
-      return !q || p.name.toLowerCase().indexOf(q) >= 0 || String(p.sellerName).toLowerCase().indexOf(q) >= 0;
+      if ($('cat').value && p.section !== $('cat').value) return false;
+      return !q || (p.name + ' ' + p.sellerName + ' ' + (p.section || '') + ' ' + (p.desc || '')).toLowerCase().indexOf(q) >= 0;
     });
     list.sort(function (a, b) {
       if (sort === 'low') return Number(a.price) - Number(b.price);
@@ -115,11 +119,16 @@
   // Auction countdowns tick every second.
   setInterval(function () { Array.prototype.forEach.call(document.querySelectorAll('.jf-time'), function (t) { t.textContent = left(Number(t.dataset.ends)); }); }, 1000);
   $('find').addEventListener('input', draw);
+  $('cat').addEventListener('change', draw);
   $('sort').addEventListener('change', function () { if ($('sort').value === 'ending') view = 'auctions'; else if (view === 'auctions' && $('sort').value !== 'ending') view = 'all'; views(); draw(); });
   views();
   JF.api('/api/market?do=shop').then(function (r) {
     if (r.error) { $('count').textContent = r.error; return; }
     D = r;
+    // Every category, with how many pieces are in each right now.
+    var n = {}; r.products.forEach(function (p) { n[p.section] = (n[p.section] || 0) + 1; });
+    (r.sections || []).forEach(function (s) { var o = el('option', s + (n[s] ? ' (' + n[s] + ')' : '')); o.value = s; $('cat').appendChild(o); });
+    if (wantCat) $('cat').value = wantCat;
     if (r.wallet != null) $('wallet').textContent = 'V2V keeps ' + r.fee + '% of each sale. ' + r.giveaway + '% of every sale comes out of that fee and goes into the V2V giveaway wallet, used for giveaways to active buyers and sellers. Buyers and sellers pay nothing extra. In the wallet so far: ' + JF.usd(r.wallet / 100) + '.';
     draw();
   }).catch(function () { $('count').textContent = 'The pieces did not load. Refresh to try again.'; });

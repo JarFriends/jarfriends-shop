@@ -21,7 +21,20 @@ const giveawayPct = () => { const v = Number((process.env.GIVEAWAY_PERCENT || ''
 const autoApprove = () => /^(1|yes|true)$/i.test((process.env.SELLER_AUTO_APPROVE || '').trim());
 const hashOf = (e) => crypto.createHash('sha1').update(String(e).trim().toLowerCase()).digest('hex').slice(0, 24);
 const slugify = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30);
-const SECTIONS = ['Comics', 'Cards', 'NFTs', 'Graded', 'Pokemon', 'Watches'];
+// Categories a seller can put a piece in, and buyers can filter by. Made for VeeFriends collectors.
+const SECTIONS = ['Collectibles', 'Cards', 'Graded', 'NFTs', 'Pins', 'Stickers', 'Plush & Toys', 'Figures', 'Books', 'Comics', 'Apparel', 'Art & Prints', 'Signed', 'Mystery Boxes', 'Event Tickets'];
+// A best guess from the name and description, for pieces with no category (or an old one that was removed).
+const GUESS = [['Graded', /\b(psa|bgs|cgc|sgc|graded|slab)\b/i], ['NFTs', /\bnft\b|\btoken\b/i], ['Pins', /\bpins?\b/i], ['Stickers', /\bstickers?\b|\bdecals?\b/i],
+  ['Mystery Boxes', /mystery|blind box|\bbox(es)?\b|\bpacks?\b/i], ['Plush & Toys', /plush|toy|stuffed/i], ['Figures', /figure|figurine|vinyl|statue/i], ['Books', /\bbooks?\b/i],
+  ['Comics', /comic/i], ['Apparel', /shirt|hoodie|\bhat\b|apparel|jacket|sock/i], ['Art & Prints', /print|poster|canvas|artwork|\bart\b/i], ['Signed', /signed|autograph/i],
+  ['Event Tickets', /ticket|veecon|admission/i], ['Cards', /\bcards?\b/i]];
+const sectionOf = (p) => {
+  if (SECTIONS.indexOf(p.section) >= 0) return p.section;
+  if (p.nft && p.nft !== 'no') return 'NFTs';
+  const t = (p.name || '') + ' ' + (p.desc || '');
+  const g = GUESS.filter((x) => x[1].test(t))[0];
+  return g ? g[0] : 'Collectibles';
+};
 
 async function paths(prefix) {
   if (!store.on()) return [];
@@ -109,7 +122,7 @@ async function products() {
   const sellers = {};
   (await all()).forEach((s) => { sellers[s.slug] = s; });
   return (await listings()).filter((p) => sellers[p.seller] && sellers[p.seller].status === 'approved' && !p.hidden)
-    .map((p) => Object.assign({}, p, { sellerName: sellers[p.seller].name, shelf: false }));
+    .map((p) => Object.assign({}, p, { section: sectionOf(p), sellerName: sellers[p.seller].name, shelf: false }));
 }
 const isSellerPid = (id) => /^S[0-9A-Z]{5,19}$/.test(String(id || ''));
 // One listing saved by its seller. New listings get an id starting with S.
@@ -324,4 +337,4 @@ async function notifySale(n, kind) {
   return mail(seller.email, (paid ? 'Paid, ship it: ' : 'New order (not paid yet): ') + (d.product || 'your piece'), lines, 'seller-sale-' + n + '-' + (paid ? 'paid' : 'placed')).catch((e) => { console.error('SELLER_NOTIFY_FAIL', n, String(e && e.message || e)); return 'failed'; });
 }
 
-module.exports = { giveawayPct, sellerOf, offerTo, notifySale, reviews, saveReview, removeReview, stats, statsAll, statsFrom, shortName, completed, VERIFY_AFTER, posts, addPost, removePost, feePct, autoApprove, all, bySlug, byEmail, save, apply, pub, listings, products, isSellerPid, saveListing, setListing, removeListing, ledger, payouts, addPayout, totals, hashOf, SECTIONS, forget };
+module.exports = { giveawayPct, sellerOf, offerTo, notifySale, reviews, saveReview, removeReview, stats, statsAll, statsFrom, shortName, completed, VERIFY_AFTER, posts, addPost, removePost, feePct, autoApprove, all, bySlug, byEmail, save, apply, pub, listings, products, isSellerPid, saveListing, setListing, removeListing, ledger, payouts, addPayout, totals, hashOf, SECTIONS, sectionOf, forget };

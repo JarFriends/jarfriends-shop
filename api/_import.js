@@ -9,7 +9,7 @@ const M = require('./_sellers');
 
 // Written in two parts so the V2V build step that renames JarFriends web addresses leaves this one alone.
 const SRC = () => String(process.env.JARFRIENDS_URL || 'https://jar' + 'friends.com').replace(/\/+$/, '');
-const SECTIONS = ['Comics', 'Cards', 'NFTs', 'Graded', 'Pokemon', 'Watches'];
+const { SECTIONS, sectionOf } = require('./_sellers');
 
 async function getJSON(url) {
   const r = await fetch(url, { signal: AbortSignal.timeout(20000), headers: { accept: 'application/json' } });
@@ -56,7 +56,7 @@ async function run(slug, from, limit) {
     const was = have[p.id];
     const ship = p.shipping === 'free' || !(Number(p.shipping) > 0) ? 'free' : Math.round(Number(p.shipping) * 100) / 100;
     const nft = /^(yes|true|1)$/i.test(String(p.nft || ''));
-    const section = SECTIONS.filter((s) => String(p.section || '').toLowerCase().indexOf(s.toLowerCase()) >= 0)[0] || (nft ? 'NFTs' : '');
+    const section = SECTIONS.filter((s) => String(p.section || '').toLowerCase().indexOf(s.toLowerCase()) >= 0)[0] || sectionOf({ name: p.name, desc: p.desc, nft: nft ? 'yes' : '' });
     const id = was ? was.id : 'S' + Date.now().toString(36).toUpperCase() + require('crypto').randomBytes(1).toString('hex').toUpperCase();
     const listing = Object.assign({}, was || {}, {
       id: id, seller: slug, jfid: p.id, name: String(p.name || '').slice(0, 120), desc: String(p.desc || '').slice(0, 1200),
