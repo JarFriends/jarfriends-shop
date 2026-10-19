@@ -28,7 +28,7 @@ const usd = (c) => (c / 100).toFixed(2);
 const photoOf = (p) => (p.photo ? '/api/photo?id=' + p.id + '&v=' + p.photo : '');
 const wishKey = (e) => 'wish/' + M.hashOf(e) + '.json';
 // Party pricing and Deal of the day pieces have pages of their own, so the market lists everything else.
-const PARTY = 'MPARTY';
+
 
 // Every piece that is for sale now, with what is left. Same stock rule as the shop: start, less sold, less held.
 async function shopItems() {
@@ -36,7 +36,7 @@ async function shopItems() {
   let sold = {}, held = {};
   try { sold = await store.soldBy(); } catch (e) { sold = {}; }
   try { held = await require('./_holds').byProduct(); } catch (e) { held = {}; }
-  return all.filter((p) => !p.draft && !(Number(p.deal) > 0) && p.id !== PARTY && !p.buyers).map((p) => {
+  return all.filter((p) => !p.draft && !(Number(p.deal) > 0) && !/^MPARTY/.test(p.id) && !p.buyers).map((p) => {
     const left = Math.max(0, Number(p.stock || 0) - (sold[p.id] || 0) - (held[p.id] || 0));
     const free = p.shipping === 'free' || !Number(p.shipping);
     return { id: p.id, name: p.name, price: Number(p.price).toFixed(2), left: left, ship: free ? '0.00' : Number(p.shipping).toFixed(2), section: p.section || '', desc: p.desc || '',
