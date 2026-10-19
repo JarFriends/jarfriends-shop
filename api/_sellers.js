@@ -118,9 +118,14 @@ async function saveListing(seller, f) {
   if (!(price >= 1 && price <= 100000)) return { error: 'Price: $1 to $100,000.' };
   const stock = Math.floor(Number(f.stock));
   if (!(stock >= 0 && stock <= 999)) return { error: 'How many you have: 0 to 999.' };
+  // Shipping: free, a flat price, or calculated at checkout from the package (see _ship.js).
   const shipRaw = String(f.shipping == null ? '' : f.shipping).trim().toLowerCase();
-  const ship = shipRaw === '' || shipRaw === 'free' || Number(shipRaw) === 0 ? 'free' : Math.round(Number(shipRaw.replace(/[^0-9.]/g, '')) * 100) / 100;
-  if (ship !== 'free' && !(ship > 0 && ship <= 200)) return { error: 'Shipping: free, or up to $200.' };
+  const shipMode = ['free', 'flat', 'calc'].indexOf(f.shipMode) >= 0 ? f.shipMode : (shipRaw === '' || shipRaw === 'free' || Number(shipRaw) === 0 ? 'free' : 'flat');
+  const ship = shipMode !== 'flat' ? 'free' : Math.round(Number(shipRaw.replace(/[^0-9.]/g, '')) * 100) / 100;
+  if (shipMode === 'flat' && !(ship > 0 && ship <= 200)) return { error: 'Flat shipping: enter a price up to $200, or pick free or calculated shipping.' };
+  const PRE = require('./_ship').PRESETS;
+  const pkgOz = Number(f.pkgOz);
+  const pkg = { preset: PRE[f.pkgPreset] ? f.pkgPreset : 'mailer', oz: pkgOz > 0 && pkgOz <= 1120 ? Math.round(pkgOz * 10) / 10 : 0 };
   const section = SECTIONS.indexOf(f.section) >= 0 ? f.section : '';
   // Lowest offer the seller will look at: anything under it is declined on the spot. Optional.
   const minOffer = f.minOffer === '' || f.minOffer == null ? 0 : Math.round(Number(String(f.minOffer).replace(/[^0-9.]/g, '')) * 100) / 100;
@@ -144,7 +149,7 @@ async function saveListing(seller, f) {
     else if (!(hrs >= 1 && hrs <= 336)) return { error: 'An auction runs from 1 hour to 14 days.' };
     else auction = { start: price, ends: new Date(Date.now() + hrs * 3600000).toISOString() };
   }
-  const p = Object.assign({}, was || {}, { id: id, seller: seller.slug, name: name, desc: tidy(f.desc, 1200), price: price, min: 1, stock: auction ? 1 : stock, shipping: ship, section: section, hidden: !!f.hidden, minOffer: auction ? 0 : minOffer, auction: auction, updated: Date.now() }, was ? {} : { created: Date.now() });
+  const p = Object.assign({}, was || {}, { id: id, seller: seller.slug, name: name, desc: tidy(f.desc, 1200), price: price, min: 1, stock: auction ? 1 : stock, shipping: ship, section: section, hidden: !!f.hidden, minOffer: auction ? 0 : minOffer, auction: auction, shipMode: shipMode, pkg: pkg, updated: Date.now() }, was ? {} : { created: Date.now() });
   await store.write('market/' + seller.slug + '/' + id + '.json', p);
   forget();
   return { listing: p };
@@ -186,7 +191,9 @@ async function ledger(slug) {
     return { n: s.n, pid: s.pid, seller: mine[s.pid].seller, product: d.product || mine[s.pid].name, q: s.q, at: d.at || s.at, buyer: d.buyer || '', email: d.email || '', ship: d.ship || '', pay: d.pay || '',
       gross: gross, rate: rate, fee: fee, net: gross - fee, paid: paidOf(d, m), tracking: m.tracking || '', shippedAt: m.shippedAt || 0,
       // Paid by card straight to the seller's own Stripe (see _connect.js): Stripe pays the seller, nothing is owed.
-      direct: !!m.direct, issue: m.issue || null };
+      direct: !!m.direct, issue: m.issue || null,
+      // A shipping label the seller bought through V2V: its cost, and the part taken from money V2V holds for them.
+      labelCost: m.labelCost || 0, labelEarn: m.labelFromEarnings || 0, labelCard: m.labelFromCard || 0, labelPdf: m.labelPdf || '' };
   }));
   return rows.sort((a, b) => b.at - a.at);
 }
@@ -197,18 +204,20 @@ async function payouts(slug) {
   }))).filter(Boolean);
   return v.sort((a, b) => b.at - a.at);
 }
-async function addPayout(slug, cents, how, note) {
-  const p = { cents: cents, how: String(how || '').slice(0, 30), note: String(note || '').slice(0, 200), at: Date.now() };
+// kind 'deduct': money taken from what V2V holds for the seller (a USPS charge after the fact, say), not money sent.
+async function addPayout(slug, cents, how, note, kind) {
+  const p = { cents: cents, how: String(how || '').slice(0, 30), note: String(note || '').slice(0, 200), at: Date.now(), kind: kind === 'deduct' ? 'deduct' : 'sent' };
   await store.write('payouts/' + slug + '/' + p.at + '.json', p);
   return p;
 }
 // Totals for one seller's rows and payouts. Only paid sales count toward what is owed.
 function totals(rows, outs) {
   // byStripe: the seller's share of card sales Stripe paid to them directly. Only the rest is owed by hand.
-  const t = { sales: 0, gross: 0, fee: 0, net: 0, unpaidGross: 0, paidOut: 0, byStripe: 0 };
-  rows.forEach((r) => { if (r.paid) { t.sales++; t.gross += r.gross; t.fee += r.fee; t.net += r.net; if (r.direct) t.byStripe += r.net; } else t.unpaidGross += r.gross; });
-  outs.forEach((p) => { t.paidOut += p.cents; });
-  t.owed = t.net - t.byStripe - t.paidOut;
+  // labels: label costs taken from held money. deducted: other charges taken from held money (see addPayout).
+  const t = { sales: 0, gross: 0, fee: 0, net: 0, unpaidGross: 0, paidOut: 0, byStripe: 0, labels: 0, labelsCard: 0, deducted: 0 };
+  rows.forEach((r) => { if (r.paid) { t.sales++; t.gross += r.gross; t.fee += r.fee; t.net += r.net; if (r.direct) t.byStripe += r.net; } else t.unpaidGross += r.gross; t.labels += r.labelEarn || 0; t.labelsCard += r.labelCard || 0; });
+  outs.forEach((p) => { if (p.kind === 'deduct') t.deducted += p.cents; else t.paidOut += p.cents; });
+  t.owed = t.net - t.byStripe - t.paidOut - t.labels - t.deducted;
   return t;
 }
 

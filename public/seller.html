@@ -157,7 +157,14 @@
     var desc = el('textarea', null, 'jf-ta'); desc.maxLength = 1200; desc.value = (p && p.desc) || ''; desc.placeholder = 'Condition, grade, edition, what is included.';
     var price = input('number', p && p.price, { min: '1', step: '0.01', required: '', inputmode: 'decimal' });
     var stock = input('number', p ? p.stock : 1, { min: '0', max: '999', step: '1', required: '' });
-    var ship = input('text', p ? (p.shipping === 'free' ? 'free' : p.shipping) : '', { placeholder: 'free, or e.g. 5.50' });
+    // Shipping, the eBay way: free, a flat price, or the live USPS price at checkout. The label is always the seller's cost.
+    var shipMode = select([['calc', 'Calculated: buyer pays the real USPS price'], ['flat', 'Flat price'], ['free', 'Free shipping']], p ? (p.shipMode || (p.shipping === 'free' ? 'free' : 'flat')) : 'calc');
+    var ship = input('number', p && p.shipping !== 'free' ? p.shipping : '', { min: '0', step: '0.01', inputmode: 'decimal', placeholder: 'e.g. 5.50' });
+    var PRE = D.presets || {};
+    var pkgPreset = select(Object.keys(PRE).map(function (k) { return [k, PRE[k].name + ' (' + PRE[k].length + ' x ' + PRE[k].width + ' x ' + PRE[k].height + ' in)']; }), (p && p.pkg && p.pkg.preset) || 'mailer');
+    var pkgOz = input('number', p && p.pkg && p.pkg.oz ? p.pkg.oz : '', { min: '0', step: '0.1', inputmode: 'decimal' });
+    var ozHint = function () { var k = PRE[pkgPreset.value]; pkgOz.placeholder = k ? k.oz + ' (usual)' : ''; };
+    pkgPreset.addEventListener('change', ozHint); ozHint();
     var sec = select([['', 'None']].concat(D.sections.map(function (x) { return [x, x]; })), p && p.section);
     // How it sells: buy now (with an optional lowest offer) or a timed auction.
     var live = !!(p && p.auction && Date.parse(p.auction.ends) > Date.now());
@@ -178,7 +185,19 @@
     f.appendChild(hoursL); f.appendChild(minL);
     var showMode = function () { var a = mode.value === 'auction'; hoursL.hidden = !a; minL.hidden = a; stockL.hidden = a; priceL.firstChild.textContent = a ? 'Starting bid (USD)' : 'Price (USD)'; };
     mode.addEventListener('change', showMode); showMode();
-    var three = el('div', null, 'two'); three.appendChild(field('Shipping (USD, charged once per order)', ship, 'Leave empty or type free for free shipping.')); three.appendChild(field('Section', sec)); f.appendChild(three);
+    f.appendChild(field('Shipping', shipMode));
+    var shipL = field('Flat shipping price (USD, once per order)', ship);
+    f.appendChild(shipL);
+    var pk = el('div', null, 'two'); pk.appendChild(field('Package', pkgPreset)); pk.appendChild(field('Packed weight (oz)', pkgOz, 'One piece, packed. Leave empty for the usual weight.')); f.appendChild(pk);
+    var shipNote = el('div', '', 'small dim'); f.appendChild(shipNote);
+    var showShip = function () {
+      shipL.hidden = shipMode.value !== 'flat';
+      shipNote.textContent = shipMode.value === 'calc' ? 'Buyers see the real USPS price from your ZIP to their address at checkout, so the label costs what they paid. Set your ship-from address in Shop settings.'
+        : shipMode.value === 'free' ? 'Buyers pay no shipping. You still pay for the label, so build it into your price.'
+        : 'Buyers pay this price. The label is your cost: if it costs more, the difference is yours to pay; if less, you keep it.';
+    };
+    shipMode.addEventListener('change', showShip); showShip();
+    f.appendChild(field('Section', sec));
     f.appendChild(field('Photo', photo, p && p.photoUrl ? 'Pick a new one to replace the current photo.' : 'A clear, square-ish photo works best.'));
     f.appendChild(hl);
     var price2 = el('div', '', 'small dim');
@@ -190,7 +209,7 @@
     c.appendChild(f);
     f.addEventListener('submit', function (ev) {
       ev.preventDefault(); go.disabled = true; m.textContent = 'Saving…';
-      JF.api('/api/market', { do: 'listing', t: tok, as: AS, ak: AK, id: p ? p.id : '', name: name.value, desc: desc.value, price: price.value, stock: mode.value === 'auction' ? 1 : stock.value, shipping: ship.value, section: sec.value, hidden: hidden.checked, mode: mode.value, hours: hours.value, minOffer: mode.value === 'auction' ? '' : minOffer.value }).then(function (r) {
+      JF.api('/api/market', { do: 'listing', t: tok, as: AS, ak: AK, id: p ? p.id : '', name: name.value, desc: desc.value, price: price.value, stock: mode.value === 'auction' ? 1 : stock.value, shipping: ship.value, shipMode: shipMode.value, pkgPreset: pkgPreset.value, pkgOz: pkgOz.value, section: sec.value, hidden: hidden.checked, mode: mode.value, hours: hours.value, minOffer: mode.value === 'auction' ? '' : minOffer.value }).then(function (r) {
         if (r.error) { go.disabled = false; m.textContent = r.error; return; }
         var file = photo.files && photo.files[0];
         if (!file) return finish();
@@ -216,7 +235,7 @@
       var mid = el('div'); mid.style.cssText = 'flex:1;min-width:0;display:flex;flex-direction:column;gap:4px';
       mid.appendChild(el('b', p.name));
       if (p.auction) mid.appendChild(el('span', Date.parse(p.auction.ends) > Date.now() ? 'AUCTION · ENDS ' + new Date(p.auction.ends).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }).toUpperCase() : 'AUCTION ENDED', 'jf-badge wait'));
-      mid.appendChild(el('div', (p.auction ? 'Starting bid ' : '') + JF.usd(p.price) + ' · ' + (p.shipping === 'free' ? 'free shipping' : JF.usd(p.shipping) + ' shipping') + ' · ' + p.left + ' left of ' + p.stock + (p.sold ? ' · ' + p.sold + ' sold' : ''), 'small dim'));
+      mid.appendChild(el('div', (p.auction ? 'Starting bid ' : '') + JF.usd(p.price) + ' · ' + (p.shipMode === 'calc' ? 'calculated shipping' : p.shipping === 'free' ? 'free shipping' : JF.usd(p.shipping) + ' shipping') + ' · ' + p.left + ' left of ' + p.stock + (p.sold ? ' · ' + p.sold + ' sold' : ''), 'small dim'));
       if (p.hidden) mid.appendChild(el('span', p.removed ? 'REMOVED' : 'HIDDEN', 'jf-badge'));
       var acts = el('div'); acts.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;margin-top:6px';
       var ed = el('button', 'Change', 'ghost'); ed.type = 'button'; ed.addEventListener('click', function () { editing = p; dash(); window.scrollTo(0, 0); });
@@ -314,6 +333,50 @@
       pane.appendChild(c);
     });
   }
+  // Buy a shipping label for one paid order: pick the package, see the price and how it is paid, then buy and print.
+  function labelBox(o) {
+    var box = el('div'); box.style.cssText = 'display:flex;flex-direction:column;gap:10px;border:1px solid #4E7A63;padding:14px';
+    box.appendChild(el('b', 'Buy a shipping label'));
+    if (!D.labelsOn) { box.appendChild(el('div', 'Labels are not switched on for V2V yet. Ship it your own way and add the tracking number below.', 'small dim')); return box; }
+    if (!D.seller.shipFrom) { box.appendChild(el('div', 'Add your ship-from address in Shop settings first.', 'small')); return box; }
+    var PRE = D.presets || {};
+    var listing = D.listings.filter(function (x) { return x.id === o.pid; })[0] || {};
+    var pre = select(Object.keys(PRE).map(function (k) { return [k, PRE[k].name]; }), (listing.pkg && listing.pkg.preset) || 'mailer');
+    var oz = input('number', listing.pkg && listing.pkg.oz ? listing.pkg.oz * Math.max(1, o.q) : '', { min: '0', step: '0.1', inputmode: 'decimal', placeholder: 'Weight in oz' });
+    var row = el('div', null, 'two'); row.appendChild(field('Package', pre)); row.appendChild(field('Weight packed (oz)', oz, 'Weigh it if you can. A wrong weight can bring a USPS charge later.')); box.appendChild(row);
+    var price = el('button', 'Get the price', 'ghost'); price.type = 'button'; price.style.alignSelf = 'flex-start';
+    var info = el('div', '', 'small'); info.setAttribute('role', 'status');
+    var buy = el('button', '', 'solid'); buy.type = 'button'; buy.hidden = true; buy.style.alignSelf = 'flex-start';
+    var rateId = '';
+    box.appendChild(price); box.appendChild(info); box.appendChild(buy);
+    price.addEventListener('click', function () {
+      price.disabled = true; buy.hidden = true; info.textContent = 'Getting the USPS price…';
+      JF.api('/api/market', { do: 'label-quote', t: tok, as: AS, ak: AK, n: o.n, preset: pre.value, oz: oz.value }).then(function (r) {
+        price.disabled = false;
+        if (r.error) { info.textContent = r.error; return; }
+        rateId = r.rate.id; var pl = r.plan, lines = [];
+        lines.push(r.rate.service + ': ' + JF.cents(r.rate.cents) + (r.rate.days ? ' (about ' + r.rate.days + ' days)' : '') + '. The buyer paid ' + JF.cents(r.buyerPaidShipping) + ' for shipping.');
+        if (r.rate.cents > r.buyerPaidShipping) lines.push('This label costs ' + JF.cents(r.rate.cents - r.buyerPaidShipping) + ' more than the buyer paid. That is your cost.');
+        lines.push('How it is paid: ' + (pl.fromEarnings ? JF.cents(pl.fromEarnings) + ' from the money V2V is holding for you' : '') + (pl.fromEarnings && pl.fromCard ? ', plus ' : '') + (pl.fromCard ? JF.cents(pl.fromCard) + (pl.card ? ' on your ' + pl.card.brand + ' ending ' + pl.card.last4 : ' on a card (add one in My account first)') : '') + '.');
+        if (r.test) lines.push('TEST MODE: this makes a sample label that cannot be mailed.');
+        info.textContent = lines.join(' ');
+        if (pl.fromCard && !pl.card) { var a = el('a', ' Add a card'); a.href = '/me.html'; info.appendChild(a); return; }
+        buy.textContent = 'Buy label for ' + JF.cents(r.rate.cents); buy.hidden = false;
+      });
+    });
+    buy.addEventListener('click', function () {
+      buy.disabled = true; info.textContent = 'Buying the label…';
+      JF.api('/api/market', { do: 'label-buy', t: tok, as: AS, ak: AK, n: o.n, rate: rateId }).then(function (r) {
+        if (r.error) { buy.disabled = false; info.textContent = r.error; return; }
+        box.textContent = '';
+        box.appendChild(el('b', 'Label bought' + (r.test ? ' (test sample)' : '')));
+        box.appendChild(el('div', 'Tracking ' + r.tracking + '. The buyer has been emailed.', 'small'));
+        var a = el('a', 'Print the label (PDF, 4 x 6)', 'solid'); a.href = r.label; a.target = '_blank'; a.rel = 'noopener'; a.style.cssText = 'text-decoration:none;align-self:flex-start'; box.appendChild(a);
+        setTimeout(load, 4000);
+      });
+    });
+    return box;
+  }
   function orders(pane) {
     if (!D.orders.length) { pane.appendChild(el('div', 'No orders yet. When someone buys one of your pieces it shows here.', 'jf-empty')); return; }
     D.orders.forEach(function (o) {
@@ -329,10 +392,14 @@
       c.appendChild(rows);
       if (o.paid) {
         var ship = el('div', null, 'addr'); ship.textContent = 'Ship to: ' + (o.buyer ? o.buyer + ', ' : '') + (o.ship || 'see the order'); c.appendChild(ship);
-        if (o.tracking) c.appendChild(el('div', 'Tracking: ' + o.tracking + ' · the buyer was emailed.', 'small'));
-        else {
+        if (o.tracking) {
+          c.appendChild(el('div', 'Tracking: ' + o.tracking + ' · the buyer was emailed.', 'small'));
+          if (o.labelPdf) { var pl = el('a', 'Print the label again', 'ghost'); pl.href = o.labelPdf; pl.target = '_blank'; pl.rel = 'noopener'; pl.style.cssText = 'text-decoration:none;align-self:flex-start'; c.appendChild(pl); }
+          if (o.labelCost) c.appendChild(el('div', 'Label: ' + JF.cents(o.labelCost) + (o.labelEarn ? ' · ' + JF.cents(o.labelEarn) + ' from your earnings' : '') + (o.labelCard ? ' · ' + JF.cents(o.labelCard) + ' on your card' : ''), 'small dim'));
+        } else {
+          c.appendChild(labelBox(o));
           var f = el('form'); f.style.cssText = 'flex-direction:row;flex-wrap:wrap;align-items:flex-end;gap:10px;max-width:none';
-          var tr = input('text', '', { placeholder: 'Tracking number', required: '', autocomplete: 'off' }); var l = field('Shipped? Add the tracking number', tr); l.style.flex = '1 1 260px';
+          var tr = input('text', '', { placeholder: 'Tracking number', required: '', autocomplete: 'off' }); var l = field('Or shipped it your own way? Add the tracking number', tr); l.style.flex = '1 1 260px';
           var go = el('button', 'Mark shipped', 'solid'); go.type = 'submit'; var m = status();
           f.appendChild(l); f.appendChild(go); c.appendChild(f); c.appendChild(m);
           f.addEventListener('submit', function (ev) { ev.preventDefault(); go.disabled = true; JF.api('/api/market', { do: 'ship', t: tok, as: AS, ak: AK, n: o.n, tracking: tr.value }).then(function (r) { go.disabled = false; if (r.error) { m.textContent = r.error; return; } load(); }); });
@@ -389,11 +456,21 @@
     var go = el('button', 'Save', 'solid'); go.type = 'submit'; var m = status();
     f.appendChild(field('About your shop', about));
     var two = el('div', null, 'two'); two.appendChild(field('Pay me by', payHow)); two.appendChild(field('Send it to', payTo)); f.appendChild(two);
+    // Where packages ship from: needed for calculated shipping and for buying labels.
+    var sf = s.shipFrom || {};
+    f.appendChild(el('h2', 'Ship from'));
+    f.appendChild(el('div', 'Used for calculated shipping prices and printed on your labels as the return address.', 'small dim'));
+    var fn = input('text', sf.name || s.name, { maxlength: '60', autocomplete: 'name' }), fs1 = input('text', sf.street1, { maxlength: '120', autocomplete: 'address-line1' }), fs2 = input('text', sf.street2, { maxlength: '60', autocomplete: 'address-line2' });
+    var fc = input('text', sf.city, { maxlength: '60', autocomplete: 'address-level2' }), fst = input('text', sf.state, { maxlength: '30', autocomplete: 'address-level1' }), fz = input('text', sf.zip, { maxlength: '10', inputmode: 'numeric', autocomplete: 'postal-code' }), fp = input('tel', sf.phone, { maxlength: '20', autocomplete: 'tel' });
+    f.appendChild(field('Name on the label', fn));
+    var a2 = el('div', null, 'two'); a2.appendChild(field('Street address', fs1)); a2.appendChild(field('Apt or unit', fs2, 'Optional.')); f.appendChild(a2);
+    var a3 = el('div', null, 'two'); a3.appendChild(field('City', fc)); a3.appendChild(field('State', fst)); a3.appendChild(field('ZIP code', fz)); f.appendChild(a3);
+    f.appendChild(field('Phone', fp, 'Optional. Some carriers ask for it.'));
     f.appendChild(go); f.appendChild(m);
     c.appendChild(f);
     c.appendChild(el('div', 'Shop name: ' + s.name + ' · Signed in as ' + D.email + ' · JarFriends fee: ' + D.fee + '% of each sale. To rename your shop, contact JarFriends.', 'small dim'));
     pane.appendChild(c);
-    f.addEventListener('submit', function (ev) { ev.preventDefault(); go.disabled = true; JF.api('/api/market', { do: 'profile', t: tok, as: AS, ak: AK, about: about.value, payHow: payHow.value, payTo: payTo.value }).then(function (r) { go.disabled = false; m.textContent = r.error || 'Saved.'; if (!r.error) D.seller = r.seller; }); });
+    f.addEventListener('submit', function (ev) { ev.preventDefault(); go.disabled = true; JF.api('/api/market', { do: 'profile', t: tok, as: AS, ak: AK, shipFrom: { name: fn.value, street1: fs1.value, street2: fs2.value, city: fc.value, state: fst.value, zip: fz.value, phone: fp.value }, about: about.value, payHow: payHow.value, payTo: payTo.value }).then(function (r) { go.disabled = false; m.textContent = r.error || 'Saved.'; if (!r.error) D.seller = r.seller; }); });
   }
   // Back from Stripe's payout setup: show the payouts tab. "again" means the link ran out, so open a fresh one.
   var sq = new URLSearchParams(location.search).get('stripe');

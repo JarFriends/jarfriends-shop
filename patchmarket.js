@@ -22,7 +22,19 @@ const changes = [
   ['api/offer.js', "mail(owner(), 'Offer: '", "mail(await require('./_sellers').offerTo(p.id, owner()), 'Offer: '"],
   // 6. A seller's auction that ends with no bids, or whose winners never pay, is the seller's to know about.
   ['api/_sweep.js', "if (owner) await mail(owner, 'Auction ended with no bids: '", "if (owner) await mail(await require('./_sellers').offerTo(p.id, owner), 'Auction ended with no bids: '"],
-  ['api/_sweep.js', "if (owner) await mail(owner, 'Auction winner did not pay: '", "if (owner) await mail(await require('./_sellers').offerTo(p.id, owner), 'Auction winner did not pay: '"]
+  ['api/_sweep.js', "if (owner) await mail(owner, 'Auction winner did not pay: '", "if (owner) await mail(await require('./_sellers').offerTo(p.id, owner), 'Auction winner did not pay: '"],
+  // 7. Calculated shipping (see _ship.js): a seller's piece can be priced from the seller's ZIP to the buyer's address.
+  //    The order page asks for the price the same way it already does for addresses outside the USA.
+  ['api/order.js', "nft: !!nftBy[p.id], desc:", "nft: !!nftBy[p.id], calc: (more[p.id] || {}).shipMode === 'calc', desc:"],
+  ['api/order.js', "if (!/^[A-Z]{2}$/.test(cc) || cc === 'US') return res.status(400).json({ error: 'Pick your country.' });",
+    "if (cc === 'US') {\n        const cs = await require('./_ship').calcFor(String(q.product || ''), { street1: String(q.street || '').slice(0, 120), street2: String(q.line2 || '').slice(0, 60), city: String(q.city || '').slice(0, 60), state: String(q.state || '').slice(0, 30), zip: String(q.zip || '').slice(0, 10) }, qty);\n        if (!cs) return res.status(400).json({ error: 'This piece has a set shipping price.' });\n        return cs.error ? res.status(400).json({ error: cs.error }) : res.json({ ship: cs.cents, service: cs.service });\n      }\n      if (!/^[A-Z]{2}$/.test(cc)) return res.status(400).json({ error: 'Pick your country.' });"],
+  ['api/order.js', "  let ship = isNft ? 0 : shipBy[p.id] || 0;\n",
+    "  let ship = isNft ? 0 : shipBy[p.id] || 0;\n  // A seller's piece: sellers ship inside the USA, and calculated shipping is priced now for this address.\n  if (/^S[0-9A-Z]{5,19}$/.test(p.id) && intl) return res.status(400).json({ error: 'This seller ships inside the USA only.' });\n  if (!isNft && !intl) {\n    const cs = await require('./_ship').calcFor(p.id, { name: name, street1: street, street2: line2, city: city, state: state, zip: zip }, qty).catch((e) => ({ error: String(e && e.message || e) }));\n    if (cs && cs.error) return res.status(400).json({ error: cs.error });\n    if (cs) ship = cs.cents;\n  }\n"],
+  ['public/order.html', "if (!p || p.nft || cc() === 'US') { iq = ", "if (!p || p.nft || (cc() === 'US' && !p.calc)) { iq = "],
+  ['public/order.html', "var ship = intl ? (iq.cents || 0) : Math.round(Number(p.ship || 0) * 100);", "var ship = (intl || (p.calc && !p.nft)) ? (iq.cents || 0) : Math.round(Number(p.ship || 0) * 100);"],
+  ['public/order.html', "$('sShip').textContent = intl ?", "$('sShip').textContent = (intl || (p.calc && !p.nft)) ?"],
+  ['public/order.html', "var bad = p.stock < p.min || q > p.stock || (intl && !iq.cents);", "var bad = p.stock < p.min || q > p.stock || ((intl || (p.calc && !p.nft)) && !iq.cents);"],
+  ['public/order.html', "if (cc() !== 'US') { iq.cents = 0; total(); soon(); }", "if (cc() !== 'US' || (cur() && cur().calc)) { iq.cents = 0; total(); soon(); }"]
 ];
 changes.forEach(([f, find, put]) => {
   const s = fs.readFileSync(f, 'utf8');

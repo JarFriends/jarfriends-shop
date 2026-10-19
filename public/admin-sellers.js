@@ -85,6 +85,14 @@
       f.appendChild(amt); f.appendChild(how); f.appendChild(note); f.appendChild(go);
       f.addEventListener('submit', function (ev) { ev.preventDefault(); if (!confirm('Record ' + money(Math.round(Number(amt.value) * 100)) + ' sent to ' + s.name + '? They get an email.')) return; go.disabled = true; post({ do: 'payout', slug: s.slug, amount: amt.value, how: how.value, note: note.value }).then(function (x) { if (x.error) { alert(x.error); go.disabled = false; return; } load(); }); });
       c.appendChild(f);
+      // Charge the seller (a USPS charge after one of their labels, say): from money held for them first, then their card.
+      var cf = el('form', null, 'sx-pay'); cf.style.maxWidth = 'none';
+      var camt = el('input'); camt.type = 'number'; camt.step = '0.01'; camt.min = '0.01'; camt.placeholder = 'Amount'; camt.style.width = '120px'; camt.setAttribute('aria-label', 'Amount to charge ' + s.name);
+      var cnote = el('input'); cnote.placeholder = 'What for (e.g. USPS postage adjustment, order W123)'; cnote.style.flex = '1 1 240px'; cnote.setAttribute('aria-label', 'Reason');
+      var cgo = el('button', 'Charge seller', 'ghost'); cgo.type = 'submit';
+      cf.appendChild(camt); cf.appendChild(cnote); cf.appendChild(cgo);
+      cf.addEventListener('submit', function (ev) { ev.preventDefault(); if (!confirm('Charge ' + s.name + ' ' + money(Math.round(Number(camt.value) * 100)) + '? It comes out of money held for them first, then their card. They get an email.')) return; cgo.disabled = true; post({ do: 'charge', slug: s.slug, amount: camt.value, note: cnote.value }).then(function (x) { cgo.disabled = false; if (x.error) { alert(x.error); return; } load(); }); });
+      c.appendChild(cf);
       box.appendChild(c);
     });
     if (r.sales.length) {

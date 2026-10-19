@@ -113,7 +113,7 @@ module.exports = async (req, res) => {
     }
 
     // ---------- The owner ----------
-    if (what === 'admin' || what === 'status' || what === 'payout' || what === 'issue' || what === 'review-remove' || what === 'verify') {
+    if (what === 'admin' || what === 'status' || what === 'payout' || what === 'issue' || what === 'review-remove' || what === 'verify' || what === 'charge') {
       if (!gate.isAdmin(req.method === 'POST' ? b.ak : q.ak)) return res.status(401).json({ error: 'Sign in to the back office again.' });
       if (req.method === 'GET') {
         const [sellers, rows, outs, listings] = await Promise.all([M.all(), M.ledger(null), M.payouts(null), M.listings()]);
@@ -139,6 +139,23 @@ module.exports = async (req, res) => {
       const s = await M.bySlug(String(b.slug || ''));
       if (!s) return res.status(404).json({ error: 'That seller was not found.' });
       if (what === 'review-remove') return res.json({ ok: await M.removeReview(s.slug, String(b.n || '')) });
+      // Charge a seller (a USPS charge after a label, say): from money V2V holds for them first, the rest on their card.
+      if (what === 'charge') {
+        const cents = Math.round(Number(String(b.amount || '').replace(/[^0-9.]/g, '')) * 100);
+        if (!(cents > 0 && cents < 100000)) return res.status(400).json({ error: 'Enter the amount to charge.' });
+        const note = String(b.note || 'Charge').slice(0, 200);
+        const plan = await require('./_ship').payPlan(s, cents);
+        let card = 0;
+        if (plan.fromCard > 0) {
+          if (!plan.card) return res.status(400).json({ error: 'V2V holds ' + usd(plan.held) + ' for this seller and they have no card saved, so only part of it can be taken. Record it as a deduction later, or ask them to add a card.' });
+          const r = await stripeBase.call('POST', '/payment_intents', { amount: plan.fromCard, currency: 'usd', customer: plan.card.customer, payment_method: plan.card.pm, confirm: 'true', off_session: 'true', 'payment_method_types[0]': 'card', description: 'V2V charge: ' + note, 'metadata[v2v_charge]': s.slug }, 'charge-' + s.slug + '-' + Date.now());
+          if (!r.ok || r.body.status !== 'succeeded') return res.status(400).json({ error: 'Their card was declined, so nothing was taken.' });
+          card = plan.fromCard;
+        }
+        if (plan.fromEarnings > 0) await M.addPayout(s.slug, plan.fromEarnings, 'Taken from earnings', note, 'deduct');
+        await mail(s.email, 'V2V charge: $' + usd(cents), ['V2V charged you $' + usd(cents) + ' for: ' + note + '.', plan.fromEarnings ? '$' + usd(plan.fromEarnings) + ' came out of the money V2V was holding for you.' : '', card ? '$' + usd(card) + ' was charged to your ' + plan.card.brand + ' ending ' + plan.card.last4 + '.' : '', '', 'See it in your seller portal: https://' + req.headers.host + '/seller.html'], 'charge-' + s.slug + '-' + cents + '-' + Math.floor(Date.now() / 60000)).catch(() => null);
+        return res.json({ ok: true, fromEarnings: plan.fromEarnings, fromCard: card });
+      }
       if (what === 'verify') {
         s.verify = b.mode === 'on' || b.mode === 'off' ? b.mode : '';
         await M.save(s);
@@ -229,7 +246,7 @@ module.exports = async (req, res) => {
       const myReviews = (await M.reviews(seller.slug)).map((r) => ({ n: r.n, stars: r.stars, text: r.text || '', name: r.name, product: r.product || '', at: r.at, reply: r.reply || '' }));
       const feed = (await M.posts(seller.slug, 50)).map((x) => Object.assign({}, x, { photoUrl: x.photo ? '/api/photo?id=' + x.id + '&v=' + x.photo : '' }));
       const st = stripeBase.ready() ? await connect.status(seller).catch(() => ({ state: 'unknown' })) : { state: 'off' };
-      return res.json({ email: me, seller: seller, fee: M.feePct(), sections: M.SECTIONS, listings: listings, orders: orders, payouts: outs, totals: M.totals(rows, outs), posts: feed, stripe: st, stats: myStats, reviews: myReviews });
+      return res.json({ email: me, seller: seller, fee: M.feePct(), sections: M.SECTIONS, listings: listings, orders: orders, payouts: outs, totals: M.totals(rows, outs), posts: feed, stripe: st, stats: myStats, reviews: myReviews, presets: require('./_ship').PRESETS, labelsOn: require('./_ship').ready() });
     }
     // Offers on my pieces. A pending one carries its answer key (t) for /api/offer: accept, counter or decline.
     if (what === 'offers') {
@@ -273,8 +290,24 @@ module.exports = async (req, res) => {
       if (b.about != null) seller.about = tidy(b.about, 400);
       if (['zelle', 'venmo', 'cashapp', 'paypal'].indexOf(b.payHow) >= 0) seller.payHow = b.payHow;
       if (b.payTo != null && tidy(b.payTo, 80).length >= 3) seller.payTo = tidy(b.payTo, 80);
+      // Where packages ship from: needed for calculated shipping and labels.
+      if (b.shipFrom && typeof b.shipFrom === 'object') {
+        const a = b.shipFrom, f = { name: tidy(a.name, 60), street1: tidy(a.street1, 120), street2: tidy(a.street2, 60), city: tidy(a.city, 60), state: tidy(a.state, 30), zip: tidy(a.zip, 10), phone: tidy(a.phone, 20) };
+        if (f.street1 || f.city || f.zip) {
+          if (!/[0-9]/.test(f.street1) || !/[A-Za-z]/.test(f.street1)) return res.status(400).json({ error: 'Ship from: enter the street address with its number.' });
+          if (f.city.length < 2 || f.state.length < 2) return res.status(400).json({ error: 'Ship from: enter the city and state.' });
+          if (!/^[0-9]{5}(-[0-9]{4})?$/.test(f.zip)) return res.status(400).json({ error: 'Ship from: enter a 5-digit ZIP code.' });
+          seller.shipFrom = f;
+        } else seller.shipFrom = null;
+      }
       await M.save(seller);
       return res.json({ ok: true, seller: seller });
+    }
+    // Shipping labels (see _ship.js): price one, then buy it. Paid from money V2V holds for the seller, the rest by card.
+    if (what === 'label-quote') return res.json(await require('./_ship').quoteLabel(seller, String(b.n || ''), { preset: b.preset, oz: b.oz, l: b.l, w: b.w, h: b.h }));
+    if (what === 'label-buy') {
+      const r = await require('./_ship').buyLabel(seller, String(b.n || ''), String(b.rate || ''), 'https://' + req.headers.host);
+      return res.status(r.error ? 400 : 200).json(r);
     }
     if (what === 'listing') {
       const r = await M.saveListing(seller, b);
