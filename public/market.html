@@ -21,7 +21,7 @@
   <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">
     <label style="flex:1 1 240px;max-width:380px">Search<input id="find" type="search" placeholder="Name of a piece" autocomplete="off"></label>
     <label style="flex:0 1 220px">Seller<select class="jf-sel" id="who"><option value="">Everyone</option></select></label>
-    <label style="flex:0 1 220px">Sort<select class="jf-sel" id="sort"><option value="new">Newest first</option><option value="low">Price: low to high</option><option value="high">Price: high to low</option><option value="name">Name</option></select></label>
+    <label style="flex:0 1 220px">Sort<select class="jf-sel" id="sort"><option value="new">Newest first</option><option value="low">Price: low to high</option><option value="high">Price: high to low</option><option value="name">Name</option><option value="ending">Auctions ending soonest</option></select></label>
   </div>
   <div class="small dim" id="count" role="status" aria-live="polite">Loading…</div>
   <div class="jf-grid" id="grid"></div>
@@ -83,6 +83,7 @@
       if (s === 'low') return a.price - b.price;
       if (s === 'high') return b.price - a.price;
       if (s === 'name') return a.name.localeCompare(b.name);
+      if (s === 'ending') return (a.auction ? a.auction.ends : 9e15) - (b.auction ? b.auction.ends : 9e15);
       return (b.added || 0) - (a.added || 0);
     });
     var g = $('grid'); g.textContent = '';

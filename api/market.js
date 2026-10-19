@@ -68,7 +68,9 @@ module.exports = async (req, res) => {
       const one = q.seller ? sellers.filter((s) => s.slug === String(q.seller))[0] : null;
       if (q.seller === '_house') items = items.filter((p) => !p.seller);
       else if (q.seller) items = one ? items.filter((p) => p.seller === one.slug) : [];
-      return res.json({ fee: M.feePct(), products: items, sellers: sellers, seller: one || null, sections: M.SECTIONS });
+      // The giveaway wallet: GIVEAWAY_PERCENT (2) of every paid sale (pieces plus shipping), in cents.
+      const wallet = Math.round((await M.ledger(null)).filter((r) => r.paid).reduce((t, r) => t + r.gross, 0) * M.giveawayPct() / 100);
+      return res.json({ fee: M.feePct(), products: items, sellers: sellers, seller: one || null, sections: M.SECTIONS, wallet: wallet, giveaway: M.giveawayPct() });
     }
     // Which seller a piece belongs to, for "Sold by" on checkout.
     if (req.method === 'GET' && what === 'item') {
@@ -113,8 +115,13 @@ module.exports = async (req, res) => {
     }
 
     // ---------- The owner ----------
-    if (what === 'admin' || what === 'status' || what === 'payout' || what === 'issue' || what === 'review-remove' || what === 'verify' || what === 'charge') {
+    if (what === 'admin' || what === 'status' || what === 'payout' || what === 'issue' || what === 'review-remove' || what === 'verify' || what === 'charge' || what === 'import') {
       if (!gate.isAdmin(req.method === 'POST' ? b.ak : q.ak)) return res.status(401).json({ error: 'Sign in to the back office again.' });
+      // Bring the JarFriends shop's pieces into a seller shop (see _import.js). ?do=import&ak=&slug=jarfriends&from=0
+      if (req.method === 'GET' && what === 'import') {
+        const r = await require('./_import').run(String(q.slug || 'jarfriends'), Math.max(0, Math.floor(Number(q.from) || 0)), Math.min(10, Math.max(1, Math.floor(Number(q.limit) || 5))));
+        return res.status(r.error ? 400 : 200).json(r);
+      }
       if (req.method === 'GET') {
         const [sellers, rows, outs, listings] = await Promise.all([M.all(), M.ledger(null), M.payouts(null), M.listings()]);
         // Sellers part-way through Stripe setup: check again, so card sales start going to them once Stripe says yes.
@@ -126,7 +133,8 @@ module.exports = async (req, res) => {
         const all = M.totals(rows, outs);
         const st = await M.statsAll(sellers);
         await Promise.all(list.map(async (x) => { x.stats = st[x.slug]; x.reviewList = (await M.reviews(x.slug)).map((r) => ({ n: r.n, stars: r.stars, text: r.text || '', name: r.name, product: r.product || '', at: r.at })); }));
-        return res.json({ fee: M.feePct(), sellers: list, sales: rows, totals: all });
+        all.wallet = Math.round(rows.filter((r) => r.paid).reduce((t, r) => t + r.gross, 0) * M.giveawayPct() / 100);
+        return res.json({ fee: M.feePct(), giveaway: M.giveawayPct(), sellers: list, sales: rows, totals: all });
       }
       // Flag an order as a problem (or clear it). A flagged order counts as an issue against the seller's checkmark.
       if (what === 'issue') {

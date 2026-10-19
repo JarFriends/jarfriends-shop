@@ -15,6 +15,8 @@ const store = require('./_store');
 const crypto = require('crypto');
 
 const feePct = () => { const v = Number((process.env.PLATFORM_FEE_PERCENT || '').trim() || 5.55); return v >= 0 && v <= 50 ? v : 5.55; };
+// The giveaway wallet: this percent of every sale is set aside for giveaways to active buyers and sellers.
+const giveawayPct = () => { const v = Number((process.env.GIVEAWAY_PERCENT || '').trim() || 2); return v >= 0 && v <= 50 ? v : 2; };
 const autoApprove = () => /^(1|yes|true)$/i.test((process.env.SELLER_AUTO_APPROVE || '').trim());
 const hashOf = (e) => crypto.createHash('sha1').update(String(e).trim().toLowerCase()).digest('hex').slice(0, 24);
 const slugify = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30);
@@ -321,4 +323,4 @@ async function notifySale(n, kind) {
   return mail(seller.email, (paid ? 'Paid, ship it: ' : 'New order (not paid yet): ') + (d.product || 'your piece'), lines, 'seller-sale-' + n + '-' + (paid ? 'paid' : 'placed')).catch((e) => { console.error('SELLER_NOTIFY_FAIL', n, String(e && e.message || e)); return 'failed'; });
 }
 
-module.exports = { sellerOf, offerTo, notifySale, reviews, saveReview, removeReview, stats, statsAll, statsFrom, shortName, completed, VERIFY_AFTER, posts, addPost, removePost, feePct, autoApprove, all, bySlug, byEmail, save, apply, pub, listings, products, isSellerPid, saveListing, setListing, removeListing, ledger, payouts, addPayout, totals, hashOf, SECTIONS, forget };
+module.exports = { giveawayPct, sellerOf, offerTo, notifySale, reviews, saveReview, removeReview, stats, statsAll, statsFrom, shortName, completed, VERIFY_AFTER, posts, addPost, removePost, feePct, autoApprove, all, bySlug, byEmail, save, apply, pub, listings, products, isSellerPid, saveListing, setListing, removeListing, ledger, payouts, addPayout, totals, hashOf, SECTIONS, forget };
