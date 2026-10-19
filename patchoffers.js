@@ -12,7 +12,7 @@ async function saveOffer(o, tok, status, extra) {
     const store = require('./_store');
     if (!store.on()) return;
     const was = (await store.read('offers/' + o.n + '.json')) || {};
-    await store.write('offers/' + o.n + '.json', Object.assign({ at: o.t * 1000 }, was, { n: o.n, pid: o.pid, item: o.i, q: o.q, offer: o.c, list: o.l, buyer: o.b, email: o.e, pay: o.w || '', t: tok, status: status, statusAt: Date.now() }, extra || {}));
+    await store.write('offers/' + o.n + '.json', Object.assign({ at: o.t * 1000 }, was, { n: o.n, pid: o.pid, item: o.i, q: o.q, offer: o.c, list: o.l, buyer: o.b, email: o.e, pay: o.w || '', t: tok, status: status, statusAt: Date.now(), hist: (was.hist || []).concat([{ s: status, at: Date.now(), c: (extra && extra.counter) || 0 }]) }, extra || {}));
   } catch (e) { console.error('OFFER_SAVE_FAIL', o.n, String(e && e.message || e)); }
 }`],
   ['api/offer.js', R`      const deal = sign({ oa: 1, n: o.n, pid: o.pid, q: o.q, c: o.c, x: until });`, R`      const deal = sign({ oa: 1, n: o.n, pid: o.pid, q: o.q, c: o.c, x: until });

@@ -376,6 +376,12 @@
         c.appendChild(top);
         c.appendChild(el('div', o.buyer + ' offered ' + JF.cents(o.offer) + (o.q > 1 ? ' each' : '') + ' (your price ' + JF.cents(o.list) + ') · would pay with ' + (o.pay || '-') + ' · ' + new Date(o.at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }), 'small'));
         if (o.status === 'countered') c.appendChild(el('div', 'You countered at ' + JF.cents(o.counter) + '.', 'small dim'));
+        // Every offer this buyer made on this piece, and what happened to each.
+        var same = r.offers.filter(function (x) { return x.pid === o.pid && x.who === o.who; });
+        var hb = el('button', 'View history' + (same.length > 1 ? ' (' + same.length + ' offers)' : ''), 'ghost'); hb.type = 'button'; hb.style.alignSelf = 'flex-start';
+        var hist = el('div'); hist.hidden = true;
+        hb.addEventListener('click', function () { if (!hist.firstChild) hist.appendChild(JF.offerHistory(same, 'seller')); hist.hidden = !hist.hidden; hb.textContent = hist.hidden ? 'View history' + (same.length > 1 ? ' (' + same.length + ' offers)' : '') : 'Hide history'; });
+        c.appendChild(hb); c.appendChild(hist);
         if (o.t) {
           var row = el('div'); row.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end';
           var m = status();

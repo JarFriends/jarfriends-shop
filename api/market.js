@@ -49,6 +49,14 @@ async function shopItems() {
 // Only a confirmed sign-in (Google, or an email and password whose email was confirmed with a code).
 async function signedIn(t) { return gate.emailOf(t); }
 
+// What happened to an offer, oldest first: [{ kind: offer|auto|accepted|countered|declined|expired, at, c }].
+function offerEvents(o) {
+  const ev = [{ kind: o.status === 'auto' ? 'auto' : 'offer', at: o.at || 0, c: o.offer }];
+  const hist = (o.hist || []).filter((h) => h.s !== 'pending' && h.s !== 'auto');
+  if (hist.length) hist.forEach((h) => ev.push({ kind: h.s, at: h.at, c: h.c || 0 }));
+  else if (o.status && o.status !== 'pending' && o.status !== 'auto') ev.push({ kind: o.status, at: o.statusAt || o.at || 0, c: o.counter || 0 });
+  return ev;
+}
 module.exports = async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   const q = req.query || {};
@@ -243,6 +251,14 @@ module.exports = async (req, res) => {
       await M.saveReview(row.seller, r);
       return res.json({ ok: true });
     }
+    // ---------- Offers, as a buyer: every offer they made, with its history ----------
+    if (what === 'myoffers') {
+      const { list: ls } = await import('@vercel/blob');
+      const r = await ls({ prefix: 'offers/', limit: 1000 });
+      const all = (await Promise.all((r.blobs || []).map((x) => store.read(x.pathname)))).filter((o) => o && String(o.email || '').trim().toLowerCase() === me);
+      all.sort((a, b2) => (b2.at || 0) - (a.at || 0));
+      return res.json({ offers: all.slice(0, 200).map((o) => ({ n: o.n, pid: o.pid, item: o.item, q: o.q, offer: o.offer, list: o.list, status: o.status, counter: o.counter || 0, until: o.until || 0, at: o.at, events: offerEvents(o) })) });
+    }
     // ---------- Trades, as a buyer (see _trades.js) ----------
     if (what === 'mytrades') return res.json({ trades: await require('./_trades').forBuyer(me) });
     if (what === 'trade' && req.method === 'POST') {
@@ -291,7 +307,7 @@ module.exports = async (req, res) => {
       const r = await ls({ prefix: 'offers/', limit: 1000 });
       const all = (await Promise.all((r.blobs || []).map((x) => store.read(x.pathname)))).filter((o) => o && mine[o.pid]);
       all.sort((a, b2) => (b2.at || 0) - (a.at || 0));
-      return res.json({ offers: all.slice(0, 100).map((o) => ({ n: o.n, pid: o.pid, item: o.item, q: o.q, offer: o.offer, list: o.list, buyer: o.buyer, pay: o.pay, status: o.status, at: o.at, until: o.until || 0, counter: o.counter || 0, t: o.status === 'pending' ? o.t : '' })) });
+      return res.json({ offers: all.slice(0, 100).map((o) => ({ n: o.n, pid: o.pid, item: o.item, q: o.q, offer: o.offer, list: o.list, buyer: o.buyer, pay: o.pay, status: o.status, at: o.at, until: o.until || 0, counter: o.counter || 0, who: M.hashOf(o.email || '').slice(0, 10), events: offerEvents(o), t: o.status === 'pending' ? o.t : '' })) });
     }
     if (req.method !== 'POST') return res.status(405).json({ error: 'Use POST.' });
 

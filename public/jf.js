@@ -123,5 +123,28 @@
     if (!small) c.appendChild(document.createTextNode(' Verified')); else { var sr = el('span', 'Verified seller', 'jf-sr'); c.appendChild(sr); }
     return c;
   }
-  window.JF = { stars: stars, check: check, modeBar: modeBar, token: token, emailOf: emailOf, signOut: signOut, el: el, usd: usd, cents: cents, api: api, signInBox: signInBox, picture: picture };
+  // The history of one or more offers on a piece, oldest first. who: 'buyer' (you offered…) or 'seller' (they offered…).
+  function offerHistory(offers, who) {
+    var me = who === 'buyer';
+    var ev = [];
+    offers.forEach(function (o) { (o.events || []).forEach(function (e) { ev.push({ e: e, o: o }); }); });
+    ev.sort(function (a, b) { return (a.e.at || 0) - (b.e.at || 0); });
+    var box = el('ol'); box.style.cssText = 'margin:6px 0 0;padding-left:20px;display:flex;flex-direction:column;gap:6px';
+    ev.forEach(function (x) {
+      var e = x.e, o = x.o, each = o.q > 1 ? ' each' : '', amt = cents(e.c);
+      var t = e.kind === 'offer' ? (me ? 'You offered ' : (o.buyer || 'They') + ' offered ') + cents(o.offer) + each
+        : e.kind === 'auto' ? (me ? 'You offered ' : 'Offered ') + cents(o.offer) + each + ', declined automatically (under ' + (me ? 'the seller\'s' : 'your') + ' lowest price)'
+        : e.kind === 'accepted' ? (me ? 'Seller accepted' : 'You accepted') + ' at ' + cents(o.offer) + each
+        : e.kind === 'countered' ? (me ? 'Seller countered at ' : 'You countered at ') + amt + each
+        : e.kind === 'declined' ? (me ? 'Seller declined' : 'You declined')
+        : e.kind === 'expired' ? 'Ran out before checkout' : String(e.kind);
+      var li = el('li', null, 'small');
+      li.appendChild(el('span', t));
+      li.appendChild(el('span', '  · ' + new Date(e.at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }), 'dim'));
+      box.appendChild(li);
+    });
+    if (!ev.length) box.appendChild(el('li', 'No history yet.', 'small dim'));
+    return box;
+  }
+  window.JF = { offerHistory: offerHistory, stars: stars, check: check, modeBar: modeBar, token: token, emailOf: emailOf, signOut: signOut, el: el, usd: usd, cents: cents, api: api, signInBox: signInBox, picture: picture };
 })();

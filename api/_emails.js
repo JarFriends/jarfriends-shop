@@ -23,9 +23,9 @@ const KINDS = [
   { id: 'outbid', who: 'Buyers', name: 'Outbid', re: /^You have been outbid/i, about: 'Tells a bidder someone bid more than them.' },
   { id: 'ending', who: 'Buyers', name: 'Auction ending soon', re: /^Ending soon:/i, about: 'Sent to bidders and watchers when an auction has under an hour left.' },
   { id: 'won', who: 'Buyers', name: 'Auction won', re: /^(You won|It is yours):/i, must: true, about: 'Tells the winner they won, with the link to pay.' },
-  { id: 'offer-yes', who: 'Buyers', name: 'Offer accepted', re: /^Your offer on .+ was accepted/i, must: true, about: 'Tells a buyer their offer was accepted, with the link to pay.' },
-  { id: 'offer-reply', who: 'Buyers', name: 'Offer declined or countered', re: /^About your offer on/i, about: 'Tells a buyer the seller declined their offer or made a counter offer.' },
-  { id: 'offer-late', who: 'Buyers', name: 'Accepted offer running out', re: /^Your offer on .+ runs out soon/i, about: 'Reminds a buyer to pay for an accepted offer before it runs out.' },
+  { id: 'offer-yes', who: 'Buyers', name: 'Offer accepted', re: /^Your offer on .+ was accepted/i, must: true, tail: true, about: 'Tells a buyer their offer was accepted, with the link to pay.' },
+  { id: 'offer-reply', who: 'Buyers', name: 'Offer declined or countered', re: /^(About your offer on|Counter offer on)/i, tail: true, about: 'Tells a buyer the seller declined their offer or made a counter offer.' },
+  { id: 'offer-late', who: 'Buyers', name: 'Accepted offer running out', re: /^Your offer on .+ runs out soon/i, tail: true, about: 'Reminds a buyer to pay for an accepted offer before it runs out.' },
   { id: 'news', who: 'Buyers', name: 'New pieces and price drops', re: /^(New at |Price drop:|\d+ (new pieces|price drops) at )|plus what is new at/i, about: 'Announcements to people who signed up for news: new pieces and lower prices.' },
   { id: 'trade-answer', who: 'Buyers', name: 'Trade answered', re: /^(Trade accepted:|About your trade for)/i, about: 'Tells a buyer the seller accepted (with how to reach them) or passed on their trade.' },
   // Sellers
@@ -97,6 +97,9 @@ async function apply(subject, lines, html, test, forceId) {
   let subj = subject, out = (Array.isArray(lines) ? lines : [String(lines == null ? '' : lines)]).slice(), h = html;
   if (s.subject) subj = s.subject.indexOf('{subject}') >= 0 ? s.subject.split('{subject}').join(subject) : s.subject;
   if (s.top) { out = s.top.split('\n').concat([''], out); if (h) h = addTop(h, s.top); }
+  // Offer emails link to the buyer's offer history on their account page.
+  const host = (process.env.SITE_HOST || '').trim();
+  if (k && k.tail && host && !test) { const l = 'See every offer you made and how each one went: https://' + host + '/me.html#offers'; out = out.concat(['', l]); if (h) h = addBottom(h, l); }
   const bottom = [s.bottom, v.every.bottom].filter(Boolean).join('\n\n');
   if (bottom) { out = out.concat([''], bottom.split('\n')); if (h) h = addBottom(h, bottom); }
   return { subject: subj, lines: out, html: h, kind: k ? k.id : '' };

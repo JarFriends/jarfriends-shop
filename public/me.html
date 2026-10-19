@@ -59,6 +59,7 @@
     var links = el('div'); links.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px';
     [['My orders', '/account.html'], ['My wishlist', '/wishlist.html'], ['Browse the market', '/market.html']].forEach(function (x) { var a = el('a', x[0], 'ghost'); a.href = x[1]; a.style.textDecoration = 'none'; links.appendChild(a); });
     wrap.appendChild(links);
+    wrap.appendChild(offerCard());
     wrap.appendChild(tradeCard());
     wrap.appendChild(reviewCard());
     wrap.appendChild(payCard());
@@ -71,6 +72,34 @@
   }
 
   // Review your purchases: every shipped order from a seller, with a 1-5 star pick and a few words.
+  // Offers the buyer has made, one row per piece, with the full back-and-forth under View history.
+  function offerCard() {
+    var c = el('section', null, 'card'); c.style.gap = '6px'; c.hidden = true; c.id = 'offers';
+    c.appendChild(el('h2', 'My offers'));
+    JF.api('/api/market?do=myoffers&t=' + encodeURIComponent(tok)).then(function (r) {
+      if (!r.offers || !r.offers.length) return;
+      c.hidden = false;
+      var words = { pending: 'WAITING FOR THE SELLER', accepted: 'ACCEPTED', countered: 'COUNTER OFFER', declined: 'DECLINED', auto: 'DECLINED', expired: 'RAN OUT' };
+      var by = {}, order = [];
+      r.offers.forEach(function (o) { if (!by[o.pid]) { by[o.pid] = []; order.push(o.pid); } by[o.pid].push(o); });
+      order.forEach(function (pid) {
+        var list = by[pid], last = list[0];
+        var row = el('div', null, 'jf-row'); row.style.flexDirection = 'column'; row.style.alignItems = 'stretch';
+        var top = el('div'); top.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between';
+        var a = el('a', last.item); a.href = '/order.html?product=' + encodeURIComponent(pid); a.style.fontWeight = '700'; top.appendChild(a);
+        top.appendChild(el('span', words[last.status] || String(last.status).toUpperCase(), 'jf-badge ' + (last.status === 'accepted' || last.status === 'countered' ? 'ok' : last.status === 'pending' ? 'wait' : 'off')));
+        row.appendChild(top);
+        row.appendChild(el('div', 'Your latest offer: ' + JF.cents(last.offer) + (last.q > 1 ? ' each' : '') + ' · listed at ' + JF.cents(last.list) + (last.status === 'countered' ? ' · seller countered at ' + JF.cents(last.counter) : '') + ((last.status === 'accepted' || last.status === 'countered') && last.until ? ' · check out by ' + new Date(last.until).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) + ' (the link is in your email)' : ''), 'small'));
+        var hb = el('button', 'View history of offers' + (list.length > 1 ? ' (' + list.length + ')' : ''), 'ghost'); hb.type = 'button'; hb.style.alignSelf = 'flex-start';
+        var hist = el('div'); hist.hidden = true;
+        hb.addEventListener('click', function () { if (!hist.firstChild) hist.appendChild(JF.offerHistory(list, 'buyer')); hist.hidden = !hist.hidden; hb.textContent = hist.hidden ? 'View history of offers' + (list.length > 1 ? ' (' + list.length + ')' : '') : 'Hide history'; });
+        row.appendChild(hb); row.appendChild(hist);
+        c.appendChild(row);
+      });
+      if (location.hash === '#offers') setTimeout(function () { c.scrollIntoView({ behavior: 'smooth' }); }, 300);
+    }).catch(function () {});
+    return c;
+  }
   // Trades the buyer has sent, with the seller's answer.
   function tradeCard() {
     var c = el('section', null, 'card'); c.style.gap = '6px'; c.hidden = true;
