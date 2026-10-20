@@ -68,6 +68,7 @@ function offerEvents(o) {
 }
 module.exports = async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
+  require('./_ai').take(req);
   const q = req.query || {};
   let b = req.body || {};
   if (typeof b === 'string') { try { b = JSON.parse(b); } catch (e) { b = {}; } }
@@ -156,6 +157,18 @@ module.exports = async (req, res) => {
       const out = await mail(owner, 'Help request from ' + email, ['From: ' + email, page ? 'Page: ' + page : '', '', text, '', 'Reply to ' + email + ' to answer.'].filter((x, i) => x || i > 1), 'ask-' + crypto3.createHash('sha1').update(email + '|' + text).digest('hex').slice(0, 20)).catch(() => 'failed');
       if (out !== 'sent' && out !== 'duplicate') return res.status(502).json({ error: 'Could not send just now. Email jarvisfriends@gmail.com instead.' });
       return res.json({ ok: true });
+    }
+    // A quick check that AI is reachable (through Vercel AI Gateway): answers { ok } and nothing else. A few an hour.
+    if (what === 'ai-check') {
+      const ip = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || 'x', now = Date.now(), k = 'aic|' + ip;
+      const seen = (photoHits.get(k) || []).filter((t) => now - t < 3600000);
+      if (seen.length >= 5) return res.status(429).json({ error: 'Try again later.' });
+      seen.push(now); photoHits.set(k, seen);
+      const A = require('./_ai');
+      if (!A.on()) return res.json({ ok: false, why: 'off' });
+      const r = await fetch(A.url(), { method: 'POST', signal: AbortSignal.timeout(20000), headers: A.headers(), body: JSON.stringify({ model: A.model(), max_tokens: 5, messages: [{ role: 'user', content: 'Reply with the word OK.' }] }) }).catch((e) => ({ ok: false, status: 0, text: async () => String(e) }));
+      if (!r.ok) { const t = (await r.text()).slice(0, 300); console.error('AI_CHECK_FAIL', r.status, t); return res.json({ ok: false, status: r.status, why: t.replace(/sk-[A-Za-z0-9_-]+/g, '') }); }
+      return res.json({ ok: true, via: A.url().indexOf('vercel') > 0 ? 'Vercel AI Gateway' : 'Anthropic', model: A.model() });
     }
     // The owner's own pages (/p/<address>) and the menu links to them (see _pages.js).
     if (what === 'pages-menu') { res.setHeader('cache-control', 'public, max-age=0, s-maxage=20'); return res.json(await require('./_pages').menu()); }
@@ -299,10 +312,9 @@ module.exports = async (req, res) => {
     }
     // ---------- Search by photo (public) ----------
     // A buyer's photo goes to AI with the list of pieces for sale; it answers what the photo shows and which pieces
-    // match. Needs ANTHROPIC_API_KEY. Limited to 12 searches an hour for each visitor, since each one costs money.
+    // match. Uses AI (see _ai.js). Limited to 12 searches an hour for each visitor, since each one costs money.
     if (what === 'photo-search' && req.method === 'POST') {
-      const key = (process.env.ANTHROPIC_API_KEY || '').trim();
-      if (!key) return res.status(503).json({ error: 'Photo search is not switched on yet.' });
+      if (!require('./_ai').on()) return res.status(503).json({ error: 'Photo search is not switched on yet.' });
       const ip = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || 'x';
       const now = Date.now(), seen = (photoHits.get(ip) || []).filter((t) => now - t < 3600000);
       if (seen.length >= 12) return res.status(429).json({ error: 'That is a lot of photo searches. Try again in a little while, or type what you are looking for.' });
@@ -311,10 +323,10 @@ module.exports = async (req, res) => {
       if (data.length < 1000 || data.length > 2000000) return res.status(400).json({ error: 'That photo could not be used. Try another one.' });
       const items = (await shopItems()).filter((p) => p.left > 0 || p.auction).slice(0, 400);
       const list = items.map((p) => p.id + ': ' + p.name + (p.section ? ' [' + p.section + ']' : '')).join('\n');
-      const r = await fetch('https://api.anthropic.com/v1/messages', {
+      const r = await fetch(require('./_ai').url(), {
         method: 'POST', signal: AbortSignal.timeout(25000),
-        headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-        body: JSON.stringify({ model: (process.env.AI_MODEL || 'claude-haiku-5-5').trim(), max_tokens: 400,
+        headers: require('./_ai').headers(),
+        body: JSON.stringify({ model: require('./_ai').model(), max_tokens: 400,
           system: 'You help shoppers on a marketplace for VeeFriends collectibles (cards, graded slabs, comics, pins, stickers, toys and more). Look at the shopper\'s photo and find matching pieces in the list. Reply with JSON only: {"what": "a short plain description of the item in the photo, under 8 words, good as search words", "ids": ["up to 8 ids from the list that are the same item or very close, best match first"]}. Use only ids from the list. If nothing is close, use an empty ids list.',
           messages: [{ role: 'user', content: [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: data } }, { type: 'text', text: 'Pieces for sale:\n' + (list || '(none)') }] }] })
       }).catch((e) => ({ ok: false, status: 0, text: async () => String(e) }));
@@ -538,10 +550,9 @@ module.exports = async (req, res) => {
       return res.json({ ok: await M.removeListing(seller, id) });
     }
     // Bring an eBay listing over from its link, or check the seller's eBay-linked pieces right now (see _ebay.js).
-    // AI suggests a title, description and category from a photo of the piece. Needs ANTHROPIC_API_KEY.
+    // AI suggests a title, description and category from a photo of the piece (see _ai.js).
     if (what === 'listing-ai') {
-      const key = (process.env.ANTHROPIC_API_KEY || '').trim();
-      if (!key) return res.status(503).json({ error: 'AI suggestions are not switched on yet (the V2V owner adds ANTHROPIC_API_KEY). Type the title yourself for now.' });
+      if (!require('./_ai').on()) return res.status(503).json({ error: 'AI suggestions are not switched on yet. Type the title yourself for now.' });
       const now = Date.now(), k = 'L' + seller.slug, seen = (photoHits.get(k) || []).filter((t) => now - t < 3600000);
       if (seen.length >= 40) return res.status(429).json({ error: 'That is a lot of photos this hour. Try again a little later.' });
       seen.push(now); photoHits.set(k, seen);
@@ -550,10 +561,10 @@ module.exports = async (req, res) => {
       // kind 'auto': AI decides whether the picture is a screenshot of a listing (eBay and the like) or a photo of the piece.
       const auto = b.kind === 'auto';
       let shot = b.kind === 'screenshot';
-      const r = await fetch('https://api.anthropic.com/v1/messages', {
+      const r = await fetch(require('./_ai').url(), {
         method: 'POST', signal: AbortSignal.timeout(25000),
-        headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-        body: JSON.stringify({ model: (process.env.AI_MODEL || 'claude-haiku-5-5').trim(), max_tokens: 600,
+        headers: require('./_ai').headers(),
+        body: JSON.stringify({ model: require('./_ai').model(), max_tokens: 600,
           system: auto ? 'You help sellers list collectibles (mostly VeeFriends: cards, graded slabs, comics, pins, stickers, toys, NFTs) on V2V, a marketplace. First decide what the picture is: a SCREENSHOT of a marketplace listing (eBay or similar: shows a listing page with a title, price, buttons, seller info) or a PHOTO of the actual item. Reply with JSON only: {"kind": "screenshot" or "photo", "title": "for a screenshot, the listing title as shown, cleaned up, under 110 characters; for a photo, a clear searchable title under 90 characters (character or item name, set or series, edition, grade if a slab label is visible)", "price": for a screenshot the Buy It Now or current price as a number with no $ (else null), "shipping": for a screenshot "free" if free shipping is shown, else the shipping cost as a number, or null, "quantity": for a screenshot the available quantity (1 if not shown), else null, "description": "2 to 6 short plain sentences about the item only: what it is, edition, number, grade, condition, what is included. For a screenshot use the item details shown and leave out seller policies, returns and eBay wording. Never invent facts; say see photos for condition if unclear.", "category": "one of: ' + M.SECTIONS.join(', ') + '"}' : shot ? 'You turn a screenshot of a marketplace listing (usually eBay) into a listing for V2V, a marketplace for VeeFriends collectibles. Read only what is visible. Reply with JSON only: {"title": "the listing title as shown, cleaned up, under 110 characters", "price": the Buy It Now or current price as a number with no $ (null if not shown), "shipping": "free" if free shipping is shown, else the shipping cost as a number, or null if not shown, "quantity": the available quantity as a number (1 if not shown), "description": "the item description and item specifics shown (condition, grade, edition, set, card number, what is included), as 2 to 6 short plain sentences; leave out seller policies, returns, eBay wording and anything not about the item", "category": "one of: ' + M.SECTIONS.join(', ') + '"}. Never invent details that are not in the screenshot.' : 'You help sellers list collectibles (mostly VeeFriends: cards, graded slabs, comics, pins, stickers, toys, NFTs) on a marketplace. From the photo, write a listing. Reply with JSON only: {"title": "a clear, searchable title under 90 characters: character or item name, set or series, edition, grade if a slab label is visible", "description": "2 to 4 short sentences describing exactly what is shown: what it is, any visible edition, number, grade or condition details, and what is included. Do not invent facts you cannot see; say \'see photos\' for condition if unclear.", "category": "one of: ' + M.SECTIONS.join(', ') + '"}',
           messages: [{ role: 'user', content: [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: data } }, { type: 'text', text: auto ? 'Is this a listing screenshot or a photo of the item? Write the listing.' : shot ? 'Turn this listing screenshot into a listing.' : 'Write the listing for this piece.' }] }] })
       }).catch((e) => ({ ok: false, status: 0, text: async () => String(e) }));

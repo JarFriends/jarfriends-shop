@@ -58,7 +58,7 @@
     line.appendChild(how); line.appendChild(go); wrap.appendChild(line);
     var out = el('div'); wrap.appendChild(out);
     go.addEventListener('click', function () {
-      if (!D.ai) { out.textContent = 'AI editing is not set up yet: add ANTHROPIC_API_KEY in the Vercel environment variables, then redeploy. You can still write and save your own words.'; out.className = 'small dim'; return; }
+      if (!D.ai) { out.textContent = 'AI editing is not switched on yet. You can still write and save your own words.'; out.className = 'small dim'; return; }
       go.disabled = true; out.className = 'small'; out.textContent = 'AI is editing…';
       post({ do: 'email-ai', text: t.value, how: how.value, about: about }).then(function (r) {
         go.disabled = false; out.textContent = '';

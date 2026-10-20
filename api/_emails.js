@@ -5,7 +5,7 @@
 //   - write their own message for the top of the email, and a sign-off for the bottom
 // The order details, tracking numbers and pay links always stay in the email, so it still does its job.
 // There is also a sign-off added to every email.
-// The owner's words can be polished by AI (ANTHROPIC_API_KEY) before saving; nothing is sent without them saving it.
+// The owner's words can be polished by AI (see _ai.js) before saving; nothing is sent without them saving it.
 //
 // Storage: emails/settings.json  { kinds: { <id>: { off, subject, top, bottom, at } }, every: { bottom, at } }
 const store = require('./_store');
@@ -109,22 +109,21 @@ async function apply(subject, lines, html, test, forceId) {
 // The back office list.
 async function list() {
   const v = await settings();
-  return { ai: !!(process.env.ANTHROPIC_API_KEY || '').trim(), sending: !!((process.env.RESEND_API_KEY || '').trim() && (process.env.EMAIL_FROM || '').trim()),
+  return { ai: require('./_ai').on(), sending: !!((process.env.RESEND_API_KEY || '').trim() && (process.env.EMAIL_FROM || '').trim()),
     every: v.every, kinds: KINDS.map((k) => Object.assign({ id: k.id, who: k.who, name: k.name, about: k.about, must: !!k.must }, v.kinds[k.id] || {})) };
 }
 
 // AI polish: the owner writes, AI tidies. Returns the edited text only; it is not saved until the owner saves it.
 async function polish(text, how, about) {
-  const key = (process.env.ANTHROPIC_API_KEY || '').trim();
-  if (!key) return { error: 'AI editing is not set up yet. Add ANTHROPIC_API_KEY in the Vercel environment variables, then redeploy.' };
+  if (!require('./_ai').on()) return { error: 'AI editing is not set up yet.' };
   text = clip(text, 3000);
   if (text.length < 2) return { error: 'Write something first, then AI can tidy it.' };
   const brand = (process.env.BRAND_NAME || 'V2V').trim();
-  const r = await fetch('https://api.anthropic.com/v1/messages', {
+  const r = await fetch(require('./_ai').url(), {
     method: 'POST', signal: AbortSignal.timeout(25000),
-    headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+    headers: require('./_ai').headers(),
     body: JSON.stringify({
-      model: (process.env.AI_MODEL || 'claude-haiku-5-5').trim(), max_tokens: 800,
+      model: require('./_ai').model(), max_tokens: 800,
       system: 'You edit short emails that the owner of ' + brand + ', a marketplace for VeeFriends collectibles, sends to buyers and sellers. Keep the owner\'s meaning and voice. Fix spelling and grammar and make it clear and friendly. Do not add facts, prices, dates, discounts or promises the owner did not write. Keep it about the same length unless asked otherwise. Reply with the edited text only, no quotes and no notes.',
       messages: [{ role: 'user', content: 'This text goes in the "' + clip(about, 120) + '" email.' + (clip(how, 200) ? ' How to change it: ' + clip(how, 200) + '.' : '') + '\n\nText:\n' + text }]
     })
