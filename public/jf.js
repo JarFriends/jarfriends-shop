@@ -21,7 +21,19 @@
   // The V2V sign-in box: Continue with Google, or an email and password. A new password account confirms its
   // email with a 6-digit code first. done(token) runs once signed in; the token is kept as acct_token.
   var gLoad = null;
+  // Google's sign-in script is only loaded once someone taps "Continue with Google": loaded up front, it hooks into the
+  // email box's autofill in some browsers, which has made a browser close when typing an email.
   function google(host, msg, done, or) {
+    if (!host.dataset.armed) {
+      host.dataset.armed = '1';
+      var gb = el('button', 'Continue with Google', 'ghost'); gb.type = 'button'; gb.style.cssText = 'width:100%;max-width:300px;min-height:44px';
+      gb.addEventListener('click', function () { gb.disabled = true; gb.textContent = 'Opening Google…'; host.textContent = ''; realGoogle(host, msg, done, or); });
+      host.appendChild(gb);
+      return;
+    }
+    realGoogle(host, msg, done, or);
+  }
+  function realGoogle(host, msg, done, or) {
     gLoad = gLoad || fetch('/api/google', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (c) {
       if (!c.clientId) return null;
       return new Promise(function (ok) { var sc = document.createElement('script'); sc.src = 'https://accounts.google.com/gsi/client'; sc.async = true; sc.onload = function () { ok(c.clientId); }; sc.onerror = function () { ok(null); }; document.head.appendChild(sc); });
@@ -33,6 +45,7 @@
         api('/api/google', { credential: resp.credential }).then(function (r) { if (!r.token) { msg.textContent = r.error || 'Could not sign in with Google.'; return; } keep(r.token); done(r.token); });
       } });
       window.google.accounts.id.renderButton(host, { theme: 'filled_black', size: 'large', text: 'continue_with', shape: 'rectangular', width: 300 });
+      msg.textContent = 'Press the Google button to continue.';
     });
   }
   function keep(t) { try { localStorage.setItem('acct_token', t); localStorage.removeItem('bid_token'); } catch (x) {} }
@@ -86,7 +99,7 @@
     show();
     or.hidden = true; or.dataset.off = '1';
     google(g, msg, done, null);
-    gLoad.then(function (cid) { if (cid && window.google) { delete or.dataset.off; show(); } });
+    // (Google's own button replaces ours once loaded.)
   }
   // The picture for a piece: its uploaded photo, else the shop's own photo files, else a plain tile with its initials.
   function picture(p) {
