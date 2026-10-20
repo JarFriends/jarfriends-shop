@@ -11,6 +11,9 @@ const M = require('./_sellers');
 const CHOICES = ['Series 1', 'Series 2'];
 // A third choice: people type what they would rather the wallet buys. Ideas are counted together (same words, any case).
 const OTHER = 'Something else';
+// Each round of voting lasts this many days (30 unless VOTE_DAYS is set); then a new round starts by itself.
+const DAY = 86400000;
+const roundDays = () => { const v = Math.floor(Number(process.env.VOTE_DAYS)); return v > 0 ? v : 30; };
 const doubleAfter = () => { const v = Math.floor(Number(process.env.VOTE_DOUBLE_AFTER)); return v > 0 ? v : 3; };
 
 async function paths(prefix) {
@@ -22,8 +25,19 @@ async function paths(prefix) {
   return out;
 }
 async function state() {
-  const s = store.on() ? await store.read('giveaway/state.json') : null;
-  return Object.assign({ round: 1, open: true, choices: CHOICES, startedAt: 0 }, s || {});
+  const saved = store.on() ? await store.read('giveaway/state.json') : null;
+  const s = Object.assign({ round: 1, open: true, choices: CHOICES, startedAt: 0 }, saved || {});
+  const now = Date.now(), len = roundDays() * DAY;
+  let changed = false;
+  if (!s.startedAt) { s.startedAt = now; changed = true; }
+  // Past the end of the round: start the next one (skipping any whole rounds nobody was around for).
+  if (now - s.startedAt >= len) {
+    const n = Math.floor((now - s.startedAt) / len);
+    s.round += n; s.startedAt += n * len; s.open = true; s.closedAt = 0; changed = true;
+  }
+  s.endsAt = s.startedAt + len;
+  if (changed && store.on()) { try { await store.write('giveaway/state.json', s); } catch (e) {} memo = null; }
+  return s;
 }
 async function setRound(action) {
   const s = await state();
@@ -32,6 +46,7 @@ async function setRound(action) {
   else if (action === 'open') Object.assign(s, { open: true, closedAt: 0 });
   else return { error: 'Unknown action.' };
   await store.write('giveaway/state.json', s);
+  memo = null;
   return { ok: true, state: s };
 }
 
@@ -49,6 +64,9 @@ async function vote(email, choice, text) {
   if (s.choices.indexOf(choice) < 0 && choice !== OTHER) return { error: 'Pick ' + s.choices.join(', ') + ' or ' + OTHER + '.' };
   const idea = String(text || '').replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80);
   if (choice === OTHER && idea.length < 2) return { error: 'Type what you would like the wallet to buy.' };
+  const path = 'giveaway/votes/' + s.round + '/' + M.hashOf(email) + '.json';
+  // One vote per account per round (one round a month). A vote cannot be changed once it is in.
+  if (await store.read(path)) return { error: 'You already voted this round. The next vote opens ' + new Date(s.endsAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', timeZone: 'America/Chicago' }) + '.' };
   const w = await weightOf(email);
   await store.write('giveaway/votes/' + s.round + '/' + M.hashOf(email) + '.json', Object.assign({ choice: choice, weight: w.weight, at: Date.now() }, choice === OTHER ? { text: idea } : {}));
   memo = null;
@@ -66,7 +84,7 @@ async function results() {
     tally[v.choice] += v.weight || 1; people[v.choice]++;
     if (v.choice === OTHER && v.text) { const k = v.text.toLowerCase(); ideas[k] = ideas[k] || { text: v.text, votes: 0, people: 0 }; ideas[k].votes += v.weight || 1; ideas[k].people++; }
   });
-  const v = { round: s.round, open: s.open, choices: s.choices, other: OTHER, ideas: Object.keys(ideas).map((k) => ideas[k]).sort((a, b) => b.votes - a.votes).slice(0, 20), tally: tally, people: people, voters: votes.length, doubleAfter: doubleAfter(), startedAt: s.startedAt, closedAt: s.closedAt || 0 };
+  const v = { round: s.round, open: s.open, endsAt: s.endsAt, days: roundDays(), choices: s.choices, other: OTHER, ideas: Object.keys(ideas).map((k) => ideas[k]).sort((a, b) => b.votes - a.votes).slice(0, 20), tally: tally, people: people, voters: votes.length, doubleAfter: doubleAfter(), startedAt: s.startedAt, closedAt: s.closedAt || 0 };
   memo = { round: s.round, at: Date.now(), v: v };
   return v;
 }

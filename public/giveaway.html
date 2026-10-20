@@ -55,17 +55,18 @@
 <script>
 (function () {
   var $ = function (id) { return document.getElementById(id); }, el = JF.el, tok = JF.token(), D = null;
+  var day = function (t) { return new Date(t).toLocaleDateString('en-US', { month: 'long', day: 'numeric' }); };
   var money = function (c) { return '$' + ((c || 0) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
   function draw() {
     $('wallet').textContent = money(D.wallet);
     $('lead').textContent = 'JarFriends keeps ' + D.fee + '% of each sale. ' + D.pct + '% of every sale comes out of that fee and goes into the community giveaway wallet. Buyers and sellers pay nothing extra.';
     var opts = D.choices.concat([D.other || 'Something else']);
     $('vHead').textContent = D.open ? 'Vote: ' + D.choices.join(', ') + ' or something else?' : 'Voting is closed for this round';
-    $('vRules').textContent = 'Anyone with a JarFriends account gets 1 vote. Buyers and sellers who have completed ' + D.doubleAfter + ' or more sales on JarFriends get 2 votes, because they keep the wallet growing. You can change your vote while voting is open.';
+    $('vRules').textContent = 'Anyone with a JarFriends account gets 1 vote. Buyers and sellers who have completed ' + D.doubleAfter + ' or more sales on JarFriends get 2 votes, because they keep the wallet growing. Everyone votes once a month, and a vote cannot be changed. ' + (D.endsAt ? 'This round ends ' + day(D.endsAt) + ', and a new vote starts then.' : '');
     var pick = $('pick'); pick.textContent = '';
-    var otherBox = el('div', null, 'gv-other'); otherBox.hidden = !(D.me && D.me.choice === D.other);
+    var otherBox = el('div', null, 'gv-other'); otherBox.hidden = true;
     var otherIn = el('input'); otherIn.type = 'text'; otherIn.maxLength = 80; otherIn.placeholder = 'What should the wallet buy instead?'; otherIn.value = (D.me && D.me.text) || '';
-    var otherGo = el('button', 'Save my vote', 'solid'); otherGo.type = 'button';
+    var otherGo = el('button', 'Cast my vote', 'solid'); otherGo.type = 'button';
     otherGo.addEventListener('click', function () { cast(D.other, otherIn.value); });
     otherIn.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') { ev.preventDefault(); cast(D.other, otherIn.value); } });
     otherBox.appendChild(otherIn); otherBox.appendChild(otherGo);
@@ -75,14 +76,14 @@
       b.appendChild(document.createTextNode(c));
       b.appendChild(el('small', isOther ? 'Type your own idea' : 'VeeFriends ' + c + ' NFT'));
       b.setAttribute('aria-pressed', D.me && D.me.choice === c ? 'true' : 'false');
-      b.disabled = !D.open;
+      b.disabled = !D.open || !!(D.me && D.me.choice);
       b.addEventListener('click', function () { if (isOther) { if (!tok) { location.href = '/me.html'; return; } otherBox.hidden = false; otherIn.focus(); } else cast(c); });
       pick.appendChild(b);
     });
     pick.parentNode.insertBefore(otherBox, pick.nextSibling);
     var oldBox = document.querySelectorAll('.gv-other'); for (var ob = 0; ob < oldBox.length - 1; ob++) oldBox[ob].remove();
     if (!tok) $('vMsg').innerHTML = '🔒 Voting is for signed-in members only. <a href="/me.html">Sign in or make a free account</a> to vote.';
-    else if (D.me) $('vMsg').textContent = (D.me.choice ? 'You voted ' + (D.me.choice === D.other && D.me.text ? '“' + D.me.text + '”' : D.me.choice) + '. ' : '') + 'Your vote counts ' + (D.me.weight === 2 ? 'twice, because you have completed ' + D.me.trades + ' sales on JarFriends.' : 'once' + (D.me.trades ? ' (' + D.me.trades + ' of ' + D.doubleAfter + ' sales for a double vote).' : '. Complete ' + D.doubleAfter + ' sales as a buyer or seller to get a double vote.'));
+    else if (D.me) $('vMsg').textContent = (D.me.choice ? 'You voted ' + (D.me.choice === D.other && D.me.text ? '“' + D.me.text + '”' : D.me.choice) + ' this month. Next vote opens ' + day(D.endsAt) + '. ' : '') + 'Your vote counts ' + (D.me.weight === 2 ? 'twice, because you have completed ' + D.me.trades + ' sales on JarFriends.' : 'once' + (D.me.trades ? ' (' + D.me.trades + ' of ' + D.doubleAfter + ' sales for a double vote).' : '. Complete ' + D.doubleAfter + ' sales as a buyer or seller to get a double vote.'));
     var res = $('results'); res.textContent = '';
     var total = opts.reduce(function (t, c) { return t + (D.tally[c] || 0); }, 0);
     res.appendChild(el('div', 'Results so far: ' + D.voters + (D.voters === 1 ? ' person has' : ' people have') + ' voted.', 'small dim'));

@@ -80,7 +80,7 @@
     <div class="v-vtop"><h1 id="vHead">Vote: what should the community wallet buy?</h1><a class="v-vmore" href="/giveaway.html">How it works</a></div>
     <p class="v-vsub" id="wallet">2% of every sale goes into the community wallet, which buys a VeeFriends NFT to give away to active buyers and sellers.</p>
     <div class="v-vpick" id="vPick"></div>
-    <div class="v-vother" id="vOther" hidden><input id="vText" type="text" maxlength="80" placeholder="What should the wallet buy instead?"><button type="button" class="solid" id="vSave">Save my vote</button></div>
+    <div class="v-vother" id="vOther" hidden><input id="vText" type="text" maxlength="80" placeholder="What should the wallet buy instead?"><button type="button" class="solid" id="vSave">Cast my vote</button></div>
     <div class="small" id="vMsg" role="status" aria-live="polite"></div>
   </section>
   <div class="v-bar" role="group" aria-label="Filter and sort">
@@ -254,18 +254,19 @@
       var b = el('button'); b.type = 'button'; b.appendChild(document.createTextNode(c));
       var pct = total ? Math.round((D.tally[c] || 0) * 100 / total) : 0;
       b.appendChild(el('small', total ? pct + '% of votes' : c === D.other ? 'Type your idea' : 'VeeFriends NFT'));
-      b.setAttribute('aria-pressed', D.me && D.me.choice === c ? 'true' : 'false'); b.disabled = !D.open;
+      b.setAttribute('aria-pressed', D.me && D.me.choice === c ? 'true' : 'false'); b.disabled = !D.open || !!(D.me && D.me.choice);
       b.addEventListener('click', function () {
         if (!tok) { $('vMsg').innerHTML = '🔒 Only members can vote. <a href="/me.html">Sign in or make a free account</a>.'; return; }
         if (c === D.other) { $('vOther').hidden = false; $('vText').focus(); } else cast(c);
       });
       pick.appendChild(b);
     });
-    if (D.me && D.me.choice === D.other) { $('vOther').hidden = false; $('vText').value = D.me.text || ''; }
+    if (D.me && D.me.choice) $('vOther').hidden = true;
+    var day = function (t) { return new Date(t).toLocaleDateString('en-US', { month: 'long', day: 'numeric' }); };
     if (!D.open) $('vMsg').textContent = 'Voting is closed for this round.';
     else if (!tok) $('vMsg').textContent = D.voters + (D.voters === 1 ? ' person has' : ' people have') + ' voted. Sign in to vote; people with ' + D.doubleAfter + '+ sales get 2 votes.';
-    else if (D.me && D.me.choice) $('vMsg').textContent = 'You voted ' + (D.me.choice === D.other && D.me.text ? '“' + D.me.text + '”' : D.me.choice) + '. Your vote counts ' + (D.me.weight === 2 ? 'twice.' : 'once.') + ' Tap another to change it.';
-    else $('vMsg').textContent = 'Tap one to vote. ' + (D.me && D.me.weight === 2 ? 'Your vote counts twice.' : 'Complete ' + D.doubleAfter + ' sales to get 2 votes.');
+    else if (D.me && D.me.choice) $('vMsg').textContent = 'You voted ' + (D.me.choice === D.other && D.me.text ? '“' + D.me.text + '”' : D.me.choice) + ' this month. Your vote counts ' + (D.me.weight === 2 ? 'twice.' : 'once.') + ' Next vote opens ' + day(D.endsAt) + '.';
+    else $('vMsg').textContent = 'Tap one to vote. One vote a month, and it cannot be changed. ' + (D.me && D.me.weight === 2 ? 'Your vote counts twice.' : 'Complete ' + D.doubleAfter + ' sales to get 2 votes.');
   }
   function load() {
     JF.api('/api/market?do=giveaway' + (tok ? '&t=' + encodeURIComponent(tok) : '')).then(function (r) { if (r.error || !r.choices) return; D = r; draw(); }).catch(function () {});
