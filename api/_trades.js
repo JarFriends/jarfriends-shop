@@ -1,6 +1,6 @@
 // Trades: a buyer who likes a piece offers something of their own for it, with a photo, a message, and money
 // either way (they add money, they want money back, or an even swap). The seller accepts or declines from their
-// store office; on accept both sides get each other's email to arrange the swap.
+// Seller Hub; on accept both sides get each other's email to arrange the swap.
 //
 // Storage: trades/<seller slug>/<id>.json
 //   { id, slug, pid, product, email, name, text, dir: 'even'|'add'|'ask', diff (cents), photo (time saved),

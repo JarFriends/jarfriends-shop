@@ -60,7 +60,7 @@
         go.disabled = false;
         if (r._status === 401) { msg.textContent = 'Please sign in again on your account page, then come back.'; return; }
         if (r.error) { msg.textContent = r.error; return; }
-        form.hidden = true; card.appendChild(el('div', 'Sent. ' + (p.sellerName || 'The seller') + ' will see it in their store office, and we will email you their answer. You can follow it on your account page.', 'small'));
+        form.hidden = true; card.appendChild(el('div', 'Sent. ' + (p.sellerName || 'The seller') + ' will see it in their Seller Hub, and we will email you their answer. You can follow it on your account page.', 'small'));
       }).catch(function (e) { go.disabled = false; msg.textContent = e && e.message ? e.message : 'It did not send. Try again.'; });
     });
     var after = document.getElementById('offerBox') || document.querySelector('main section.card');

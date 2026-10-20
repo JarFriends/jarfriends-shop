@@ -2,6 +2,8 @@
 (function () {
   var id = new URLSearchParams(location.search).get('product');
   if (!id) return;
+  // Count one view of this piece per visit, for the seller's Traffic numbers.
+  try { var seen = sessionStorage.getItem('v2vView-' + id); if (!seen) { sessionStorage.setItem('v2vView-' + id, '1'); fetch('/api/market?do=view&id=' + encodeURIComponent(id)).catch(function () {}); } } catch (e) {}
   fetch('/api/market?do=item&id=' + encodeURIComponent(id), { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (p) {
     if (!p || !p.sellerName) return;
     var d = document.createElement('div'); d.className = 'small'; d.style.cssText = 'display:flex;gap:6px;align-items:center;flex-wrap:wrap';

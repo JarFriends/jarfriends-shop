@@ -121,7 +121,7 @@ async function sync(limit) {
     if (!e.live) {
       await M.setListing(seller, p.id, { hidden: true, ebay: Object.assign({}, p.ebay, { checkedAt: Date.now(), status: 'gone', goneAt: Date.now() }) });
       const host = 'https://' + String(process.env.SITE_HOST || 'v2v-market.vercel.app').replace(/^https?:\/\//, '');
-      await require('./_lib').mail(seller.email, 'Sold or ended on eBay: ' + p.name, ['Your eBay listing for ' + p.name + ' has sold or ended, so we took it down on V2V for you. Nobody can buy it here now.', '', 'If it is still for sale, put it back in your store office: ' + host + '/seller.html'], 'ebay-gone-' + p.id).catch(() => null);
+      await require('./_lib').mail(seller.email, 'Sold or ended on eBay: ' + p.name, ['Your eBay listing for ' + p.name + ' has sold or ended, so we took it down on V2V for you. Nobody can buy it here now.', '', 'If it is still for sale, put it back in your Seller Hub: ' + host + '/seller.html'], 'ebay-gone-' + p.id).catch(() => null);
       out.push([p.id, 'gone']);
     } else { await M.setListing(seller, p.id, { ebay: Object.assign({}, p.ebay, { checkedAt: Date.now(), status: 'live', lastError: '' }) }); out.push([p.id, 'live']); }
   }

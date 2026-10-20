@@ -133,8 +133,10 @@ module.exports = async (req, res) => {
     }
 
     // ---------- The owner ----------
-    if (what === 'admin' || what === 'status' || what === 'payout' || what === 'issue' || what === 'review-remove' || what === 'verify' || what === 'charge' || what === 'import' || what === 'emails' || what === 'email-save' || what === 'email-ai' || what === 'email-test' || what === 'giveaway-round') {
+    if (what === 'admin' || what === 'status' || what === 'payout' || what === 'issue' || what === 'review-remove' || what === 'verify' || what === 'charge' || what === 'import' || what === 'emails' || what === 'email-save' || what === 'email-ai' || what === 'email-test' || what === 'giveaway-round' || what === 'bank') {
       if (!gate.isAdmin(req.method === 'POST' ? b.ak : q.ak)) return res.status(401).json({ error: 'Sign in to the back office again.' });
+      // The full bank details of one seller, to send them a payout by hand.
+      if (what === 'bank' && req.method === 'POST') { const s = await M.bySlug(String(b.slug || '')); const k = s && M.bankOf(s); return k ? res.json({ bank: k }) : res.status(404).json({ error: 'This seller has no bank account on file.' }); }
       if (what === 'giveaway-round') { const r = await require('./_giveaway').setRound(String(b.action || '')); return res.status(r.error ? 400 : 200).json(r); }
       // The Emails tab: every automatic email, which are off, and the owner's own words in them (see _emails.js).
       if (what === 'emails' || what === 'email-save' || what === 'email-ai' || what === 'email-test') {
@@ -154,7 +156,7 @@ module.exports = async (req, res) => {
         if (stripeBase.ready()) await Promise.all(sellers.filter((x) => x.stripe && !x.stripeOn).map((x) => connect.status(x).catch(() => null)));
         const list = sellers.map((s) => {
           const mine = rows.filter((r) => r.seller === s.slug), paid = outs.filter((p) => p.seller === s.slug);
-          return Object.assign({}, s, { listings: listings.filter((p) => p.seller === s.slug).length, totals: M.totals(mine, paid), payouts: paid });
+          return Object.assign(M.safe(s), { listings: listings.filter((p) => p.seller === s.slug).length, totals: M.totals(mine, paid), payouts: paid });
         });
         const all = M.totals(rows, outs);
         const st = await M.statsAll(sellers);
@@ -204,7 +206,7 @@ module.exports = async (req, res) => {
           await mail(s.email, 'Your JarFriends seller shop is open', ['Good news: your seller shop "' + s.name + '" is approved.', '', 'List your pieces here:', 'https://' + req.headers.host + '/seller.html'], 'seller-ok-' + s.slug + '-' + s.statusAt,
             '<div style="background:#0B1712;padding:28px 16px;font-family:Arial,Helvetica,sans-serif;color:#E6EFE9"><div style="max-width:520px;margin:0 auto"><div style="font-size:13px;letter-spacing:2px;color:#C9A45C">SELLER SHOP</div><h1 style="font-size:24px;margin:8px 0 14px;color:#8FD3AE">You are open for business</h1><p style="font-size:16px;line-height:1.5">Your shop <b>' + esc(s.name) + '</b> is approved. Add your pieces and they show in the JarFriends market right away.</p><p style="margin:18px 0"><a href="https://' + req.headers.host + '/seller.html" style="background:#C9A45C;color:#0B1712;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:24px;display:inline-block">Open my seller portal</a></p></div></div>').catch(() => null);
         }
-        return res.json({ ok: true, seller: s });
+        return res.json({ ok: true, seller: M.safe(s) });
       }
       const cents = Math.round(Number(String(b.amount || '').replace(/[^0-9.]/g, '')) * 100);
       if (!(cents > 0 && cents < 10000000)) return res.status(400).json({ error: 'Enter the amount you sent.' });
@@ -220,6 +222,31 @@ module.exports = async (req, res) => {
       const who = q.t ? await signedIn(q.t) : '';
       if (who) out.me = await G.mine(who);
       return res.json(out);
+    }
+    // ---------- A view of a seller's piece (public), for the Traffic card in the Seller Hub ----------
+    // views/<seller>/<day>.json { <piece id>: views }. The page sends this once per piece per visit.
+    if (what === 'view') {
+      const id = String(q.id || b.id || '');
+      if (!M.isSellerPid(id)) return res.json({ ok: false });
+      const l = (await M.listings()).filter((p) => p.id === id)[0];
+      if (!l) return res.json({ ok: false });
+      const day = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
+      const k = 'views/' + l.seller + '/' + day + '.json';
+      const v = (await store.read(k)) || {};
+      v[id] = (v[id] || 0) + 1;
+      await store.write(k, v).catch(() => null);
+      return res.json({ ok: true });
+    }
+    // A quick look at an eBay listing (public, read-only): what would come over. Limited per visitor.
+    if (req.method === 'GET' && what === 'ebay-peek') {
+      const ip = 'E' + (String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || 'x');
+      const now = Date.now(), seen = (photoHits.get(ip) || []).filter((t) => now - t < 3600000);
+      if (seen.length >= 20) return res.status(429).json({ error: 'Too many look-ups. Try again later.' });
+      seen.push(now); photoHits.set(ip, seen);
+      const E = require('./_ebay'), id = E.idOf(String(q.url || q.id || ''));
+      if (!id) return res.status(400).json({ error: 'Not an eBay listing link.' });
+      const e = await E.read(id).catch((x) => ({ error: String(x && x.message || x) }));
+      return res.json({ id: id, via: E.apiOn() ? 'api' : 'page', error: e.error || '', live: e.live, title: e.title || '', price: e.price || 0, ship: e.ship, auction: !!e.auction, image: !!e.image, desc: (e.desc || '').slice(0, 160) });
     }
     // ---------- Search by photo (public) ----------
     // A buyer's photo goes to AI with the list of pieces for sale; it answers what the photo shows and which pieces
@@ -318,7 +345,7 @@ module.exports = async (req, res) => {
       const r = await T.create(me, b, buf);
       if (r.error) return res.status(400).json(r);
       const t = r.trade, host = 'https://' + req.headers.host;
-      await mail(r.seller.email, 'Trade request: ' + t.product, ['Someone wants to trade for your ' + t.product + '.', '', 'Their offer: ' + t.text, 'Money: ' + T.terms(t) + '.', '', 'See their photo and answer in your store office, Trades tab:', host + '/seller.html'], 'trade-new-' + t.id).catch(() => null);
+      await mail(r.seller.email, 'Trade request: ' + t.product, ['Someone wants to trade for your ' + t.product + '.', '', 'Their offer: ' + t.text, 'Money: ' + T.terms(t) + '.', '', 'See their photo and answer in your Seller Hub, Trades tab:', host + '/seller.html'], 'trade-new-' + t.id).catch(() => null);
       return res.json({ ok: true, trade: t });
     }
     if (what === 'trade-withdraw' && req.method === 'POST') { const r = await require('./_trades').withdraw(me, b.slug, b.id); return res.status(r.error ? 400 : 200).json(r); }
@@ -341,7 +368,16 @@ module.exports = async (req, res) => {
       const feed = (await M.posts(seller.slug, 50)).map((x) => Object.assign({}, x, { photoUrl: x.photo ? '/api/photo?id=' + x.id + '&v=' + x.photo : '' }));
       const st = stripeBase.ready() ? await connect.status(seller).catch(() => ({ state: 'unknown' })) : { state: 'off' };
       const prof = await M.profit(seller.slug, rows);
-      return res.json({ email: me, seller: seller, fee: M.feePct(), sections: M.SECTIONS, listings: listings, orders: orders, profit: prof, payouts: outs, totals: M.totals(rows, outs), posts: feed, stripe: st, stats: myStats, reviews: myReviews, presets: require('./_ship').PRESETS, labelsOn: require('./_ship').ready() });
+      // Views of their pieces over the last 60 days: { days: { 'YYYY-MM-DD': n }, byPid: { id: n (last 30 days) } }.
+      const views = { days: {}, byPid: {} };
+      const today = Date.now();
+      await Promise.all(Array.from({ length: 60 }, (x, i) => new Date(today - i * 86400000).toLocaleDateString('en-CA', { timeZone: 'America/Chicago' })).map(async (day, i) => {
+        const v = await store.read('views/' + seller.slug + '/' + day + '.json').catch(() => null);
+        if (!v) return;
+        views.days[day] = Object.keys(v).reduce((t, k2) => t + (Number(v[k2]) || 0), 0);
+        if (i < 30) Object.keys(v).forEach((k2) => { views.byPid[k2] = (views.byPid[k2] || 0) + (Number(v[k2]) || 0); });
+      }));
+      return res.json({ email: me, seller: M.safe(seller), fee: M.feePct(), sections: M.SECTIONS, listings: listings, orders: orders, profit: prof, views: views, payouts: outs, totals: M.totals(rows, outs), posts: feed, stripe: st, stats: myStats, reviews: myReviews, presets: require('./_ship').PRESETS, labelsOn: require('./_ship').ready() });
     }
     // Offers on my pieces. A pending one carries its answer key (t) for /api/offer: accept, counter or decline.
     // ---------- Trades, as the seller ----------
@@ -366,7 +402,7 @@ module.exports = async (req, res) => {
       if (r.error) return res.status(400).json(r);
       const owner = (process.env.OWNER_EMAIL || '').trim();
       if (owner) await mail(owner, 'New seller: ' + r.seller.name + (r.seller.status === 'pending' ? ' (needs your OK)' : ''), ['A new seller signed up on JarFriends.', '', 'Shop: ' + r.seller.name, 'Email: ' + r.seller.email, 'About: ' + (r.seller.about || '-'), 'Pay them by: ' + r.seller.payHow + ' ' + r.seller.payTo, '', r.seller.status === 'pending' ? 'Approve or decline them in the back office, Sellers tab.' : 'They were approved automatically.'], 'seller-new-' + r.seller.slug).catch(() => null);
-      return res.json(r);
+      return res.json({ seller: M.safe(r.seller) });
     }
     if (!seller) return res.status(403).json({ error: 'Open a seller shop first.' });
     if (seller.status === 'paused') return res.status(403).json({ error: 'Your seller shop is paused. Contact JarFriends.' });
@@ -388,8 +424,10 @@ module.exports = async (req, res) => {
     if (what === 'profile') {
       const tidy = (v, n) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n);
       if (b.about != null) seller.about = tidy(b.about, 400);
-      if (['zelle', 'venmo', 'cashapp', 'paypal'].indexOf(b.payHow) >= 0) seller.payHow = b.payHow;
-      if (b.payTo != null && tidy(b.payTo, 80).length >= 3) seller.payTo = tidy(b.payTo, 80);
+      // A new bank account for payouts (routing and account number), kept encrypted.
+      if (b.routing != null || b.account != null) { const k = M.bankFrom(b); if (k.error) return res.status(400).json(k); Object.assign(seller, k.fields); }
+      if (['zelle', 'venmo', 'cashapp', 'paypal'].indexOf(b.payHow) >= 0 && !seller.bank) seller.payHow = b.payHow;
+      if (b.payTo != null && tidy(b.payTo, 80).length >= 3 && !seller.bank) seller.payTo = tidy(b.payTo, 80);
       // Their eBay user name: eBay listings they bring over must be theirs (see _ebay.js).
       if (b.ebayUser != null) seller.ebayUser = tidy(b.ebayUser, 64).replace(/^@/, '');
       // Where packages ship from: needed for calculated shipping and labels.
@@ -403,7 +441,7 @@ module.exports = async (req, res) => {
         } else seller.shipFrom = null;
       }
       await M.save(seller);
-      return res.json({ ok: true, seller: seller });
+      return res.json({ ok: true, seller: M.safe(seller) });
     }
     // Shipping labels (see _ship.js): price one, then buy it. Paid from money V2V holds for the seller, the rest by card.
     if (what === 'label-quote') return res.json(await require('./_ship').quoteLabel(seller, String(b.n || ''), { preset: b.preset, oz: b.oz, l: b.l, w: b.w, h: b.h }));

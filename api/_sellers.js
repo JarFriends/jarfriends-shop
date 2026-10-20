@@ -125,15 +125,44 @@ async function apply(email, f) {
   let slug = slugify(name);
   if (slug.length < 2) return { error: 'Use letters or numbers in your shop name.' };
   if (['v2v', 'admin', 'owner', 'shop', 'house', 'market'].indexOf(slug) >= 0 || await bySlug(slug)) slug = (slug + '-' + crypto.randomBytes(2).toString('hex')).slice(0, 30);
-  const payHow = ['zelle', 'venmo', 'cashapp', 'paypal'].indexOf(f.payHow) >= 0 ? f.payHow : '';
-  const payTo = tidy(f.payTo, 80);
-  if (!payHow || payTo.length < 3) return { error: 'Tell us how to pay you: pick a way and enter your handle, phone or email for it.' };
+  // Payouts: the bank account their earnings are sent to (routing and account number), required to open a shop.
+  const bank = bankFrom(f);
+  if (bank.error) return bank;
   if (!f.agree) return { error: 'Tick the box to agree to the seller terms.' };
-  const s = { slug: slug, name: name, email: String(email).trim().toLowerCase(), about: tidy(f.about, 400), payHow: payHow, payTo: payTo, status: autoApprove() ? 'approved' : 'pending', at: Date.now(), agreedFee: feePct() };
+  const s = Object.assign({ slug: slug, name: name, email: String(email).trim().toLowerCase(), about: tidy(f.about, 400), status: autoApprove() ? 'approved' : 'pending', at: Date.now(), agreedFee: feePct() }, bank.fields);
   await save(s);
   await store.write('sellers/e/' + hashOf(email) + '.json', { slug: slug });
   return { seller: s };
 }
+// ---- Bank account for payouts ----
+// Kept encrypted (AES-256-GCM, key made from INVOICE_SECRET). Only the account type and last 4 digits are kept in
+// the clear (bankHint), for showing. The owner can see the full details in the back office to send a payout.
+const bankKey = () => crypto.createHash('sha256').update('v2v-bank|' + (process.env.INVOICE_SECRET || '')).digest();
+function seal(obj) {
+  const iv = crypto.randomBytes(12), c = crypto.createCipheriv('aes-256-gcm', bankKey(), iv);
+  const data = Buffer.concat([c.update(JSON.stringify(obj), 'utf8'), c.final()]);
+  return { v: 1, iv: iv.toString('base64'), tag: c.getAuthTag().toString('base64'), data: data.toString('base64') };
+}
+function unseal(b) {
+  if (!b || !b.data) return null;
+  try { const d = crypto.createDecipheriv('aes-256-gcm', bankKey(), Buffer.from(b.iv, 'base64')); d.setAuthTag(Buffer.from(b.tag, 'base64')); return JSON.parse(Buffer.concat([d.update(Buffer.from(b.data, 'base64')), d.final()]).toString('utf8')); } catch (e) { return null; }
+}
+// US routing numbers have a check digit: 3·(d1+d4+d7) + 7·(d2+d5+d8) + (d3+d6+d9) must end in 0.
+const routingOk = (r) => /^[0-9]{9}$/.test(r) && (3 * (+r[0] + +r[3] + +r[6]) + 7 * (+r[1] + +r[4] + +r[7]) + (+r[2] + +r[5] + +r[8])) % 10 === 0;
+function bankFrom(f) {
+  const holder = String(f.bankName || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+  const routing = String(f.routing || '').replace(/[^0-9]/g, ''), account = String(f.account || '').replace(/[^0-9]/g, ''), again = String(f.account2 == null ? account : f.account2).replace(/[^0-9]/g, '');
+  const type = f.accType === 'savings' ? 'savings' : 'checking';
+  if (holder.length < 2) return { error: 'Payouts: enter the name on the bank account.' };
+  if (!routingOk(routing)) return { error: 'Payouts: that routing number is not right. It is the 9 digits at the bottom left of a check.' };
+  if (!/^[0-9]{4,17}$/.test(account)) return { error: 'Payouts: enter the account number (4 to 17 digits).' };
+  if (account !== again) return { error: 'Payouts: the two account numbers do not match.' };
+  const hint = { type: type, last4: account.slice(-4), holder: holder };
+  return { fields: { bank: seal({ holder: holder, routing: routing, account: account, type: type, at: Date.now() }), bankHint: hint, payHow: 'bank', payTo: (type === 'savings' ? 'Savings' : 'Checking') + ' ••' + hint.last4 } };
+}
+const bankOf = (s) => unseal(s && s.bank);
+// A seller record without the sealed bank details, for pages.
+const safe = (s) => { if (!s) return s; const o = Object.assign({}, s); delete o.bank; return o; };
 // What anyone may see of a seller.
 const pub = (s) => ({ slug: s.slug, name: s.name, about: s.about || '', since: s.at });
 
@@ -405,4 +434,4 @@ async function notifySale(n, kind) {
   return mail(seller.email, (paid ? 'Paid, ship it: ' : 'New order (not paid yet): ') + (d.product || 'your piece'), lines, 'seller-sale-' + n + '-' + (paid ? 'paid' : 'placed')).catch((e) => { console.error('SELLER_NOTIFY_FAIL', n, String(e && e.message || e)); return 'failed'; });
 }
 
-module.exports = { profit, setCost, giveawayPct, sellerOf, offerTo, notifySale, reviews, saveReview, removeReview, stats, statsAll, statsFrom, shortName, completed, VERIFY_AFTER, posts, addPost, removePost, feePct, autoApprove, all, bySlug, byEmail, save, apply, pub, listings, products, isSellerPid, saveListing, setListing, removeListing, ledger, payouts, addPayout, totals, hashOf, SECTIONS, sectionOf, forget };
+module.exports = { bankFrom, bankOf, safe, routingOk, profit, setCost, giveawayPct, sellerOf, offerTo, notifySale, reviews, saveReview, removeReview, stats, statsAll, statsFrom, shortName, completed, VERIFY_AFTER, posts, addPost, removePost, feePct, autoApprove, all, bySlug, byEmail, save, apply, pub, listings, products, isSellerPid, saveListing, setListing, removeListing, ledger, payouts, addPayout, totals, hashOf, SECTIONS, sectionOf, forget };

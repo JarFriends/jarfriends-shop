@@ -22,8 +22,8 @@
     fetch('/api/market?do=admin&ak=' + encodeURIComponent(key()), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (r) {
       var own = (r.sellers || []).filter(function (s) { return s.seeded; });
       if (!own.length) { shown = false; return; }
-      mine.textContent = ''; mine.appendChild(el('span', 'This is the back office: it runs the whole site. Your own store has its own store office:', 'dim'));
-      own.forEach(function (s) { var a = el('a', 'Open my ' + s.name + ' store office', 'solid'); a.href = '/seller.html?as=' + encodeURIComponent(s.slug); a.style.cssText = 'padding:8px 14px;text-decoration:none'; mine.appendChild(a); });
+      mine.textContent = ''; mine.appendChild(el('span', 'This is the back office: it runs the whole site. Your own store has its own Seller Hub:', 'dim'));
+      own.forEach(function (s) { var a = el('a', 'Open my ' + s.name + ' Seller Hub', 'solid'); a.href = '/seller.html?as=' + encodeURIComponent(s.slug); a.style.cssText = 'padding:8px 14px;text-decoration:none'; mine.appendChild(a); });
       mine.hidden = false;
     }).catch(function () { shown = false; });
   }
@@ -80,7 +80,14 @@
       top.appendChild(acts);
       c.appendChild(top);
       c.appendChild(el('div', s.stripeOn ? 'Card sales: paid automatically to their Stripe' : s.stripe ? 'Card sales: Stripe payout setup not finished, so card money comes to you' : 'Card sales: no Stripe payouts yet, so card money comes to you', 'sx-b ' + (s.stripeOn ? 'ok' : 'wait')));
-      c.appendChild(el('div', s.email + ' · pay by ' + s.payHow + ': ' + s.payTo + ' · ' + s.listings + ' listings · joined ' + new Date(s.at).toLocaleDateString('en-US', { dateStyle: 'medium' }), 'small dim'));
+      // Their bank account (kept encrypted): shown only when asked, to send a payout by hand.
+      if (s.bankHint) {
+        var bkr = el('div'); bkr.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;align-items:center';
+        var bkb = el('button', 'Show bank details', 'ghost'); bkb.type = 'button'; var bko = el('span', '', 'small');
+        bkb.addEventListener('click', function () { bkb.disabled = true; post({ do: 'bank', slug: s.slug }).then(function (x) { bkb.disabled = false; if (x.error) { bko.textContent = x.error; return; } bko.textContent = x.bank.holder + ' · ' + x.bank.type + ' · routing ' + x.bank.routing + ' · account ' + x.bank.account; bkb.remove(); }); });
+        bkr.appendChild(bkb); bkr.appendChild(bko); c.appendChild(bkr);
+      }
+      c.appendChild(el('div', s.email + ' · paid by ' + (s.payHow === 'bank' ? 'bank: ' + s.payTo : (s.payHow || 'not set') + ': ' + (s.payTo || '-')) + ' · ' + s.listings + ' listings · joined ' + new Date(s.at).toLocaleDateString('en-US', { dateStyle: 'medium' }), 'small dim'));
       if (s.about) c.appendChild(el('div', s.about, 'small'));
       // Rating and the verified checkmark, with a way to set it by hand.
       var vs = s.stats || {};

@@ -4,17 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>Seller portal · JarFriends</title>
+<title>Seller Hub · JarFriends</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&family=IBM+Plex+Mono:wght@400;500&family=Playfair+Display:wght@600;700;800&display=swap">
 <link rel="stylesheet" href="/site.css">
 <link rel="stylesheet" href="/market.css">
 </head>
 <body>
-<header class="top"><div class="wrap bar"><a class="brand" href="/" style="text-decoration:none">JarFriends</a><span style="display:flex;align-items:center;gap:20px"><span class="mono dim">SELLER PORTAL</span><a class="home" href="/market.html">Market</a></span></div></header>
+<header class="top"><div class="wrap bar"><a class="brand" href="/" style="text-decoration:none">JarFriends</a><span style="display:flex;align-items:center;gap:20px"><span class="mono dim">SELLER HUB</span><a class="home" href="/market.html">Market</a></span></div></header>
 <main class="wrap page" style="gap:28px">
   <div class="stack-s">
     <div class="mono gold" id="kicker">SELL ON JARFRIENDS</div>
-    <h1 id="head">Seller portal</h1>
+    <h1 id="head">Seller Hub</h1>
     <div class="small" id="lead">List your collectibles in the JarFriends market. Buyers check out on V2V with card, crypto, Zelle, Venmo, Cash App or cash; you ship the piece and get paid.</div>
   </div>
   <div id="box"></div>
@@ -23,11 +23,27 @@
 <script>
 (function () {
   var $ = function (id) { return document.getElementById(id); }, el = JF.el;
-  var tok = JF.token(), D = null, tab = 'listings', editing = null, adding = false;
+  var tok = JF.token(), D = null, tab = 'overview', editing = null, adding = false, openEbay = false;
   // The owner can open any seller's portal from the back office: seller.html?as=<shop>. Uses the back-office key.
   var AS = new URLSearchParams(location.search).get('as') || '', AK = '';
   if (AS) { try { AK = localStorage.getItem('adminKey') || ''; } catch (e) { AK = ''; } }
-  var PAY = [['zelle', 'Zelle'], ['venmo', 'Venmo'], ['cashapp', 'Cash App'], ['paypal', 'PayPal']];
+  var PAY = [['zelle', 'Zelle'], ['venmo', 'Venmo'], ['cashapp', 'Cash App'], ['paypal', 'PayPal'], ['bank', 'bank transfer']];
+  // How V2V pays this seller, in words: "bank transfer to Checking ••1234".
+  var payWords = function (sl) { return sl.payHow === 'bank' ? 'bank transfer to ' + sl.payTo : ((PAY.filter(function (x) { return x[0] === sl.payHow; })[0] || ['', sl.payHow || 'not set'])[1] + (sl.payTo ? ' (' + sl.payTo + ')' : '')); };
+  // The bank account for payouts: name on the account, routing number, account number twice, checking or savings.
+  function bankFields() {
+    var w = el('div'); w.style.cssText = 'display:flex;flex-direction:column;gap:12px';
+    var holder = input('text', '', { maxlength: '80', autocomplete: 'name', placeholder: 'Name on the bank account' });
+    var routing = input('text', '', { inputmode: 'numeric', maxlength: '9', autocomplete: 'off', placeholder: '9 digits', pattern: '[0-9]{9}' });
+    var acct = input('password', '', { inputmode: 'numeric', maxlength: '17', autocomplete: 'off', placeholder: 'Account number' });
+    var acct2 = input('text', '', { inputmode: 'numeric', maxlength: '17', autocomplete: 'off', placeholder: 'Type it again' });
+    var type = select([['checking', 'Checking'], ['savings', 'Savings']], 'checking');
+    w.appendChild(field('Name on the account', holder));
+    var a = el('div', null, 'two'); a.appendChild(field('Routing number', routing, 'The 9 digits at the bottom left of a check.')); a.appendChild(field('Account type', type)); w.appendChild(a);
+    var b2 = el('div', null, 'two'); b2.appendChild(field('Account number', acct)); b2.appendChild(field('Confirm account number', acct2)); w.appendChild(b2);
+    w.appendChild(el('div', '🔒 Encrypted and used only to send you your earnings. Only the last 4 digits are ever shown.', 'small dim'));
+    return { node: w, values: function () { return { bankName: holder.value, routing: routing.value, account: acct.value, account2: acct2.value, accType: type.value }; } };
+  }
   var box = $('box');
   function field(label, input, hint) { var l = el('label', label); l.appendChild(input); if (hint) l.appendChild(el('span', hint, 'hint')); return l; }
   function input(type, value, attrs) { var i = el('input'); i.type = type || 'text'; if (value != null) i.value = value; Object.keys(attrs || {}).forEach(function (k) { i.setAttribute(k, attrs[k]); }); return i; }
@@ -70,7 +86,7 @@
     }).catch(function () { box.textContent = 'The portal did not load. Refresh to try again.'; });
   }
   function ask() {
-    $('head').textContent = 'Seller portal';
+    $('head').textContent = 'Seller Hub';
     JF.signInBox(box, 'Your V2V account works for buying and selling. Sign in, or create one, to open your shop.', function (t) { tok = t; load(); }, 'signup');
   }
 
@@ -84,26 +100,26 @@
     [['You list', 'Add pieces with a photo, price, stock and shipping cost. They show in the JarFriends market.'],
      ['Buyers pay JarFriends', 'Checkout, payment and receipts are handled for you.'],
      ['You ship', 'Once an order is paid you see the address here. Ship it and add the tracking number.'],
-     ['You get paid', 'JarFriends keeps ' + D.fee + '% of each sale (pieces + shipping). The rest is sent to you by the way you choose below.']].forEach(function (x) {
+     ['You get paid', 'JarFriends keeps ' + D.fee + '% of each sale (pieces + shipping). The rest is sent to your bank account (or straight to you by Stripe for card sales once you link it).']].forEach(function (x) {
       var r = el('div', null, 'row'); r.appendChild(el('b', x[0])); var s = el('span', x[1], 'dim'); s.style.textAlign = 'right'; s.style.maxWidth = '70%'; r.appendChild(s); how.appendChild(r);
     });
     c.appendChild(el('h2', 'How it works')); c.appendChild(how);
     var f = el('form');
     var name = input('text', '', { maxlength: '40', required: '', placeholder: 'e.g. Wolf Den Cards' });
     var about = el('textarea', null, 'jf-ta'); about.maxLength = 400; about.placeholder = 'What you collect and sell. Shown on your shop page.';
-    var payHow = select([['', 'Choose…']].concat(PAY)), payTo = input('text', '', { maxlength: '80', required: '', placeholder: 'Your handle, phone or email for it' });
+    var bankF = bankFields();
     var agree = input('checkbox'); var al = el('label', null, 'jf-check'); al.appendChild(agree);
     al.appendChild(el('span', 'I agree: JarFriends keeps ' + D.fee + '% of each paid sale of my pieces (the price of the pieces plus shipping) and pays me the rest. I ship within 3 days of payment, describe my pieces honestly, and only sell what I own.'));
     var go = el('button', 'Open my shop', 'solid'); go.type = 'submit'; var m = status();
     f.appendChild(field('Shop name', name)); f.appendChild(field('About your shop', about, 'Optional.'));
-    var two = el('div', null, 'two'); two.appendChild(field('Pay me by', payHow)); two.appendChild(field('Send it to', payTo)); f.appendChild(two);
+    f.appendChild(el('h3', 'Payouts: where we send your earnings')); f.appendChild(bankF.node);
     f.appendChild(al); f.appendChild(go); f.appendChild(m);
     c.appendChild(el('h2', 'Your shop')); c.appendChild(f);
     c.appendChild(el('div', 'Signed in as ' + D.email, 'small dim'));
     box.appendChild(c);
     f.addEventListener('submit', function (ev) {
       ev.preventDefault(); go.disabled = true; m.textContent = 'Opening your shop…';
-      JF.api('/api/market', { do: 'apply', t: tok, as: AS, ak: AK, name: name.value, about: about.value, payHow: payHow.value, payTo: payTo.value, agree: agree.checked }).then(function (r) {
+      JF.api('/api/market', Object.assign({ do: 'apply', t: tok, as: AS, ak: AK, name: name.value, about: about.value, agree: agree.checked }, bankF.values())).then(function (r) {
         go.disabled = false;
         if (r.error) { m.textContent = r.error; return; }
         load();
@@ -111,60 +127,213 @@
     });
   }
 
-  // ---- The dashboard ----
+  // ---- The Seller Hub ----
+  var HUB_CSS = '.hub-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}'
+    + '.hub-card{border:1px solid #2A2D36;background:#17191F;border-radius:14px;padding:18px 20px;display:flex;flex-direction:column;gap:4px}'
+    + '.hub-card h2{font-size:20px;margin:0 0 8px;display:flex;justify-content:space-between;align-items:center;cursor:pointer}'
+    + '.hub-card h2:after{content:"›";font-size:26px;opacity:.6}'
+    + '.hub-row{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-top:1px solid #2A2D36;font-size:15px;background:none;border-left:0;border-right:0;border-bottom:0;color:inherit;text-align:left;cursor:pointer;width:100%;font-family:inherit}'
+    + '.hub-row:first-of-type{border-top:0}.hub-row span:first-child{text-decoration:underline;text-underline-offset:3px}.hub-row b{font-family:"IBM Plex Mono",monospace;font-weight:500}'
+    + '.hub-row.hot b{color:#FF6B3D}.hub-row.plain{cursor:default}.hub-row.plain span:first-child{text-decoration:none}'
+    + '.hub-tabs{display:flex;gap:4px;overflow-x:auto;border-bottom:1px solid #2A2D36;scrollbar-width:none}.hub-tabs::-webkit-scrollbar{display:none}'
+    + '.hub-tabs button{background:none;border:0;border-bottom:3px solid transparent;color:inherit;font:600 16px inherit;padding:10px 12px;white-space:nowrap;cursor:pointer;opacity:.75;min-height:0}'
+    + '.hub-tabs button[aria-pressed="true"]{border-bottom-color:#FF6B3D;opacity:1}'
+    + '.hub-chart{width:100%;height:120px;display:block}.hub-up{color:#7DD3B0}.hub-down{color:#E86A6A}';
+  var hubCss = false;
+  var DAY = 86400000;
+  var dayKey = function (t) { return new Date(t).toLocaleDateString('en-CA', { timeZone: 'America/Chicago' }); };
+  function pct(now, before) { if (!before) return now ? '' : ''; var p = Math.round((now - before) * 100 / before); return (p >= 0 ? '▲ ' : '▼ ') + Math.abs(p) + '%'; }
   function dash() {
     var s = D.seller, t = D.totals;
-    $('kicker').textContent = 'SELLER PORTAL'; $('head').textContent = s.name;
-    $('lead').textContent = s.status === 'approved' ? 'Your shop is open. Your pieces show in the market.' : s.status === 'pending' ? 'Your shop is waiting for JarFriends to approve it. You can add your pieces now; they go live the moment you are approved.' : 'Your shop is paused. Contact JarFriends.';
+    if (!hubCss) { var cs = el('style'); cs.textContent = HUB_CSS; document.head.appendChild(cs); hubCss = true; }
+    $('kicker').textContent = 'SELLER HUB'; $('head').textContent = 'Seller Hub';
+    document.title = 'Seller Hub · ' + s.name;
+    $('lead').textContent = '';
+    var who = el('span'); who.style.cssText = 'display:inline-flex;gap:8px;align-items:center;flex-wrap:wrap';
+    var sn = el('a', s.name); sn.href = '/shop.html?s=' + encodeURIComponent(s.slug); who.appendChild(sn);
+    if (D.stats) { who.appendChild(JF.stars(D.stats.rating, D.stats.reviews)); if (D.stats.verified) who.appendChild(JF.check()); }
+    $('lead').appendChild(who);
     box.textContent = '';
-    var wrap = el('div'); wrap.style.cssText = 'display:flex;flex-direction:column;gap:24px';
+    var wrap = el('div'); wrap.style.cssText = 'display:flex;flex-direction:column;gap:20px';
     if (!AS) JF.modeBar(wrap, 'seller');
-    var badge = el('span', s.status === 'approved' ? 'OPEN' : s.status === 'pending' ? 'WAITING FOR APPROVAL' : 'PAUSED', 'jf-badge ' + (s.status === 'approved' ? 'ok' : s.status === 'pending' ? 'wait' : 'off'));
-    var line = el('div', null, 'small'); line.style.cssText = 'display:flex;flex-wrap:wrap;gap:12px;align-items:center'; line.appendChild(badge);
-    if (s.status === 'approved') { var sl = el('a', 'See your shop page'); sl.href = '/shop.html?s=' + encodeURIComponent(s.slug); line.appendChild(sl); }
-    wrap.appendChild(line);
-    if (D.stats) {
-      var sl2 = el('div'); sl2.style.cssText = 'display:flex;flex-wrap:wrap;gap:12px;align-items:center';
-      sl2.appendChild(JF.stars(D.stats.rating, D.stats.reviews));
-      if (D.stats.verified) sl2.appendChild(JF.check());
-      else sl2.appendChild(el('span', D.stats.issues ? 'Not verified: ' + D.stats.issues + (D.stats.issues === 1 ? ' order has' : ' orders have') + ' an issue (a 1 or 2 star review, or a problem V2V flagged).' : 'Verified checkmark: ' + D.stats.completed + ' of ' + D.stats.need + ' completed sales with no issues.', 'small dim'));
-      wrap.appendChild(sl2);
-    }
+    if (s.status !== 'approved') wrap.appendChild(el('div', s.status === 'pending' ? 'Your shop is waiting for V2V to approve it. You can add your pieces now; they go live the moment you are approved.' : 'Your shop is paused. Contact V2V.', 'alert small'));
     if (s.seeded) {
-      // The owner's own shop: this is "my shop" back office, with a jump to the site back office.
-      $('head').textContent = 'Store office · ' + s.name; $('kicker').textContent = 'YOUR STORE';
       var site = el('div', null, 'small'); site.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;align-items:center';
-      site.appendChild(el('span', 'This is your store office: your own store only. Everything for the whole site (all sellers, buyers, payouts, emails, the giveaway wallet) is in the back office.', 'dim'));
+      site.appendChild(el('span', 'This is your Seller Hub: your own store only. Everything for the whole site is in the back office.', 'dim'));
       var sa = el('a', 'Open the back office'); sa.href = '/admin.html'; site.appendChild(sa);
       wrap.appendChild(site);
     } else if (AS) wrap.appendChild(el('div', 'You are viewing this shop as the V2V owner. Anything you change here is saved for this seller.', 'alert small'));
-    var tiles = el('div', null, 'jf-tiles');
-    [['PAID SALES', String(t.sales), ''], ['SOLD (PIECES + SHIPPING)', JF.cents(t.gross), ''], ['JARFRIENDS FEE (' + D.fee + '%)', JF.cents(t.fee), ''], ['YOU EARNED', JF.cents(t.net), ''], ['PAID TO YOUR BANK BY STRIPE', JF.cents(t.byStripe || 0), ''], ['SENT BY V2V', JF.cents(t.paidOut), ''], ['V2V STILL OWES YOU', JF.cents(t.owed), 'gold']].forEach(function (x) {
-      var d = el('div', null, 'jf-tile ' + x[2]); d.appendChild(el('span', x[0], 'label')); d.appendChild(el('b', x[1])); tiles.appendChild(d);
-    });
-    wrap.appendChild(tiles);
     if (D.stripe && (D.stripe.state === 'none' || D.stripe.state === 'started')) {
       var nudge = el('div', null, 'alert small'); nudge.style.cssText = 'flex-direction:row;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between';
       nudge.appendChild(el('span', D.stripe.state === 'started' ? 'Finish linking your bank so card sales pay you automatically.' : 'Get paid automatically: link your bank with Stripe and card sales go straight to you.'));
       var nb = el('button', 'Set up payouts', 'solid'); nb.type = 'button'; nb.addEventListener('click', function () { tab = 'payouts'; dash(); });
       nudge.appendChild(nb); wrap.appendChild(nudge);
     }
-    if (t.unpaidGross) wrap.appendChild(el('div', JF.cents(t.unpaidGross) + ' more is in orders waiting for the buyer to pay. It counts once they pay.', 'small dim'));
-    var tabs = el('div', null, 'jf-tabs');
+    var tabs = el('div', null, 'hub-tabs'); tabs.setAttribute('role', 'tablist');
     var toShip = D.orders.filter(function (o) { return o.paid && !o.tracking; }).length;
-    [['listings', 'My pieces (' + D.listings.length + ')'], ['posts', 'Community posts'], ['reviews', 'Reviews (' + ((D.reviews || []).length) + ')'], ['offers', 'Offers'], ['trades', 'Trades'], ['orders', 'Orders' + (toShip ? ' · ' + toShip + ' to ship' : '')], ['payouts', 'Payouts'], ['profit', 'Profit'], ['settings', 'Shop settings']].forEach(function (x) {
-      var b = el('button', x[1], 'pill'); b.type = 'button'; b.setAttribute('aria-pressed', tab === x[0] ? 'true' : 'false');
+    [['overview', 'Overview'], ['orders', 'Orders' + (toShip ? ' (' + toShip + ')' : '')], ['listings', 'Listings'], ['offers', 'Offers'], ['trades', 'Trades'], ['marketing', 'Marketing'], ['reviews', 'Performance'], ['payouts', 'Payments'], ['profit', 'Profit & taxes'], ['research', 'Research'], ['settings', 'Settings']].forEach(function (x) {
+      var b = el('button', x[1]); b.type = 'button'; b.setAttribute('aria-pressed', tab === x[0] ? 'true' : 'false');
       b.addEventListener('click', function () { tab = x[0]; editing = null; adding = false; dash(); }); tabs.appendChild(b);
     });
     wrap.appendChild(tabs);
     var pane = el('div'); pane.style.cssText = 'display:flex;flex-direction:column;gap:18px';
-    ({ listings: listings, posts: posts, reviews: reviews, offers: offers, trades: trades, orders: orders, payouts: payouts, profit: profit, settings: settings })[tab](pane);
+    ({ overview: overview, listings: listings, marketing: posts, reviews: performance, offers: offers, trades: trades, orders: orders, payouts: payments, profit: profit, research: research, settings: settings })[tab](pane);
     wrap.appendChild(pane);
     var out = el('button', 'Sign out', 'ghost'); out.type = 'button'; out.style.alignSelf = 'flex-start';
     out.addEventListener('click', function () { if (AS) { location.href = '/admin.html'; return; } JF.signOut(); location.reload(); });
     if (AS) out.textContent = 'Back to the back office';
     wrap.appendChild(out);
     box.appendChild(wrap);
+  }
+  var go = function (t2, extra) { return function () { tab = t2; editing = null; adding = !!(extra && extra.add); dash(); window.scrollTo(0, 0); }; };
+  function card(title, to) {
+    var c = el('section', null, 'hub-card');
+    var h = el('h2', title); h.addEventListener('click', go(to)); c.appendChild(h);
+    return c;
+  }
+  function row(c, label, value, to, hot, extra) {
+    var r = el('button', null, 'hub-row' + (hot && value ? ' hot' : '') + (to ? '' : ' plain')); r.type = 'button';
+    r.appendChild(el('span', label)); if (value != null) r.appendChild(el('b', String(value)));
+    if (to) r.addEventListener('click', go(to, extra));
+    c.appendChild(r); return r;
+  }
+  // The first screen: everything at a glance, like eBay's Seller Hub overview.
+  function overview(pane) {
+    var now = Date.now(), L = D.listings, O = D.orders, t = D.totals, s = D.seller;
+    var live = function (p) { return p.auction && Date.parse(p.auction.ends) > now; };
+    var active = L.filter(function (p) { return !p.hidden && (live(p) || (!p.auction && p.left > 0)); });
+    var drafts = L.filter(function (p) { return p.hidden && !p.removed && !(p.ebay && p.ebay.status === 'gone'); });
+    var soldOut = L.filter(function (p) { return !p.hidden && !p.auction && p.left <= 0; });
+    var ending = L.filter(function (p) { return live(p) && Date.parse(p.auction.ends) - now < DAY; });
+    var grid = el('div', null, 'hub-grid'); pane.appendChild(grid);
+    // Listings
+    var c1 = card('Listings', 'listings'); grid.appendChild(c1);
+    row(c1, 'Create listing', null, 'listings', false, { add: true });
+    var rEb = row(c1, 'Add from an eBay link', null, null); rEb.classList.remove('plain'); rEb.addEventListener('click', function () { tab = 'listings'; openEbay = true; dash(); window.scrollTo(0, 0); });
+    row(c1, 'Drafts (hidden)', drafts.length, 'listings');
+    row(c1, 'Active listings', active.length, 'listings');
+    var rOff = row(c1, 'With open offers from buyers', '…', 'offers', true);
+    row(c1, 'All auctions', L.filter(live).length, 'listings');
+    row(c1, 'Auctions ending today', ending.length, 'listings', true);
+    row(c1, 'Sold out, not relisted', soldOut.length, 'listings');
+    var fromEbay = L.filter(function (p) { return p.ebay && p.ebay.url && !p.hidden; }).length;
+    if (fromEbay) row(c1, 'Also on eBay', fromEbay, 'listings');
+    // Orders
+    var c2 = card('Orders', 'orders'); grid.appendChild(c2);
+    row(c2, 'See all orders', O.length, 'orders');
+    row(c2, 'Awaiting shipment – print shipping label', O.filter(function (o) { return o.paid && !o.tracking; }).length, 'orders', true);
+    row(c2, 'Awaiting payment', O.filter(function (o) { return !o.paid; }).length, 'orders');
+    row(c2, 'Open issues', O.filter(function (o) { return o.issue; }).length, 'orders', true);
+    row(c2, 'Shipped', O.filter(function (o) { return o.tracking; }).length, 'orders');
+    var rTr = row(c2, 'Trade requests waiting', '…', 'trades', true);
+    // Sales, with a 31-day chart
+    var c3 = card('Sales', 'profit'); grid.appendChild(c3);
+    var paid = O.filter(function (o) { return o.paid; });
+    var sum = function (from, to) { return paid.filter(function (o) { return o.at >= from && o.at < to; }).reduce(function (a, o) { return a + o.gross; }, 0); };
+    var days = []; for (var i = 30; i >= 0; i--) { var k = dayKey(now - i * DAY); days.push({ k: k, v: 0 }); }
+    paid.forEach(function (o) { var k = dayKey(o.at); days.forEach(function (d) { if (d.k === k) d.v += o.gross; }); });
+    var max = Math.max.apply(null, days.map(function (d) { return d.v; }).concat([1]));
+    var ns = 'http://www.w3.org/2000/svg', svg = document.createElementNS(ns, 'svg'); svg.setAttribute('viewBox', '0 0 310 120'); svg.setAttribute('class', 'hub-chart'); svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', 'Sales by day for the last 31 days');
+    days.forEach(function (d, j) { var h = Math.round(d.v / max * 100); var r = document.createElementNS(ns, 'rect'); r.setAttribute('x', j * 10 + 1); r.setAttribute('width', 8); r.setAttribute('y', 105 - Math.max(h, d.v ? 3 : 1)); r.setAttribute('height', Math.max(h, d.v ? 3 : 1)); r.setAttribute('rx', 2); r.setAttribute('fill', d.v ? '#FF6B3D' : '#2A2D36'); var tt = document.createElementNS(ns, 'title'); tt.textContent = d.k + ': ' + JF.cents(d.v); r.appendChild(tt); svg.appendChild(r); });
+    [[0, days[0].k.slice(5)], [150, days[15].k.slice(5)], [300, days[30].k.slice(5)]].forEach(function (x) { var tx = document.createElementNS(ns, 'text'); tx.setAttribute('x', x[0]); tx.setAttribute('y', 118); tx.setAttribute('font-size', 9); tx.setAttribute('fill', '#8A8F9C'); tx.setAttribute('text-anchor', x[0] ? (x[0] === 300 ? 'end' : 'middle') : 'start'); tx.textContent = x[1]; svg.appendChild(tx); });
+    c3.appendChild(svg);
+    var startToday = new Date(dayKey(now) + 'T00:00:00').getTime();
+    row(c3, 'Today', JF.cents(sum(startToday, now + 1)), 'profit');
+    row(c3, 'Last 7 days', JF.cents(sum(now - 7 * DAY, now + 1)), 'profit');
+    var m31 = sum(now - 31 * DAY, now + 1), p31 = sum(now - 62 * DAY, now - 31 * DAY);
+    var r31 = row(c3, 'Last 31 days', JF.cents(m31), 'profit');
+    if (pct(m31, p31)) { var ch = el('span', pct(m31, p31), m31 >= p31 ? 'hub-up' : 'hub-down'); ch.style.cssText = 'margin-left:auto;margin-right:10px;font-size:14px;text-decoration:none'; r31.insertBefore(ch, r31.lastChild); }
+    row(c3, 'Last 90 days', JF.cents(sum(now - 90 * DAY, now + 1)), 'profit');
+    c3.appendChild(el('div', 'Pieces plus shipping, paid orders only.', 'small dim'));
+    // Traffic
+    var c4 = card('Traffic', 'listings'); grid.appendChild(c4);
+    var V = D.views || { days: {}, byPid: {} };
+    var vsum = function (a, b) { var n = 0; for (var i2 = a; i2 < b; i2++) n += V.days[dayKey(now - i2 * DAY)] || 0; return n; };
+    var v7 = vsum(0, 7), vp = vsum(7, 14);
+    var rv = row(c4, 'Listing views, last 7 days', v7, null);
+    if (pct(v7, vp)) { var vc = el('span', pct(v7, vp), v7 >= vp ? 'hub-up' : 'hub-down'); vc.style.cssText = 'margin-left:auto;margin-right:10px;font-size:14px'; rv.insertBefore(vc, rv.lastChild); }
+    row(c4, 'Listing views, last 30 days', vsum(0, 30), null);
+    var sold30 = paid.filter(function (o) { return o.at > now - 30 * DAY; }).length, v30 = vsum(0, 30);
+    row(c4, 'Views that became sales (30 days)', v30 ? (Math.round(sold30 * 1000 / v30) / 10) + '%' : '–', null);
+    var top = Object.keys(V.byPid).map(function (id) { return { p: L.filter(function (x) { return x.id === id; })[0], n: V.byPid[id] }; }).filter(function (x) { return x.p; }).sort(function (a, b) { return b.n - a.n; }).slice(0, 3);
+    if (top.length) { c4.appendChild(el('div', 'Most viewed (30 days)', 'small dim')); top.forEach(function (x) { row(c4, x.p.name, x.n, 'listings'); }); }
+    // Seller level
+    var c5 = card('Seller level', 'reviews'); grid.appendChild(c5);
+    var st = D.stats || { completed: 0, need: 10, issues: 0, rating: 0, reviews: 0 };
+    row(c5, 'Current level', st.verified ? '✓ Verified' : 'Not verified yet', 'reviews');
+    if (!st.verified) row(c5, 'Completed sales toward the checkmark', st.completed + ' of ' + st.need, 'reviews');
+    row(c5, 'Rating', st.reviews ? '★ ' + Number(st.rating).toFixed(1) + ' (' + st.reviews + ')' : 'No reviews yet', 'reviews');
+    row(c5, 'Orders with issues', st.issues, 'reviews', true);
+    var shippedIn = paid.filter(function (o) { return o.shippedAt; }), onTime = shippedIn.filter(function (o) { return o.shippedAt - o.at <= 3 * DAY; }).length;
+    row(c5, 'Shipped within 3 days', shippedIn.length ? Math.round(onTime * 100 / shippedIn.length) + '%' : '–', 'orders');
+    // Payments
+    var c6 = card('Payments', 'payouts'); grid.appendChild(c6);
+    row(c6, 'You earned (after the ' + D.fee + '% fee)', JF.cents(t.net), 'payouts');
+    row(c6, 'V2V still owes you', JF.cents(t.owed), 'payouts', true);
+    row(c6, 'Paid to your bank by Stripe', JF.cents(t.byStripe || 0), 'payouts');
+    row(c6, 'Sent to you by V2V', JF.cents(t.paidOut), 'payouts');
+    row(c6, 'Waiting for buyers to pay', JF.cents(t.unpaidGross || 0), 'orders');
+    // Research
+    var c7 = card('Research', 'research'); grid.appendChild(c7);
+    row(c7, 'Sold prices and fair market value', null, 'research');
+    row(c7, 'Profit by sale, spreadsheet for taxes', null, 'profit');
+    var rSh = row(c7, 'Your shop page', null, null); rSh.classList.remove('plain'); rSh.addEventListener('click', function () { location.href = '/shop.html?s=' + encodeURIComponent(s.slug); });
+    // Counts that need their own look-up.
+    JF.api('/api/market?do=offers&t=' + encodeURIComponent(tok) + (AS ? '&as=' + encodeURIComponent(AS) + '&ak=' + encodeURIComponent(AK) : '')).then(function (r) { var n = (r.offers || []).filter(function (o) { return o.status === 'pending'; }).length; rOff.lastChild.textContent = String(n); if (n) rOff.className += ' hot'; }).catch(function () { rOff.lastChild.textContent = '–'; });
+    JF.api('/api/market?do=trades&t=' + encodeURIComponent(tok) + (AS ? '&as=' + encodeURIComponent(AS) + '&ak=' + encodeURIComponent(AK) : '')).then(function (r) { var n = (r.trades || []).filter(function (x) { return x.status === 'pending'; }).length; rTr.lastChild.textContent = String(n); if (n) rTr.className += ' hot'; }).catch(function () { rTr.lastChild.textContent = '–'; });
+  }
+  // Performance: the seller level and every review.
+  function performance(pane) {
+    var st = D.stats || {};
+    var c = el('section', null, 'card'); c.style.gap = '8px';
+    c.appendChild(el('h2', 'Seller level'));
+    var line = el('div'); line.style.cssText = 'display:flex;gap:10px;align-items:center;flex-wrap:wrap';
+    line.appendChild(JF.stars(st.rating || 0, st.reviews || 0)); if (st.verified) line.appendChild(JF.check()); c.appendChild(line);
+    c.appendChild(el('div', st.verified ? 'You have the verified checkmark: ' + st.completed + ' completed sales with no issues.' : st.issues ? 'Not verified: ' + st.issues + (st.issues === 1 ? ' order has' : ' orders have') + ' an issue (a 1 or 2 star review, or a problem V2V flagged).' : 'Verified checkmark: ' + (st.completed || 0) + ' of ' + (st.need || 10) + ' completed sales with no issues.', 'small'));
+    pane.appendChild(c);
+    reviews(pane);
+  }
+  // Payments: the money tiles, then payouts.
+  function payments(pane) {
+    var t = D.totals;
+    var tiles = el('div', null, 'jf-tiles');
+    [['PAID SALES', String(t.sales), ''], ['SOLD (PIECES + SHIPPING)', JF.cents(t.gross), ''], ['V2V FEE (' + D.fee + '%)', JF.cents(t.fee), ''], ['YOU EARNED', JF.cents(t.net), ''], ['PAID TO YOUR BANK BY STRIPE', JF.cents(t.byStripe || 0), ''], ['SENT BY V2V', JF.cents(t.paidOut), ''], ['V2V STILL OWES YOU', JF.cents(t.owed), 'gold']].forEach(function (x) {
+      var d = el('div', null, 'jf-tile ' + x[2]); d.appendChild(el('span', x[0], 'label')); d.appendChild(el('b', x[1])); tiles.appendChild(d);
+    });
+    pane.appendChild(tiles);
+    if (t.unpaidGross) pane.appendChild(el('div', JF.cents(t.unpaidGross) + ' more is in orders waiting for the buyer to pay. It counts once they pay.', 'small dim'));
+    payouts(pane);
+  }
+  // Research: what your pieces are worth, from what sold on V2V.
+  function research(pane) {
+    var c = el('section', null, 'card'); c.style.gap = '12px';
+    c.appendChild(el('h2', 'Research'));
+    c.appendChild(el('div', 'What pieces like yours sold for on V2V, so you can price well. Search anything, or see each of your active pieces below.', 'small dim'));
+    var f = el('form'); f.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap';
+    var q = input('search', '', { placeholder: 'Search sold prices, e.g. Zombie rainbow' }); q.style.cssText = 'flex:1 1 240px;min-width:0';
+    var b = el('button', 'Search sold prices', 'solid'); b.type = 'submit'; f.appendChild(q); f.appendChild(b);
+    f.addEventListener('submit', function (ev) { ev.preventDefault(); window.open('/sold.html?q=' + encodeURIComponent(q.value), '_blank'); });
+    c.appendChild(f);
+    var list = el('div', 'Loading sold prices…', 'small'); c.appendChild(list);
+    pane.appendChild(c);
+    JF.api('/api/market?do=sold').then(function (r) {
+      list.textContent = '';
+      var sold = (r.sold || []).map(function (x) { return { n: x.name.toLowerCase(), c: Math.round(Number(x.each || 0) * 100) }; }).filter(function (x) { return x.c > 0; });
+      var mine = D.listings.filter(function (p) { return !p.hidden; });
+      if (!mine.length) { list.textContent = 'List a piece to see what similar pieces sold for.'; return; }
+      mine.forEach(function (p) {
+        var words = p.name.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(function (w) { return w.length > 2 && ['the', 'and', 'with', 'veefriends'].indexOf(w) < 0; }).slice(0, 3);
+        var hits = sold.filter(function (x) { return words.length && words.every(function (w) { return x.n.indexOf(w) >= 0; }); }).map(function (x) { return x.c; }).sort(function (a, b2) { return a - b2; });
+        var mid = hits.length ? hits[Math.floor(hits.length / 2)] : 0;
+        var r2 = el('div', null, 'jf-row'); r2.style.justifyContent = 'space-between';
+        r2.appendChild(el('span', p.name));
+        var right = el('span', null, 'small'); right.style.textAlign = 'right';
+        right.appendChild(document.createTextNode('Yours ' + JF.usd(p.price) + (hits.length ? ' · typical sold ' + JF.cents(mid) + ' (' + hits.length + ')' : ' · no sales like it yet') + ' '));
+        var a = el('a', 'See sales'); a.href = '/sold.html?q=' + encodeURIComponent(words.join(' ')); a.target = '_blank'; right.appendChild(a);
+        r2.appendChild(right); list.appendChild(r2);
+      });
+    }).catch(function () { list.textContent = 'Sold prices did not load.'; });
   }
 
   // A photo, shrunk on the phone or computer before it is sent: at most 1200 pixels on the long side, as a JPEG.
@@ -295,6 +464,7 @@
     var ebMsg = el('div', '', 'small'); ebMsg.setAttribute('role', 'status'); ebBox.appendChild(ebMsg);
     pane.appendChild(ebBox);
     eb.addEventListener('click', function () { ebBox.hidden = !ebBox.hidden; if (!ebBox.hidden) ebUrl.focus(); });
+    if (openEbay) { openEbay = false; ebBox.hidden = false; setTimeout(function () { ebUrl.focus(); }, 50); }
     ebGo.addEventListener('click', function () {
       ebGo.disabled = true; ebMsg.textContent = 'Reading the eBay listing…';
       JF.api('/api/market', { do: 'ebay-import', t: tok, as: AS, ak: AK, url: ebUrl.value }).then(function (r) {
@@ -543,7 +713,7 @@
     c.appendChild(el('div', st.state === 'on'
       ? 'When a buyer pays by card, the money goes straight to your Stripe account and Stripe sends it to your bank. Stripe takes its own card fee from you, and V2V\u2019s ' + D.fee + '% is taken at the time of sale. See every payment and payout at dashboard.stripe.com.'
       : 'Link your bank once, on Stripe\u2019s secure page (like setting up payouts on eBay). After that, card sales go straight to your Stripe account and Stripe pays you out automatically. Stripe charges you its normal card fee; V2V\u2019s ' + D.fee + '% is taken at the time of sale. V2V never sees your bank or tax details.', 'small'));
-    c.appendChild(el('div', 'Sales paid by Zelle, Venmo, Cash App, cash or crypto go to V2V, and V2V sends you your share by ' + ((PAY.filter(function (x) { return x[0] === D.seller.payHow; })[0] || ['', D.seller.payHow])[1]) + '.', 'small dim'));
+    c.appendChild(el('div', 'Sales paid by Zelle, Venmo, Cash App, cash or crypto go to V2V, and V2V sends you your share by ' + payWords(D.seller) + '.', 'small dim'));
     var m = status();
     if (st.state === 'on') { var a = el('a', 'Open my Stripe dashboard', 'ghost'); a.href = 'https://dashboard.stripe.com/'; a.target = '_blank'; a.rel = 'noopener'; a.style.cssText = 'text-decoration:none;align-self:flex-start'; c.appendChild(a); }
     else {
@@ -631,7 +801,7 @@
     var t = D.totals;
     var c = el('section', null, 'card'); c.style.gap = '10px';
     c.appendChild(el('h2', 'Payments from V2V (non-card sales)'));
-    c.appendChild(el('div', 'JarFriends pays you by ' + (PAY.filter(function (x) { return x[0] === D.seller.payHow; })[0] || ['', D.seller.payHow])[1] + ' (' + D.seller.payTo + '). Owed to you right now: ' + JF.cents(t.owed) + '.', 'small'));
+    c.appendChild(el('div', 'V2V pays you by ' + payWords(D.seller) + '. Owed to you right now: ' + JF.cents(t.owed) + '.', 'small'));
     if (!D.payouts.length) c.appendChild(el('div', 'No payouts yet.', 'small dim'));
     else {
       var tb = el('table', null, 'jf-table'), h = el('tr'); ['Date', 'How', 'Note', 'Amount'].forEach(function (x, i) { var th = el('th', x); if (i === 3) th.className = 'num'; h.appendChild(th); });
@@ -647,10 +817,15 @@
     c.appendChild(el('h2', 'Shop settings'));
     var f = el('form');
     var about = el('textarea', null, 'jf-ta'); about.maxLength = 400; about.value = s.about || '';
-    var payHow = select(PAY, s.payHow), payTo = input('text', s.payTo, { maxlength: '80', required: '' });
+    var bankS = bankFields(), bankOpen = !s.bankHint;
     var go = el('button', 'Save', 'solid'); go.type = 'submit'; var m = status();
     f.appendChild(field('About your shop', about));
-    var two = el('div', null, 'two'); two.appendChild(field('Pay me by', payHow)); two.appendChild(field('Send it to', payTo)); f.appendChild(two);
+    f.appendChild(el('h3', 'Payouts'));
+    var bk = el('div'); bk.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;align-items:center';
+    bk.appendChild(el('span', s.bankHint ? (s.bankHint.type === 'savings' ? 'Savings' : 'Checking') + ' account ending ' + s.bankHint.last4 + ' · ' + s.bankHint.holder : 'No bank account yet. Add one so V2V can send your earnings.', s.bankHint ? '' : 'alert small'));
+    var chg = el('button', 'Change bank account', 'ghost'); chg.type = 'button'; if (s.bankHint) bk.appendChild(chg);
+    f.appendChild(bk); bankS.node.hidden = !bankOpen; f.appendChild(bankS.node);
+    chg.addEventListener('click', function () { bankOpen = true; bankS.node.hidden = false; chg.remove(); });
     // Where packages ship from: needed for calculated shipping and for buying labels.
     var sf = s.shipFrom || {};
     f.appendChild(el('h2', 'Ship from'));
@@ -667,7 +842,7 @@
     c.appendChild(f);
     c.appendChild(el('div', 'Shop name: ' + s.name + ' · Signed in as ' + D.email + ' · JarFriends fee: ' + D.fee + '% of each sale. To rename your shop, contact JarFriends.', 'small dim'));
     pane.appendChild(c);
-    f.addEventListener('submit', function (ev) { ev.preventDefault(); go.disabled = true; JF.api('/api/market', { do: 'profile', t: tok, as: AS, ak: AK, shipFrom: { name: fn.value, street1: fs1.value, street2: fs2.value, city: fc.value, state: fst.value, zip: fz.value, phone: fp.value }, about: about.value, payHow: payHow.value, payTo: payTo.value, ebayUser: ebayU.value }).then(function (r) { go.disabled = false; m.textContent = r.error || 'Saved.'; if (!r.error) D.seller = r.seller; }); });
+    f.addEventListener('submit', function (ev) { ev.preventDefault(); go.disabled = true; JF.api('/api/market', Object.assign({ do: 'profile', t: tok, as: AS, ak: AK, shipFrom: { name: fn.value, street1: fs1.value, street2: fs2.value, city: fc.value, state: fst.value, zip: fz.value, phone: fp.value }, about: about.value, ebayUser: ebayU.value }, bankOpen ? bankS.values() : {})).then(function (r) { go.disabled = false; m.textContent = r.error || 'Saved.'; if (!r.error) D.seller = r.seller; }); });
   }
   // Back from Stripe's payout setup: show the payouts tab. "again" means the link ran out, so open a fresh one.
   var sq = new URLSearchParams(location.search).get('stripe');
