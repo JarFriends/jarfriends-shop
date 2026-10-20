@@ -66,4 +66,17 @@ async function guarded(email) {
   try { return (await Promise.all((await store.sales()).map((s) => store.read(s.path)))).some((d) => d && String(d.email || '').trim().toLowerCase() === email); } catch (e) { return true; }
 }
 
-module.exports = { guarded, h, get, put, setPassword, checkPassword, hasPassword, newCode, checkCode, tokenFor, skipCode, validEmail };
+// The Terms of Service (public/terms.html). Everyone signs them electronically; a new version means signing again.
+const TERMS_VERSION = '2026-10-20';
+const agreed = (u) => !!(u && u.terms && u.terms.v === TERMS_VERSION);
+// The electronic signature: the version, the typed name, when, and from where (kept with the account).
+async function signTerms(email, name, req) {
+  const n = String(name || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+  if (n.length < 2) return { error: 'Type your full name to sign.' };
+  const ip = String((req && req.headers && (req.headers['x-forwarded-for'] || req.headers['x-real-ip'])) || '').split(',')[0].trim().slice(0, 64);
+  const ua = String((req && req.headers && req.headers['user-agent']) || '').slice(0, 200);
+  await put(email, { terms: { v: TERMS_VERSION, name: n, at: Date.now(), ip: ip, ua: ua } });
+  return { ok: true };
+}
+
+module.exports = { TERMS_VERSION, agreed, sign: signTerms, guarded, h, get, put, setPassword, checkPassword, hasPassword, newCode, checkCode, tokenFor, skipCode, validEmail };

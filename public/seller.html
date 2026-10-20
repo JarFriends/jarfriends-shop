@@ -109,7 +109,9 @@
     var about = el('textarea', null, 'jf-ta'); about.maxLength = 400; about.placeholder = 'What you collect and sell. Shown on your shop page.';
     var bankF = bankFields();
     var agree = input('checkbox'); var al = el('label', null, 'jf-check'); al.appendChild(agree);
-    al.appendChild(el('span', 'I agree: V2V keeps ' + D.fee + '% of each sale and pays me the rest. I ship within 3 days of payment, describe my pieces honestly, and only sell what I own.'));
+    var als = el('span'); als.appendChild(document.createTextNode('I agree to the ')); var alt = el('a', 'VeeFam.io Terms of Service'); alt.href = '/terms.html'; alt.target = '_blank'; alt.rel = 'noopener'; als.appendChild(alt);
+    als.appendChild(document.createTextNode(' as a seller: VeeFam.io keeps ' + D.fee + '% of each sale and pays me the rest. I am fully responsible for my listings, sales and shipping; I ship within 3 days of payment, describe my pieces honestly, only sell what I own, and never take payment outside VeeFam.io.'));
+    al.appendChild(als);
     var go = el('button', 'Open my shop', 'solid'); go.type = 'submit'; var m = status();
     f.appendChild(field('Shop name', name)); f.appendChild(field('About your shop', about, 'Optional.'));
     f.appendChild(el('h3', 'Payouts: where we send your earnings')); f.appendChild(bankF.node);

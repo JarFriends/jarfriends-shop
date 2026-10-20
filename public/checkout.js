@@ -3,6 +3,17 @@
 // more than one, short pay choices, and the extras (promo code, offer, trade) tucked behind small links.
 // It only rearranges and hides what order.html already has, so checkout itself works exactly as before.
 (function () {
+  // Every checkout (with or without an account) asks the buyer to agree to the Terms before placing the order.
+  (function terms() {
+    var go = document.getElementById('go');
+    if (!go) return setTimeout(terms, 200);
+    if (document.getElementById('coTerms')) return;
+    var l = document.createElement('label'); l.className = 'jf-check'; l.id = 'coTerms'; l.style.cssText = 'font-size:14px';
+    var cb = document.createElement('input'); cb.type = 'checkbox'; cb.required = true; cb.name = 'agreeTerms'; l.appendChild(cb);
+    var sp = document.createElement('span'); sp.appendChild(document.createTextNode('I agree to the ')); var a = document.createElement('a'); a.href = '/terms.html'; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'VeeFam.io Terms of Service'; sp.appendChild(a);
+    sp.appendChild(document.createTextNode('. I am buying from an independent seller; VeeFam.io is only the marketplace and is not responsible for any loss.')); l.appendChild(sp);
+    go.parentNode.insertBefore(l, go);
+  })();
   var qs = new URLSearchParams(location.search), id = qs.get('product');
   if (!id || qs.get('offer')) return;
   var $ = function (x) { return document.getElementById(x); };

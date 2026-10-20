@@ -14,9 +14,35 @@
   function el(tag, text, cls) { var e = document.createElement(tag); if (text != null) e.textContent = text; if (cls) e.className = cls; return e; }
   function usd(v) { return '$' + Number(v || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
   function cents(c) { return usd((c || 0) / 100); }
+  // The Terms of Service, to sign before using an account (accounts made before the Terms, or with Google).
+  var gateOpen = false;
+  function termsGate() {
+    if (gateOpen || !document.body) return; gateOpen = true;
+    var bg = el('div'); bg.style.cssText = 'position:fixed;inset:0;z-index:2147483600;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto';
+    var box = el('section', null, 'card'); box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.style.cssText = 'max-width:560px;width:100%;gap:12px;max-height:92vh;overflow:auto';
+    box.appendChild(el('h2', 'Sign the VeeFam.io Terms'));
+    var ul = el('ul'); ul.style.cssText = 'margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:14px';
+    ['VeeFam.io is only a marketplace. You are fully responsible for what you buy, sell and trade.', 'VeeFam.io is not responsible for any loss of money, items or information.', 'Do not deal with anyone you do not trust. Never pay or get paid outside VeeFam.io: that voids any protection.', 'VeeFam.io may step in to help with a disagreement, but does not have to.', 'Disputes go to individual arbitration, not class actions.'].forEach(function (t) { ul.appendChild(el('li', t)); });
+    box.appendChild(ul);
+    var a = el('a', 'Read the full Terms of Service'); a.href = '/terms.html'; a.target = '_blank'; a.rel = 'noopener'; box.appendChild(a);
+    var nl = el('label', 'Full name (your electronic signature)'); var n = el('input'); n.autocomplete = 'name'; n.maxLength = 80; nl.appendChild(n); box.appendChild(nl);
+    var cl = el('label', null, 'jf-check'); var cb = el('input'); cb.type = 'checkbox'; cl.appendChild(cb); cl.appendChild(el('span', 'I have read and agree to the VeeFam.io Terms of Service, and I sign them electronically.')); box.appendChild(cl);
+    var go = el('button', 'Sign and continue', 'solid'); go.type = 'button'; box.appendChild(go);
+    var m = el('div', '', 'small'); m.setAttribute('role', 'status'); box.appendChild(m);
+    go.addEventListener('click', function () {
+      if (!cb.checked) { m.textContent = 'Tick the box to agree.'; return; }
+      if (n.value.trim().length < 2) { m.textContent = 'Type your full name to sign.'; return; }
+      go.disabled = true; m.textContent = 'Saving your signature…';
+      fetch('/api/auth', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ do: 'agree', t: token(), name: n.value, agree: true }) }).then(function (r) { return r.json(); }).then(function (r) {
+        if (r.error) { go.disabled = false; m.textContent = r.error; return; }
+        location.reload();
+      }).catch(function () { go.disabled = false; m.textContent = 'That did not save. Try again.'; });
+    });
+    bg.appendChild(box); document.body.appendChild(bg); n.focus();
+  }
   function api(path, body) {
     var o = body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) } : { cache: 'no-store' };
-    return fetch(path, o).then(function (r) { return r.json().catch(function () { return { error: 'The site did not answer. Try again.' }; }).then(function (j) { j._status = r.status; return j; }); });
+    return fetch(path, o).then(function (r) { return r.json().catch(function () { return { error: 'The site did not answer. Try again.' }; }).then(function (j) { j._status = r.status; if (j && j.needTerms) termsGate(); return j; }); });
   }
   // The V2V sign-in box: Continue with Google, or an email and password. A new password account confirms its
   // email with a 6-digit code first. done(token) runs once signed in; the token is kept as acct_token.
@@ -57,7 +83,11 @@
     var g = el('div'); g.style.minHeight = '44px';
     var or = el('div', 'or with your email', 'label'); or.style.textAlign = 'center';
     var f = el('form'); f.style.gap = '12px';
-    var ln = el('label', 'Your name'), n = el('input'); n.autocomplete = 'name'; n.maxLength = 80; ln.appendChild(n);
+    var ln = el('label', 'Full name (your electronic signature on the Terms)'), n = el('input'); n.autocomplete = 'name'; n.maxLength = 80; ln.appendChild(n);
+    // The Terms of Service, signed at sign-up: the ticked box plus the typed full name.
+    var lt = el('label', null, 'jf-check'), tc = el('input'); tc.type = 'checkbox'; lt.appendChild(tc);
+    var tsp = el('span'); tsp.appendChild(document.createTextNode('I have read and agree to the ')); var ta = el('a', 'VeeFam.io Terms of Service'); ta.href = '/terms.html'; ta.target = '_blank'; ta.rel = 'noopener'; tsp.appendChild(ta);
+    tsp.appendChild(document.createTextNode(', and I sign them electronically. I understand VeeFam.io is only a marketplace and is not responsible for any loss.')); lt.appendChild(tsp);
     var le = el('label', 'Email'), e = el('input'); e.type = 'email'; e.required = true; e.autocomplete = 'email'; e.placeholder = 'you@example.com'; le.appendChild(e);
     var lp = el('label', 'Password'), p = el('input'); p.type = 'password'; p.required = true; p.minLength = 8; lp.appendChild(p);
     var lc = el('label', 'The 6-digit code we emailed you'), c = el('input'); c.inputMode = 'numeric'; c.autocomplete = 'one-time-code'; c.maxLength = 6; c.pattern = '[0-9]{6}'; lc.appendChild(c);
@@ -65,13 +95,13 @@
     var msg = el('div', '', 'small'); msg.setAttribute('role', 'status'); msg.setAttribute('aria-live', 'polite');
     var swap = el('button', '', 'ghost'); swap.type = 'button'; swap.style.alignSelf = 'flex-start';
     var again = el('button', 'Email me a new code', 'ghost'); again.type = 'button'; again.style.alignSelf = 'flex-start';
-    [ln, le, lp, lc, go, msg].forEach(function (x) { f.appendChild(x); });
+    [ln, le, lp, lc, lt, go, msg].forEach(function (x) { f.appendChild(x); });
     [head, sub, g, or, f, swap, again].forEach(function (x) { card.appendChild(x); });
     host.appendChild(card);
     function show() {
       var code = !!pending;
       head.textContent = code ? 'Check your email' : mode === 'signup' ? 'Create your account' : 'Sign in';
-      ln.hidden = code || mode !== 'signup'; le.hidden = code; lp.hidden = code; lc.hidden = !code; g.hidden = code || !!g.dataset.off; or.hidden = code || !!or.dataset.off;
+      ln.hidden = code || mode !== 'signup'; lt.hidden = code || mode !== 'signup'; tc.required = !code && mode === 'signup'; n.required = !code && mode === 'signup'; le.hidden = code; lp.hidden = code; lc.hidden = !code; g.hidden = code || !!g.dataset.off; or.hidden = code || !!or.dataset.off;
       p.autocomplete = mode === 'signup' ? 'new-password' : 'current-password';
       lp.querySelector('.hint') || lp.appendChild(el('span', '', 'hint'));
       lp.querySelector('.hint').textContent = mode === 'signup' ? 'At least 8 characters.' : '';
@@ -85,7 +115,7 @@
     again.addEventListener('click', function () { api('/api/auth', { do: 'resend', email: pending }).then(function () { msg.textContent = 'A new code is on its way.'; }); });
     f.addEventListener('submit', function (ev) {
       ev.preventDefault(); go.disabled = true; msg.textContent = pending ? 'Checking…' : mode === 'signup' ? 'Creating your account…' : 'Signing in…';
-      var body = pending ? { do: 'verify', email: pending, code: c.value } : { do: mode, email: e.value, password: p.value, name: n.value };
+      var body = pending ? { do: 'verify', email: pending, code: c.value } : { do: mode, email: e.value, password: p.value, name: n.value, agree: tc.checked };
       // Signed in to the back office on this browser: lets the owner's own email skip the emailed code.
       try { var ak0 = localStorage.getItem('adminKey'); if (ak0 && !pending) body.ak = ak0; } catch (x) {}
       api('/api/auth', body).then(function (r) {

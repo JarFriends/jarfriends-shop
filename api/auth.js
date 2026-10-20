@@ -26,6 +26,13 @@ module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Use POST.' });
   let b = req.body || {};
   if (typeof b === 'string') { try { b = JSON.parse(b); } catch (e) { b = {}; } }
+  // Sign the Terms from an existing account (made before the Terms, or with Google): { do:'agree', t, name, agree }.
+  if (b.do === 'agree') {
+    const who = require('./_gate').emailOf(b.t);
+    if (!who) return res.status(401).json({ error: 'Sign in again first.' });
+    if (b.agree !== true) return res.status(400).json({ error: 'Tick the box to agree to the Terms.' });
+    try { const r = await U.sign(who, b.name, req); return res.status(r.error ? 400 : 200).json(r); } catch (e) { return res.status(503).json({ error: 'Could not save that just now. Try again.' }); }
+  }
   const email = String(b.email || '').trim().toLowerCase().slice(0, 160);
   if (!U.validEmail(email)) return res.status(400).json({ error: 'Enter a valid email address.' });
   const pass = String(b.password || '');
@@ -41,12 +48,16 @@ module.exports = async (req, res) => {
       const ownerKey = !!b.ak && email === String(process.env.OWNER_EMAIL || '').trim().toLowerCase() && require('./_gate').isAdmin(b.ak);
       const skip = ownerKey || (U.skipCode() && !(await U.guarded(email)));
       if (b.do === 'signup') {
+        // The Terms: a ticked box and a typed full name are the electronic signature.
+        if (b.agree !== true) return res.status(400).json({ error: 'Read and agree to the VeeFam.io Terms of Service to create an account.' });
+        if (String(b.name || '').trim().length < 2) return res.status(400).json({ error: 'Type your full name. It is your signature on the Terms.' });
         // An account that never confirmed its email can be started again (by whoever really owns the email).
         if (has) { const u0 = await U.get(email); if (!u0 || pwConfirmed(u0)) return res.status(409).json({ error: 'This email already has an account. Sign in instead.' }); }
         await U.setPassword(email, pass);
         // pwOk: this password has been confirmed with the emailed code. A new password always starts unconfirmed,
         // even on an account that already exists through Google.
         await U.put(email, Object.assign({ name: String(b.name || '').replace(/\s+/g, ' ').trim().slice(0, 80), pwOk: skip }, skip ? { verified: true } : {}));
+        await U.sign(email, b.name, req);
       } else {
         if (!has) return res.status(404).json({ error: 'No account with this email yet. Create one, or sign in with Google.' });
         if (!(await U.checkPassword(email, pass))) { miss(email); return res.status(401).json({ error: 'That password is not right. Try again, or sign in with Google.' }); }

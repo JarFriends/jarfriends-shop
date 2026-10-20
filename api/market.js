@@ -287,6 +287,8 @@ module.exports = async (req, res) => {
     if (as && gate.isAdmin(req.method === 'POST' ? b.ak : q.ak)) { const who = await M.bySlug(as); if (who) { me = who.email; actAs = true; } }
     if (!me) me = await signedIn(req.method === 'POST' ? b.t : q.t);
     if (!me) return res.status(401).json({ error: 'Sign in first.' });
+    // Everyone signs the Terms (public/terms.html) before using their account. The owner viewing a shop is exempt.
+    if (!actAs) { const U = require('./_users'); if (!U.agreed(await U.get(me))) return res.status(403).json({ needTerms: true, error: 'Please read and sign the VeeFam.io Terms of Service to continue.' }); }
 
     if (what === 'wish') {
       const was = (await store.read(wishKey(me))) || { ids: [] };
