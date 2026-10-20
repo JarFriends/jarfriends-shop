@@ -273,7 +273,7 @@
     // Listings
     var c1 = card('Listings', 'listings'); grid.appendChild(c1);
     row(c1, 'Create listing', null, 'listings', false, { add: true });
-    row(c1, 'Add from an eBay screenshot', null, 'listings', false, { add: true });
+    row(c1, 'Add from a photo or eBay screenshot', null, 'listings', false, { add: true });
     row(c1, 'Drafts (hidden)', drafts.length, 'listings');
     row(c1, 'Active listings', active.length, 'listings');
     var rOff = row(c1, 'With open offers from buyers', '…', 'offers', true);
@@ -420,31 +420,47 @@
     var c = el('section', null, 'card'); c.style.gap = '14px';
     c.appendChild(el('h2', p ? 'Change this piece' : 'Add a piece'));
     if (!p) {
-      // Already listed on eBay? Upload a screenshot of the listing: AI reads it and fills in this form to check.
-      var sb = el('div'); sb.style.cssText = 'display:flex;flex-direction:column;gap:8px;border:1px dashed #4A4F5E;padding:12px 14px';
-      sb.appendChild(el('b', 'Already listed on eBay? Upload a screenshot of the listing'));
-      var sBtn = el('button', '🖼️ Upload eBay screenshot', 'solid'); sBtn.type = 'button'; sBtn.style.alignSelf = 'flex-start';
+      // One box for both: a photo of the piece, or a screenshot of an eBay listing. AI works out which it is and fills
+      // in the form (api/market.js, do=listing-ai, kind auto). A photo of the piece also becomes the piece's photo.
+      var sb = el('div'); sb.style.cssText = 'display:flex;flex-direction:column;gap:10px;border:1px dashed #4A4F5E;padding:14px';
+      sb.appendChild(el('b', 'Upload a photo or eBay screenshot'));
+      var btns = el('div'); btns.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px';
+      var sBtn = el('button', '📷 Upload photo or eBay screenshot', 'solid'); sBtn.type = 'button';
+      var pBtn = el('button', '📋 Paste', 'ghost'); pBtn.type = 'button';
+      btns.appendChild(sBtn); btns.appendChild(pBtn);
       var sFile = input('file', null, { accept: 'image/*' }); sFile.hidden = true;
-      var sMsg = el('div', 'AI reads the title, price, shipping and details from the screenshot and fills in the form below. You can also paste a screenshot here (Ctrl+V or ⌘+V). Then add a photo of the piece itself and save.', 'small dim');
-      sb.appendChild(sBtn); sb.appendChild(sFile); sb.appendChild(sMsg); c.appendChild(sb);
+      var sMsg = el('div', 'AI works out what it is and fills in the form below for you to check. A photo of the piece is also used as its photo. You can paste a picture too (📋 Paste, or Ctrl+V / ⌘+V).', 'small dim');
+      sb.appendChild(btns); sb.appendChild(sFile); sb.appendChild(sMsg); c.appendChild(sb);
       var readShot = function (file) {
-        sBtn.disabled = true; sMsg.className = 'small'; sMsg.textContent = 'Reading your screenshot…';
-        shrink(file).then(function (data) { return JF.api('/api/market', { do: 'listing-ai', kind: 'screenshot', t: tok, as: AS, ak: AK, data: data }); }).then(function (r) {
-          sBtn.disabled = false;
+        sBtn.disabled = pBtn.disabled = true; sMsg.className = 'small'; sMsg.textContent = 'AI is looking at your picture…';
+        shrink(file).then(function (data) { return JF.api('/api/market', { do: 'listing-ai', kind: 'auto', t: tok, as: AS, ak: AK, data: data }); }).then(function (r) {
+          sBtn.disabled = pBtn.disabled = false;
           if (r.error) { sMsg.textContent = r.error; return; }
           if (r.title) name.value = r.title;
           if (r.description) desc.value = r.description;
-          if (r.price > 0) price.value = r.price;
-          if (r.quantity > 0 && mode.value !== 'auction') stock.value = r.quantity;
-          if (r.shipping === 'free') shipMode.value = 'free'; else if (r.shipping > 0) { shipMode.value = 'flat'; ship.value = r.shipping; }
-          shipMode.dispatchEvent(new Event('change'));
           if (r.category && D.sections.indexOf(r.category) >= 0) sec.value = r.category;
-          sMsg.textContent = 'Filled in from your screenshot. Check everything, add a photo of the piece below, then save.';
+          if (r.kind === 'screenshot') {
+            if (r.price > 0) price.value = r.price;
+            if (r.quantity > 0 && mode.value !== 'auction') stock.value = r.quantity;
+            if (r.shipping === 'free') shipMode.value = 'free'; else if (r.shipping > 0) { shipMode.value = 'flat'; ship.value = r.shipping; }
+            shipMode.dispatchEvent(new Event('change'));
+            sMsg.textContent = 'Filled in from your eBay screenshot. Check everything, add a photo of the piece below, then save.';
+          } else {
+            var used = false; try { var dt = new DataTransfer(); dt.items.add(file); photo.files = dt.files; used = true; } catch (e) { used = false; }
+            sMsg.textContent = 'Filled in from your photo' + (used ? ', and it is set as the piece\'s photo' : '') + '. Check it, add the price, then save.' + (used ? '' : ' Pick the photo again under Photo.');
+          }
           name.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }).catch(function (e) { sBtn.disabled = false; sMsg.textContent = e && e.message ? e.message : 'That did not work. Try again.'; });
+        }).catch(function (e) { sBtn.disabled = pBtn.disabled = false; sMsg.textContent = e && e.message ? e.message : 'That did not work. Try again.'; });
       };
       sBtn.addEventListener('click', function () { sFile.click(); });
       sFile.addEventListener('change', function () { if (sFile.files[0]) readShot(sFile.files[0]); sFile.value = ''; });
+      pBtn.addEventListener('click', function () {
+        if (!navigator.clipboard || !navigator.clipboard.read) { sMsg.textContent = 'Press Ctrl+V (or ⌘+V on a Mac) to paste your picture.'; return; }
+        navigator.clipboard.read().then(function (items) {
+          for (var i = 0; i < items.length; i++) { var t = items[i].types.filter(function (x) { return x.indexOf('image/') === 0; })[0]; if (t) return items[i].getType(t).then(function (bl) { readShot(new File([bl], 'pasted.' + t.split('/')[1], { type: t })); }); }
+          sMsg.textContent = 'There is no picture to paste. Copy a screenshot or photo first.';
+        }).catch(function () { sMsg.textContent = 'Press Ctrl+V (or ⌘+V on a Mac) to paste your picture.'; });
+      });
       var onPaste = function (ev) {
         if (!document.body.contains(sb)) { document.removeEventListener('paste', onPaste); return; }
         var items = (ev.clipboardData && ev.clipboardData.items) || [];
@@ -473,27 +489,6 @@
     var photo = input('file', null, { accept: 'image/*' });
     var go = el('button', p ? 'Save changes' : 'Add to my shop', 'solid'); go.type = 'submit';
     var m = status();
-    // Snap a photo and AI suggests a title, description and category (api/market.js, do=listing-ai).
-    var aiBox = el('div'); aiBox.style.cssText = 'display:flex;flex-direction:column;gap:8px;border:1px dashed #4A4F5E;padding:12px 14px';
-    var aiBtn = el('button', '📷 Take a photo, AI fills in the title', 'ghost'); aiBtn.type = 'button'; aiBtn.style.alignSelf = 'flex-start';
-    var aiFile = input('file', null, { accept: 'image/*', capture: 'environment' }); aiFile.hidden = true;
-    var aiMsg = el('div', 'AI looks at the picture and suggests a title, description and category. You check and change anything before saving. The photo is also used as the piece\'s photo.', 'small dim');
-    aiBox.appendChild(aiBtn); aiBox.appendChild(aiFile); aiBox.appendChild(aiMsg);
-    f.appendChild(aiBox);
-    aiBtn.addEventListener('click', function () { aiFile.click(); });
-    aiFile.addEventListener('change', function () {
-      var file = aiFile.files[0]; if (!file) return;
-      try { var dt = new DataTransfer(); dt.items.add(file); photo.files = dt.files; } catch (e) { /* older browsers: they pick the photo again below */ }
-      aiBtn.disabled = true; aiMsg.className = 'small'; aiMsg.textContent = 'Looking at your photo…';
-      shrink(file).then(function (data) { return JF.api('/api/market', { do: 'listing-ai', t: tok, as: AS, ak: AK, data: data }); }).then(function (r) {
-        aiBtn.disabled = false;
-        if (r.error) { aiMsg.textContent = r.error; return; }
-        var fill = function (node, v) { if (v && (!node.value || confirm('Replace "' + node.value.slice(0, 60) + '" with the AI suggestion "' + v.slice(0, 60) + '"?'))) node.value = v; };
-        fill(name, r.title); fill(desc, r.description);
-        if (r.category && D.sections.indexOf(r.category) >= 0 && !sec.value) sec.value = r.category;
-        aiMsg.textContent = 'Filled in from your photo' + (r.category ? ' (category: ' + r.category + ')' : '') + '. Check it is right, add the condition and price, then save.' + (photo.files && photo.files.length ? '' : ' Pick the photo again under Photo.');
-      }).catch(function (e) { aiBtn.disabled = false; aiMsg.textContent = e && e.message ? e.message : 'That did not work. Try again.'; });
-    });
     f.appendChild(field('Name', name)); f.appendChild(field('Description', desc));
     f.appendChild(field('How it sells', mode));
     var priceL = field('Price (USD)', price), stockL = field('How many you have', stock);
