@@ -21,8 +21,17 @@
     box.style.cssText = 'max-height:260px;overflow-y:auto;border:1px solid #4E7A63;padding:12px 14px;font-size:13px;line-height:1.55;background:rgba(0,0,0,.18)';
     box.textContent = 'Loading the Terms…';
     cb.disabled = true;
-    var note = hint || el('div', '', 'small dim'); note.textContent = 'Scroll to the end of the Terms to unlock the agree box.';
-    var unlock = function () { if (!box.offsetParent || box.scrollHeight < 40) return; if (box.scrollTop + box.clientHeight >= box.scrollHeight - 12) { cb.disabled = false; note.textContent = 'Thanks for reading. You can agree now.'; box.removeEventListener('scroll', unlock); } };
+    // A bold gold notice with a bouncing arrow and a progress bar, so it is clear you must scroll to the end first.
+    if (!document.getElementById('jfTermsCss')) { var tcss = el('style'); tcss.id = 'jfTermsCss'; tcss.textContent = '@keyframes jfBob{0%,100%{transform:translateY(0)}50%{transform:translateY(4px)}}.jf-tnote{display:flex;align-items:center;gap:10px;background:#C9A45C;color:#0B1A13;font-weight:800;font-size:15px;padding:10px 14px;border-radius:6px}.jf-tnote b{display:inline-block;font-size:20px;animation:jfBob 1s ease-in-out infinite}.jf-tnote.done{background:#1F4D36;color:#F7F2E6}.jf-tnote.done b{animation:none}.jf-tbar{height:6px;background:rgba(255,255,255,.12);border-radius:99px;overflow:hidden}.jf-tbar span{display:block;height:100%;width:0;background:#C9A45C;transition:width .15s}'; document.head.appendChild(tcss); }
+    var note = hint || el('div', null, 'jf-tnote'); note.textContent = '';
+    var arrow = el('b', '⬇'); arrow.setAttribute('aria-hidden', 'true'); var ntext = el('span', 'Scroll down through all the Terms. The agree box unlocks at the bottom.');
+    note.appendChild(arrow); note.appendChild(ntext);
+    var bar = el('div', null, 'jf-tbar'), fill = el('span'); bar.appendChild(fill);
+    var unlock = function () {
+      if (!box.offsetParent || box.scrollHeight < 40) return;
+      fill.style.width = Math.min(100, Math.round((box.scrollTop + box.clientHeight) * 100 / box.scrollHeight)) + '%';
+      if (box.scrollTop + box.clientHeight >= box.scrollHeight - 12) { cb.disabled = false; note.classList.add('done'); arrow.textContent = '✓'; ntext.textContent = 'Thanks for reading. Now tick the box below to agree.'; box.removeEventListener('scroll', unlock); }
+    };
     (termsHtml ? Promise.resolve(termsHtml) : fetch('/terms.html', { cache: 'no-store' }).then(function (r) { return r.text(); }).then(function (h) {
       var d = new DOMParser().parseFromString(h, 'text/html'), a = d.querySelector('article.terms');
       termsHtml = a ? a.innerHTML : ''; return termsHtml;
@@ -32,7 +41,7 @@
       Array.prototype.forEach.call(box.querySelectorAll('h2'), function (x) { x.style.fontSize = '15px'; x.style.margin = '14px 0 4px'; });
       box.addEventListener('scroll', unlock); setTimeout(unlock, 50);
     }).catch(function () { box.textContent = 'The Terms did not load. Read them at /terms.html, then tick the box.'; cb.disabled = false; });
-    var wrap = el('div'); wrap.style.cssText = 'display:flex;flex-direction:column;gap:6px'; wrap.appendChild(box); wrap.appendChild(note);
+    var wrap = el('div'); wrap.style.cssText = 'display:flex;flex-direction:column;gap:8px'; wrap.appendChild(note); wrap.appendChild(box); wrap.appendChild(bar);
     return wrap;
   }
   // The Terms of Service, to sign before using an account (accounts made before the Terms, or with Google).

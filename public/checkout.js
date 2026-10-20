@@ -16,15 +16,15 @@
     var tb = document.createElement('div'); tb.id = 'coTermsBox'; tb.setAttribute('tabindex', '0');
     tb.style.cssText = 'max-height:200px;overflow-y:auto;border:1px solid #4E7A63;padding:10px 12px;font-size:13px;line-height:1.5;background:rgba(0,0,0,.18)';
     tb.textContent = 'Loading the Terms…'; cb.disabled = true;
-    var tn = document.createElement('div'); tn.className = 'small dim'; tn.textContent = 'Scroll to the end of the Terms to unlock the agree box.';
-    var un = function () { if (!tb.offsetParent || tb.scrollHeight < 40) return; if (tb.scrollTop + tb.clientHeight >= tb.scrollHeight - 12) { cb.disabled = false; tn.textContent = 'Thanks for reading. You can agree now.'; tb.removeEventListener('scroll', un); } };
+    var tn = document.createElement('div'); tn.style.cssText = 'background:#C9A45C;color:#0B1A13;font-weight:800;font-size:15px;padding:10px 14px;border-radius:6px'; tn.textContent = '⬇ Scroll down through all the Terms. The agree box unlocks at the bottom.';
+    var un = function () { if (!tb.offsetParent || tb.scrollHeight < 40) return; if (tb.scrollTop + tb.clientHeight >= tb.scrollHeight - 12) { cb.disabled = false; tn.textContent = '✓ Thanks for reading. Now tick the box to agree.'; tn.style.background = '#1F4D36'; tn.style.color = '#F7F2E6'; tb.removeEventListener('scroll', un); } };
     fetch('/terms.html', { cache: 'no-store' }).then(function (r) { return r.text(); }).then(function (h) {
       var art = new DOMParser().parseFromString(h, 'text/html').querySelector('article.terms');
       if (!art) throw 0; tb.innerHTML = art.innerHTML;
       Array.prototype.forEach.call(tb.querySelectorAll('h1,h2'), function (x) { x.style.fontSize = '15px'; x.style.margin = '12px 0 4px'; });
       tb.addEventListener('scroll', un); setTimeout(un, 50);
     }).catch(function () { tb.textContent = 'The Terms did not load. Read them at /terms.html, then tick the box.'; cb.disabled = false; });
-    go.parentNode.insertBefore(tb, go); go.parentNode.insertBefore(tn, go);
+    go.parentNode.insertBefore(tn, go); go.parentNode.insertBefore(tb, go);
     go.parentNode.insertBefore(l, go);
     // A locked (disabled) box is skipped by the browser's own required check, so stop the order here instead.
     var stop = function (ev) { if (document.body.contains(l) && !cb.checked) { ev.preventDefault(); ev.stopImmediatePropagation(); tn.textContent = cb.disabled ? 'Scroll to the end of the Terms, then tick the box to agree.' : 'Tick the box to agree to the Terms.'; tn.style.color = '#E8A0A0'; (cb.disabled ? tb : cb).focus(); } };
