@@ -67,7 +67,8 @@
     }).catch(function () { gv.textContent = 'The giveaway vote did not load.'; });
     box.appendChild(el('div', 'Buyers pay JarFriends for seller pieces like any other order. You keep ' + r.fee + '% of the pieces plus shipping. Card sales of sellers with Stripe payouts on go straight to them (your cut arrives in your Stripe automatically); for everything else you owe the seller the rest. Sellers ship their own orders and add tracking in their portal, so do not buy a label for a seller order from the Orders tab. The fee rate is set by PLATFORM_FEE_PERCENT in the site settings.', 'small dim'));
     if (!r.sellers.length) { box.appendChild(el('div', 'No sellers yet. Send people to /seller.html to open a shop. Sellers listed in SEED_SELLERS open by themselves the first time the site is visited.', 'card small')); return; }
-    r.sellers.slice().sort(function (a, b) { return (a.status === 'pending' ? 0 : 1) - (b.status === 'pending' ? 0 : 1) || b.at - a.at; }).forEach(function (s) {
+    // One card per seller; the cards are shown in groups below.
+    var cardOf = function (s, into) {
       var c = el('section', null, 'card'); c.style.gap = '10px';
       var top = el('div'); top.style.cssText = 'display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;align-items:center';
       var nm = el('div'); nm.appendChild(el('b', s.name + '  ')); nm.appendChild(el('span', s.status === 'approved' ? 'OPEN' : s.status === 'pending' ? 'NEEDS YOUR OK' : 'PAUSED', 'sx-b ' + (s.status === 'approved' ? 'ok' : s.status === 'pending' ? 'wait' : 'off')));
@@ -138,8 +139,31 @@
       cf.appendChild(camt); cf.appendChild(cnote); cf.appendChild(cgo);
       cf.addEventListener('submit', function (ev) { ev.preventDefault(); if (!confirm('Charge ' + s.name + ' ' + money(Math.round(Number(camt.value) * 100)) + '? It comes out of money held for them first, then their card. They get an email.')) return; cgo.disabled = true; post({ do: 'charge', slug: s.slug, amount: camt.value, note: cnote.value }).then(function (x) { cgo.disabled = false; if (x.error) { alert(x.error); return; } load(); }); });
       c.appendChild(cf);
-      box.appendChild(c);
-    });
+      into.appendChild(c);
+    };
+    // Groups: shops waiting for your OK, open shops, paused shops, then the people buying.
+    var group = function (title, list, empty) {
+      box.appendChild(el('div', title + ' (' + list.length + ')', 'mono gold'));
+      if (!list.length) { box.appendChild(el('div', empty, 'small dim')); return; }
+      list.sort(function (a, b) { return b.at - a.at; }).forEach(function (x) { cardOf(x, box); });
+    };
+    group('NEEDS YOUR APPROVAL', r.sellers.filter(function (x) { return x.status === 'pending'; }), 'Nobody is waiting. New shops show up here until you approve them.');
+    group('ACTIVE SELLERS', r.sellers.filter(function (x) { return x.status === 'approved'; }), 'No open shops yet.');
+    var paused = r.sellers.filter(function (x) { return x.status !== 'pending' && x.status !== 'approved'; });
+    if (paused.length) group('PAUSED SHOPS', paused, '');
+    // Active buyers: everyone with a paid order, with how many orders and how much they spent.
+    var by = {};
+    (r.sales || []).forEach(function (o) { if (!o.paid || !o.email) return; var k = String(o.email).toLowerCase(); var b2 = by[k] = by[k] || { email: k, name: o.buyer || '', n: 0, spent: 0, last: 0 }; b2.n++; b2.spent += o.gross || 0; if (o.at > b2.last) { b2.last = o.at; if (o.buyer) b2.name = o.buyer; } });
+    var buyers = Object.keys(by).map(function (k) { return by[k]; }).sort(function (a, b) { return b.last - a.last; });
+    box.appendChild(el('div', 'ACTIVE BUYERS (' + buyers.length + ')', 'mono gold'));
+    if (!buyers.length) box.appendChild(el('div', 'No paid orders yet. People show up here once they buy something.', 'small dim'));
+    else {
+      var bw = el('div', null, 'scroll'), bt = el('table'), bh = el('tr');
+      ['Buyer', 'Email', 'Orders', 'Spent', 'Last order'].forEach(function (h, i) { var th2 = el('th', h); if (i === 2 || i === 3) th2.className = 'num'; bh.appendChild(th2); });
+      var bth = el('thead'); bth.appendChild(bh); bt.appendChild(bth); var bb = el('tbody');
+      buyers.forEach(function (x) { var tr = el('tr'); [x.name || '-', x.email, String(x.n), money(x.spent), new Date(x.last).toLocaleDateString('en-US', { dateStyle: 'medium' })].forEach(function (v, i) { var td = el('td', v); if (i === 2 || i === 3) td.className = 'num'; tr.appendChild(td); }); bb.appendChild(tr); });
+      bt.appendChild(bb); bw.appendChild(bt); box.appendChild(bw);
+    }
     if (r.sales.length) {
       var w = el('div', null, 'scroll'), tb = el('table'), hr = el('tr');
       ['Placed', 'Order', 'Seller', 'Piece', 'Buyer', 'Sold for', 'Your fee', 'Seller gets', 'Status', 'Issue'].forEach(function (h, i) { var th = el('th', h); if (i >= 5 && i <= 7) th.className = 'num'; hr.appendChild(th); });
