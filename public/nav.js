@@ -15,7 +15,7 @@
     + '.jfn-acct a[aria-current="page"]{background:#C9A45C;color:#0B1A13}.jfn-acct a:hover{color:#F7F2E6}'
     + '.jfn-acct a.jfn-si{padding:6px 14px}'
     + '@media(max-width:520px){header.top .bar>span>.mono,header.top .bar>span>a.home{display:none}}'
-    + '.jfn-give{display:block;background:#FF6B3D;color:#0E0F13;text-align:center;padding:8px 16px;font:700 14px/1.35 "Space Grotesk",Archivo,system-ui,sans-serif;text-decoration:none!important}'
+    + '.jfn-give,.jfn-give:link,.jfn-give:visited,.jfn-give b{color:#0E0F13!important}.jfn-give{display:block;background:#FF6B3D;text-align:center;padding:8px 16px;font:700 14px/1.35 "Space Grotesk",Archivo,system-ui,sans-serif;text-decoration:none!important}'
     + '.jfn-give:hover,.jfn-give:focus-visible{text-decoration:underline!important;outline:none}.jfn-give b{font-weight:800}@media(max-width:520px){.jfn-give .jfn-nft{display:none}}'
     + '@media print{.jfn-btn,.jfn-panel,.jfn-acct,.jfn-give{display:none}}';
   // The community banner at the very top of every page: 2% of every sale goes back to the community.

@@ -5,12 +5,12 @@
 const fs = require('fs'), path = require('path');
 const HOST = String(process.env.SITE_HOST || 'v2v-market.vercel.app').replace(/^https?:\/\//, '').replace(/\/+$/, '');
 const swaps = [['https://jarfriends.com', 'https://' + HOST], ['jarfriends.com', HOST], ['JarFriends', 'V2V'], ['JARFRIENDS', 'V2V']];
-// V2V's own look: charcoal and a warm orange in place of the JarFriends greens and gold, and a modern
-// heading face in place of Playfair Display. Every page and email is written in the JarFriends colors; this swaps them.
+// The look: the same colors as jarfriends.com (deep green, gold and cream). Most pages are already written in those
+// colors; the newer V2V pieces were written in charcoal and orange, so this turns those back into the JarFriends ones.
 const COLORS = {
-  '#0B1A13': '#0E0F13', '#0B1712': '#0E0F13', '#11261C': '#17191F', '#244536': '#2A2D36', '#4E7A63': '#4A4F5E',
-  '#A8BFB1': '#A3A8B8', '#D6E2DA': '#D9DCE5', '#56695E': '#5F6472', '#C9A45C': '#FF6B3D', '#E3C685': '#FF8F6B',
-  '#8FD3AE': '#7DD3B0', '#8A6A1F': '#C2410C', '#E6EFE9': '#ECEDF2', '#2E4A3B': '#33363F', '#14271D': '#1C1E25'
+  '#0E0F13': '#0B1A13', '#17191F': '#11261C', '#2A2D36': '#244536', '#4A4F5E': '#4E7A63', '#A3A8B8': '#A8BFB1',
+  '#D9DCE5': '#D6E2DA', '#5F6472': '#56695E', '#FF6B3D': '#C9A45C', '#FF8F6B': '#E3C685', '#7DD3B0': '#8FD3AE',
+  '#C2410C': '#8A6A1F', '#ECEDF2': '#E6EFE9', '#33363F': '#2E4A3B', '#1C1E25': '#14271D', '#8A8F9C': '#A8BFB1'
 };
 Object.keys(COLORS).forEach((k) => swaps.push([new RegExp(k, 'gi'), COLORS[k]]));
 swaps.push(['family=Playfair+Display:wght@600;700;800', 'family=Space+Grotesk:wght@500;600;700'], ["'Playfair Display',Georgia,serif", "'Space Grotesk',system-ui,sans-serif"], ['"Playfair Display",Georgia,serif', '"Space Grotesk",system-ui,sans-serif']);
