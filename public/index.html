@@ -55,6 +55,19 @@
   #count{font-size:13px}
   .v-foot{padding-top:24px}
 }
+.v-vote{border:1px solid #4E7A63;padding:16px 18px;margin:18px 0 6px;display:flex;flex-direction:column;gap:10px}
+.v-vtop{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:baseline;justify-content:space-between}
+.v-vote h1{font-size:clamp(22px,3.4vw,34px);text-transform:none;margin:0}
+.v-vmore{font-size:14px}
+.v-vsub{margin:0;font-size:15px;color:#D6E2DA}
+.v-vsub b{color:#C9A45C}
+.v-vpick{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.v-vpick button{min-height:56px;padding:8px;border:2px solid #4E7A63;background:transparent;color:#F7F2E6;cursor:pointer;font-weight:800;font-size:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border-radius:2px}
+.v-vpick button small{font-weight:500;font-size:12px;opacity:.85}
+.v-vpick button[aria-pressed="true"]{background:#C9A45C;border-color:#C9A45C;color:#0B1A13}
+.v-vpick button:disabled{opacity:.55;cursor:default}
+.v-vother{display:flex;gap:8px;flex-wrap:wrap}.v-vother input{flex:1 1 200px;min-width:0;min-height:44px;font-size:16px}
+@media(max-width:640px){.v-vote{padding:12px;margin:10px 0 4px;gap:8px}.v-vote h1{font-size:20px!important}.v-vsub{font-size:13px}.v-vpick button{min-height:48px;font-size:14px}.v-vmore{font-size:13px}}
 </style>
 </head>
 <body>
@@ -63,13 +76,13 @@
   <span style="display:flex;align-items:center;gap:12px"><a class="solid" href="/seller.html" style="text-decoration:none;padding:9px 16px;min-height:0;font-size:15px"><span class="v-tx">Become a seller</span><span class="v-sm">Sell</span></a></span>
 </div></header>
 <main class="wrap">
-  <div class="v-intro">
-    <div>
-      <h1 style="font-size:clamp(28px,4vw,44px);text-transform:none">Collectibles from collectors</h1>
-      <p>Buy now or bid, from shops run by collectors. Every shop has its own page and community.</p>
-      <p class="v-wallet" id="wallet">V2V keeps 5.55% of each sale. 2% of every sale comes out of that fee and goes into the community giveaway wallet, which buys VeeFriends Series 1 and Series 2 NFTs to give away to active buyers and sellers. Buyers and sellers pay nothing extra. <a href="/giveaway.html">Vote on the next one</a>.</p>
-    </div>
-  </div>
+  <section class="v-vote" id="vote" aria-labelledby="vHead">
+    <div class="v-vtop"><h1 id="vHead">Vote: what should the community wallet buy?</h1><a class="v-vmore" href="/giveaway.html">How it works</a></div>
+    <p class="v-vsub" id="wallet">2% of every sale goes into the community wallet, which buys a VeeFriends NFT to give away to active buyers and sellers.</p>
+    <div class="v-vpick" id="vPick"></div>
+    <div class="v-vother" id="vOther" hidden><input id="vText" type="text" maxlength="80" placeholder="What should the wallet buy instead?"><button type="button" class="solid" id="vSave">Save my vote</button></div>
+    <div class="small" id="vMsg" role="status" aria-live="polite"></div>
+  </section>
   <div class="v-bar" role="group" aria-label="Filter and sort">
     <div class="jf-filters" id="views"></div>
     <label class="grow" style="display:block"><span class="jf-sr">Search</span><input id="find" type="search" placeholder="Search pins, cards, stickers, a character…" autocomplete="off"></label>
@@ -224,10 +237,50 @@
     if (wantCat) $('cat').value = wantCat;
     (r.sellers || []).slice().sort(function (a, b) { return a.name.localeCompare(b.name); }).forEach(function (s) { var o = el('option', s.name + (s.verified ? ' ✓' : '')); o.value = s.slug; $('seller').appendChild(o); });
     if (wantSeller) { $('seller').value = wantSeller; sellerLink(); }
-    if (r.wallet != null) { $('wallet').textContent = 'V2V keeps ' + r.fee + '% of each sale. ' + r.giveaway + '% of every sale comes out of that fee and goes into the community giveaway wallet (' + JF.usd(r.wallet / 100) + ' so far), which buys VeeFriends Series 1 and Series 2 NFTs to give away to active buyers and sellers. Buyers and sellers pay nothing extra. '; var vl = el('a', 'Vote on the next one'); vl.href = '/giveaway.html'; $('wallet').appendChild(vl); }
+    if (r.wallet != null) { $('wallet').textContent = ''; $('wallet').appendChild(document.createTextNode('Community wallet: ')); $('wallet').appendChild(el('b', JF.usd(r.wallet / 100))); $('wallet').appendChild(document.createTextNode('. ' + r.giveaway + '% of every sale goes in, and it buys a VeeFriends NFT to give away to active buyers and sellers.')); }
     draw();
   }).catch(function () { $('count').textContent = 'The pieces did not load. Refresh to try again.'; });
   if (tok) JF.api('/api/market?do=wish&t=' + encodeURIComponent(tok)).then(function (r) { if (r.ids) { r.ids.forEach(function (x) { wish[x] = true; }); draw(); } });
+})();
+</script>
+<script>
+// The giveaway vote, right at the top of the home page. Members vote here; everyone else is sent to sign in.
+(function () {
+  var $ = function (x) { return document.getElementById(x); }, el = JF.el, tok = JF.token(), D = null;
+  function draw() {
+    var pick = $('vPick'); pick.textContent = '';
+    var opts = D.choices.concat([D.other]), total = opts.reduce(function (t, c) { return t + (D.tally[c] || 0); }, 0);
+    opts.forEach(function (c) {
+      var b = el('button'); b.type = 'button'; b.appendChild(document.createTextNode(c));
+      var pct = total ? Math.round((D.tally[c] || 0) * 100 / total) : 0;
+      b.appendChild(el('small', total ? pct + '% of votes' : c === D.other ? 'Type your idea' : 'VeeFriends NFT'));
+      b.setAttribute('aria-pressed', D.me && D.me.choice === c ? 'true' : 'false'); b.disabled = !D.open;
+      b.addEventListener('click', function () {
+        if (!tok) { $('vMsg').innerHTML = '🔒 Only members can vote. <a href="/me.html">Sign in or make a free account</a>.'; return; }
+        if (c === D.other) { $('vOther').hidden = false; $('vText').focus(); } else cast(c);
+      });
+      pick.appendChild(b);
+    });
+    if (D.me && D.me.choice === D.other) { $('vOther').hidden = false; $('vText').value = D.me.text || ''; }
+    if (!D.open) $('vMsg').textContent = 'Voting is closed for this round.';
+    else if (!tok) $('vMsg').textContent = D.voters + (D.voters === 1 ? ' person has' : ' people have') + ' voted. Sign in to vote; people with ' + D.doubleAfter + '+ sales get 2 votes.';
+    else if (D.me && D.me.choice) $('vMsg').textContent = 'You voted ' + (D.me.choice === D.other && D.me.text ? '“' + D.me.text + '”' : D.me.choice) + '. Your vote counts ' + (D.me.weight === 2 ? 'twice.' : 'once.') + ' Tap another to change it.';
+    else $('vMsg').textContent = 'Tap one to vote. ' + (D.me && D.me.weight === 2 ? 'Your vote counts twice.' : 'Complete ' + D.doubleAfter + ' sales to get 2 votes.');
+  }
+  function load() {
+    JF.api('/api/market?do=giveaway' + (tok ? '&t=' + encodeURIComponent(tok) : '')).then(function (r) { if (r.error || !r.choices) return; D = r; draw(); }).catch(function () {});
+  }
+  function cast(c, text) {
+    $('vMsg').textContent = 'Saving your vote…';
+    JF.api('/api/market', { do: 'vote', t: tok, choice: c, text: text || '' }).then(function (r) {
+      if (r._status === 401) { JF.signOut(); tok = ''; $('vMsg').innerHTML = '<a href="/me.html">Sign in again</a> to vote.'; return; }
+      if (r.error) { $('vMsg').textContent = r.error; return; }
+      load();
+    });
+  }
+  $('vSave').addEventListener('click', function () { cast(D.other, $('vText').value); });
+  $('vText').addEventListener('keydown', function (ev) { if (ev.key === 'Enter') { ev.preventDefault(); cast(D.other, $('vText').value); } });
+  load();
 })();
 </script>
 </body>
