@@ -100,7 +100,7 @@
     [['You list', 'Add pieces with a photo, price, stock and shipping cost. They show in the JarFriends market.'],
      ['Buyers pay JarFriends', 'Checkout, payment and receipts are handled for you.'],
      ['You ship', 'Once an order is paid you see the address here. Ship it and add the tracking number.'],
-     ['You get paid', 'JarFriends keeps ' + D.fee + '% of each sale (pieces + shipping). The rest is sent to your bank account (or straight to you by Stripe for card sales once you link it).']].forEach(function (x) {
+     ['You get paid', 'V2V keeps ' + D.fee + '% of each sale, and 2% of that goes into the community wallet. You get the rest, sent to your bank account as fast as we can, usually within 24 to 48 hours.']].forEach(function (x) {
       var r = el('div', null, 'row'); r.appendChild(el('b', x[0])); var s = el('span', x[1], 'dim'); s.style.textAlign = 'right'; s.style.maxWidth = '70%'; r.appendChild(s); how.appendChild(r);
     });
     c.appendChild(el('h2', 'How it works')); c.appendChild(how);
@@ -109,7 +109,7 @@
     var about = el('textarea', null, 'jf-ta'); about.maxLength = 400; about.placeholder = 'What you collect and sell. Shown on your shop page.';
     var bankF = bankFields();
     var agree = input('checkbox'); var al = el('label', null, 'jf-check'); al.appendChild(agree);
-    al.appendChild(el('span', 'I agree: JarFriends keeps ' + D.fee + '% of each paid sale of my pieces (the price of the pieces plus shipping) and pays me the rest. I ship within 3 days of payment, describe my pieces honestly, and only sell what I own.'));
+    al.appendChild(el('span', 'I agree: V2V keeps ' + D.fee + '% of each sale and pays me the rest. I ship within 3 days of payment, describe my pieces honestly, and only sell what I own.'));
     var go = el('button', 'Open my shop', 'solid'); go.type = 'submit'; var m = status();
     f.appendChild(field('Shop name', name)); f.appendChild(field('About your shop', about, 'Optional.'));
     f.appendChild(el('h3', 'Payouts: where we send your earnings')); f.appendChild(bankF.node);
