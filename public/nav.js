@@ -21,12 +21,13 @@
     + '.jfn-acct{padding:2px!important}.jfn-acct a{padding:5px 9px!important;font-size:12px!important}.jfn-give{padding:6px 12px!important;font-size:13px!important}}'
     + '.jfn-give,.jfn-give:link,.jfn-give:visited,.jfn-give b{color:#0E0F13!important}.jfn-give{display:block;background:#FF6B3D;text-align:center;padding:8px 16px;font:700 14px/1.35 "Space Grotesk",Archivo,system-ui,sans-serif;text-decoration:none!important}'
     + '.jfn-give:hover,.jfn-give:focus-visible{text-decoration:underline!important;outline:none}.jfn-give b{font-weight:800}@media(max-width:520px){.jfn-give .jfn-nft{display:none}}'
+    + '.jfn-vote{display:inline-block;margin-left:12px;padding:3px 14px;border-radius:999px;background:#0B1A13;color:#F7F2E6!important;font-weight:800;font-size:13px;line-height:1.5;vertical-align:middle}.jfn-give:hover .jfn-vote{background:#163326}'
     + '@media print{.jfn-btn,.jfn-panel,.jfn-acct,.jfn-give{display:none}}';
   // The community banner at the very top of every page: 2% of every sale goes back to the community.
   function banner() {
     if (document.querySelector('.jfn-give') || location.pathname === '/giveaway.html') return;
     var a = document.createElement('a'); a.className = 'jfn-give'; a.href = '/giveaway.html';
-    a.innerHTML = 'Community wallet: <b class="jfn-w">$0.00</b>';
+    a.innerHTML = 'Community wallet: <b class="jfn-w">$0.00</b><span class="jfn-vote">Vote</span>';
     document.body.insertBefore(a, document.body.firstChild);
     var show = function (c) { a.querySelector('.jfn-w').textContent = '$' + ((c || 0) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
     var kept = null; try { kept = JSON.parse(sessionStorage.getItem('v2vWallet') || 'null'); } catch (e) { kept = null; }
