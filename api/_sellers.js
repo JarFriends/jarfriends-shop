@@ -76,27 +76,33 @@ async function seed() {
 // REMOVE_SELLERS: shops to delete for good, by their shop name in the link (e.g. "jarfriends"), comma-separated.
 // Everything of theirs goes: the shop, its pieces and photos, posts, reviews, trades, costs and payout records.
 // Sales already made stay in the order records. Runs once per shop (sellers/removed/<slug>.json marks it done).
+// Delete one shop for good: its pieces and photos, posts, reviews, trades and the shop itself. keepMoney keeps the
+// payout and cost records (the owner's books); sales already made always stay in the order records.
+async function removeShop(slug, keepMoney) {
+  const { del } = await import('@vercel/blob');
+  const s = await store.read('sellers/s/' + slug + '.json');
+  const pieces = await paths('market/' + slug + '/');
+  const ids = pieces.map((p) => (/\/([^\/]+)\.json$/.exec(p.path) || [])[1]).filter(Boolean);
+  const photos = (await paths('photos/')).filter((p) => ids.some((id) => p.path === 'photos/' + id + '.jpg'));
+  let urls = pieces.concat(photos).map((p) => p.url);
+  for (const pre of ['posts/', 'reviews/', 'trades/'].concat(keepMoney ? [] : ['cogs/', 'payouts/'])) urls = urls.concat((await paths(pre + slug + '/')).map((p) => p.url));
+  const one = (await paths('sellers/s/' + slug + '.json')).concat(s && s.email ? await paths('sellers/e/' + hashOf(s.email) + '.json') : []);
+  urls = urls.concat(one.map((p) => p.url));
+  for (let i = 0; i < urls.length; i += 100) await del(urls.slice(i, i + 100));
+  sMemo = null; lMemo = null;
+  return { name: s ? s.name : '', pieces: ids.length, files: urls.length };
+}
 async function retire() {
   const list = String(process.env.REMOVE_SELLERS || '').split(',').map((x) => x.trim().toLowerCase()).filter((x) => /^[a-z0-9-]{1,30}$/.test(x));
   if (!list.length || !store.on()) return;
-  const { del } = await import('@vercel/blob');
   for (const slug of list) {
     try {
       if (await store.read('sellers/removed/' + slug + '.json')) continue;
-      const s = await store.read('sellers/s/' + slug + '.json');
-      const pieces = await paths('market/' + slug + '/');
-      const ids = pieces.map((p) => (/\/([^\/]+)\.json$/.exec(p.path) || [])[1]).filter(Boolean);
-      const photos = (await paths('photos/')).filter((p) => ids.some((id) => p.path === 'photos/' + id + '.jpg'));
-      let urls = pieces.concat(photos).map((p) => p.url);
-      for (const pre of ['posts/', 'reviews/', 'trades/', 'cogs/', 'payouts/']) urls = urls.concat((await paths(pre + slug + '/')).map((p) => p.url));
-      const one = (await paths('sellers/s/' + slug + '.json')).concat(s && s.email ? await paths('sellers/e/' + hashOf(s.email) + '.json') : []);
-      urls = urls.concat(one.map((p) => p.url));
-      for (let i = 0; i < urls.length; i += 100) await del(urls.slice(i, i + 100));
-      await store.write('sellers/removed/' + slug + '.json', { at: Date.now(), name: s ? s.name : '', pieces: ids.length, files: urls.length });
-      console.log('SELLER_REMOVED', slug, ids.length, 'pieces', urls.length, 'files');
+      const r = await removeShop(slug, false);
+      await store.write('sellers/removed/' + slug + '.json', Object.assign({ at: Date.now() }, r));
+      console.log('SELLER_REMOVED', slug, r.pieces, 'pieces', r.files, 'files');
     } catch (e) { console.error('RETIRE_FAIL', slug, String(e && e.message || e)); }
   }
-  sMemo = null; lMemo = null;
 }
 async function all() {
   if (sMemo && Date.now() - sMemo.at < 5000) return sMemo.v;
@@ -434,4 +440,4 @@ async function notifySale(n, kind) {
   return mail(seller.email, (paid ? 'Paid, ship it: ' : 'New order (not paid yet): ') + (d.product || 'your piece'), lines, 'seller-sale-' + n + '-' + (paid ? 'paid' : 'placed')).catch((e) => { console.error('SELLER_NOTIFY_FAIL', n, String(e && e.message || e)); return 'failed'; });
 }
 
-module.exports = { bankFrom, bankOf, safe, routingOk, profit, setCost, giveawayPct, sellerOf, offerTo, notifySale, reviews, saveReview, removeReview, stats, statsAll, statsFrom, shortName, completed, VERIFY_AFTER, posts, addPost, removePost, feePct, autoApprove, all, bySlug, byEmail, save, apply, pub, listings, products, isSellerPid, saveListing, setListing, removeListing, ledger, payouts, addPayout, totals, hashOf, SECTIONS, sectionOf, forget };
+module.exports = { removeShop, bankFrom, bankOf, safe, routingOk, profit, setCost, giveawayPct, sellerOf, offerTo, notifySale, reviews, saveReview, removeReview, stats, statsAll, statsFrom, shortName, completed, VERIFY_AFTER, posts, addPost, removePost, feePct, autoApprove, all, bySlug, byEmail, save, apply, pub, listings, products, isSellerPid, saveListing, setListing, removeListing, ledger, payouts, addPayout, totals, hashOf, SECTIONS, sectionOf, forget };

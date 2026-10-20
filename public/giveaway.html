@@ -81,7 +81,7 @@
     });
     pick.parentNode.insertBefore(otherBox, pick.nextSibling);
     var oldBox = document.querySelectorAll('.gv-other'); for (var ob = 0; ob < oldBox.length - 1; ob++) oldBox[ob].remove();
-    if (!tok) $('vMsg').innerHTML = '<a href="/me.html">Sign in or make a free account</a> to vote.';
+    if (!tok) $('vMsg').innerHTML = '🔒 Voting is for signed-in members only. <a href="/me.html">Sign in or make a free account</a> to vote.';
     else if (D.me) $('vMsg').textContent = (D.me.choice ? 'You voted ' + (D.me.choice === D.other && D.me.text ? '“' + D.me.text + '”' : D.me.choice) + '. ' : '') + 'Your vote counts ' + (D.me.weight === 2 ? 'twice, because you have completed ' + D.me.trades + ' sales on JarFriends.' : 'once' + (D.me.trades ? ' (' + D.me.trades + ' of ' + D.doubleAfter + ' sales for a double vote).' : '. Complete ' + D.doubleAfter + ' sales as a buyer or seller to get a double vote.'));
     var res = $('results'); res.textContent = '';
     var total = opts.reduce(function (t, c) { return t + (D.tally[c] || 0); }, 0);

@@ -68,7 +68,32 @@
     var out = el('button', 'Sign out', 'ghost'); out.type = 'button'; out.style.alignSelf = 'flex-start';
     out.addEventListener('click', function () { JF.signOut(); location.href = '/'; });
     wrap.appendChild(out);
+    wrap.appendChild(deleteCard());
     box.appendChild(wrap);
+  }
+  // Delete my account: asks to type DELETE, then removes it for good and signs out.
+  function deleteCard() {
+    var c = el('section', null, 'card'); c.style.cssText = 'gap:10px;border-color:#7a3b3b';
+    c.appendChild(el('h2', 'Delete my account'));
+    c.appendChild(el('div', 'This permanently removes your account: your profile, password, saved cards, address, wishlist, votes and trade requests, and if you sell, your shop and all its pieces. It cannot be undone. Records of orders already placed are kept, because sales and tax records have to be. If you have paid orders still to ship, ship them first.', 'small'));
+    var open = el('button', 'Delete my account', 'ghost'); open.type = 'button'; open.style.alignSelf = 'flex-start';
+    var f = el('div'); f.hidden = true; f.style.cssText = 'display:flex;flex-direction:column;gap:8px';
+    var inp = el('input'); inp.placeholder = 'Type DELETE to confirm'; inp.autocomplete = 'off'; inp.style.maxWidth = '260px';
+    var go = el('button', 'Delete everything for good', 'solid'); go.type = 'button'; go.style.cssText = 'align-self:flex-start;background:#b54545;border-color:#b54545;color:#fff';
+    var m = el('div', '', 'small'); m.setAttribute('role', 'status');
+    f.appendChild(inp); f.appendChild(go); f.appendChild(m);
+    open.addEventListener('click', function () { f.hidden = false; open.hidden = true; inp.focus(); });
+    go.addEventListener('click', function () {
+      if (inp.value.trim().toUpperCase() !== 'DELETE') { m.textContent = 'Type DELETE to confirm.'; return; }
+      go.disabled = true; m.textContent = 'Deleting…';
+      JF.api('/api/market', { do: 'delete-account', t: tok, confirm: inp.value }).then(function (r) {
+        if (r.error) { go.disabled = false; m.textContent = r.error; return; }
+        JF.signOut(); box.textContent = ''; box.appendChild(el('div', 'Your account has been deleted. Thanks for being part of VeeFam.io.', 'card'));
+        setTimeout(function () { location.href = '/'; }, 2500);
+      }).catch(function () { go.disabled = false; m.textContent = 'That did not work. Try again.'; });
+    });
+    c.appendChild(open); c.appendChild(f);
+    return c;
   }
 
   // Review your purchases: every shipped order from a seller, with a 1-5 star pick and a few words.

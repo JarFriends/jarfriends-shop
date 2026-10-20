@@ -287,6 +287,29 @@ module.exports = async (req, res) => {
     if (as && gate.isAdmin(req.method === 'POST' ? b.ak : q.ak)) { const who = await M.bySlug(as); if (who) { me = who.email; actAs = true; } }
     if (!me) me = await signedIn(req.method === 'POST' ? b.t : q.t);
     if (!me) return res.status(401).json({ error: 'Sign in first.' });
+    // Delete my account for good: profile, password, saved cards, wishlist, votes, trades they sent and, for a seller,
+    // their shop and pieces. Not while paid orders still need shipping. Order records stay (tax and sales records).
+    if (what === 'delete-account' && req.method === 'POST' && !actAs) {
+      if (String(b.confirm || '').trim().toUpperCase() !== 'DELETE') return res.status(400).json({ error: 'Type DELETE to confirm.' });
+      const shop = await M.byEmail(me);
+      if (shop) {
+        const open = (await M.ledger(shop.slug)).filter((r) => r.paid && !r.tracking);
+        if (open.length) return res.status(400).json({ error: 'You still have ' + open.length + ' paid order' + (open.length === 1 ? '' : 's') + ' to ship. Ship them (add tracking) before deleting your account.' });
+        await M.removeShop(shop.slug, true);
+      }
+      const { del } = await import('@vercel/blob'), U = require('./_users'), crypto2 = require('crypto');
+      const pw = 'bidder/pw-' + crypto2.createHash('sha1').update(me).digest('hex').slice(0, 20) + '.json';
+      const { list: ls } = await import('@vercel/blob');
+      const find = async (prefix) => ((await ls({ prefix: prefix, limit: 1000 })).blobs || []).map((x) => x);
+      let gone = [];
+      for (const pth of ['users/' + U.h(me) + '.json', 'users/code/' + U.h(me) + '.json', pw, wishKey(me)]) gone = gone.concat((await find(pth)).filter((x) => x.pathname === pth));
+      gone = gone.concat((await find('giveaway/votes/')).filter((x) => x.pathname.endsWith('/' + M.hashOf(me) + '.json')));
+      const trades = await Promise.all((await find('trades/')).map(async (x) => ({ x: x, t: await store.read(x.pathname) })));
+      gone = gone.concat(trades.filter((y) => y.t && y.t.email === me).map((y) => y.x));
+      if (gone.length) await del(gone.map((x) => x.url));
+      console.log('ACCOUNT_DELETED', M.hashOf(me), gone.length, 'files', shop ? 'and shop ' + shop.slug : '');
+      return res.json({ ok: true });
+    }
     // Everyone signs the Terms (public/terms.html) before using their account. The owner viewing a shop is exempt.
     if (!actAs) { const U = require('./_users'); if (!U.agreed(await U.get(me))) return res.status(403).json({ needTerms: true, error: 'Please read and sign the VeeFam.io Terms of Service to continue.' }); }
 
