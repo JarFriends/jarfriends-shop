@@ -19,22 +19,84 @@
     + 'header.top .bar>span{gap:6px!important;flex-wrap:nowrap!important}header.top .bar .brand,header.top .bar .v-logo{font-size:22px!important}'
     + 'header.top .bar a.solid,header.top .bar .jfn-btn.in-bar,header.top .bar button{padding:7px 10px!important;font-size:13px!important;min-height:0!important;white-space:nowrap}'
     + '.jfn-acct{padding:2px!important}.jfn-acct a{padding:5px 9px!important;font-size:12px!important}.jfn-give{padding:6px 12px!important;font-size:13px!important}}'
-    + '.jfn-give,.jfn-give:link,.jfn-give:visited,.jfn-give b{color:#0E0F13!important}.jfn-give{display:block;background:#FF6B3D;text-align:center;padding:8px 16px;font:700 14px/1.35 "Space Grotesk",Archivo,system-ui,sans-serif;text-decoration:none!important}'
-    + '.jfn-give:hover,.jfn-give:focus-visible{text-decoration:underline!important;outline:none}.jfn-give b{font-weight:800}@media(max-width:520px){.jfn-give .jfn-nft{display:none}}'
-    + '.jfn-vote{display:inline-block;margin-left:12px;padding:3px 14px;border-radius:999px;background:#0B1A13;color:#F7F2E6!important;font-weight:800;font-size:13px;line-height:1.5;vertical-align:middle}.jfn-give:hover .jfn-vote{background:#163326}'
-    + '@media print{.jfn-btn,.jfn-panel,.jfn-acct,.jfn-give{display:none}}';
+    + '.jfn-give{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px 10px;background:#FF6B3D;text-align:center;padding:7px 12px;font:700 14px/1.35 "Space Grotesk",Archivo,system-ui,sans-serif}'
+    + '.jfn-give .jfn-wl,.jfn-give .jfn-wl:visited,.jfn-give b{color:#0E0F13!important;text-decoration:none!important}.jfn-give .jfn-wl:hover{text-decoration:underline!important}.jfn-give b{font-weight:800}'
+    + '.jfn-vote,.jfn-sub{display:inline-block;padding:3px 14px!important;border-radius:999px!important;background:#0B1A13!important;color:#F7F2E6!important;font:800 13px/1.5 "Space Grotesk",Archivo,system-ui,sans-serif!important;text-decoration:none!important;border:0!important;min-height:0!important;cursor:pointer}.jfn-vote:hover,.jfn-sub:hover{background:#163326!important}'
+    + '.jfn-sub{background:transparent!important;color:#0B1A13!important;box-shadow:inset 0 0 0 2px #0B1A13}.jfn-sub:hover{background:rgba(11,26,19,.12)!important}'
+    + '.jfn-pop-bg{position:fixed;inset:0;z-index:2147483600;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:flex-end;padding:16px}'
+    + '@media(min-width:641px){.jfn-pop-bg{align-items:center;justify-content:center}}'
+    + '.jfn-pop{width:min(400px,100%);background:#F7F2E6;color:#0B1A13;border-radius:18px;padding:18px;display:flex;flex-direction:column;gap:10px;box-shadow:0 14px 40px rgba(0,0,0,.45);font:15px/1.45 Archivo,system-ui,sans-serif;border:3px solid #0B1A13}'
+    + '.jfn-pop-h{display:flex;justify-content:space-between;align-items:center;gap:10px}.jfn-pop-h b{font-size:18px}.jfn-pop p{margin:0}'
+    + '.jfn-pop-x{background:none!important;border:0!important;font-size:26px!important;line-height:1!important;cursor:pointer;color:#0B1A13!important;padding:0 4px!important;min-height:0!important}'
+    + '.jfn-pop input,.jfn-pop textarea{width:100%;box-sizing:border-box;font:16px/1.4 Archivo,system-ui,sans-serif!important;padding:10px 12px!important;border:2px solid #0B1A13!important;border-radius:10px!important;background:#fff!important;color:#0B1A13!important;min-height:44px}.jfn-pop textarea{min-height:110px!important;resize:vertical}'
+    + '.jfn-pop-go{background:#0B1A13!important;color:#F7F2E6!important;border:0!important;border-radius:999px!important;padding:11px 18px!important;font:800 15px/1.2 Archivo,system-ui,sans-serif!important;cursor:pointer;align-self:flex-start}.jfn-pop-m{font-size:14px;color:#8A2B1A}.jfn-pop-ok{font-weight:700;font-size:16px;padding:8px 0}'
+    + '.jfn-help{position:fixed;right:18px;bottom:18px;z-index:2147483000;background:#F7F2E6!important;color:#0B1A13!important;border:3px solid #0B1A13!important;border-radius:22px 22px 22px 4px!important;padding:9px 16px!important;font:900 16px/1 "Space Grotesk",Archivo,system-ui,sans-serif!important;box-shadow:4px 4px 0 #0B1A13;cursor:pointer;min-height:0!important;transform:rotate(-3deg);transition:transform .15s}'
+    + '.jfn-help:hover,.jfn-help:focus-visible{transform:rotate(0) scale(1.06);outline:none}'
+    + '.jfn-help:after{content:"";position:absolute;left:10px;bottom:-12px;border:6px solid transparent;border-top:8px solid #0B1A13;border-left:8px solid #0B1A13}'
+    + '@media(max-width:640px){.jfn-help{right:12px;bottom:12px;font-size:14px!important;padding:8px 13px!important}}'
+    + '@media print{.jfn-btn,.jfn-panel,.jfn-acct,.jfn-give,.jfn-help{display:none}}';
   // The community banner at the very top of every page: 2% of every sale goes back to the community.
   function banner() {
-    if (document.querySelector('.jfn-give') || location.pathname === '/giveaway.html') return;
-    var a = document.createElement('a'); a.className = 'jfn-give'; a.href = '/giveaway.html';
-    a.innerHTML = 'Community wallet: <b class="jfn-w">$0.00</b><span class="jfn-vote">Vote</span>';
+    if (document.querySelector('.jfn-give')) return;
+    var a = document.createElement('div'); a.className = 'jfn-give';
+    a.innerHTML = '<a class="jfn-wl" href="/giveaway.html">Community wallet: <b class="jfn-w">$0.00</b></a>' + (location.pathname === '/giveaway.html' ? '' : '<a class="jfn-vote" href="/giveaway.html">Vote</a>') + '<button type="button" class="jfn-sub">Subscribe</button>';
     document.body.insertBefore(a, document.body.firstChild);
+    a.querySelector('.jfn-sub').addEventListener('click', subscribe);
     var show = function (c) { a.querySelector('.jfn-w').textContent = '$' + ((c || 0) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
     var kept = null; try { kept = JSON.parse(sessionStorage.getItem('v2vWallet') || 'null'); } catch (e) { kept = null; }
     if (kept && Date.now() - kept.at < 120000) return show(kept.c);
     fetch('/api/market?do=giveaway', { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
       if (!j) return; show(j.wallet); try { sessionStorage.setItem('v2vWallet', JSON.stringify({ c: j.wallet, at: Date.now() })); } catch (e) {}
     }).catch(function () {});
+  }
+  // A small pop-up box (used by Subscribe and the help bubble). Closes with Escape, the X, or a tap outside.
+  function popup(title, build) {
+    var bg = document.createElement('div'); bg.className = 'jfn-pop-bg';
+    var box = document.createElement('div'); box.className = 'jfn-pop'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-label', title);
+    var h = document.createElement('div'); h.className = 'jfn-pop-h'; var t = document.createElement('b'); t.textContent = title; h.appendChild(t);
+    var x = document.createElement('button'); x.type = 'button'; x.className = 'jfn-pop-x'; x.setAttribute('aria-label', 'Close'); x.textContent = '×'; h.appendChild(x); box.appendChild(h);
+    var close = function () { bg.remove(); document.removeEventListener('keydown', esc); };
+    var esc = function (e) { if (e.key === 'Escape') close(); };
+    x.addEventListener('click', close); bg.addEventListener('click', function (e) { if (e.target === bg) close(); }); document.addEventListener('keydown', esc);
+    build(box, close); bg.appendChild(box); document.body.appendChild(bg);
+    var f = box.querySelector('textarea,input:not([type=hidden])'); if (f) f.focus();
+  }
+  function signedEmail() { try { var t = localStorage.getItem('acct_token') || ''; var j = JSON.parse(atob(t.split('.')[0].replace(/-/g, '+').replace(/_/g, '/'))); return j && j.e && j.x * 1000 > Date.now() ? j.e : ''; } catch (e) { return ''; } }
+  function field(box, tag, ph, val) { var i = document.createElement(tag); i.placeholder = ph; if (val) i.value = val; box.appendChild(i); return i; }
+  function send(what, body, btn, msg, done) {
+    btn.disabled = true; msg.textContent = 'Sending…';
+    fetch('/api/market', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(Object.assign({ do: what }, body)) }).then(function (r) { return r.json(); }).then(function (r) {
+      btn.disabled = false; if (r.error) { msg.textContent = r.error; return; } done();
+    }).catch(function () { btn.disabled = false; msg.textContent = 'Could not send just now. Try again.'; });
+  }
+  function subscribe() {
+    popup('Subscribe to V2V', function (box, close) {
+      var p = document.createElement('p'); p.textContent = 'Get emails about new drops, giveaways and the community wallet. Unsubscribe any time.'; box.appendChild(p);
+      var e = field(box, 'input', 'you@example.com', signedEmail()); e.type = 'email'; e.autocomplete = 'email';
+      var hp = field(box, 'input', ''); hp.name = 'website'; hp.tabIndex = -1; hp.setAttribute('aria-hidden', 'true'); hp.style.cssText = 'position:absolute;left:-9999px;width:1px;height:1px';
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'jfn-pop-go'; b.textContent = 'Subscribe'; box.appendChild(b);
+      var m = document.createElement('div'); m.className = 'jfn-pop-m'; m.setAttribute('role', 'status'); box.appendChild(m);
+      var go = function () { send('subscribe', { email: e.value, website: hp.value }, b, m, function () { box.textContent = ''; var d = document.createElement('p'); d.className = 'jfn-pop-ok'; d.textContent = '✓ You are subscribed. Thanks for being part of V2V!'; box.appendChild(d); setTimeout(close, 2200); }); };
+      b.addEventListener('click', go); e.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') go(); });
+    });
+  }
+  // The help bubble in the corner of every page: write what you need, and it is emailed to the owner right away.
+  function helpBubble() {
+    if (document.querySelector('.jfn-help') || location.pathname === '/admin.html' || /[?&]edit=1/.test(location.search)) return;
+    var b = document.createElement('button'); b.type = 'button'; b.className = 'jfn-help'; b.setAttribute('aria-label', 'Help: send us a message');
+    b.innerHTML = '<span aria-hidden="true">Help?</span>';
+    b.addEventListener('click', function () {
+      popup('How can we help?', function (box, close) {
+        var p = document.createElement('p'); p.textContent = 'Tell us what you need help with and we will email you back.'; box.appendChild(p);
+        var t = field(box, 'textarea', 'Write your question here…'); t.rows = 4; t.maxLength = 3000;
+        var e = field(box, 'input', 'Your email', signedEmail()); e.type = 'email'; e.autocomplete = 'email';
+        var hp = field(box, 'input', ''); hp.tabIndex = -1; hp.setAttribute('aria-hidden', 'true'); hp.style.cssText = 'position:absolute;left:-9999px;width:1px;height:1px';
+        var s = document.createElement('button'); s.type = 'button'; s.className = 'jfn-pop-go'; s.textContent = 'Send'; box.appendChild(s);
+        var m = document.createElement('div'); m.className = 'jfn-pop-m'; m.setAttribute('role', 'status'); box.appendChild(m);
+        s.addEventListener('click', function () { send('ask', { text: t.value, email: e.value, page: location.pathname + location.search, website: hp.value }, s, m, function () { box.textContent = ''; var d = document.createElement('p'); d.className = 'jfn-pop-ok'; d.textContent = '✓ Sent! We got your message and will email you back soon.'; box.appendChild(d); setTimeout(close, 2600); }); });
+      });
+    });
+    document.body.appendChild(b);
   }
   // Which built-in pages are off and which of the owner's pages are in the menu. Kept for a minute on this device.
   var stWait = null;
@@ -60,7 +122,7 @@
   });
   function go() {
     var st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
-    banner();
+    banner(); helpBubble();
     var b = document.createElement('button'); b.type = 'button'; b.className = 'jfn-btn'; b.textContent = 'Menu'; b.setAttribute('aria-expanded', 'false'); b.setAttribute('aria-controls', 'jfnPanel');
     var p = document.createElement('nav'); p.className = 'jfn-panel'; p.id = 'jfnPanel'; p.hidden = true; p.setAttribute('aria-label', 'Site menu');
     // Who is signed in, read from the sign-in kept on this device (the site checks it on every request).

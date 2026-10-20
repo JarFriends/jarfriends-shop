@@ -20,13 +20,14 @@ async function paths(prefix) {
 async function gone(e) { const r = await store.read('unsub/' + hashOf(e) + '.json'); return !!(r && r.at && !(r.back > r.at)); }
 const okEmail = (e) => /^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]{2,}$/.test(e);
 
-// Who gets it: 'all' (every account), 'sellers', 'buyers' (anyone with a paid order). Sorted so batches are stable.
+// Who gets it: 'all' (every account and subscriber), 'sellers', 'buyers' (anyone with a paid order), 'subs' (subscribers). Sorted so batches are stable.
 async function people(aud) {
   const set = {};
   const add = (e) => { e = String(e || '').trim().toLowerCase(); if (okEmail(e)) set[e] = 1; };
   if (aud === 'sellers' || aud === 'all') (await M.all()).forEach((s) => { if (!s.removed) add(s.email); });
   if (aud === 'buyers' || aud === 'all') (await M.ledger(null)).forEach((r) => { if (r.paid) add(r.email); });
   if (aud === 'all') (await Promise.all((await paths('users/')).map((p) => store.read(p)))).forEach((u) => { if (u && !u.deleted) add(u.email); });
+  if (aud === 'all' || aud === 'subs') (await Promise.all((await paths('subs/')).map((p) => store.read(p)))).forEach((u) => { if (u) add(u.email); });
   const list = Object.keys(set).sort();
   const keep = [];
   for (const e of list) if (!(await gone(e))) keep.push(e);
@@ -41,7 +42,7 @@ function build(subject, text, img, to) {
   const html = '<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:16px;line-height:1.55;color:#14201A;max-width:560px">'
     + (img ? '<p><img src="' + esc(HOST() + img) + '" alt="" style="max-width:100%;height:auto;border-radius:6px"></p>' : '')
     + lines.map((l) => l.trim() ? '<p style="margin:0 0 12px">' + esc(l) + '</p>' : '').join('')
-    + '<p style="margin:24px 0 0;font-size:13px;color:#6B7A72">You are getting this because you have an account on ' + esc(HOST().replace('https://', '')) + '. <a href="' + esc(stop) + '">Unsubscribe</a></p></div>';
+    + '<p style="margin:24px 0 0;font-size:13px;color:#6B7A72">You are getting this because you signed up at ' + esc(HOST().replace('https://', '')) + '. <a href="' + esc(stop) + '">Unsubscribe</a></p></div>';
   return { lines: lines.concat(['', 'Unsubscribe: ' + stop]), html: html };
 }
 function check(b) {
@@ -61,7 +62,7 @@ async function send(b, ownerEmail) {
     const r = await lib.mail(to, '[Test] ' + c.subject, m.lines, 'bc-test-' + Date.now(), m.html);
     return r === 'sent' ? { ok: true, sent: 1, to: to } : { error: r === 'off' ? 'Emails are not set up yet: add RESEND_API_KEY and EMAIL_FROM in Vercel.' : 'The test email did not send. Try again.' };
   }
-  if (['all', 'sellers', 'buyers'].indexOf(b.aud) < 0) return { error: 'Pick who gets it.' };
+  if (['all', 'sellers', 'buyers', 'subs'].indexOf(b.aud) < 0) return { error: 'Pick who gets it.' };
   const id = /^[a-z0-9]{6,20}$/.test(String(b.id || '')) ? b.id : null; if (!id) return { error: 'Start the send again.' };
   const from = Math.max(0, Math.floor(Number(b.from) || 0));
   const { list } = await people(b.aud);

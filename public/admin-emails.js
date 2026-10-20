@@ -107,7 +107,7 @@
     c.appendChild(el('div', 'Write your own email, send yourself a test, then send it. Everyone gets an unsubscribe link, and people who unsubscribed or deleted their account are skipped.', 'small'));
     var al = el('label', null, 'em-f'); al.appendChild(el('span', 'Send to'));
     var aud = el('select'); aud.style.cssText = 'font:inherit;font-weight:400;font-size:15px;padding:10px 12px;background:#0E0F13;border:1px solid #4A4F5E;color:#F7F2E6;border-radius:2px';
-    [['all', 'Everyone with an account'], ['sellers', 'Sellers'], ['buyers', 'People who have bought something']].forEach(function (o) { var op = el('option', o[1]); op.value = o[0]; aud.appendChild(op); });
+    [['all', 'Everyone (accounts and subscribers)'], ['subs', 'Subscribers'], ['sellers', 'Sellers'], ['buyers', 'People who have bought something']].forEach(function (o) { var op = el('option', o[1]); op.value = o[0]; aud.appendChild(op); });
     al.appendChild(aud); c.appendChild(al);
     var cnt = el('div', '', 'small dim'); c.appendChild(cnt);
     var count = function () { cnt.textContent = 'Counting…'; fetch('/api/market?do=broadcast-count&aud=' + aud.value + '&ak=' + encodeURIComponent(key()), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (r) { cnt.textContent = r.error ? r.error : r.count + (r.count === 1 ? ' person' : ' people') + ' will get it' + (r.skipped ? ' (' + r.skipped + ' unsubscribed, skipped)' : '') + '.'; send.dataset.n = r.count || 0; send.textContent = 'Send to ' + (r.count || 0) + (r.count === 1 ? ' person' : ' people'); }).catch(function () { cnt.textContent = ''; }); };

@@ -132,6 +132,31 @@ module.exports = async (req, res) => {
       return res.json({ sold: rows });
     }
 
+    // The help bubble on every page: a visitor writes what they need and it is emailed to the owner straight away.
+    // Subscribe: an email address joins the news list (back office > Emails > Send an email to members).
+    if ((what === 'ask' || what === 'subscribe') && req.method === 'POST') {
+      const ip = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || 'x', now = Date.now(), k = what + '|' + ip;
+      const seen = (photoHits.get(k) || []).filter((t) => now - t < 3600000);
+      if (seen.length >= 8) return res.status(429).json({ error: 'That is a lot of messages. Try again in a little while.' });
+      seen.push(now); photoHits.set(k, seen);
+      if (String(b.website || '')) return res.json({ ok: true });
+      const email = String(b.email || '').trim().toLowerCase().slice(0, 160);
+      if (!/^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]{2,}$/.test(email)) return res.status(400).json({ error: 'Enter your email so we can reach you.' });
+      const crypto3 = require('crypto'), hh = crypto3.createHash('sha1').update(email).digest('hex').slice(0, 20);
+      if (what === 'subscribe') {
+        await store.write('subs/' + hh + '.json', { email: email, at: now });
+        const un = await store.read('unsub/' + hh + '.json');
+        if (un && un.at) await store.write('unsub/' + hh + '.json', Object.assign(un, { back: now }));
+        return res.json({ ok: true });
+      }
+      const text = String(b.text || '').replace(/\r/g, '').trim().slice(0, 3000), page = String(b.page || '').slice(0, 200);
+      if (text.length < 3) return res.status(400).json({ error: 'Write what you need help with.' });
+      const owner = (process.env.OWNER_EMAIL || '').trim();
+      if (!owner) return res.status(503).json({ error: 'Help is not set up yet. Email jarvisfriends@gmail.com instead.' });
+      const out = await mail(owner, 'Help request from ' + email, ['From: ' + email, page ? 'Page: ' + page : '', '', text, '', 'Reply to ' + email + ' to answer.'].filter((x, i) => x || i > 1), 'ask-' + crypto3.createHash('sha1').update(email + '|' + text).digest('hex').slice(0, 20)).catch(() => 'failed');
+      if (out !== 'sent' && out !== 'duplicate') return res.status(502).json({ error: 'Could not send just now. Email jarvisfriends@gmail.com instead.' });
+      return res.json({ ok: true });
+    }
     // The owner's own pages (/p/<address>) and the menu links to them (see _pages.js).
     if (what === 'pages-menu') { res.setHeader('cache-control', 'public, max-age=0, s-maxage=20'); return res.json(await require('./_pages').menu()); }
     if (what === 'page' && req.method === 'GET') { const pg = await require('./_pages').one(String(q.slug || ''), gate.isAdmin(q.ak)); return pg ? res.json({ page: pg }) : res.status(404).json({ error: 'This page was not found.' }); }
