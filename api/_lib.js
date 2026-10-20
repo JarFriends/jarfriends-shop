@@ -301,7 +301,8 @@ async function mail(to, subject, lines, idem, html, attachments) {
   const body = { from: from, to: [to], subject: subject, text: lines.join('\n') };
   if (html) body.html = html;
   if (attachments && attachments.length) body.attachments = attachments;
-  if (owner && owner.toLowerCase() !== to.toLowerCase()) body.bcc = [owner];
+  // Emails sent to many members at once (bc-) do not copy the owner on every one.
+  if (owner && owner.toLowerCase() !== to.toLowerCase() && !/^bc-/.test(String(idem))) body.bcc = [owner];
   const send = async (b, id) => {
     const r = await fetch('https://api.resend.com/emails', {
       method: 'POST', signal: AbortSignal.timeout(9000),

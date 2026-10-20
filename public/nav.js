@@ -91,17 +91,49 @@
       list.forEach(setText);
       Array.prototype.forEach.call(root.querySelectorAll ? root.querySelectorAll('[placeholder],[title],[aria-label]') : [], function (e) { if (e.dataset.wDone) return; e.dataset.wDone = '1'; ['placeholder', 'title', 'aria-label'].forEach(function (a) { var x = e.getAttribute(a); if (x) { var y = fix(x); if (y !== x) e.setAttribute(a, y); } }); });
     }
+    // Parts of a page the owner hid, and pictures the owner added (placed next to a part of the page).
+    var editing = /[?&]edit=1/.test(location.search) && (function () { try { return !!localStorage.getItem('adminKey'); } catch (e) { return false; } })();
+    var parts = [];
+    function place() {
+      parts.forEach(function (r) {
+        var t; try { t = document.querySelectorAll(r.sel); } catch (e) { return; }
+        Array.prototype.forEach.call(t, function (n) {
+          if (r.kind === 'hide') {
+            if (editing) { n.style.setProperty('opacity', '.35', 'important'); n.style.setProperty('outline', '2px dashed #E86A6A', 'important'); n.title = 'Hidden from visitors (back office > Site editor to show it again)'; }
+            else n.style.setProperty('display', 'none', 'important');
+            return;
+          }
+          var tag = 'wimg-' + r.url.replace(/\W/g, '');
+          var sib = r.where === 'before' ? n.previousElementSibling : n.nextElementSibling;
+          if (sib && sib.dataset && sib.dataset.wimg === tag) return;
+          var img = document.createElement('img'); img.src = r.url; img.alt = r.alt || ''; img.loading = 'lazy';
+          img.style.cssText = 'display:block;height:auto;border-radius:4px;max-width:' + (r.size === 'small' ? '240px' : r.size === 'medium' ? '480px' : '100%') + ';width:100%';
+          // Its own kind of tag (w-img), so it never shifts the places the editor recorded for other parts.
+          var w = document.createElement('w-img'), inner = img;
+          if (r.link) { inner = document.createElement('a'); inner.href = r.link; if (/^https?:/.test(r.link)) { inner.target = '_blank'; inner.rel = 'noopener'; } inner.appendChild(img); }
+          w.dataset.wimg = tag; w.style.cssText = 'display:block;margin:10px 0'; w.appendChild(inner);
+          n.parentNode && n.parentNode.insertBefore(w, r.where === 'before' ? n : n.nextSibling);
+        });
+      });
+    }
     function use(all) {
-      rules = (all || []).filter(function (r) { return r && r.from && !r.off && (!r.page || r.page === here); }).sort(function (a, b) { return b.from.length - a.from.length; });
-      if (!rules.length) return;
-      walk(document.body); document.title = fix(document.title);
-      var busy = false;
-      new MutationObserver(function (ms) { if (busy) return; busy = true; ms.forEach(function (m) { if (m.type === 'characterData') walk(m.target); else Array.prototype.forEach.call(m.addedNodes, walk); }); busy = false; })
-        .observe(document.body, { childList: true, subtree: true, characterData: true });
+      var mine = (all || []).filter(function (r) { return r && !r.off && (!r.page || r.page === here); });
+      rules = mine.filter(function (r) { return (!r.kind || r.kind === 'text') && r.from; }).sort(function (a, b) { return b.from.length - a.from.length; });
+      parts = mine.filter(function (r) { return (r.kind === 'hide' || r.kind === 'image') && r.sel; });
+      if (editing) { var sc = document.createElement('script'); sc.src = '/site-edit.js'; document.body.appendChild(sc); }
+      if (!rules.length && !parts.length) return;
+      walk(document.body); document.title = fix(document.title); place();
+      var busy = false, pend = null;
+      new MutationObserver(function (ms) {
+        if (busy) return; busy = true;
+        ms.forEach(function (m) { if (m.type === 'characterData') walk(m.target); else Array.prototype.forEach.call(m.addedNodes, walk); });
+        busy = false;
+        if (parts.length && !pend) pend = setTimeout(function () { pend = null; place(); }, 120);
+      }).observe(document.body, { childList: true, subtree: true, characterData: true });
     }
     var kept = null; try { kept = JSON.parse(sessionStorage.getItem('v2vWording') || 'null'); } catch (e) { kept = null; }
     var start = function (all) { if (document.body) use(all); else document.addEventListener('DOMContentLoaded', function () { use(all); }); };
-    if (kept && Date.now() - kept.at < 60000) return start(kept.rules);
+    if (kept && Date.now() - kept.at < 60000 && !/[?&]edit=1/.test(location.search)) return start(kept.rules);
     fetch('/api/market?do=wording', { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
       if (!j) return; try { sessionStorage.setItem('v2vWording', JSON.stringify({ rules: j.rules || [], at: Date.now() })); } catch (e) {}
       start(j.rules || []);

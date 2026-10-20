@@ -80,6 +80,7 @@
     box.appendChild(el('div', 'Every email the site sends by itself is listed here. Turn any of them off, or add your own words: your message goes at the top, your sign-off at the bottom, and the order details, tracking and pay links stay in so the email still works. Nothing changes until you press Save.', 'small'));
     if (!D.sending) box.appendChild(el('div', 'Emails are not being sent yet: RESEND_API_KEY and EMAIL_FROM still need to be added in Vercel. You can set everything up here now.', 'alert small'));
 
+    box.appendChild(sendCard());
     // A sign-off for every email.
     var all = el('section', null, 'card'); all.style.gap = '12px';
     all.appendChild(el('b', 'Every email'));
@@ -97,6 +98,70 @@
       box.appendChild(el('div', who === 'You' ? 'EMAILS TO YOU' : 'EMAILS TO ' + who.toUpperCase(), 'mono gold'));
       group.forEach(card);
     });
+  }
+
+  // Write your own email and send it to members: everyone, sellers, or buyers. A test goes to you first.
+  function sendCard() {
+    var c = el('section', null, 'card'); c.style.gap = '12px';
+    c.appendChild(el('b', 'Send an email to members'));
+    c.appendChild(el('div', 'Write your own email, send yourself a test, then send it. Everyone gets an unsubscribe link, and people who unsubscribed or deleted their account are skipped.', 'small'));
+    var al = el('label', null, 'em-f'); al.appendChild(el('span', 'Send to'));
+    var aud = el('select'); aud.style.cssText = 'font:inherit;font-weight:400;font-size:15px;padding:10px 12px;background:#0E0F13;border:1px solid #4A4F5E;color:#F7F2E6;border-radius:2px';
+    [['all', 'Everyone with an account'], ['sellers', 'Sellers'], ['buyers', 'People who have bought something']].forEach(function (o) { var op = el('option', o[1]); op.value = o[0]; aud.appendChild(op); });
+    al.appendChild(aud); c.appendChild(al);
+    var cnt = el('div', '', 'small dim'); c.appendChild(cnt);
+    var count = function () { cnt.textContent = 'Counting…'; fetch('/api/market?do=broadcast-count&aud=' + aud.value + '&ak=' + encodeURIComponent(key()), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (r) { cnt.textContent = r.error ? r.error : r.count + (r.count === 1 ? ' person' : ' people') + ' will get it' + (r.skipped ? ' (' + r.skipped + ' unsubscribed, skipped)' : '') + '.'; send.dataset.n = r.count || 0; send.textContent = 'Send to ' + (r.count || 0) + (r.count === 1 ? ' person' : ' people'); }).catch(function () { cnt.textContent = ''; }); };
+    aud.addEventListener('change', count);
+    var sl = el('label', null, 'em-f'); sl.appendChild(el('span', 'Subject')); var subj = el('input'); subj.maxLength = 150; subj.placeholder = 'For example: The community wallet just passed $500'; sl.appendChild(subj); c.appendChild(sl);
+    var body = aiField('Message', '', 'an email from the owner of V2V to its members', 7, 'Write your email here. Each new line becomes its own paragraph.');
+    c.appendChild(body.node);
+    // An optional picture at the top of the email.
+    var pl = el('label', null, 'em-f'); pl.appendChild(el('span', 'Picture at the top (optional)')); var pf = el('input'); pf.type = 'file'; pf.accept = 'image/*'; pl.appendChild(pf); c.appendChild(pl);
+    var prev = el('img'); prev.alt = ''; prev.hidden = true; prev.style.cssText = 'max-width:240px;border-radius:4px'; c.appendChild(prev);
+    var img = '';
+    pf.addEventListener('change', function () {
+      var f = pf.files && pf.files[0]; if (!f) return; m.textContent = 'Uploading the picture…';
+      var im = new Image(), u = URL.createObjectURL(f);
+      im.onload = function () {
+        var sc = Math.min(1, 1400 / Math.max(im.width, im.height)), cv = document.createElement('canvas'); cv.width = Math.round(im.width * sc); cv.height = Math.round(im.height * sc);
+        var g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height); g.drawImage(im, 0, 0, cv.width, cv.height); URL.revokeObjectURL(u);
+        post({ do: 'site-photo', data: cv.toDataURL('image/jpeg', 0.85) }).then(function (r) { if (r.error) { m.textContent = r.error; return; } img = r.url; prev.src = r.url; prev.hidden = false; m.textContent = 'Picture added.'; });
+      };
+      im.onerror = function () { m.textContent = 'That picture could not be used.'; }; im.src = u;
+    });
+    var acts = el('div', null, 'em-row'); acts.style.justifyContent = 'flex-start';
+    var test = el('button', 'Send me a test', 'ghost'); test.type = 'button';
+    var send = el('button', 'Send', 'solid'); send.type = 'button';
+    var m = el('div', '', 'small'); m.setAttribute('role', 'status');
+    acts.appendChild(test); acts.appendChild(send); c.appendChild(acts); c.appendChild(m);
+    test.addEventListener('click', function () {
+      test.disabled = true; m.textContent = 'Sending a test to you…';
+      post({ do: 'broadcast', test: true, subject: subj.value, text: body.get(), img: img }).then(function (r) { test.disabled = false; m.textContent = r.error || 'Test sent to ' + r.to + '. Check your inbox.'; });
+    });
+    send.addEventListener('click', function () {
+      var n = Number(send.dataset.n || 0);
+      if (!subj.value.trim() || !body.get().trim()) { m.textContent = 'Write a subject and a message first.'; return; }
+      if (!n) { m.textContent = 'Nobody to send to yet.'; return; }
+      if (!confirm('Send "' + subj.value.trim() + '" to ' + n + (n === 1 ? ' person' : ' people') + '? This cannot be undone.')) return;
+      // The same email sent again (after a dropped connection) keeps its id, so nobody gets it twice.
+      var sig = aud.value + '|' + subj.value + '|' + body.get() + '|' + img;
+      if (sig !== c.dataset.sig) { c.dataset.sig = sig; c.dataset.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+      var id = c.dataset.id, sent = 0, failed = 0;
+      send.disabled = test.disabled = true;
+      var step = function (from) {
+        m.textContent = 'Sending… ' + sent + ' of ' + n;
+        post({ do: 'broadcast', aud: aud.value, subject: subj.value, text: body.get(), img: img, id: id, from: from }).then(function (r) {
+          if (r.error) { send.disabled = test.disabled = false; m.textContent = r.error + (sent ? ' (' + sent + ' already sent.)' : ''); return; }
+          sent += r.sent; failed += r.failed;
+          if (r.next != null) return step(r.next);
+          send.disabled = test.disabled = false;
+          m.textContent = 'Done: sent to ' + sent + (sent === 1 ? ' person' : ' people') + (failed ? ', ' + failed + ' did not go through' : '') + '.';
+        }).catch(function () { send.disabled = test.disabled = false; m.textContent = 'The connection dropped after ' + sent + ' emails. Press Send again to carry on: people who already got it will not get it twice.'; });
+      };
+      step(0);
+    });
+    count();
+    return c;
   }
 
   function card(k) {

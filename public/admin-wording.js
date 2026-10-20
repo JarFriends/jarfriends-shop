@@ -1,5 +1,6 @@
-// The Wording tab of the back office: change any words on the site's pages. Each change is "where it says this,
-// say that instead", for every page or just one page. nav.js swaps the words on every page as it shows them.
+// The Site editor tab of the back office: change any words on the site's pages, hide parts of pages, and add
+// pictures. Pages can be edited by clicking on them (site-edit.js, opened with ?edit=1), and every change is listed
+// here to change, turn off or delete. nav.js applies the changes on every page as it shows them.
 (function () {
   var $ = function (id) { return document.getElementById(id); };
   var el = function (tag, text, cls) { var e = document.createElement(tag); if (text != null) e.textContent = text; if (cls) e.className = cls; return e; };
@@ -8,7 +9,7 @@
   var key = function () { try { return localStorage.getItem('adminKey') || ''; } catch (e) { return ''; } };
   var post = function (body) { body.ak = key(); return fetch('/api/market', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).then(function (r) { return r.json(); }); };
   var PAGES = [['', 'Every page'], ['/', 'Home page'], ['/seller.html', 'Seller Hub'], ['/me.html', 'My account'], ['/order.html', 'Checkout'], ['/giveaway.html', 'Giveaway'], ['/sold.html', 'Sold prices'], ['/market.html', 'Shops and sellers'], ['/shop.html', 'A seller’s shop page'], ['/terms.html', 'Terms of Service']];
-  var btn = el('button', 'Wording', 'ghost'); btn.type = 'button'; btn.setAttribute('aria-pressed', 'false');
+  var btn = el('button', 'Site editor', 'ghost'); btn.type = 'button'; btn.setAttribute('aria-pressed', 'false');
   tabs.insertBefore(btn, $('out'));
   var box = el('div'); box.dataset.extraTab = 'wording'; box.hidden = true; box.style.cssText = 'display:flex;flex-direction:column;gap:16px';
   main.insertBefore(box, $('wOrders'));
@@ -42,18 +43,53 @@
   var msg = el('div', '', 'small'); msg.setAttribute('role', 'status');
   function draw() {
     box.textContent = '';
-    var intro = el('section', null, 'card'); intro.style.gap = '8px';
-    intro.appendChild(el('b', 'Change any words on the site'));
-    intro.appendChild(el('div', 'Copy the words exactly as you see them on the page into "Where it says", then type what it should say instead. Pick one page or every page. Press Save all, then refresh the page to see it (give it up to a minute).', 'small'));
-    intro.appendChild(el('div', 'Tips: words in a different style (bold, a link, a button) count as their own piece, so change them on their own. Leave "Say instead" empty to remove the words. Prices, names and amounts that change by themselves are best left alone.', 'small dim'));
-    box.appendChild(intro);
+    // Edit a page by clicking on it.
+    var vis = el('section', null, 'card'); vis.style.gap = '10px';
+    vis.appendChild(el('b', 'Edit a page by clicking on it'));
+    vis.appendChild(el('div', 'Opens the page in a new tab in editing mode. Click any words to change or remove them, click any part to hide it, or add a picture above or below it. Only you see the editing tools.', 'small'));
+    var vr = el('div', null, 'wd-acts');
+    var vp = el('select'); vp.style.cssText = 'font:inherit;font-size:15px;padding:10px 12px;background:#0E0F13;border:1px solid #4A4F5E;color:#F7F2E6;border-radius:2px';
+    PAGES.filter(function (p) { return p[0] && p[0] !== '/shop.html'; }).forEach(function (p) { var o = el('option', p[1]); o.value = p[0]; vp.appendChild(o); });
+    var vo = el('button', 'Open and edit', 'solid'); vo.type = 'button';
+    vo.addEventListener('click', function () { window.open(vp.value + (vp.value.indexOf('?') < 0 ? '?' : '&') + 'edit=1', '_blank', 'noopener'); });
+    vr.appendChild(vp); vr.appendChild(vo); vis.appendChild(vr);
+    vis.appendChild(el('div', 'Tip: to edit any other page (like one seller’s shop), open it and add ?edit=1 to the end of its address.', 'small dim'));
+    box.appendChild(vis);
+
+    var pageName = function (pg) { var f = PAGES.filter(function (p) { return p[0] === (pg || ''); })[0]; return f ? f[1] : pg; };
+    // Parts hidden and pictures added (made by clicking on pages).
+    var others = rules.map(function (r, i) { return { r: r, i: i }; }).filter(function (x) { return x.r.kind === 'hide' || x.r.kind === 'image'; });
+    box.appendChild(el('div', 'HIDDEN PARTS AND PICTURES', 'mono gold'));
+    if (!others.length) box.appendChild(el('div', 'None yet. Use "Open and edit" above to hide a part of a page or add a picture.', 'small dim'));
+    others.forEach(function (x) {
+      var r = x.r, c = el('section', null, 'card' + (r.off ? ' wd-off' : '')); c.style.gap = '8px';
+      var top = el('div', null, 'wd-acts');
+      if (r.kind === 'image') { var im = el('img'); im.src = r.url; im.alt = ''; im.style.cssText = 'width:72px;height:72px;object-fit:cover;border-radius:4px'; top.appendChild(im); }
+      var t = el('div'); t.style.cssText = 'display:flex;flex-direction:column;gap:2px;flex:1;min-width:200px';
+      t.appendChild(el('b', (r.kind === 'hide' ? 'Hidden: ' : 'Picture ' + (r.where === 'before' ? 'above' : 'below') + ': ') + (r.label || 'a part of the page')));
+      t.appendChild(el('span', pageName(r.page) + (r.off ? ' · turned off' : '') + (r.link ? ' · links to ' + r.link : ''), 'small dim'));
+      top.appendChild(t); c.appendChild(top);
+      var acts = el('div', null, 'wd-acts');
+      var onoff = el('button', r.off ? 'Turn on' : r.kind === 'hide' ? 'Show it again' : 'Turn off', 'ghost'); onoff.type = 'button';
+      onoff.addEventListener('click', function () { r.off = !r.off; draw(); msg.textContent = 'Press Save all to keep this.'; });
+      var see = el('a', 'See it on the page', 'small'); see.href = (r.page || '/') + '?edit=1'; see.target = '_blank'; see.rel = 'noopener';
+      var del = el('button', 'Delete', 'ghost'); del.type = 'button';
+      del.addEventListener('click', function () { rules.splice(x.i, 1); draw(); msg.textContent = 'Removed. Press Save all to keep this.'; });
+      [onoff, see, del].forEach(function (n) { acts.appendChild(n); }); c.appendChild(acts);
+      box.appendChild(c);
+    });
+
+    // Word changes, typed in.
+    box.appendChild(el('div', 'WORD CHANGES', 'mono gold'));
+    box.appendChild(el('div', 'Copy the words exactly as they show on the page into "Where it says", then type what it should say instead. Leave "Say instead" empty to remove the words. Words in a different style (bold, a link, a button) count as their own piece. Changes show within about a minute.', 'small'));
     var list = el('div'); list.style.cssText = 'display:flex;flex-direction:column;gap:12px';
-    if (!rules.length) list.appendChild(el('div', 'No changes yet. Press "Add a change" to start.', 'small dim'));
-    rules.forEach(function (r, i) { list.appendChild(card(r, i)); });
+    var words = rules.map(function (r, i) { return { r: r, i: i }; }).filter(function (x) { return !x.r.kind || x.r.kind === 'text'; });
+    if (!words.length) list.appendChild(el('div', 'No word changes yet. Press "Add a word change", or click words on a page with "Open and edit".', 'small dim'));
+    words.forEach(function (x) { list.appendChild(card(x.r, x.i)); });
     box.appendChild(list);
     var bar = el('div', null, 'wd-acts');
-    var add = el('button', '+ Add a change', 'ghost'); add.type = 'button';
-    add.addEventListener('click', function () { rules.push({ from: '', to: '', page: '' }); draw(); var ts = box.querySelectorAll('textarea'); if (ts.length) ts[ts.length - 2].focus(); });
+    var add = el('button', '+ Add a word change', 'ghost'); add.type = 'button';
+    add.addEventListener('click', function () { rules.push({ from: '', to: '', page: '' }); draw(); var ts = box.querySelectorAll('textarea'); if (ts.length > 1) ts[ts.length - 2].focus(); });
     var save = el('button', 'Save all', 'solid'); save.type = 'button';
     save.addEventListener('click', function () {
       save.disabled = true; msg.textContent = 'Saving…';
