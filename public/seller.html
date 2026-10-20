@@ -209,8 +209,7 @@
     // Listings
     var c1 = card('Listings', 'listings'); grid.appendChild(c1);
     row(c1, 'Create listing', null, 'listings', false, { add: true });
-    row(c1, 'Add from an eBay link', null, 'listings', false, { add: true });
-    var rEb = row(c1, 'Bring over all my eBay listings', null, null); rEb.classList.remove('plain'); rEb.addEventListener('click', function () { tab = 'listings'; openEbay = true; adding = false; editing = null; dash(); window.scrollTo(0, 0); });
+    row(c1, 'Add from an eBay screenshot', null, 'listings', false, { add: true });
     row(c1, 'Drafts (hidden)', drafts.length, 'listings');
     row(c1, 'Active listings', active.length, 'listings');
     var rOff = row(c1, 'With open offers from buyers', '…', 'offers', true);
@@ -356,26 +355,37 @@
     var c = el('section', null, 'card'); c.style.gap = '14px';
     c.appendChild(el('h2', p ? 'Change this piece' : 'Add a piece'));
     if (!p) {
-      // Already on eBay? Paste the link: the piece is made from it and opens here to check and save.
-      var pb = el('div'); pb.style.cssText = 'display:flex;flex-direction:column;gap:8px;border:1px dashed #4A4F5E;padding:12px 14px';
-      pb.appendChild(el('b', 'Already listed on eBay? Paste the link'));
-      var pr = el('div'); pr.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px';
-      var pu = input('url', '', { placeholder: 'https://www.ebay.com/itm/…', autocomplete: 'off' }); pu.style.cssText = 'flex:1 1 240px;min-width:0';
-      var pg = el('button', 'Fill in from eBay', 'solid'); pg.type = 'button';
-      pr.appendChild(pu); pr.appendChild(pg); pb.appendChild(pr);
-      var pm = el('div', 'We copy the title, price, shipping, description and photo. If it sells or ends on eBay, it comes down here automatically.', 'small dim'); pb.appendChild(pm);
-      c.appendChild(pb);
-      var pasteGo = function () {
-        if (!pu.value.trim()) { pm.textContent = 'Paste the eBay listing link first.'; return; }
-        pg.disabled = true; pm.className = 'small'; pm.textContent = 'Reading the eBay listing…';
-        JF.api('/api/market', { do: 'ebay-import', t: tok, as: AS, ak: AK, url: pu.value }).then(function (r) {
-          pg.disabled = false;
-          if (r.error) { pm.textContent = r.error; return; }
-          pendingEdit = r.listing.id; adding = false; load();
-        }).catch(function () { pg.disabled = false; pm.textContent = 'That did not work. Try again.'; });
+      // Already listed on eBay? Upload a screenshot of the listing: AI reads it and fills in this form to check.
+      var sb = el('div'); sb.style.cssText = 'display:flex;flex-direction:column;gap:8px;border:1px dashed #4A4F5E;padding:12px 14px';
+      sb.appendChild(el('b', 'Already listed on eBay? Upload a screenshot of the listing'));
+      var sBtn = el('button', '🖼️ Upload eBay screenshot', 'solid'); sBtn.type = 'button'; sBtn.style.alignSelf = 'flex-start';
+      var sFile = input('file', null, { accept: 'image/*' }); sFile.hidden = true;
+      var sMsg = el('div', 'AI reads the title, price, shipping and details from the screenshot and fills in the form below. You can also paste a screenshot here (Ctrl+V or ⌘+V). Then add a photo of the piece itself and save.', 'small dim');
+      sb.appendChild(sBtn); sb.appendChild(sFile); sb.appendChild(sMsg); c.appendChild(sb);
+      var readShot = function (file) {
+        sBtn.disabled = true; sMsg.className = 'small'; sMsg.textContent = 'Reading your screenshot…';
+        shrink(file).then(function (data) { return JF.api('/api/market', { do: 'listing-ai', kind: 'screenshot', t: tok, as: AS, ak: AK, data: data }); }).then(function (r) {
+          sBtn.disabled = false;
+          if (r.error) { sMsg.textContent = r.error; return; }
+          if (r.title) name.value = r.title;
+          if (r.description) desc.value = r.description;
+          if (r.price > 0) price.value = r.price;
+          if (r.quantity > 0 && mode.value !== 'auction') stock.value = r.quantity;
+          if (r.shipping === 'free') shipMode.value = 'free'; else if (r.shipping > 0) { shipMode.value = 'flat'; ship.value = r.shipping; }
+          shipMode.dispatchEvent(new Event('change'));
+          if (r.category && D.sections.indexOf(r.category) >= 0) sec.value = r.category;
+          sMsg.textContent = 'Filled in from your screenshot. Check everything, add a photo of the piece below, then save.';
+          name.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }).catch(function (e) { sBtn.disabled = false; sMsg.textContent = e && e.message ? e.message : 'That did not work. Try again.'; });
       };
-      pg.addEventListener('click', pasteGo);
-      pu.addEventListener('paste', function () { setTimeout(pasteGo, 50); });
+      sBtn.addEventListener('click', function () { sFile.click(); });
+      sFile.addEventListener('change', function () { if (sFile.files[0]) readShot(sFile.files[0]); sFile.value = ''; });
+      var onPaste = function (ev) {
+        if (!document.body.contains(sb)) { document.removeEventListener('paste', onPaste); return; }
+        var items = (ev.clipboardData && ev.clipboardData.items) || [];
+        for (var i = 0; i < items.length; i++) if (items[i].type && items[i].type.indexOf('image/') === 0) { var fl = items[i].getAsFile(); if (fl) { ev.preventDefault(); readShot(fl); } return; }
+      };
+      document.addEventListener('paste', onPaste);
     }
     var f = el('form'); f.style.maxWidth = '720px';
     var name = input('text', p && p.name, { maxlength: '120', required: '' });
@@ -475,47 +485,7 @@
     // Your pieces come first; the form only opens when you press Add a product.
     var add = el('button', '+ Add a product', 'solid'); add.type = 'button';
     add.addEventListener('click', function () { adding = true; dash(); window.scrollTo(0, 0); });
-    // Bring every eBay listing over at once (see api/_ebay.js listAll): pick which, then they come over one by one.
-    var eb = el('button', 'Bring over all my eBay listings', 'ghost'); eb.type = 'button';
-    var acts0 = el('div'); acts0.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px'; acts0.appendChild(add); acts0.appendChild(eb); pane.appendChild(acts0);
-    var bulk = el('section', null, 'card'); bulk.hidden = true; bulk.style.gap = '10px'; pane.appendChild(bulk);
-    function openBulk() {
-      bulk.hidden = false; bulk.textContent = '';
-      bulk.appendChild(el('b', 'Bring over your eBay listings'));
-      var bm = el('div', 'Finding your Buy It Now listings on eBay (' + (D.seller.ebayUser || 'add your eBay user name in Settings') + ')…', 'small'); bulk.appendChild(bm);
-      JF.api('/api/market', { do: 'ebay-list', t: tok, as: AS, ak: AK }).then(function (r) {
-        if (r.error) { bm.textContent = r.error; return; }
-        var items = r.items || [];
-        if (!items.length) { bm.textContent = 'No Buy It Now listings found for ' + D.seller.ebayUser + ' on eBay.'; return; }
-        var fresh = items.filter(function (x) { return !x.here; });
-        bm.textContent = 'Found ' + items.length + ' listing' + (items.length === 1 ? '' : 's') + (items.length - fresh.length ? ', ' + (items.length - fresh.length) + ' already on V2V' : '') + '. Pick the ones to bring over. Each comes with its title, price, shipping, description and photo, and comes down here if it sells or ends on eBay.';
-        var all = el('label', null, 'jf-check'); var allBox = input('checkbox'); allBox.checked = true; all.appendChild(allBox); all.appendChild(el('span', 'Select all')); bulk.appendChild(all);
-        var listBox = el('div'); listBox.style.cssText = 'display:flex;flex-direction:column;max-height:420px;overflow:auto;border:1px solid #2A2D36'; bulk.appendChild(listBox);
-        var boxes = [];
-        items.forEach(function (x) {
-          var r2 = el('label'); r2.style.cssText = 'display:flex;gap:10px;align-items:center;padding:8px 10px;border-bottom:1px solid #2A2D36;cursor:pointer';
-          var cb = input('checkbox'); cb.checked = !x.here; cb.dataset.id = x.id; boxes.push(cb); r2.appendChild(cb);
-          if (x.image) { var im = el('img'); im.src = x.image; im.alt = ''; im.style.cssText = 'width:44px;height:44px;object-fit:cover;border-radius:4px;flex:none'; r2.appendChild(im); }
-          var tx = el('span', x.title + ' · ' + JF.usd(x.price) + (x.here ? ' · already on V2V (updates it)' : '')); tx.style.cssText = 'flex:1;min-width:0;font-size:14px'; r2.appendChild(tx);
-          listBox.appendChild(r2);
-        });
-        allBox.addEventListener('change', function () { boxes.forEach(function (b) { b.checked = allBox.checked; }); });
-        var goAll = el('button', 'Bring over selected', 'solid'); goAll.type = 'button'; goAll.style.alignSelf = 'flex-start'; bulk.appendChild(goAll);
-        var prog = el('div', '', 'small'); prog.setAttribute('role', 'status'); bulk.appendChild(prog);
-        goAll.addEventListener('click', function () {
-          var pick = boxes.filter(function (b) { return b.checked; }).map(function (b) { return b.dataset.id; });
-          if (!pick.length) { prog.textContent = 'Tick at least one.'; return; }
-          goAll.disabled = true; var done = 0, bad = [];
-          (function next(i) {
-            if (i >= pick.length) { prog.textContent = 'Done: ' + done + ' brought over' + (bad.length ? ', ' + bad.length + ' skipped (' + bad.slice(0, 3).join('; ') + ')' : '') + '.'; goAll.disabled = false; setTimeout(load, 1500); return; }
-            prog.textContent = 'Bringing over ' + (i + 1) + ' of ' + pick.length + '…';
-            JF.api('/api/market', { do: 'ebay-import', t: tok, as: AS, ak: AK, url: pick[i] }).then(function (x) { if (x.error) bad.push(x.error); else done++; next(i + 1); }).catch(function () { bad.push('network'); next(i + 1); });
-          })(0);
-        });
-      }).catch(function () { bm.textContent = 'That did not work. Try again.'; });
-    }
-    eb.addEventListener('click', function () { if (bulk.hidden) openBulk(); else bulk.hidden = true; });
-    if (openEbay) { openEbay = false; openBulk(); }
+    var acts0 = el('div'); acts0.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px'; acts0.appendChild(add); pane.appendChild(acts0);
     if (pendingEdit) { var pe = D.listings.filter(function (x) { return x.id === pendingEdit; })[0]; pendingEdit = ''; if (pe) { editing = pe; pane.textContent = ''; pane.appendChild(listingForm(pe)); return; } }
     if (!D.listings.length) { pane.appendChild(el('div', 'No pieces yet. Press Add a product to list your first one.', 'jf-empty')); return; }
     var list = el('section', null, 'card'); list.style.gap = '0';
@@ -879,13 +849,11 @@
     var a2 = el('div', null, 'two'); a2.appendChild(field('Street address', fs1)); a2.appendChild(field('Apt or unit', fs2, 'Optional.')); f.appendChild(a2);
     var a3 = el('div', null, 'two'); a3.appendChild(field('City', fc)); a3.appendChild(field('State', fst)); a3.appendChild(field('ZIP code', fz)); f.appendChild(a3);
     f.appendChild(field('Phone', fp, 'Optional. Some carriers ask for it.'));
-    var ebayU = input('text', s.ebayUser || '', { maxlength: '64', autocomplete: 'off', placeholder: 'Your eBay user name' });
-    f.appendChild(field('eBay user name', ebayU, 'Optional. Needed to bring your eBay listings over, so we know they are yours.'));
     f.appendChild(go); f.appendChild(m);
     c.appendChild(f);
     c.appendChild(el('div', 'Shop name: ' + s.name + ' · Signed in as ' + D.email + ' · JarFriends fee: ' + D.fee + '% of each sale. To rename your shop, contact JarFriends.', 'small dim'));
     pane.appendChild(c);
-    f.addEventListener('submit', function (ev) { ev.preventDefault(); go.disabled = true; JF.api('/api/market', Object.assign({ do: 'profile', t: tok, as: AS, ak: AK, shipFrom: { name: fn.value, street1: fs1.value, street2: fs2.value, city: fc.value, state: fst.value, zip: fz.value, phone: fp.value }, about: about.value, ebayUser: ebayU.value }, bankOpen ? bankS.values() : {})).then(function (r) { go.disabled = false; m.textContent = r.error || 'Saved.'; if (!r.error) D.seller = r.seller; }); });
+    f.addEventListener('submit', function (ev) { ev.preventDefault(); go.disabled = true; JF.api('/api/market', Object.assign({ do: 'profile', t: tok, as: AS, ak: AK, shipFrom: { name: fn.value, street1: fs1.value, street2: fs2.value, city: fc.value, state: fst.value, zip: fz.value, phone: fp.value }, about: about.value }, bankOpen ? bankS.values() : {})).then(function (r) { go.disabled = false; m.textContent = r.error || 'Saved.'; if (!r.error) D.seller = r.seller; }); });
   }
   // Back from Stripe's payout setup: show the payouts tab. "again" means the link ran out, so open a fresh one.
   var sq = new URLSearchParams(location.search).get('stripe');

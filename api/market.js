@@ -473,12 +473,13 @@ module.exports = async (req, res) => {
       seen.push(now); photoHits.set(k, seen);
       const data = String(b.data || '').replace(/^data:image\/jpeg;base64,/, '');
       if (data.length < 1000 || data.length > 2500000) return res.status(400).json({ error: 'That photo could not be used. Try another one.' });
+      const shot = b.kind === 'screenshot';
       const r = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST', signal: AbortSignal.timeout(25000),
         headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
         body: JSON.stringify({ model: (process.env.AI_MODEL || 'claude-haiku-5-5').trim(), max_tokens: 600,
-          system: 'You help sellers list collectibles (mostly VeeFriends: cards, graded slabs, comics, pins, stickers, toys, NFTs) on a marketplace. From the photo, write a listing. Reply with JSON only: {"title": "a clear, searchable title under 90 characters: character or item name, set or series, edition, grade if a slab label is visible", "description": "2 to 4 short sentences describing exactly what is shown: what it is, any visible edition, number, grade or condition details, and what is included. Do not invent facts you cannot see; say \'see photos\' for condition if unclear.", "category": "one of: ' + M.SECTIONS.join(', ') + '"}',
-          messages: [{ role: 'user', content: [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: data } }, { type: 'text', text: 'Write the listing for this piece.' }] }] })
+          system: shot ? 'You turn a screenshot of a marketplace listing (usually eBay) into a listing for V2V, a marketplace for VeeFriends collectibles. Read only what is visible. Reply with JSON only: {"title": "the listing title as shown, cleaned up, under 110 characters", "price": the Buy It Now or current price as a number with no $ (null if not shown), "shipping": "free" if free shipping is shown, else the shipping cost as a number, or null if not shown, "quantity": the available quantity as a number (1 if not shown), "description": "the item description and item specifics shown (condition, grade, edition, set, card number, what is included), as 2 to 6 short plain sentences; leave out seller policies, returns, eBay wording and anything not about the item", "category": "one of: ' + M.SECTIONS.join(', ') + '"}. Never invent details that are not in the screenshot.' : 'You help sellers list collectibles (mostly VeeFriends: cards, graded slabs, comics, pins, stickers, toys, NFTs) on a marketplace. From the photo, write a listing. Reply with JSON only: {"title": "a clear, searchable title under 90 characters: character or item name, set or series, edition, grade if a slab label is visible", "description": "2 to 4 short sentences describing exactly what is shown: what it is, any visible edition, number, grade or condition details, and what is included. Do not invent facts you cannot see; say \'see photos\' for condition if unclear.", "category": "one of: ' + M.SECTIONS.join(', ') + '"}',
+          messages: [{ role: 'user', content: [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: data } }, { type: 'text', text: shot ? 'Turn this listing screenshot into a listing.' : 'Write the listing for this piece.' }] }] })
       }).catch((e) => ({ ok: false, status: 0, text: async () => String(e) }));
       if (!r.ok) { console.error('LISTING_AI_FAIL', r.status, (await r.text()).slice(0, 300)); return res.status(503).json({ error: 'AI could not look at the photo just now. Try again, or type the title yourself.' }); }
       const j = await r.json();
@@ -486,7 +487,9 @@ module.exports = async (req, res) => {
       let out = {};
       try { out = JSON.parse(txt.slice(txt.indexOf('{'), txt.lastIndexOf('}') + 1)); } catch (e) { out = {}; }
       if (!out.title) return res.status(503).json({ error: 'AI could not tell what that is. Try a clearer photo, or type the title yourself.' });
-      return res.json({ title: String(out.title).slice(0, 120), description: String(out.description || '').slice(0, 1200), category: M.SECTIONS.indexOf(out.category) >= 0 ? out.category : '' });
+      const num = (v) => { const n = Number(String(v == null ? '' : v).replace(/[^0-9.]/g, '')); return n > 0 ? Math.round(n * 100) / 100 : 0; };
+      return res.json({ title: String(out.title).slice(0, 120), description: String(out.description || '').slice(0, 1200), category: M.SECTIONS.indexOf(out.category) >= 0 ? out.category : '',
+        price: shot ? num(out.price) : 0, shipping: shot ? (String(out.shipping).toLowerCase() === 'free' ? 'free' : num(out.shipping)) : 0, quantity: shot ? Math.max(1, Math.min(999, Math.floor(num(out.quantity)) || 1)) : 0 });
     }
     // Every Buy It Now listing on the seller's eBay account, marked when it is already on V2V. Their eBay user name
     // must be confirmed by the V2V owner first (the owner's own shop counts as confirmed), so nobody can copy
