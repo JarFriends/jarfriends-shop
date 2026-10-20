@@ -73,4 +73,38 @@
     } else { document.body.appendChild(p); document.body.appendChild(b); }
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go); else go();
+  // The owner's own wording (back office > Wording): wherever a page says one thing, it says the owner's words instead.
+  // It works on the words as they show on screen, including words a page adds later, and on box placeholders.
+  (function wording() {
+    if (location.pathname === '/admin.html') return;
+    var here = location.pathname === '/index.html' ? '/' : location.pathname, rules = [];
+    // Text already changed is remembered, so new words that contain the old ones are not changed twice.
+    var done = typeof WeakMap === 'function' ? new WeakMap() : null;
+    function setText(t) { if (done && done.get(t) === t.nodeValue) return; var v = fix(t.nodeValue); if (v !== t.nodeValue) t.nodeValue = v; if (done) done.set(t, t.nodeValue); }
+    function fix(str) { var o = str; for (var i = 0; i < rules.length; i++) if (o.indexOf(rules[i].from) >= 0) o = o.split(rules[i].from).join(rules[i].to); return o; }
+    function walk(root) {
+      if (!rules.length || !root) return;
+      if (root.nodeType === 3) { setText(root); return; }
+      if (root.nodeType !== 1 || /^(SCRIPT|STYLE|TEXTAREA|NOSCRIPT)$/.test(root.tagName)) return;
+      var tw = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: function (n) { var pt = n.parentNode && n.parentNode.tagName; return /^(SCRIPT|STYLE|TEXTAREA|NOSCRIPT)$/.test(pt || '') ? 2 : 1; } }), n, list = [];
+      while ((n = tw.nextNode())) list.push(n);
+      list.forEach(setText);
+      Array.prototype.forEach.call(root.querySelectorAll ? root.querySelectorAll('[placeholder],[title],[aria-label]') : [], function (e) { if (e.dataset.wDone) return; e.dataset.wDone = '1'; ['placeholder', 'title', 'aria-label'].forEach(function (a) { var x = e.getAttribute(a); if (x) { var y = fix(x); if (y !== x) e.setAttribute(a, y); } }); });
+    }
+    function use(all) {
+      rules = (all || []).filter(function (r) { return r && r.from && !r.off && (!r.page || r.page === here); }).sort(function (a, b) { return b.from.length - a.from.length; });
+      if (!rules.length) return;
+      walk(document.body); document.title = fix(document.title);
+      var busy = false;
+      new MutationObserver(function (ms) { if (busy) return; busy = true; ms.forEach(function (m) { if (m.type === 'characterData') walk(m.target); else Array.prototype.forEach.call(m.addedNodes, walk); }); busy = false; })
+        .observe(document.body, { childList: true, subtree: true, characterData: true });
+    }
+    var kept = null; try { kept = JSON.parse(sessionStorage.getItem('v2vWording') || 'null'); } catch (e) { kept = null; }
+    var start = function (all) { if (document.body) use(all); else document.addEventListener('DOMContentLoaded', function () { use(all); }); };
+    if (kept && Date.now() - kept.at < 60000) return start(kept.rules);
+    fetch('/api/market?do=wording', { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+      if (!j) return; try { sessionStorage.setItem('v2vWording', JSON.stringify({ rules: j.rules || [], at: Date.now() })); } catch (e) {}
+      start(j.rules || []);
+    }).catch(function () {});
+  })();
 })();

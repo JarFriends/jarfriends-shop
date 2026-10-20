@@ -132,13 +132,16 @@ module.exports = async (req, res) => {
       return res.json({ sold: rows });
     }
 
+    // The owner's own wording for the site's pages (see _wording.js); nav.js swaps the words on every page.
+    if (what === 'wording' && req.method === 'GET') { res.setHeader('cache-control', 'public, max-age=0, s-maxage=20'); return res.json({ rules: (await require('./_wording').get()).rules }); }
     // ---------- The owner ----------
-    if (what === 'admin' || what === 'status' || what === 'payout' || what === 'issue' || what === 'review-remove' || what === 'verify' || what === 'charge' || what === 'import' || what === 'emails' || what === 'email-save' || what === 'email-ai' || what === 'email-test' || what === 'giveaway-round' || what === 'bank' || what === 'ebay-ok') {
+    if (what === 'wording-save' || what === 'admin' || what === 'status' || what === 'payout' || what === 'issue' || what === 'review-remove' || what === 'verify' || what === 'charge' || what === 'import' || what === 'emails' || what === 'email-save' || what === 'email-ai' || what === 'email-test' || what === 'giveaway-round' || what === 'bank' || what === 'ebay-ok') {
       if (!gate.isAdmin(req.method === 'POST' ? b.ak : q.ak)) return res.status(401).json({ error: 'Sign in to the back office again.' });
       // Confirm (or un-confirm) that a seller's eBay user name is really theirs, so they can bring all their listings over.
       if (what === 'ebay-ok' && req.method === 'POST') { const s2 = await M.bySlug(String(b.slug || '')); if (!s2) return res.status(404).json({ error: 'That seller was not found.' }); s2.ebayOk = !!b.on; await M.save(s2); return res.json({ ok: true }); }
       // The full bank details of one seller, to send them a payout by hand.
       if (what === 'bank' && req.method === 'POST') { const s = await M.bySlug(String(b.slug || '')); const k = s && M.bankOf(s); return k ? res.json({ bank: k }) : res.status(404).json({ error: 'This seller has no bank account on file.' }); }
+      if (what === 'wording-save' && req.method === 'POST') { const r = await require('./_wording').save(b.rules); return res.status(r.error ? 400 : 200).json(r); }
       if (what === 'giveaway-round') { const r = await require('./_giveaway').setRound(String(b.action || '')); return res.status(r.error ? 400 : 200).json(r); }
       // The Emails tab: every automatic email, which are off, and the owner's own words in them (see _emails.js).
       if (what === 'emails' || what === 'email-save' || what === 'email-ai' || what === 'email-test') {
