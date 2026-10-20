@@ -54,7 +54,8 @@
     var gv = el('section', null, 'card'); gv.style.gap = '10px'; box.appendChild(gv);
     fetch('/api/market?do=giveaway', { cache: 'no-store' }).then(function (x) { return x.json(); }).then(function (g) {
       gv.appendChild(el('b', 'Giveaway vote, round ' + g.round + (g.open ? ' (open)' : ' (closed)')));
-      gv.appendChild(el('div', g.choices.map(function (c) { return c + ': ' + (g.tally[c] || 0) + ' votes from ' + (g.people[c] || 0) + ' people'; }).join(' · ') + ' · wallet ' + money(g.wallet), 'small'));
+      gv.appendChild(el('div', g.choices.concat(g.other ? [g.other] : []).map(function (c) { return c + ': ' + (g.tally[c] || 0) + ' votes from ' + (g.people[c] || 0) + ' people'; }).join(' · ') + ' · wallet ' + money(g.wallet), 'small'));
+      if (g.ideas && g.ideas.length) gv.appendChild(el('div', 'Typed-in ideas: ' + g.ideas.map(function (x) { return x.text + ' (' + x.votes + ')'; }).join(' · '), 'small'));
       gv.appendChild(el('div', 'Everyone with an account gets 1 vote; people with ' + g.doubleAfter + ' or more completed sales as a buyer or seller get 2 (VOTE_DOUBLE_AFTER changes this). The public page is /giveaway.html.', 'small dim'));
       var row = el('div'); row.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap';
       [[g.open ? 'Close voting' : 'Reopen voting', g.open ? 'close' : 'open'], ['Start a new round', 'new']].forEach(function (x) {

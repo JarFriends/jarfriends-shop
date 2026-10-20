@@ -329,7 +329,7 @@ module.exports = async (req, res) => {
       return res.json({ ok: true });
     }
     // A vote in the giveaway: one per account, two for people who have traded on V2V (see _giveaway.js).
-    if (what === 'vote' && req.method === 'POST') { const r = await require('./_giveaway').vote(me, String(b.choice || '')); return res.status(r.error ? 400 : 200).json(r); }
+    if (what === 'vote' && req.method === 'POST') { const r = await require('./_giveaway').vote(me, String(b.choice || ''), b.text); return res.status(r.error ? 400 : 200).json(r); }
     // ---------- Offers, as a buyer: every offer they made, with its history ----------
     if (what === 'myoffers') {
       const { list: ls } = await import('@vercel/blob');

@@ -9,6 +9,8 @@ const store = require('./_store');
 const M = require('./_sellers');
 
 const CHOICES = ['Series 1', 'Series 2'];
+// A third choice: people type what they would rather the wallet buys. Ideas are counted together (same words, any case).
+const OTHER = 'Something else';
 const doubleAfter = () => { const v = Math.floor(Number(process.env.VOTE_DOUBLE_AFTER)); return v > 0 ? v : 3; };
 
 async function paths(prefix) {
@@ -41,12 +43,14 @@ async function weightOf(email, rows) {
   const n = rows.filter((r) => r.paid && (String(r.email || '').toLowerCase() === email || (shop && r.seller === shop.slug))).length;
   return { trades: n, weight: n >= doubleAfter() ? 2 : 1 };
 }
-async function vote(email, choice) {
+async function vote(email, choice, text) {
   const s = await state();
   if (!s.open) return { error: 'Voting for this round is closed.' };
-  if (s.choices.indexOf(choice) < 0) return { error: 'Pick ' + s.choices.join(' or ') + '.' };
+  if (s.choices.indexOf(choice) < 0 && choice !== OTHER) return { error: 'Pick ' + s.choices.join(', ') + ' or ' + OTHER + '.' };
+  const idea = String(text || '').replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80);
+  if (choice === OTHER && idea.length < 2) return { error: 'Type what you would like the wallet to buy.' };
   const w = await weightOf(email);
-  await store.write('giveaway/votes/' + s.round + '/' + M.hashOf(email) + '.json', { choice: choice, weight: w.weight, at: Date.now() });
+  await store.write('giveaway/votes/' + s.round + '/' + M.hashOf(email) + '.json', Object.assign({ choice: choice, weight: w.weight, at: Date.now() }, choice === OTHER ? { text: idea } : {}));
   memo = null;
   return { ok: true, weight: w.weight, trades: w.trades };
 }
@@ -55,10 +59,14 @@ async function results() {
   const s = await state();
   if (memo && memo.round === s.round && Date.now() - memo.at < 20000) return memo.v;
   const votes = (await Promise.all((await paths('giveaway/votes/' + s.round + '/')).map((p) => store.read(p)))).filter(Boolean);
-  const tally = {}, people = {};
-  s.choices.forEach((c) => { tally[c] = 0; people[c] = 0; });
-  votes.forEach((v) => { if (tally[v.choice] != null) { tally[v.choice] += v.weight || 1; people[v.choice]++; } });
-  const v = { round: s.round, open: s.open, choices: s.choices, tally: tally, people: people, voters: votes.length, doubleAfter: doubleAfter(), startedAt: s.startedAt, closedAt: s.closedAt || 0 };
+  const tally = {}, people = {}, ideas = {};
+  s.choices.concat([OTHER]).forEach((c) => { tally[c] = 0; people[c] = 0; });
+  votes.forEach((v) => {
+    if (tally[v.choice] == null) return;
+    tally[v.choice] += v.weight || 1; people[v.choice]++;
+    if (v.choice === OTHER && v.text) { const k = v.text.toLowerCase(); ideas[k] = ideas[k] || { text: v.text, votes: 0, people: 0 }; ideas[k].votes += v.weight || 1; ideas[k].people++; }
+  });
+  const v = { round: s.round, open: s.open, choices: s.choices, other: OTHER, ideas: Object.keys(ideas).map((k) => ideas[k]).sort((a, b) => b.votes - a.votes).slice(0, 20), tally: tally, people: people, voters: votes.length, doubleAfter: doubleAfter(), startedAt: s.startedAt, closedAt: s.closedAt || 0 };
   memo = { round: s.round, at: Date.now(), v: v };
   return v;
 }
@@ -66,7 +74,7 @@ async function mine(email) {
   const s = await state();
   const v = await store.read('giveaway/votes/' + s.round + '/' + M.hashOf(email) + '.json');
   const w = await weightOf(email);
-  return { choice: v ? v.choice : '', weight: w.weight, trades: w.trades };
+  return { choice: v ? v.choice : '', text: v && v.text || '', weight: w.weight, trades: w.trades };
 }
 
-module.exports = { state, setRound, vote, results, mine, weightOf, doubleAfter, CHOICES };
+module.exports = { OTHER, state, setRound, vote, results, mine, weightOf, doubleAfter, CHOICES };

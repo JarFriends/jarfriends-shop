@@ -13,7 +13,8 @@
 .gv-steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:0;padding:0;list-style:none;counter-reset:s}
 .gv-steps li{border:1px solid #244536;padding:14px 16px;display:flex;flex-direction:column;gap:6px;counter-increment:s}
 .gv-steps li:before{content:counter(s);font-family:"IBM Plex Mono",monospace;color:#C9A45C;font-size:13px}
-.gv-pick{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.gv-pick{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.gv-other{display:flex;gap:8px;flex-wrap:wrap}.gv-other input{flex:1 1 220px;min-width:0;min-height:44px;font-size:16px}
 .gv-pick button{min-height:84px;font-size:20px;font-weight:800;border:2px solid #4E7A63;background:transparent;color:#F7F2E6;border-radius:2px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
 .gv-pick button[aria-pressed="true"]{border-color:#C9A45C;background:#C9A45C;color:#0B1A13}
 .gv-pick button:disabled{opacity:.55;cursor:default}
@@ -38,8 +39,8 @@
     <h2>Where it goes: VeeFriends Series 1 and Series 2 NFTs</h2>
     <ol class="gv-steps">
       <li><b>Every sale adds 2%</b><span class="small">Out of the JarFriends fee, from every sale by every seller.</span></li>
-      <li><b>The community votes</b><span class="small">Everyone with an account votes on whether the wallet buys a VeeFriends Series 1 or a Series 2 NFT.</span></li>
-      <li><b>We buy and give it away</b><span class="small">The winning series is bought with the wallet and given away to active buyers and sellers on JarFriends.</span></li>
+      <li><b>The community votes</b><span class="small">Everyone with an account votes on whether the wallet buys a VeeFriends Series 1 NFT, a Series 2 NFT, or something else they suggest.</span></li>
+      <li><b>We buy and give it away</b><span class="small">The winner is bought with the wallet and given away to active buyers and sellers on JarFriends.</span></li>
     </ol>
   </section>
   <section class="card" style="gap:14px" id="voteCard">
@@ -58,24 +59,34 @@
   function draw() {
     $('wallet').textContent = money(D.wallet);
     $('lead').textContent = 'JarFriends keeps ' + D.fee + '% of each sale. ' + D.pct + '% of every sale comes out of that fee and goes into the community giveaway wallet. Buyers and sellers pay nothing extra.';
-    $('vHead').textContent = D.open ? 'Vote: ' + D.choices.join(' or ') + '?' : 'Voting is closed for this round';
+    var opts = D.choices.concat([D.other || 'Something else']);
+    $('vHead').textContent = D.open ? 'Vote: ' + D.choices.join(', ') + ' or something else?' : 'Voting is closed for this round';
     $('vRules').textContent = 'Anyone with a JarFriends account gets 1 vote. Buyers and sellers who have completed ' + D.doubleAfter + ' or more sales on JarFriends get 2 votes, because they keep the wallet growing. You can change your vote while voting is open.';
     var pick = $('pick'); pick.textContent = '';
-    D.choices.forEach(function (c) {
+    var otherBox = el('div', null, 'gv-other'); otherBox.hidden = !(D.me && D.me.choice === D.other);
+    var otherIn = el('input'); otherIn.type = 'text'; otherIn.maxLength = 80; otherIn.placeholder = 'What should the wallet buy instead?'; otherIn.value = (D.me && D.me.text) || '';
+    var otherGo = el('button', 'Save my vote', 'solid'); otherGo.type = 'button';
+    otherGo.addEventListener('click', function () { cast(D.other, otherIn.value); });
+    otherIn.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') { ev.preventDefault(); cast(D.other, otherIn.value); } });
+    otherBox.appendChild(otherIn); otherBox.appendChild(otherGo);
+    opts.forEach(function (c) {
       var b = el('button'); b.type = 'button';
+      var isOther = c === D.other;
       b.appendChild(document.createTextNode(c));
-      b.appendChild(el('small', 'VeeFriends ' + c + ' NFT'));
+      b.appendChild(el('small', isOther ? 'Type your own idea' : 'VeeFriends ' + c + ' NFT'));
       b.setAttribute('aria-pressed', D.me && D.me.choice === c ? 'true' : 'false');
       b.disabled = !D.open;
-      b.addEventListener('click', function () { cast(c); });
+      b.addEventListener('click', function () { if (isOther) { if (!tok) { location.href = '/me.html'; return; } otherBox.hidden = false; otherIn.focus(); } else cast(c); });
       pick.appendChild(b);
     });
+    pick.parentNode.insertBefore(otherBox, pick.nextSibling);
+    var oldBox = document.querySelectorAll('.gv-other'); for (var ob = 0; ob < oldBox.length - 1; ob++) oldBox[ob].remove();
     if (!tok) $('vMsg').innerHTML = '<a href="/me.html">Sign in or make a free account</a> to vote.';
-    else if (D.me) $('vMsg').textContent = (D.me.choice ? 'You voted ' + D.me.choice + '. ' : '') + 'Your vote counts ' + (D.me.weight === 2 ? 'twice, because you have completed ' + D.me.trades + ' sales on JarFriends.' : 'once' + (D.me.trades ? ' (' + D.me.trades + ' of ' + D.doubleAfter + ' sales for a double vote).' : '. Complete ' + D.doubleAfter + ' sales as a buyer or seller to get a double vote.'));
+    else if (D.me) $('vMsg').textContent = (D.me.choice ? 'You voted ' + (D.me.choice === D.other && D.me.text ? '“' + D.me.text + '”' : D.me.choice) + '. ' : '') + 'Your vote counts ' + (D.me.weight === 2 ? 'twice, because you have completed ' + D.me.trades + ' sales on JarFriends.' : 'once' + (D.me.trades ? ' (' + D.me.trades + ' of ' + D.doubleAfter + ' sales for a double vote).' : '. Complete ' + D.doubleAfter + ' sales as a buyer or seller to get a double vote.'));
     var res = $('results'); res.textContent = '';
-    var total = D.choices.reduce(function (t, c) { return t + (D.tally[c] || 0); }, 0);
+    var total = opts.reduce(function (t, c) { return t + (D.tally[c] || 0); }, 0);
     res.appendChild(el('div', 'Results so far: ' + D.voters + (D.voters === 1 ? ' person has' : ' people have') + ' voted.', 'small dim'));
-    D.choices.forEach(function (c) {
+    opts.forEach(function (c) {
       var n = D.tally[c] || 0, pct = total ? Math.round(n * 100 / total) : 0;
       var row = el('div'); row.style.cssText = 'display:flex;flex-direction:column;gap:6px';
       var top = el('div'); top.style.cssText = 'display:flex;justify-content:space-between;gap:10px;font-weight:700';
@@ -84,14 +95,22 @@
       row.appendChild(top); row.appendChild(bar); res.appendChild(row);
     });
   }
+  function ideas() {
+    var res = $('results');
+    if (!D.ideas || !D.ideas.length) return;
+    res.appendChild(el('div', 'Ideas people typed in:', 'small dim'));
+    var ul = el('ul'); ul.style.cssText = 'margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px';
+    D.ideas.forEach(function (x) { ul.appendChild(el('li', x.text + ' · ' + x.votes + (x.votes === 1 ? ' vote' : ' votes'), 'small')); });
+    res.appendChild(ul);
+  }
   function load() {
-    JF.api('/api/market?do=giveaway' + (tok ? '&t=' + encodeURIComponent(tok) : '')).then(function (r) { if (r.error) { $('vMsg').textContent = r.error; return; } D = r; draw(); })
+    JF.api('/api/market?do=giveaway' + (tok ? '&t=' + encodeURIComponent(tok) : '')).then(function (r) { if (r.error) { $('vMsg').textContent = r.error; return; } D = r; draw(); ideas(); })
       .catch(function () { $('vMsg').textContent = 'The giveaway did not load. Refresh to try again.'; });
   }
-  function cast(c) {
+  function cast(c, text) {
     if (!tok) { location.href = '/me.html'; return; }
     $('vMsg').textContent = 'Saving your vote…';
-    JF.api('/api/market', { do: 'vote', t: tok, choice: c }).then(function (r) {
+    JF.api('/api/market', { do: 'vote', t: tok, choice: c, text: text || '' }).then(function (r) {
       if (r._status === 401) { JF.signOut(); tok = ''; $('vMsg').innerHTML = '<a href="/me.html">Sign in again</a> to vote.'; return; }
       if (r.error) { $('vMsg').textContent = r.error; return; }
       load();
