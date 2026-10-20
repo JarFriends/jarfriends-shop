@@ -75,7 +75,25 @@ async function signTerms(email, name, req) {
   if (n.length < 2) return { error: 'Type your full name to sign.' };
   const ip = String((req && req.headers && (req.headers['x-forwarded-for'] || req.headers['x-real-ip'])) || '').split(',')[0].trim().slice(0, 64);
   const ua = String((req && req.headers && req.headers['user-agent']) || '').slice(0, 200);
-  await put(email, { terms: { v: TERMS_VERSION, name: n, at: Date.now(), ip: ip, ua: ua } });
+  const was = await get(email);
+  if (agreed(was)) return { ok: true, already: true };
+  const at = Date.now();
+  await put(email, { terms: { v: TERMS_VERSION, name: n, at: at, ip: ip, ua: ua } });
+  // A copy of what they signed, for their records.
+  const host = String(process.env.SITE_HOST || 'veefam.io').replace(/^https?:\/\//, '').replace(/\/+$/, '');
+  const when = new Date(at).toLocaleString('en-US', { timeZone: 'America/Chicago', dateStyle: 'long', timeStyle: 'short' }) + ' (Central)';
+  await require('./_lib').mail(email, 'Your signed VeeFam.io Terms of Service', [
+    'Thanks for joining VeeFam.io. This is your copy of the Terms of Service you signed.', '',
+    'Signed by: ' + n, 'Email: ' + email, 'Date and time: ' + when, 'Terms version: ' + TERMS_VERSION, '',
+    'The key points:',
+    '- VeeFam.io is only a marketplace. You are fully responsible for what you buy, sell and trade.',
+    '- VeeFam.io is not responsible for any loss of money, items or information.',
+    '- Do not deal with anyone you do not trust. Never pay or get paid outside VeeFam.io: that voids any protection.',
+    '- VeeFam.io may step in to help with a disagreement, but does not have to.',
+    '- Disputes go to individual arbitration, not class actions. Illinois law applies.', '',
+    'Read or save the full Terms at any time: https://' + host + '/terms.html', '',
+    'You signed electronically by ticking the agreement box and typing your name. You will not be asked again unless the Terms change.'
+  ], 'terms-' + TERMS_VERSION + '-' + h(email)).catch(() => null);
   return { ok: true };
 }
 

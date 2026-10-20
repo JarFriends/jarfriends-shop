@@ -108,9 +108,9 @@
     var name = input('text', '', { maxlength: '40', required: '', placeholder: 'e.g. Wolf Den Cards' });
     var about = el('textarea', null, 'jf-ta'); about.maxLength = 400; about.placeholder = 'What you collect and sell. Shown on your shop page.';
     var bankF = bankFields();
-    var agree = input('checkbox'); var al = el('label', null, 'jf-check'); al.appendChild(agree);
-    var als = el('span'); als.appendChild(document.createTextNode('I agree to the ')); var alt = el('a', 'VeeFam.io Terms of Service'); alt.href = '/terms.html'; alt.target = '_blank'; alt.rel = 'noopener'; als.appendChild(alt);
-    als.appendChild(document.createTextNode(' as a seller: VeeFam.io keeps ' + D.fee + '% of each sale and pays me the rest. I am fully responsible for my listings, sales and shipping; I ship within 3 days of payment, describe my pieces honestly, only sell what I own, and never take payment outside VeeFam.io.'));
+    var al = el('div', null, 'small dim');
+    var als = el('span'); als.appendChild(document.createTextNode('You already signed the ')); var alt = el('a', 'VeeFam.io Terms of Service'); alt.href = '/terms.html'; alt.target = '_blank'; alt.rel = 'noopener'; als.appendChild(alt);
+    als.appendChild(document.createTextNode('. As a seller they mean: VeeFam.io keeps ' + D.fee + '% of each sale and pays you the rest; you are fully responsible for your listings, sales and shipping; ship within 3 days of payment, describe pieces honestly, only sell what you own, and never take payment outside VeeFam.io.'));
     al.appendChild(als);
     var go = el('button', 'Open my shop', 'solid'); go.type = 'submit'; var m = status();
     f.appendChild(field('Shop name', name)); f.appendChild(field('About your shop', about, 'Optional.'));
@@ -121,7 +121,7 @@
     box.appendChild(c);
     f.addEventListener('submit', function (ev) {
       ev.preventDefault(); go.disabled = true; m.textContent = 'Opening your shop…';
-      JF.api('/api/market', Object.assign({ do: 'apply', t: tok, as: AS, ak: AK, name: name.value, about: about.value, agree: agree.checked }, bankF.values())).then(function (r) {
+      JF.api('/api/market', Object.assign({ do: 'apply', t: tok, as: AS, ak: AK, name: name.value, about: about.value, agree: true }, bankF.values())).then(function (r) {
         go.disabled = false;
         if (r.error) { m.textContent = r.error; return; }
         load();

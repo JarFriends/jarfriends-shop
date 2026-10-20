@@ -12,6 +12,7 @@ const store = require('./_store');
 
 const KINDS = [
   // Buyers
+  { id: 'terms', who: 'Buyers and sellers', name: 'Signed Terms of Service copy', re: /^Your signed .+ Terms of Service/i, must: true, about: 'The copy of the Terms someone signed, with their name, date and time, sent once when they sign.' },
   { id: 'code', who: 'Buyers and sellers', name: 'Sign-in code', re: /is your .+ code$/i, must: true, about: 'The 6-digit code people type to confirm their email when they make an account.' },
   { id: 'order', who: 'Buyers', name: 'Order received', re: /^Invoice .+: order received/i, about: 'Sent when a buyer places an order and will pay by Zelle, Venmo, Cash App or later. Lists the order and how to pay.' },
   { id: 'paylink', who: 'Buyers', name: 'Payment link', re: /^Invoice .+: (payment|deposit) link/i, must: true, about: 'The link a buyer uses to pay by card or crypto. Without it they cannot pay.' },

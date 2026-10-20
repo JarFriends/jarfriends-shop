@@ -13,6 +13,9 @@
     var sp = document.createElement('span'); sp.appendChild(document.createTextNode('I agree to the ')); var a = document.createElement('a'); a.href = '/terms.html'; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'VeeFam.io Terms of Service'; sp.appendChild(a);
     sp.appendChild(document.createTextNode('. I am buying from an independent seller; VeeFam.io is only the marketplace and is not responsible for any loss.')); l.appendChild(sp);
     go.parentNode.insertBefore(l, go);
+    // Signed in and already signed the Terms: no need to agree again.
+    var t = ''; try { t = localStorage.getItem('acct_token') || ''; } catch (e) {}
+    if (t) fetch('/api/me?t=' + encodeURIComponent(t), { cache: 'no-store' }).then(function (r) { if (r.ok) { cb.required = false; cb.checked = true; l.remove(); } }).catch(function () {});
   })();
   var qs = new URLSearchParams(location.search), id = qs.get('product');
   if (!id || qs.get('offer')) return;
