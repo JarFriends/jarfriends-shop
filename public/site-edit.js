@@ -11,9 +11,18 @@
     + '.se-bar{position:fixed;left:0;right:0;bottom:0;z-index:2147483646;background:#C9A45C;color:#0B1A13;display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;padding:10px 14px;font-size:14px;font-weight:700;box-shadow:0 -4px 18px rgba(0,0,0,.4)}'
     + '.se-ui button{font-size:14px!important;font-weight:700!important;padding:8px 12px!important;min-height:0!important;border-radius:4px!important;cursor:pointer;border:1px solid #0B1A13!important;background:#0B1A13!important;color:#F7F2E6!important}'
     + '.se-ui button.se-g{background:transparent!important;color:inherit!important;border-color:currentColor!important}'
-    + '.se-panel{position:fixed;left:50%;transform:translateX(-50%);bottom:64px;z-index:2147483647;width:min(560px,calc(100vw - 20px));max-height:calc(100vh - 90px);overflow:auto;background:#0E1A14;color:#F7F2E6;border:2px solid #C9A45C;border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:10px;font-size:14px;box-shadow:0 10px 40px rgba(0,0,0,.6)}'
-    + '.se-panel textarea,.se-panel input,.se-panel select{width:100%;font-size:15px!important;padding:8px 10px!important;background:#0B1712!important;color:#F7F2E6!important;border:1px solid #4E7A63!important;border-radius:4px!important;min-height:0!important}'
-    + '.se-panel textarea{min-height:64px;resize:vertical}.se-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.se-h{font-weight:800;font-size:15px}.se-dim{opacity:.75;font-size:13px}.se-sep{border-top:1px solid #244536;margin:2px 0}'
+    + '.se-panel{position:fixed;top:0;right:0;bottom:56px;z-index:2147483647;width:min(420px,100vw);overflow-y:auto;background:#0E1A14;color:#F7F2E6;border-left:3px solid #C9A45C;padding:16px;display:flex;flex-direction:column;gap:12px;font-size:15px;line-height:1.45;box-shadow:-10px 0 40px rgba(0,0,0,.55)}'
+    + '@media(max-width:640px){.se-panel{top:auto;left:0;width:100vw;max-height:72vh;border-left:0;border-top:3px solid #C9A45C;border-radius:14px 14px 0 0}}'
+    + '.se-panel input,.se-panel select{width:100%;height:auto!important;min-height:44px!important;font-size:15px!important;padding:10px 12px!important;background:#0B1712!important;color:#F7F2E6!important;border:1px solid #4E7A63!important;border-radius:6px!important}'
+    + '.se-panel textarea{display:block;width:100%!important;height:auto!important;min-height:130px!important;max-height:none!important;font-size:16px!important;line-height:1.45!important;padding:12px!important;background:#0B1712!important;color:#F7F2E6!important;border:1px solid #4E7A63!important;border-radius:6px!important;resize:vertical;white-space:pre-wrap!important;overflow:auto!important}'
+    + '.se-panel input[type=checkbox]{width:20px!important;min-height:0!important;height:20px!important;padding:0!important}'
+    + '.se-panel input[type=file]{padding:8px!important}'
+    + '.se-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.se-h{font-weight:800;font-size:16px}.se-dim{opacity:.8;font-size:13px}.se-sec{display:flex;flex-direction:column;gap:10px}'
+    + '.se-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.se-panel .se-tabs button{background:transparent!important;color:#F7F2E6!important;border:1px solid #4E7A63!important}.se-panel .se-tabs button[aria-pressed=true]{background:#C9A45C!important;color:#0B1A13!important;border-color:#C9A45C!important}'
+    + '.se-quote{background:#0B1712;border-left:3px solid #C9A45C;padding:8px 10px;font-size:14px;opacity:.9}'
+    + '.se-panel label.se-row{display:flex!important;flex-direction:row!important;flex-wrap:nowrap!important;align-items:center!important;justify-content:flex-start!important;text-align:left!important;font-weight:500!important;font-size:14px!important;gap:10px!important;margin:0!important}'
+    + '.se-head{display:flex;gap:10px;align-items:flex-start;justify-content:space-between}.se-head .se-h{flex:1;font-size:14px;font-weight:700;opacity:.9}'
+    + '.se-panel .se-main{background:#C9A45C!important;color:#0B1A13!important;border-color:#C9A45C!important}'
     + '.se-hover{outline:2px solid #C9A45C!important;outline-offset:2px!important;cursor:pointer!important}.se-pick{outline:3px solid #FF6B3D!important;outline-offset:2px!important}';
   document.head.appendChild(css);
   if (!key()) return;
@@ -67,7 +76,7 @@
     picked = t; t.classList.remove('se-hover'); t.classList.add('se-pick');
     panel = el('div', null, 'se-ui se-panel'); panel.setAttribute('role', 'dialog');
     var msg = el('div', '', 'se-dim'); msg.setAttribute('role', 'status');
-    var head = el('div', null, 'se-row'); head.style.justifyContent = 'space-between';
+    var head = el('div', null, 'se-head');
     var what = el('div', null, 'se-h'); head.appendChild(what);
     var x = el('button', 'Close', 'se-g'); x.type = 'button'; x.addEventListener('click', close); head.appendChild(x);
     panel.appendChild(head);
@@ -80,39 +89,39 @@
     small.addEventListener('click', function () { if (!trail.length) return; picked.classList.remove('se-pick'); picked = trail.pop(); picked.classList.add('se-pick'); show(); });
     size.appendChild(big); size.appendChild(small); panel.appendChild(size); show();
 
-    var where = el('label', null, 'se-row'); var every = el('input'); every.type = 'checkbox'; every.style.width = 'auto'; where.appendChild(every); where.appendChild(el('span', 'Do this on every page (not just this one)'));
+    var where = el('label', null, 'se-row'); var every = el('input'); every.type = 'checkbox'; where.appendChild(every); where.appendChild(el('span', 'Do this on every page, not just this one'));
+    // One thing at a time: Words, Hide or Picture.
+    var tabsRow = el('div', null, 'se-tabs'), secs = {};
+    var tab = function (k, label) { var b = el('button', label); b.type = 'button'; b.dataset.k = k; b.addEventListener('click', function () { pick(k); }); tabsRow.appendChild(b); secs[k] = el('div', null, 'se-sec'); };
+    tab('words', 'Words'); tab('hide', 'Hide'); tab('pic', 'Picture');
+    var pick = function (k) { Array.prototype.forEach.call(tabsRow.children, function (b) { b.setAttribute('aria-pressed', b.dataset.k === k ? 'true' : 'false'); }); Object.keys(secs).forEach(function (n) { secs[n].hidden = n !== k; }); msg.textContent = ''; };
+    panel.appendChild(tabsRow);
 
-    // 1. Words
+    // Words
     if (tn) {
-      panel.appendChild(el('div', '', 'se-sep'));
-      panel.appendChild(el('div', 'Change these words', 'se-h'));
       var from = tn.nodeValue.replace(/\s+/g, ' ').trim();
-      panel.appendChild(el('div', 'It says: “' + (from.length > 160 ? from.slice(0, 160) + '…' : from) + '”', 'se-dim'));
-      var to = el('textarea'); to.value = from; panel.appendChild(to);
-      var sw = el('button', 'Save new words'); sw.type = 'button';
+      secs.words.appendChild(el('div', 'Now it says:', 'se-dim'));
+      secs.words.appendChild(el('div', from, 'se-quote'));
+      secs.words.appendChild(el('div', 'Change it to:', 'se-dim'));
+      var to = el('textarea'); to.value = from; to.rows = 5; secs.words.appendChild(to);
+      var sw = el('button', 'Save new words', 'se-main'); sw.type = 'button';
       var rm = el('button', 'Remove these words', 'se-g'); rm.type = 'button';
       sw.addEventListener('click', function () { if (to.value.trim() === from) { msg.textContent = 'Type the new words first.'; return; } save({ from: from, to: to.value.trim(), page: every.checked ? '' : here }, msg); });
       rm.addEventListener('click', function () { save({ from: from, to: '', page: every.checked ? '' : here }, msg); });
-      var r1 = el('div', null, 'se-row'); r1.appendChild(sw); r1.appendChild(rm); panel.appendChild(r1);
-    }
-    // 2. Hide
-    panel.appendChild(el('div', '', 'se-sep'));
-    panel.appendChild(el('div', 'Hide or delete this part', 'se-h'));
-    panel.appendChild(el('div', 'Visitors will not see the part outlined in orange. You can bring it back any time in the back office.', 'se-dim'));
-    var hd = el('button', 'Hide this part'); hd.type = 'button';
+      var r1 = el('div', null, 'se-row'); r1.appendChild(sw); r1.appendChild(rm); secs.words.appendChild(r1);
+    } else secs.words.appendChild(el('div', 'There are no words right here. Click directly on some words to change them, or use Hide or Picture.', 'se-dim'));
+    // Hide
+    secs.hide.appendChild(el('div', 'Visitors will not see the part outlined in orange. Use "Select a bigger area" above to hide a whole section. You can bring it back any time in the back office.', 'se-dim'));
+    var hd = el('button', 'Hide this part', 'se-main'); hd.type = 'button';
     hd.addEventListener('click', function () { save({ kind: 'hide', sel: pathOf(picked), label: snip(picked), page: every.checked ? '' : here }, msg); });
-    panel.appendChild(hd);
-    // 3. Picture
-    panel.appendChild(el('div', '', 'se-sep'));
-    panel.appendChild(el('div', 'Add a picture', 'se-h'));
+    secs.hide.appendChild(hd);
+    // Picture
     var file = el('input'); file.type = 'file'; file.accept = 'image/*';
-    var r3 = el('div', null, 'se-row');
-    var pos = el('select'); [['after', 'Below this part'], ['before', 'Above this part']].forEach(function (o) { var op = el('option', o[1]); op.value = o[0]; pos.appendChild(op); });
-    var sz = el('select'); [['full', 'Full width'], ['medium', 'Medium'], ['small', 'Small']].forEach(function (o) { var op = el('option', o[1]); op.value = o[0]; sz.appendChild(op); });
-    pos.style.width = sz.style.width = 'auto'; r3.appendChild(pos); r3.appendChild(sz);
-    var link = el('input'); link.placeholder = 'Optional: where tapping the picture goes (https://… or /giveaway.html)';
-    var alt = el('input'); alt.placeholder = 'Optional: describe the picture (for screen readers)';
-    var up = el('button', 'Upload and add picture'); up.type = 'button';
+    var pos = el('select'); [['after', 'Put it below this part'], ['before', 'Put it above this part']].forEach(function (o) { var op = el('option', o[1]); op.value = o[0]; pos.appendChild(op); });
+    var sz = el('select'); [['full', 'Full width'], ['medium', 'Medium size'], ['small', 'Small']].forEach(function (o) { var op = el('option', o[1]); op.value = o[0]; sz.appendChild(op); });
+    var link = el('input'); link.placeholder = 'Optional: link (https://… or /giveaway.html)';
+    var alt = el('input'); alt.placeholder = 'Optional: describe the picture';
+    var up = el('button', 'Upload and add picture', 'se-main'); up.type = 'button';
     up.addEventListener('click', function () {
       var f = file.files && file.files[0]; if (!f) { msg.textContent = 'Choose a picture first.'; return; }
       up.disabled = true; msg.textContent = 'Uploading…';
@@ -124,9 +133,12 @@
         save({ kind: 'image', sel: pathOf(picked), label: snip(picked), url: r.url, where: pos.value, size: sz.value, link: link.value.trim(), alt: alt.value.trim(), page: every.checked ? '' : here }, msg);
       }).catch(function () { up.disabled = false; msg.textContent = 'That picture could not be used. Try another one.'; });
     });
-    [file, r3, link, alt, up].forEach(function (n) { panel.appendChild(n); });
-    panel.appendChild(el('div', '', 'se-sep'));
+    [file, pos, sz, link, alt, up].forEach(function (n) { secs.pic.appendChild(n); });
+
+    Object.keys(secs).forEach(function (k) { panel.appendChild(secs[k]); });
     panel.appendChild(where); panel.appendChild(msg);
+    pick(tn ? 'words' : 'hide');
+    try { t.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) {}
     document.body.appendChild(panel);
   }
   // Pictures are made smaller on this device before upload (at most 1600 pixels wide, as a JPEG).
