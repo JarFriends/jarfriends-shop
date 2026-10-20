@@ -14,6 +14,27 @@
   function el(tag, text, cls) { var e = document.createElement(tag); if (text != null) e.textContent = text; if (cls) e.className = cls; return e; }
   function usd(v) { return '$' + Number(v || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
   function cents(c) { return usd((c || 0) / 100); }
+  // The full Terms in a scroll box. The agree box (cb) only unlocks once they have scrolled to the very end.
+  var termsHtml = null;
+  function termsScroller(cb, hint) {
+    var box = el('div'); box.setAttribute('tabindex', '0'); box.setAttribute('aria-label', 'Terms of Service, scroll to the end to agree');
+    box.style.cssText = 'max-height:260px;overflow-y:auto;border:1px solid #4E7A63;padding:12px 14px;font-size:13px;line-height:1.55;background:rgba(0,0,0,.18)';
+    box.textContent = 'Loading the Terms…';
+    cb.disabled = true;
+    var note = hint || el('div', '', 'small dim'); note.textContent = 'Scroll to the end of the Terms to unlock the agree box.';
+    var unlock = function () { if (!box.offsetParent || box.scrollHeight < 40) return; if (box.scrollTop + box.clientHeight >= box.scrollHeight - 12) { cb.disabled = false; note.textContent = 'Thanks for reading. You can agree now.'; box.removeEventListener('scroll', unlock); } };
+    (termsHtml ? Promise.resolve(termsHtml) : fetch('/terms.html', { cache: 'no-store' }).then(function (r) { return r.text(); }).then(function (h) {
+      var d = new DOMParser().parseFromString(h, 'text/html'), a = d.querySelector('article.terms');
+      termsHtml = a ? a.innerHTML : ''; return termsHtml;
+    })).then(function (h) {
+      if (!h) { box.textContent = 'The Terms did not load. Read them at /terms.html, then tick the box.'; cb.disabled = false; return; }
+      box.innerHTML = h; Array.prototype.forEach.call(box.querySelectorAll('h1'), function (x) { x.style.fontSize = '18px'; });
+      Array.prototype.forEach.call(box.querySelectorAll('h2'), function (x) { x.style.fontSize = '15px'; x.style.margin = '14px 0 4px'; });
+      box.addEventListener('scroll', unlock); setTimeout(unlock, 50);
+    }).catch(function () { box.textContent = 'The Terms did not load. Read them at /terms.html, then tick the box.'; cb.disabled = false; });
+    var wrap = el('div'); wrap.style.cssText = 'display:flex;flex-direction:column;gap:6px'; wrap.appendChild(box); wrap.appendChild(note);
+    return wrap;
+  }
   // The Terms of Service, to sign before using an account (accounts made before the Terms, or with Google).
   var gateOpen = false;
   function termsGate(next) {
@@ -24,9 +45,9 @@
     var ul = el('ul'); ul.style.cssText = 'margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:14px';
     ['VeeFam.io is only a marketplace. You are fully responsible for what you buy, sell and trade.', 'VeeFam.io is not responsible for any loss of money, items or information.', 'Do not deal with anyone you do not trust. Never pay or get paid outside VeeFam.io: that voids any protection.', 'VeeFam.io may step in to help with a disagreement, but does not have to.', 'Disputes go to individual arbitration, not class actions.'].forEach(function (t) { ul.appendChild(el('li', t)); });
     box.appendChild(ul);
-    var a = el('a', 'Read the full Terms of Service'); a.href = '/terms.html'; a.target = '_blank'; a.rel = 'noopener'; box.appendChild(a);
     var nl = el('label', 'Full name (your electronic signature)'); var n = el('input'); n.autocomplete = 'name'; n.maxLength = 80; nl.appendChild(n); box.appendChild(nl);
-    var cl = el('label', null, 'jf-check'); var cb = el('input'); cb.type = 'checkbox'; cl.appendChild(cb); cl.appendChild(el('span', 'I have read and agree to the VeeFam.io Terms of Service, and I sign them electronically.')); box.appendChild(cl);
+    var cl = el('label', null, 'jf-check'); var cb = el('input'); cb.type = 'checkbox'; cl.appendChild(cb); cl.appendChild(el('span', 'I have read and agree to the VeeFam.io Terms of Service, and I sign them electronically.'));
+    box.appendChild(termsScroller(cb)); box.appendChild(cl);
     var go = el('button', 'Sign and continue', 'solid'); go.type = 'button'; box.appendChild(go);
     var m = el('div', '', 'small'); m.setAttribute('role', 'status'); box.appendChild(m);
     go.addEventListener('click', function () {
@@ -97,13 +118,14 @@
     var msg = el('div', '', 'small'); msg.setAttribute('role', 'status'); msg.setAttribute('aria-live', 'polite');
     var swap = el('button', '', 'ghost'); swap.type = 'button'; swap.style.alignSelf = 'flex-start';
     var again = el('button', 'Email me a new code', 'ghost'); again.type = 'button'; again.style.alignSelf = 'flex-start';
-    [ln, le, lp, lc, lt, go, msg].forEach(function (x) { f.appendChild(x); });
+    var tsc = termsScroller(tc);
+    [ln, le, lp, lc, tsc, lt, go, msg].forEach(function (x) { f.appendChild(x); });
     [head, sub, g, or, f, swap, again].forEach(function (x) { card.appendChild(x); });
     host.appendChild(card);
     function show() {
       var code = !!pending;
       head.textContent = code ? 'Check your email' : mode === 'signup' ? 'Create your account' : 'Sign in';
-      ln.hidden = code || mode !== 'signup'; lt.hidden = code || mode !== 'signup'; tc.required = !code && mode === 'signup'; n.required = !code && mode === 'signup'; le.hidden = code; lp.hidden = code; lc.hidden = !code; g.hidden = code || !!g.dataset.off; or.hidden = code || !!or.dataset.off;
+      ln.hidden = code || mode !== 'signup'; lt.hidden = code || mode !== 'signup'; tsc.hidden = code || mode !== 'signup'; tc.required = !code && mode === 'signup'; n.required = !code && mode === 'signup'; le.hidden = code; lp.hidden = code; lc.hidden = !code; g.hidden = code || !!g.dataset.off; or.hidden = code || !!or.dataset.off;
       p.autocomplete = mode === 'signup' ? 'new-password' : 'current-password';
       lp.querySelector('.hint') || lp.appendChild(el('span', '', 'hint'));
       lp.querySelector('.hint').textContent = mode === 'signup' ? 'At least 8 characters.' : '';
@@ -116,7 +138,9 @@
     swap.addEventListener('click', function () { if (pending) pending = ''; else mode = mode === 'signup' ? 'login' : 'signup'; msg.textContent = ''; show(); });
     again.addEventListener('click', function () { api('/api/auth', { do: 'resend', email: pending }).then(function () { msg.textContent = 'A new code is on its way.'; }); });
     f.addEventListener('submit', function (ev) {
-      ev.preventDefault(); go.disabled = true; msg.textContent = pending ? 'Checking…' : mode === 'signup' ? 'Creating your account…' : 'Signing in…';
+      ev.preventDefault();
+      if (!pending && mode === 'signup' && !tc.checked) { msg.textContent = tc.disabled ? 'Scroll to the end of the Terms of Service, then tick the box to agree.' : 'Tick the box to agree to the Terms of Service.'; return; }
+      go.disabled = true; msg.textContent = pending ? 'Checking…' : mode === 'signup' ? 'Creating your account…' : 'Signing in…';
       var body = pending ? { do: 'verify', email: pending, code: c.value } : { do: mode, email: e.value, password: p.value, name: n.value, agree: tc.checked };
       // Signed in to the back office on this browser: lets the owner's own email skip the emailed code.
       try { var ak0 = localStorage.getItem('adminKey'); if (ak0 && !pending) body.ak = ak0; } catch (x) {}

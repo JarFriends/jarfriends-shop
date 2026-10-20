@@ -12,10 +12,26 @@
     var cb = document.createElement('input'); cb.type = 'checkbox'; cb.required = true; cb.name = 'agreeTerms'; l.appendChild(cb);
     var sp = document.createElement('span'); sp.appendChild(document.createTextNode('I agree to the ')); var a = document.createElement('a'); a.href = '/terms.html'; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'VeeFam.io Terms of Service'; sp.appendChild(a);
     sp.appendChild(document.createTextNode('. I am buying from an independent seller; VeeFam.io is only the marketplace and is not responsible for any loss.')); l.appendChild(sp);
+    // The full Terms in a scroll box above the box; the box unlocks once they reach the end.
+    var tb = document.createElement('div'); tb.id = 'coTermsBox'; tb.setAttribute('tabindex', '0');
+    tb.style.cssText = 'max-height:200px;overflow-y:auto;border:1px solid #4E7A63;padding:10px 12px;font-size:13px;line-height:1.5;background:rgba(0,0,0,.18)';
+    tb.textContent = 'Loading the Terms…'; cb.disabled = true;
+    var tn = document.createElement('div'); tn.className = 'small dim'; tn.textContent = 'Scroll to the end of the Terms to unlock the agree box.';
+    var un = function () { if (!tb.offsetParent || tb.scrollHeight < 40) return; if (tb.scrollTop + tb.clientHeight >= tb.scrollHeight - 12) { cb.disabled = false; tn.textContent = 'Thanks for reading. You can agree now.'; tb.removeEventListener('scroll', un); } };
+    fetch('/terms.html', { cache: 'no-store' }).then(function (r) { return r.text(); }).then(function (h) {
+      var art = new DOMParser().parseFromString(h, 'text/html').querySelector('article.terms');
+      if (!art) throw 0; tb.innerHTML = art.innerHTML;
+      Array.prototype.forEach.call(tb.querySelectorAll('h1,h2'), function (x) { x.style.fontSize = '15px'; x.style.margin = '12px 0 4px'; });
+      tb.addEventListener('scroll', un); setTimeout(un, 50);
+    }).catch(function () { tb.textContent = 'The Terms did not load. Read them at /terms.html, then tick the box.'; cb.disabled = false; });
+    go.parentNode.insertBefore(tb, go); go.parentNode.insertBefore(tn, go);
     go.parentNode.insertBefore(l, go);
+    // A locked (disabled) box is skipped by the browser's own required check, so stop the order here instead.
+    var stop = function (ev) { if (document.body.contains(l) && !cb.checked) { ev.preventDefault(); ev.stopImmediatePropagation(); tn.textContent = cb.disabled ? 'Scroll to the end of the Terms, then tick the box to agree.' : 'Tick the box to agree to the Terms.'; tn.style.color = '#E8A0A0'; (cb.disabled ? tb : cb).focus(); } };
+    if (go.form) go.form.addEventListener('submit', stop, true); go.addEventListener('click', stop, true);
     // Signed in and already signed the Terms: no need to agree again.
     var t = ''; try { t = localStorage.getItem('acct_token') || ''; } catch (e) {}
-    if (t) fetch('/api/me?t=' + encodeURIComponent(t), { cache: 'no-store' }).then(function (r) { if (r.ok) { cb.required = false; cb.checked = true; l.remove(); } }).catch(function () {});
+    if (t) fetch('/api/me?t=' + encodeURIComponent(t), { cache: 'no-store' }).then(function (r) { if (r.ok) { cb.required = false; cb.disabled = false; cb.checked = true; l.remove(); tb.remove(); tn.remove(); } }).catch(function () {});
   })();
   var qs = new URLSearchParams(location.search), id = qs.get('product');
   if (!id || qs.get('offer')) return;
