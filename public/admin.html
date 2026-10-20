@@ -136,7 +136,7 @@ td small{display:block;color:#DADDE8}
     $('partyBox').hidden = !party;
     var bo = $('bOrders'), bp = $('bPeople'); bo.textContent = ''; bp.textContent = '';
     orders.forEach(function (o) {
-      if (!match([o.n, o.buyer, o.email, o.product, o.pid, o.ship, o.status, o.sellerName].join(' '))) return;
+      if (!match([o.n, o.buyer, o.email, o.product, o.pid, o.ship, o.status].join(' '))) return;
       if (tab === 'orders') shown++;
       var tr = el('tr');
       tr.appendChild(el('td', when(o.at)));
