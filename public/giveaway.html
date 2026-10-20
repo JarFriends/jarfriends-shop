@@ -39,7 +39,7 @@
     <h2>Where it goes: VeeFriends Series 1 and Series 2 NFTs</h2>
     <ol class="gv-steps">
       <li><b>Every sale adds 2%</b><span class="small">Out of the JarFriends fee, from every sale by every seller.</span></li>
-      <li><b>The community votes</b><span class="small">Everyone with an account votes on whether the wallet buys a VeeFriends Series 1 NFT, a Series 2 NFT, or something else they suggest.</span></li>
+      <li><b>The community votes</b><span class="small">Everyone who has bought or sold on JarFriends votes once a month on whether the wallet buys a VeeFriends Series 1 NFT, a Series 2 NFT, or something else they suggest.</span></li>
       <li><b>We buy and give it away</b><span class="small">The winner is bought with the wallet and given away to active buyers and sellers on JarFriends.</span></li>
     </ol>
   </section>
@@ -62,7 +62,7 @@
     $('lead').textContent = 'JarFriends keeps ' + D.fee + '% of each sale. ' + D.pct + '% of every sale comes out of that fee and goes into the community giveaway wallet. Buyers and sellers pay nothing extra.';
     var opts = D.choices.concat([D.other || 'Something else']);
     $('vHead').textContent = D.open ? 'Vote: ' + D.choices.join(', ') + ' or something else?' : 'Voting is closed for this round';
-    $('vRules').textContent = 'Anyone with a JarFriends account gets 1 vote. Buyers and sellers who have completed ' + D.doubleAfter + ' or more sales on JarFriends get 2 votes, because they keep the wallet growing. Everyone votes once a month, and a vote cannot be changed. ' + (D.endsAt ? 'This round ends ' + day(D.endsAt) + ', and a new vote starts then.' : '');
+    $('vRules').textContent = 'Anyone who has bought or sold something on JarFriends gets 1 vote. People with ' + D.doubleAfter + ' or more completed sales get 2 votes, because they keep the wallet growing. Everyone votes once a month, and a vote cannot be changed. ' + (D.endsAt ? 'This round ends ' + day(D.endsAt) + ', and a new vote starts then.' : '');
     var pick = $('pick'); pick.textContent = '';
     var otherBox = el('div', null, 'gv-other'); otherBox.hidden = true;
     var otherIn = el('input'); otherIn.type = 'text'; otherIn.maxLength = 80; otherIn.placeholder = 'What should the wallet buy instead?'; otherIn.value = (D.me && D.me.text) || '';
@@ -76,13 +76,14 @@
       b.appendChild(document.createTextNode(c));
       b.appendChild(el('small', isOther ? 'Type your own idea' : 'VeeFriends ' + c + ' NFT'));
       b.setAttribute('aria-pressed', D.me && D.me.choice === c ? 'true' : 'false');
-      b.disabled = !D.open || !!(D.me && D.me.choice);
+      b.disabled = !D.open || !!(D.me && (D.me.choice || !D.me.can));
       b.addEventListener('click', function () { if (isOther) { if (!tok) { location.href = '/me.html'; return; } otherBox.hidden = false; otherIn.focus(); } else cast(c); });
       pick.appendChild(b);
     });
     pick.parentNode.insertBefore(otherBox, pick.nextSibling);
     var oldBox = document.querySelectorAll('.gv-other'); for (var ob = 0; ob < oldBox.length - 1; ob++) oldBox[ob].remove();
-    if (!tok) $('vMsg').innerHTML = '🔒 Voting is for signed-in members only. <a href="/me.html">Sign in or make a free account</a> to vote.';
+    if (!tok) $('vMsg').innerHTML = '🔒 Voting is for buyers and sellers. <a href="/me.html">Sign in</a> to vote.';
+    else if (D.me && !D.me.can) $('vMsg').innerHTML = '🔒 Voting is for buyers and sellers. Buy or sell anything on JarFriends and you can vote. <a href="/">Shop now</a>';
     else if (D.me) $('vMsg').textContent = (D.me.choice ? 'You voted ' + (D.me.choice === D.other && D.me.text ? '“' + D.me.text + '”' : D.me.choice) + ' this month. Next vote opens ' + day(D.endsAt) + '. ' : '') + 'Your vote counts ' + (D.me.weight === 2 ? 'twice, because you have completed ' + D.me.trades + ' sales on JarFriends.' : 'once' + (D.me.trades ? ' (' + D.me.trades + ' of ' + D.doubleAfter + ' sales for a double vote).' : '. Complete ' + D.doubleAfter + ' sales as a buyer or seller to get a double vote.'));
     var res = $('results'); res.textContent = '';
     var total = opts.reduce(function (t, c) { return t + (D.tally[c] || 0); }, 0);

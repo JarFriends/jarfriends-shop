@@ -68,6 +68,8 @@ async function vote(email, choice, text) {
   // One vote per account per round (one round a month). A vote cannot be changed once it is in.
   if (await store.read(path)) return { error: 'You already voted this round. The next vote opens ' + new Date(s.endsAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', timeZone: 'America/Chicago' }) + '.' };
   const w = await weightOf(email);
+  // Only people who have bought or sold something on the site (a paid order, ever) may vote.
+  if (w.trades < 1) return { error: 'Voting is for buyers and sellers. Buy or sell anything on V2V and you can vote.' };
   await store.write('giveaway/votes/' + s.round + '/' + M.hashOf(email) + '.json', Object.assign({ choice: choice, weight: w.weight, at: Date.now() }, choice === OTHER ? { text: idea } : {}));
   memo = null;
   return { ok: true, weight: w.weight, trades: w.trades };
@@ -92,7 +94,7 @@ async function mine(email) {
   const s = await state();
   const v = await store.read('giveaway/votes/' + s.round + '/' + M.hashOf(email) + '.json');
   const w = await weightOf(email);
-  return { choice: v ? v.choice : '', text: v && v.text || '', weight: w.weight, trades: w.trades };
+  return { choice: v ? v.choice : '', text: v && v.text || '', weight: w.weight, trades: w.trades, can: w.trades >= 1 };
 }
 
 module.exports = { OTHER, state, setRound, vote, results, mine, weightOf, doubleAfter, CHOICES };
