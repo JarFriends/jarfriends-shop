@@ -879,7 +879,7 @@
     var t = D.totals;
     var c = el('section', null, 'card'); c.style.gap = '10px';
     c.appendChild(el('h2', 'Payments from V2V (non-card sales)'));
-    c.appendChild(el('div', 'V2V pays you by ' + payWords(D.seller) + '. Owed to you right now: ' + JF.cents(t.owed) + '.', 'small'));
+    c.appendChild(el('div', (D.seller.payTo ? 'V2V pays you by ' + (D.seller.payHow === 'wire' ? 'international ' : '') + payWords(D.seller) + '.' : 'Add your payout details above and V2V will send your earnings.') + ' Owed to you right now: ' + JF.cents(t.owed) + '.', 'small'));
     if (!D.payouts.length) c.appendChild(el('div', 'No payouts yet.', 'small dim'));
     else {
       var tb = el('table', null, 'jf-table'), h = el('tr'); ['Date', 'How', 'Note', 'Amount'].forEach(function (x, i) { var th = el('th', x); if (i === 3) th.className = 'num'; h.appendChild(th); });
