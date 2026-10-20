@@ -16,7 +16,7 @@
   function cents(c) { return usd((c || 0) / 100); }
   // The Terms of Service, to sign before using an account (accounts made before the Terms, or with Google).
   var gateOpen = false;
-  function termsGate() {
+  function termsGate(next) {
     if (gateOpen || !document.body) return; gateOpen = true;
     var bg = el('div'); bg.style.cssText = 'position:fixed;inset:0;z-index:2147483600;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto';
     var box = el('section', null, 'card'); box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.style.cssText = 'max-width:560px;width:100%;gap:12px;max-height:92vh;overflow:auto';
@@ -35,14 +35,16 @@
       go.disabled = true; m.textContent = 'Saving your signature…';
       fetch('/api/auth', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ do: 'agree', t: token(), name: n.value, agree: true }) }).then(function (r) { return r.json(); }).then(function (r) {
         if (r.error) { go.disabled = false; m.textContent = r.error; return; }
-        location.reload();
+        if (next) { bg.remove(); gateOpen = false; next(); } else location.reload();
       }).catch(function () { go.disabled = false; m.textContent = 'That did not save. Try again.'; });
     });
     bg.appendChild(box); document.body.appendChild(bg); n.focus();
   }
+  // Right after signing in: an account that has not signed the Terms yet signs them now, then carries on.
+  function afterSignIn(r, next) { if (r.terms === false) { termsGate(next); } else next(); }
   function api(path, body) {
     var o = body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) } : { cache: 'no-store' };
-    return fetch(path, o).then(function (r) { return r.json().catch(function () { return { error: 'The site did not answer. Try again.' }; }).then(function (j) { j._status = r.status; if (j && j.needTerms) termsGate(); return j; }); });
+    return fetch(path, o).then(function (r) { return r.json().catch(function () { return { error: 'The site did not answer. Try again.' }; }).then(function (j) { j._status = r.status; if (j && j.needTerms && (body || /^\/(me|seller|wishlist|account|giveaway)\.html/.test(location.pathname))) termsGate(); return j; }); });
   }
   // The V2V sign-in box: Continue with Google, or an email and password. A new password account confirms its
   // email with a 6-digit code first. done(token) runs once signed in; the token is kept as acct_token.
@@ -68,7 +70,7 @@
       if (!cid || !window.google) { host.hidden = true; host.dataset.off = '1'; if (or) { or.hidden = true; or.dataset.off = '1'; } return; }
       window.google.accounts.id.initialize({ client_id: cid, callback: function (resp) {
         msg.textContent = 'Signing you in…';
-        api('/api/google', { credential: resp.credential }).then(function (r) { if (!r.token) { msg.textContent = r.error || 'Could not sign in with Google.'; return; } keep(r.token); done(r.token); });
+        api('/api/google', { credential: resp.credential }).then(function (r) { if (!r.token) { msg.textContent = r.error || 'Could not sign in with Google.'; return; } keep(r.token); afterSignIn(r, function () { done(r.token); }); });
       } });
       window.google.accounts.id.renderButton(host, { theme: 'filled_black', size: 'large', text: 'continue_with', shape: 'rectangular', width: 300 });
       msg.textContent = 'Press the Google button to continue.';
@@ -120,7 +122,7 @@
       try { var ak0 = localStorage.getItem('adminKey'); if (ak0 && !pending) body.ak = ak0; } catch (x) {}
       api('/api/auth', body).then(function (r) {
         go.disabled = false;
-        if (r.token) { keep(r.token); msg.textContent = ''; done(r.token, !!r.created); return; }
+        if (r.token) { keep(r.token); msg.textContent = ''; afterSignIn(r, function () { done(r.token, !!r.created); }); return; }
         if (r.code) { pending = r.email; msg.textContent = ''; show(); return; }
         msg.textContent = r.error || 'Could not sign you in.';
         if (r._status === 409) { mode = 'login'; show(); }
