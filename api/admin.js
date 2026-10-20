@@ -83,6 +83,13 @@ module.exports = async (req, res) => {
       status: m.paidAt && /payment due/i.test(d.status || '') ? (m.paidHow === 'label' ? 'Paid (' + (d.pay || 'by hand') + '), marked when the label was bought' : 'Paid (' + (d.pay || 'by hand') + '), marked by you') : d.status || '' });
   })));
   orders.sort((a, b) => b.at - a.at);
+  // Which shop each order came from: every seller's orders are listed here, not just one shop's.
+  try {
+    const M = require('./_sellers');
+    const names = {}; (await M.all()).forEach((x) => { names[x.slug] = x.name || x.slug; });
+    const shopOf = {}; (await M.listings()).forEach((p) => { if (p.seller) shopOf[p.id] = p.seller; });
+    orders.forEach((o) => { const sl = shopOf[o.pid] || o.seller || ''; o.sellerSlug = sl; o.sellerName = sl ? (names[sl] || sl) : 'Site shop'; });
+  } catch (e) { console.error('ADMIN_SELLERS', String(e && e.message || e)); }
   const mp = catalog.filter((p) => p.id === party.PARTY.pid)[0];
   const ps = await party.state(mp ? Math.round(mp.price * 100) : 0);
   res.json({ orders: orders, products: await shelf(sales), party: { sold: ps.sold, total: ps.total, off: ps.off, ended: ps.ended, endsText: ps.endsText, next: ps.next, tiers: ps.tiers } });

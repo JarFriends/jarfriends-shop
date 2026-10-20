@@ -132,16 +132,23 @@ module.exports = async (req, res) => {
       return res.json({ sold: rows });
     }
 
+    // The owner's own pages (/p/<address>) and the menu links to them (see _pages.js).
+    if (what === 'pages-menu') { res.setHeader('cache-control', 'public, max-age=0, s-maxage=20'); return res.json(await require('./_pages').menu()); }
+    if (what === 'page' && req.method === 'GET') { const pg = await require('./_pages').one(String(q.slug || ''), gate.isAdmin(q.ak)); return pg ? res.json({ page: pg }) : res.status(404).json({ error: 'This page was not found.' }); }
     // The owner's own wording for the site's pages (see _wording.js); nav.js swaps the words on every page.
     if (what === 'wording' && req.method === 'GET') { res.setHeader('cache-control', 'public, max-age=0, s-maxage=20'); return res.json({ rules: (await require('./_wording').get()).rules }); }
     // ---------- The owner ----------
-    if (what === 'wording-save' || what === 'site-photo' || what === 'broadcast' || what === 'broadcast-count' || what === 'broadcasts' || what === 'admin' || what === 'status' || what === 'payout' || what === 'issue' || what === 'review-remove' || what === 'verify' || what === 'charge' || what === 'import' || what === 'emails' || what === 'email-save' || what === 'email-ai' || what === 'email-test' || what === 'giveaway-round' || what === 'bank' || what === 'ebay-ok') {
+    if (what === 'pages' || what === 'page-save' || what === 'page-delete' || what === 'page-off' || what === 'wording-save' || what === 'site-photo' || what === 'broadcast' || what === 'broadcast-count' || what === 'broadcasts' || what === 'admin' || what === 'status' || what === 'payout' || what === 'issue' || what === 'review-remove' || what === 'verify' || what === 'charge' || what === 'import' || what === 'emails' || what === 'email-save' || what === 'email-ai' || what === 'email-test' || what === 'giveaway-round' || what === 'bank' || what === 'ebay-ok') {
       if (!gate.isAdmin(req.method === 'POST' ? b.ak : q.ak)) return res.status(401).json({ error: 'Sign in to the back office again.' });
       // Confirm (or un-confirm) that a seller's eBay user name is really theirs, so they can bring all their listings over.
       if (what === 'ebay-ok' && req.method === 'POST') { const s2 = await M.bySlug(String(b.slug || '')); if (!s2) return res.status(404).json({ error: 'That seller was not found.' }); s2.ebayOk = !!b.on; await M.save(s2); return res.json({ ok: true }); }
       // The full bank details of one seller, to send them a payout by hand.
       if (what === 'bank' && req.method === 'POST') { const s = await M.bySlug(String(b.slug || '')); const k = s && M.bankOf(s); return k ? res.json({ bank: k }) : res.status(404).json({ error: 'This seller has no bank account on file.' }); }
       // Emails the owner writes to members (see _broadcast.js), and a picture for the site or an email.
+      if (what === 'pages') { const P = require('./_pages'), a = await P.all(); return res.json({ pages: a.pages, off: a.off, optional: P.OPTIONAL }); }
+      if (what === 'page-save' && req.method === 'POST') { const r = await require('./_pages').save(b); return res.status(r.error ? 400 : 200).json(r); }
+      if (what === 'page-delete' && req.method === 'POST') return res.json(await require('./_pages').remove(String(b.slug || '')));
+      if (what === 'page-off' && req.method === 'POST') { const r = await require('./_pages').setOff(String(b.path || ''), !!b.off); return res.status(r.error ? 400 : 200).json(r); }
       if (what === 'broadcast-count') return res.json(await require('./_broadcast').count(String(q.aud || '')));
       if (what === 'broadcasts') return res.json({ sent: await require('./_broadcast').history() });
       if (what === 'broadcast' && req.method === 'POST') { const r = await require('./_broadcast').send(b, process.env.OWNER_EMAIL); return res.status(r.error ? 400 : 200).json(r); }

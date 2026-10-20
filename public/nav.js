@@ -36,6 +36,28 @@
       if (!j) return; show(j.wallet); try { sessionStorage.setItem('v2vWallet', JSON.stringify({ c: j.wallet, at: Date.now() })); } catch (e) {}
     }).catch(function () {});
   }
+  // Which built-in pages are off and which of the owner's pages are in the menu. Kept for a minute on this device.
+  var stWait = null;
+  function pagesState(cb) {
+    if (!stWait) stWait = new Promise(function (ok) {
+      var kept = null; try { kept = JSON.parse(sessionStorage.getItem('v2vPages') || 'null'); } catch (e) { kept = null; }
+      if (kept && Date.now() - kept.at < 60000) return ok(kept);
+      fetch('/api/market?do=pages-menu', { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+        var v = { menu: (j && j.menu) || [], off: (j && j.off) || [], at: Date.now() };
+        try { sessionStorage.setItem('v2vPages', JSON.stringify(v)); } catch (e) {}
+        ok(v);
+      }).catch(function () { ok({ menu: [], off: [] }); });
+    });
+    stWait.then(cb);
+  }
+  // A built-in page the owner turned off sends visitors to the home page (the owner still sees it).
+  pagesState(function (st) {
+    var hide = function () { st.off.forEach(function (pth) { Array.prototype.forEach.call(document.querySelectorAll('a[href="' + pth + '"]'), function (a) { if (!a.closest('.se-ui')) a.style.display = 'none'; }); }); };
+    if (st.off.length) { if (document.body) hide(); document.addEventListener('DOMContentLoaded', hide); setTimeout(hide, 1500); }
+    if (st.off.indexOf(location.pathname) < 0) return;
+    var own = false; try { own = !!localStorage.getItem('adminKey'); } catch (e) {}
+    if (!own) location.replace('/');
+  });
   function go() {
     var st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
     banner();
@@ -46,6 +68,11 @@
     try { var t = localStorage.getItem('acct_token') || ''; var j = JSON.parse(atob(t.split('.')[0].replace(/-/g, '+').replace(/_/g, '/'))); if (j && j.e && j.x * 1000 > Date.now()) who = j.e; } catch (e) { who = ''; }
     var a0 = document.createElement('a'); a0.href = '/'; a0.textContent = 'Home'; p.appendChild(a0);
     links.forEach(function (l) { var a = document.createElement('a'); a.href = l[1]; a.textContent = l[0]; if (location.pathname + location.search === l[1]) a.className = 'here'; p.appendChild(a); });
+    // The owner's own pages go in the menu; built-in pages the owner turned off leave it (back office > Pages).
+    pagesState(function (st) {
+      Array.prototype.forEach.call(p.querySelectorAll('a'), function (a) { if (st.off.indexOf(a.getAttribute('href')) >= 0) a.remove(); });
+      st.menu.forEach(function (m) { if (p.querySelector('a[href="' + m.href + '"]')) return; var a = document.createElement('a'); a.href = m.href; a.textContent = m.title; if (location.pathname === m.href) a.className = 'here'; p.appendChild(a); });
+    });
     if (who) {
       var so = document.createElement('a'); so.href = '/'; so.textContent = 'Sign out (' + who + ')'; so.style.cssText = 'border-top:1px solid #244536;font-size:14px;color:#A8BFB1';
       so.addEventListener('click', function () { try { localStorage.removeItem('acct_token'); localStorage.removeItem('bid_token'); } catch (e) {} });

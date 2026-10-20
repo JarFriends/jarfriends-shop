@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>V2V</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&family=IBM+Plex+Mono:wght@400;500&family=Playfair+Display:wght@600;700;800&display=swap">
+<link rel="stylesheet" href="/site.css">
+<link rel="stylesheet" href="/market.css">
+<style>
+.pg{max-width:780px;display:flex;flex-direction:column;gap:16px;line-height:1.6;padding-bottom:40px}
+.pg h1{text-transform:none;font-size:clamp(28px,5vw,44px);margin:8px 0 0}
+.pg h2{text-transform:none;font-size:22px;margin:12px 0 0}
+.pg p{margin:0;font-size:16px;color:#D6E2DA;white-space:pre-line}
+.pg img{display:block;width:100%;height:auto;border-radius:4px}
+.pg .pg-btn{align-self:flex-start;text-decoration:none}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap bar"><a class="brand" href="/" style="text-decoration:none">V2V</a><span style="display:flex;align-items:center;gap:20px"><a class="home" href="/">Shop</a></span></div></header>
+<main class="wrap page"><article class="pg" id="pg"><p class="dim">Loading…</p></article></main>
+<script>
+// A page the owner made in the back office (Pages tab). The address is /p/<page address>.
+(function () {
+  var slug = (location.pathname.match(/^\/p\/([a-z0-9-]+)/) || [])[1] || new URLSearchParams(location.search).get('p') || '';
+  var box = document.getElementById('pg');
+  var el = function (tag, text, cls) { var e = document.createElement(tag); if (text != null) e.textContent = text; if (cls) e.className = cls; return e; };
+  var ak = ''; try { ak = localStorage.getItem('adminKey') || ''; } catch (e) {}
+  fetch('/api/market?do=page&slug=' + encodeURIComponent(slug) + (ak ? '&ak=' + encodeURIComponent(ak) : ''), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (r) {
+    box.textContent = '';
+    if (!r.page) { box.appendChild(el('h1', 'Page not found')); var a = el('a', 'Back to the shop'); a.href = '/'; box.appendChild(a); return; }
+    var p = r.page; document.title = p.title + ' · V2V';
+    if (!p.live) box.appendChild(el('div', 'Only you can see this page: it is not published yet.', 'alert small'));
+    box.appendChild(el('h1', p.title));
+    p.blocks.forEach(function (b) {
+      if (b.type === 'heading') box.appendChild(el('h2', b.text));
+      else if (b.type === 'text') box.appendChild(el('p', b.text));
+      else if (b.type === 'button') { var a = el('a', b.text, 'solid pg-btn'); a.href = b.link; if (/^https?:/.test(b.link)) { a.target = '_blank'; a.rel = 'noopener'; } box.appendChild(a); }
+      else if (b.type === 'image') {
+        var im = el('img'); im.src = b.url; im.alt = b.alt || ''; im.loading = 'lazy'; im.style.maxWidth = b.size === 'small' ? '240px' : b.size === 'medium' ? '480px' : '100%';
+        if (b.link) { var l = el('a'); l.href = b.link; if (/^https?:/.test(b.link)) { l.target = '_blank'; l.rel = 'noopener'; } l.appendChild(im); box.appendChild(l); } else box.appendChild(im);
+      }
+    });
+  }).catch(function () { box.textContent = 'This page did not load. Refresh to try again.'; });
+})();
+</script>
+</body>
+</html>

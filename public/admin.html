@@ -136,13 +136,13 @@ td small{display:block;color:#DADDE8}
     $('partyBox').hidden = !party;
     var bo = $('bOrders'), bp = $('bPeople'); bo.textContent = ''; bp.textContent = '';
     orders.forEach(function (o) {
-      if (!match([o.n, o.buyer, o.email, o.product, o.pid, o.ship, o.status].join(' '))) return;
+      if (!match([o.n, o.buyer, o.email, o.product, o.pid, o.ship, o.status, o.sellerName].join(' '))) return;
       if (tab === 'orders') shown++;
       var tr = el('tr');
       tr.appendChild(el('td', when(o.at)));
       tr.appendChild(el('td', o.n, 'mono'));
       var c = el('td', o.buyer || '-'); c.appendChild(el('small', o.email || '')); tr.appendChild(c);
-      var it = el('td', o.product || o.pid); if (o.promo) it.appendChild(el('small', 'Promo ' + o.promo)); tr.appendChild(it);
+      var it = el('td', o.product || o.pid); if (o.sellerName) it.appendChild(el('small', 'Seller: ' + o.sellerName)); if (o.promo) it.appendChild(el('small', 'Promo ' + o.promo)); tr.appendChild(it);
       tr.appendChild(el('td', String(o.q), 'num'));
       tr.appendChild(el('td', o.pay || '-'));
       var t = el('td', usd(o.total), 'num'); t.appendChild(el('small', 'Items ' + usd(o.items) + ', shipping ' + usd(o.shipping))); tr.appendChild(t);
@@ -200,7 +200,7 @@ td small{display:block;color:#DADDE8}
   function csv() {
     var cell = function (v) { v = String(v == null ? '' : v); if (/^[=+\-@]/.test(v)) v = "'" + v; return '"' + v.replace(/"/g, '""') + '"'; };
     var rows = tab === 'orders'
-      ? [['Placed', 'Invoice', 'Customer', 'Email', 'Item', 'Units', 'Paid with', 'Items', 'Shipping', 'Total', 'Status', 'Tracking', 'Promo', 'Ship to']].concat(orders.map(function (o) { return [when(o.at), o.n, o.buyer, o.email, o.product || o.pid, o.q, o.pay, o.items, o.shipping, o.total, o.status, o.tracking, o.promo, o.ship]; }))
+      ? [['Placed', 'Invoice', 'Seller', 'Customer', 'Email', 'Item', 'Units', 'Paid with', 'Items', 'Shipping', 'Total', 'Status', 'Tracking', 'Promo', 'Ship to']].concat(orders.map(function (o) { return [when(o.at), o.n, o.sellerName || '', o.buyer, o.email, o.product || o.pid, o.q, o.pay, o.items, o.shipping, o.total, o.status, o.tracking, o.promo, o.ship]; }))
       : [['Customer', 'Email', 'Orders', 'Units', 'Total', 'Last order', 'Ships to', 'Paid with']].concat(people(orders).map(function (p) { return [p.name, p.email, p.orders, p.units, p.total.toFixed(2), when(p.last), p.ships.join(' / '), p.pays.join(', ')]; }));
     var blob = new Blob([rows.map(function (r) { return r.map(cell).join(','); }).join('\r\n')], { type: 'text/csv' });
     var a = el('a'); a.href = URL.createObjectURL(blob); a.download = (tab === 'orders' ? 'orders' : 'customers') + '.csv';
@@ -217,7 +217,7 @@ td small{display:block;color:#DADDE8}
     fetch('/api/admin?k=' + encodeURIComponent(key), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (r) {
       if (r.error) { try { localStorage.removeItem('adminKey'); } catch (e) { /* no storage */ } ask(r.error); return; }
       orders = r.orders || []; items = r.products || []; party = r.party || null;
-      $('lead').textContent = r.note || 'Your orders, customers and products in one place.';
+      $('lead').textContent = r.note || 'Every order, buyer, seller and product on V2V in one place.';
       $('main').hidden = false;
       tiles(); draw();
     }, function () { $('lead').textContent = 'Could not load your orders. Check your connection and reload.'; });
