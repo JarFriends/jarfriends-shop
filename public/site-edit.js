@@ -91,7 +91,7 @@
       var to = el('textarea'); to.value = from; panel.appendChild(to);
       var sw = el('button', 'Save new words'); sw.type = 'button';
       var rm = el('button', 'Remove these words', 'se-g'); rm.type = 'button';
-      sw.addEventListener('click', function () { save({ from: from, to: to.value.trim(), page: every.checked ? '' : here }, msg); });
+      sw.addEventListener('click', function () { if (to.value.trim() === from) { msg.textContent = 'Type the new words first.'; return; } save({ from: from, to: to.value.trim(), page: every.checked ? '' : here }, msg); });
       rm.addEventListener('click', function () { save({ from: from, to: '', page: every.checked ? '' : here }, msg); });
       var r1 = el('div', null, 'se-row'); r1.appendChild(sw); r1.appendChild(rm); panel.appendChild(r1);
     }
