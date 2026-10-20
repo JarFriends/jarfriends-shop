@@ -70,6 +70,7 @@
 @media(max-width:640px){.v-vote{padding:12px;margin:10px 0 4px;gap:8px}.v-vote h1{font-size:20px!important}.v-vsub{font-size:13px}.v-vpick button{min-height:48px;font-size:14px}.v-vmore{font-size:13px}}
 .v-hero{padding:26px 0 8px}.v-hero h1{font-size:clamp(26px,4.6vw,48px);text-transform:uppercase;line-height:1.08;margin:0;max-width:900px;letter-spacing:.01em}
 @media(max-width:640px){.v-hero{padding:14px 0 4px}.v-hero h1{font-size:24px!important}}
+.v-bar .jfn-paste{flex:1 1 100%;grid-column:1/-1;min-height:42px;margin:0;padding:8px 12px}
 </style>
 </head>
 <body>
@@ -82,13 +83,14 @@
   <div class="v-bar" role="group" aria-label="Filter and sort">
     <div class="jf-filters" id="views"></div>
     <label class="grow" style="display:block"><span class="jf-sr">Search</span><input id="find" type="search" placeholder="Search pins, cards, stickers, a character…" autocomplete="off"></label>
-    <div class="v-photo"><button type="button" class="pill" id="snap" aria-label="Search by photo">📷<span class="v-tx"> Search by photo</span></button><button type="button" class="pill" id="pasteBtn" title="Paste a picture you copied" aria-label="Paste a picture">📋<span class="v-tx"> Paste</span></button><input type="file" id="snapFile" accept="image/*" capture="environment" hidden></div>
+    <div class="v-photo"><button type="button" class="pill" id="snap" aria-label="Search by photo">📷<span class="v-tx"> Search by photo</span></button><input type="file" id="snapFile" accept="image/*" capture="environment" hidden data-nopaste></div>
     <div class="v-ddrow" style="display:contents"><label class="v-dd" style="display:flex;flex-direction:row;align-items:center;gap:8px;font-weight:700;font-size:15px"><span class="v-lab">Seller</span>
       <select class="jf-sel" id="seller"><option value="">All sellers</option></select></label>
     <label class="v-dd" style="display:flex;flex-direction:row;align-items:center;gap:8px;font-weight:700;font-size:15px"><span class="v-lab">Category</span>
       <select class="jf-sel" id="cat"><option value="">All categories</option></select></label>
     <label class="v-dd" style="display:flex;flex-direction:row;align-items:center;gap:8px;font-weight:700;font-size:15px"><span class="v-lab">Sort</span>
       <select class="jf-sel" id="sort"><option value="low">Price: low to high</option><option value="high">Price: high to low</option><option value="ending">Auctions ending soonest</option><option value="new">Newest</option></select></label></div>
+    <input type="file" id="pasteSink" accept="image/*" hidden data-paste-ph="📋 Search by photo: click here and paste a photo (Ctrl+V / ⌘+V), or tap and hold, then Paste">
   </div>
   <div class="small" id="photoBar" hidden style="display:flex;flex-wrap:wrap;gap:10px;align-items:center"></div>
   <div class="small dim" id="count" role="status" aria-live="polite">Loading…</div>
@@ -201,13 +203,8 @@
     var items = (ev.clipboardData && ev.clipboardData.items) || [];
     for (var i = 0; i < items.length; i++) if (items[i].type && items[i].type.indexOf('image/') === 0) { var f = items[i].getAsFile(); if (f) { ev.preventDefault(); runPhoto(f); } return; }
   });
-  $('pasteBtn').addEventListener('click', function () {
-    if (!navigator.clipboard || !navigator.clipboard.read) { photoMsg('Copy a picture, then press Ctrl+V (Cmd+V on a Mac) on this page.', true); return; }
-    navigator.clipboard.read().then(function (list) {
-      for (var i = 0; i < list.length; i++) { var t = list[i].types.filter(function (x) { return x.indexOf('image/') === 0; })[0]; if (t) return list[i].getType(t).then(runPhoto); }
-      photoMsg('There is no picture copied. Copy a picture first, then press Paste.', true);
-    }).catch(function () { photoMsg('Your browser did not allow pasting here. Press Ctrl+V (Cmd+V on a Mac) instead, or use Search by photo.', true); });
-  });
+  // The paste field under the search bar (added by nav.js for this hidden photo box): a pasted photo searches.
+  $('pasteSink').addEventListener('change', function () { var f = $('pasteSink').files[0]; if (f) runPhoto(f); });
   // Drag a picture onto the page, too.
   document.addEventListener('dragover', function (ev) { if (ev.dataTransfer && Array.prototype.some.call(ev.dataTransfer.types || [], function (t) { return t === 'Files'; })) ev.preventDefault(); });
   document.addEventListener('drop', function (ev) { var f = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0]; if (f && /^image\//.test(f.type)) { ev.preventDefault(); runPhoto(f); } });

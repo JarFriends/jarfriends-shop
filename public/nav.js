@@ -34,6 +34,9 @@
     + '.jfn-help:hover,.jfn-help:focus-visible{transform:rotate(0) scale(1.06);outline:none}'
     + '.jfn-help:after{content:"";position:absolute;left:10px;bottom:-12px;border:6px solid transparent;border-top:8px solid #0B1A13;border-left:8px solid #0B1A13}'
     + '@media(max-width:640px){.jfn-help{right:12px;bottom:12px;font-size:14px!important;padding:8px 13px!important}}'
+    + '.jfn-paste{display:flex;align-items:center;gap:10px;min-height:48px;padding:10px 14px;margin:6px 0 2px;border:1px dashed #C9A45C;border-radius:8px;background:rgba(0,0,0,.18);color:inherit;font-size:15px;cursor:text;outline:none;-webkit-user-select:text;user-select:text;box-sizing:border-box;width:100%}'
+    + '.jfn-paste:empty:before{content:attr(data-ph);opacity:.7;font-size:14px;pointer-events:none}.jfn-paste:focus{border-style:solid;box-shadow:0 0 0 2px rgba(201,164,92,.35)}.jfn-paste.on{background:rgba(201,164,92,.15)}'
+    + '.jfn-paste img{width:44px;height:44px;object-fit:cover;border-radius:4px;flex:none}'
     + '@media print{.jfn-btn,.jfn-panel,.jfn-acct,.jfn-give,.jfn-help{display:none}}';
   // The community banner at the very top of every page: 2% of every sale goes back to the community.
   function banner() {
@@ -48,6 +51,46 @@
     fetch('/api/market?do=giveaway', { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
       if (!j) return; show(j.wallet); try { sessionStorage.setItem('v2vWallet', JSON.stringify({ c: j.wallet, at: Date.now() })); } catch (e) {}
     }).catch(function () {});
+  }
+  // Every photo box on the site also gets a paste field right under it that looks and works like a text box: click
+  // or tap it, then paste (Ctrl+V, Cmd+V, or tap and hold > Paste). A photo dropped on it works too. The photo goes
+  // into the photo box as if it had been picked, so each page saves it as usual. The back office has its own
+  // (admin-drop.js). A photo box marked data-nopaste is left alone.
+  function pasteFields() {
+    if (location.pathname === '/admin.html') return;
+    var put = function (input, file, z) {
+      if (!file || !/^image\//.test(file.type)) { z.textContent = ''; z.dataset.ph = 'That is not a photo. Copy a photo first, then paste it here.'; return; }
+      try { var dt = new DataTransfer(); dt.items.add(file); input.files = dt.files; } catch (e) { z.textContent = ''; z.dataset.ph = 'This browser cannot paste photos here. Use the photo button instead.'; return; }
+      z.textContent = '';
+      var im = document.createElement('img'); im.alt = ''; im.src = URL.createObjectURL(file); z.appendChild(im);
+      z.appendChild(document.createTextNode(' ✓ Photo pasted'));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    var wire = function (input) {
+      if (input.dataset.paste || input.hasAttribute('data-nopaste')) return; input.dataset.paste = '1';
+      var z = document.createElement('div'); z.className = 'jfn-paste'; z.contentEditable = 'true'; z.setAttribute('role', 'textbox');
+      z.setAttribute('aria-label', 'Paste a photo here'); z.dataset.ph = input.getAttribute('data-paste-ph') || '📋 Paste a photo here: click and press Ctrl+V (⌘+V on a Mac), or tap and hold, then Paste';
+      z.addEventListener('paste', function (ev) {
+        ev.preventDefault(); ev.stopPropagation();
+        var items = (ev.clipboardData && ev.clipboardData.items) || [], f = null;
+        for (var i = 0; i < items.length; i++) if (items[i].type && items[i].type.indexOf('image/') === 0) { f = items[i].getAsFile(); break; }
+        if (!f && ev.clipboardData && ev.clipboardData.files && ev.clipboardData.files[0]) f = ev.clipboardData.files[0];
+        put(input, f, z); z.blur();
+      });
+      // Typing does nothing here: it is only for pasting.
+      z.addEventListener('beforeinput', function (ev) { if (ev.inputType !== 'insertFromPaste') ev.preventDefault(); });
+      z.addEventListener('input', function () { if (!z.querySelector('img')) z.textContent = ''; });
+      z.addEventListener('click', function (ev) { ev.stopPropagation(); });
+      z.addEventListener('dragover', function (ev) { ev.preventDefault(); z.classList.add('on'); });
+      z.addEventListener('dragleave', function () { z.classList.remove('on'); });
+      z.addEventListener('drop', function (ev) { ev.preventDefault(); z.classList.remove('on'); put(input, ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0], z); });
+      // A new photo picked with the photo button replaces the pasted one.
+      input.addEventListener('change', function () { if (!input.files || !input.files.length) { z.textContent = ''; } });
+      var lab = input.closest('label'), after = lab || input;
+      after.parentNode.insertBefore(z, after.nextSibling);
+    };
+    var scan = function () { Array.prototype.forEach.call(document.querySelectorAll('input[type=file]'), function (i) { if (!i.accept || /image/.test(i.accept)) wire(i); }); };
+    scan(); new MutationObserver(scan).observe(document.body, { childList: true, subtree: true });
   }
   // A small pop-up box (used by Subscribe and the help bubble). Closes with Escape, the X, or a tap outside.
   function popup(title, build) {
@@ -122,7 +165,7 @@
   });
   function go() {
     var st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
-    banner(); helpBubble();
+    banner(); helpBubble(); pasteFields();
     var b = document.createElement('button'); b.type = 'button'; b.className = 'jfn-btn'; b.textContent = 'Menu'; b.setAttribute('aria-expanded', 'false'); b.setAttribute('aria-controls', 'jfnPanel');
     var p = document.createElement('nav'); p.className = 'jfn-panel'; p.id = 'jfnPanel'; p.hidden = true; p.setAttribute('aria-label', 'Site menu');
     // Who is signed in, read from the sign-in kept on this device (the site checks it on every request).

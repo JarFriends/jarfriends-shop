@@ -426,15 +426,14 @@
       sb.appendChild(el('b', 'Upload a photo or eBay screenshot'));
       var btns = el('div'); btns.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px';
       var sBtn = el('button', '📷 Upload photo or eBay screenshot', 'solid'); sBtn.type = 'button';
-      var pBtn = el('button', '📋 Paste', 'ghost'); pBtn.type = 'button';
-      btns.appendChild(sBtn); btns.appendChild(pBtn);
-      var sFile = input('file', null, { accept: 'image/*' }); sFile.hidden = true;
-      var sMsg = el('div', 'AI works out what it is and fills in the form below for you to check. A photo of the piece is also used as its photo. You can paste a picture too (📋 Paste, or Ctrl+V / ⌘+V).', 'small dim');
+      btns.appendChild(sBtn);
+      var sFile = input('file', null, { accept: 'image/*', 'data-paste-ph': '📋 Or paste it here: click and press Ctrl+V (⌘+V on a Mac), or tap and hold, then Paste' }); sFile.hidden = true;
+      var sMsg = el('div', 'AI works out what it is and fills in the form below for you to check. A photo of the piece is also used as its photo.', 'small dim');
       sb.appendChild(btns); sb.appendChild(sFile); sb.appendChild(sMsg); c.appendChild(sb);
       var readShot = function (file) {
-        sBtn.disabled = pBtn.disabled = true; sMsg.className = 'small'; sMsg.textContent = 'AI is looking at your picture…';
+        sBtn.disabled = true; sMsg.className = 'small'; sMsg.textContent = 'AI is looking at your picture…';
         shrink(file).then(function (data) { return JF.api('/api/market', { do: 'listing-ai', kind: 'auto', t: tok, as: AS, ak: AK, data: data }); }).then(function (r) {
-          sBtn.disabled = pBtn.disabled = false;
+          sBtn.disabled = false;
           if (r.error) { sMsg.textContent = r.error; return; }
           if (r.title) name.value = r.title;
           if (r.description) desc.value = r.description;
@@ -444,23 +443,20 @@
             if (r.quantity > 0 && mode.value !== 'auction') stock.value = r.quantity;
             if (r.shipping === 'free') shipMode.value = 'free'; else if (r.shipping > 0) { shipMode.value = 'flat'; ship.value = r.shipping; }
             shipMode.dispatchEvent(new Event('change'));
-            sMsg.textContent = 'Filled in from your eBay screenshot. Check everything, add a photo of the piece below, then save.';
+            sMsg.textContent = 'Filled in from your eBay screenshot. Check everything, add a photo of the piece below, then save. ';
+            // In case it was really a photo of the piece: one tap makes it the piece's photo.
+            var use = el('button', 'Use this picture as the piece\'s photo', 'ghost'); use.type = 'button';
+            use.addEventListener('click', function () { if (setPhoto(file)) { use.remove(); sMsg.appendChild(document.createTextNode('✓ Set as the piece\'s photo.')); } });
+            sMsg.appendChild(use);
           } else {
-            var used = false; try { var dt = new DataTransfer(); dt.items.add(file); photo.files = dt.files; used = true; } catch (e) { used = false; }
+            var used = setPhoto(file);
             sMsg.textContent = 'Filled in from your photo' + (used ? ', and it is set as the piece\'s photo' : '') + '. Check it, add the price, then save.' + (used ? '' : ' Pick the photo again under Photo.');
           }
           name.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }).catch(function (e) { sBtn.disabled = pBtn.disabled = false; sMsg.textContent = e && e.message ? e.message : 'That did not work. Try again.'; });
+        }).catch(function (e) { sBtn.disabled = false; sMsg.textContent = e && e.message ? e.message : 'That did not work. Try again.'; });
       };
       sBtn.addEventListener('click', function () { sFile.click(); });
       sFile.addEventListener('change', function () { if (sFile.files[0]) readShot(sFile.files[0]); sFile.value = ''; });
-      pBtn.addEventListener('click', function () {
-        if (!navigator.clipboard || !navigator.clipboard.read) { sMsg.textContent = 'Press Ctrl+V (or ⌘+V on a Mac) to paste your picture.'; return; }
-        navigator.clipboard.read().then(function (items) {
-          for (var i = 0; i < items.length; i++) { var t = items[i].types.filter(function (x) { return x.indexOf('image/') === 0; })[0]; if (t) return items[i].getType(t).then(function (bl) { readShot(new File([bl], 'pasted.' + t.split('/')[1], { type: t })); }); }
-          sMsg.textContent = 'There is no picture to paste. Copy a screenshot or photo first.';
-        }).catch(function () { sMsg.textContent = 'Press Ctrl+V (or ⌘+V on a Mac) to paste your picture.'; });
-      });
       var onPaste = function (ev) {
         if (!document.body.contains(sb)) { document.removeEventListener('paste', onPaste); return; }
         var items = (ev.clipboardData && ev.clipboardData.items) || [];
@@ -487,6 +483,18 @@
     var hidden = input('checkbox'); hidden.checked = !!(p && p.hidden);
     var hl = el('label', null, 'jf-check'); hl.appendChild(hidden); hl.appendChild(el('span', 'Hide it from the market for now'));
     var photo = input('file', null, { accept: 'image/*' });
+    // Put a picture (pasted, or from the AI box) into the Photo box, with a little preview, so it saves with the piece.
+    var photoPrev = el('div'); photoPrev.className = 'small'; photoPrev.style.cssText = 'display:flex;gap:10px;align-items:center';
+    var setPhoto = function (file) {
+      try { var dt = new DataTransfer(); dt.items.add(file); photo.files = dt.files; } catch (e) { return false; }
+      photo.dispatchEvent(new Event('change', { bubbles: true }));
+      return true;
+    };
+    photo.addEventListener('change', function () {
+      photoPrev.textContent = ''; var fl = photo.files && photo.files[0]; if (!fl) return;
+      var im = el('img'); im.alt = ''; im.src = URL.createObjectURL(fl); im.style.cssText = 'width:64px;height:64px;object-fit:cover;border-radius:6px';
+      photoPrev.appendChild(im); photoPrev.appendChild(el('span', '✓ This photo will be saved with the piece.'));
+    });
     var go = el('button', p ? 'Save changes' : 'Add to my shop', 'solid'); go.type = 'submit';
     var m = status();
     f.appendChild(field('Name', name)); f.appendChild(field('Description', desc));
@@ -514,6 +522,7 @@
     shipMode.addEventListener('change', showShip); showShip();
     f.appendChild(field('Category (buyers filter by this)', sec));
     f.appendChild(field('Photo', photo, p && p.photoUrl ? 'Pick a new one to replace the current photo.' : 'A clear, square-ish photo works best.'));
+    f.appendChild(photoPrev);
     f.appendChild(hl);
     var price2 = el('div', '', 'small dim');
     var calc = function () { var v = Number(price.value) || 0; price2.textContent = v ? 'At ' + JF.usd(v) + ' you get ' + JF.usd(v * (1 - D.fee / 100)) + ' after the ' + D.fee + '% JarFriends fee (plus shipping, less its fee).' : ''; };

@@ -8,12 +8,13 @@
     input.dispatchEvent(new Event('change', { bubbles: true }));
     var z = input.closest('label') || input.parentNode, tip = z.querySelector('.dropTip');
     if (tip) tip.textContent = 'Photo ready: ' + (file.name || 'pasted photo') + '. It saves when you press Save.';
+    var pzz = z.querySelector('.adPaste'); if (pzz) { pzz.textContent = ''; var im = document.createElement('img'); im.alt = ''; im.src = URL.createObjectURL(file); im.style.cssText = 'width:44px;height:44px;object-fit:cover;border-radius:4px'; pzz.appendChild(im); pzz.appendChild(document.createTextNode(' ✓ Photo pasted')); pzz.blur(); }
     return true;
   }
   function wire(input) {
     if (input.dataset.drop) return; input.dataset.drop = '1';
     var z = input.closest('label') || input.parentNode;
-    var tip = document.createElement('span'); tip.className = 'small dropTip'; tip.textContent = 'Or drag a photo here, or paste one: press Paste photo, or hold your mouse over this box and press Ctrl/Cmd+V.';
+    var tip = document.createElement('span'); tip.className = 'small dropTip'; tip.textContent = 'Or drag a photo here, or paste one in the box below.';
     tip.style.cssText = 'display:block;font-weight:400;opacity:.8;margin-top:4px';
     z.appendChild(tip);
     // A Paste photo button (asks the browser for the copied photo) and a box you can tap or click and paste into.
@@ -28,12 +29,14 @@
         tip.textContent = 'No photo is copied. Copy a photo first (long-press it, or right-click it and choose Copy Image), then press Paste photo.';
       }, function () { pz.focus(); tip.textContent = 'The browser did not allow it. Tap or click the box next to the button, then Paste.'; });
     });
-    var pz = document.createElement('span'); pz.contentEditable = 'true'; pz.textContent = 'or tap here and paste';
-    pz.style.cssText = 'display:inline-block;min-width:150px;padding:7px 12px;border:1px dashed #C9A45C;border-radius:8px;font-size:13px;opacity:.85;cursor:text;outline:none;-webkit-user-select:text;user-select:text';
+    // The paste field: looks and works like a text box. Click or tap it, then paste (Ctrl/Cmd+V, or tap and hold > Paste).
+    var pz = document.createElement('div'); pz.contentEditable = 'true'; pz.className = 'adPaste'; pz.setAttribute('role', 'textbox'); pz.setAttribute('aria-label', 'Paste a photo here');
+    pz.dataset.ph = '📋 Paste a photo here: click and press Ctrl+V (⌘+V on a Mac), or tap and hold, then Paste';
     pz.addEventListener('focus', function () { last = input; });
     pz.addEventListener('click', function (ev) { ev.preventDefault(); ev.stopPropagation(); pz.focus(); });
-    pz.addEventListener('input', function () { pz.textContent = 'or tap here and paste'; }); // keeps typed text out
-    bar.appendChild(pb); bar.appendChild(pz); z.appendChild(bar);
+    pz.addEventListener('beforeinput', function (ev) { if (ev.inputType !== 'insertFromPaste') ev.preventDefault(); }); // keeps typed text out
+    pz.addEventListener('input', function () { pz.textContent = ''; });
+    z.appendChild(pz); bar.appendChild(pb); z.appendChild(bar);
     z.style.borderRadius = '10px'; z.style.transition = 'outline-color .15s';
     var mark = function () { last = input; };
     ['focus', 'click', 'mouseenter'].forEach(function (ev) { z.addEventListener(ev, mark, true); });
@@ -41,6 +44,9 @@
     z.addEventListener('dragleave', function () { z.style.outline = ''; });
     z.addEventListener('drop', function (ev) { ev.preventDefault(); z.style.outline = ''; last = input; var f = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0]; if (!put(input, f)) alert('That is not a photo. Drop a JPG or PNG.'); });
   }
+  var st = document.createElement('style');
+  st.textContent = '.adPaste{display:flex;align-items:center;gap:10px;min-height:46px;margin-top:8px;padding:10px 14px;border:1px dashed #C9A45C;border-radius:8px;background:rgba(0,0,0,.18);font-size:15px;font-weight:400;cursor:text;outline:none;-webkit-user-select:text;user-select:text;box-sizing:border-box;width:100%}.adPaste:empty:before{content:attr(data-ph);opacity:.7;font-size:14px;pointer-events:none}.adPaste:focus{border-style:solid}';
+  document.head.appendChild(st);
   function scan() { Array.prototype.forEach.call(document.querySelectorAll('input[type=file]'), function (i) { if (!i.accept || /image/.test(i.accept)) wire(i); }); }
   new MutationObserver(scan).observe(document.body, { childList: true, subtree: true });
   scan();
