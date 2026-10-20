@@ -133,8 +133,10 @@ module.exports = async (req, res) => {
     }
 
     // ---------- The owner ----------
-    if (what === 'admin' || what === 'status' || what === 'payout' || what === 'issue' || what === 'review-remove' || what === 'verify' || what === 'charge' || what === 'import' || what === 'emails' || what === 'email-save' || what === 'email-ai' || what === 'email-test' || what === 'giveaway-round' || what === 'bank') {
+    if (what === 'admin' || what === 'status' || what === 'payout' || what === 'issue' || what === 'review-remove' || what === 'verify' || what === 'charge' || what === 'import' || what === 'emails' || what === 'email-save' || what === 'email-ai' || what === 'email-test' || what === 'giveaway-round' || what === 'bank' || what === 'ebay-ok') {
       if (!gate.isAdmin(req.method === 'POST' ? b.ak : q.ak)) return res.status(401).json({ error: 'Sign in to the back office again.' });
+      // Confirm (or un-confirm) that a seller's eBay user name is really theirs, so they can bring all their listings over.
+      if (what === 'ebay-ok' && req.method === 'POST') { const s2 = await M.bySlug(String(b.slug || '')); if (!s2) return res.status(404).json({ error: 'That seller was not found.' }); s2.ebayOk = !!b.on; await M.save(s2); return res.json({ ok: true }); }
       // The full bank details of one seller, to send them a payout by hand.
       if (what === 'bank' && req.method === 'POST') { const s = await M.bySlug(String(b.slug || '')); const k = s && M.bankOf(s); return k ? res.json({ bank: k }) : res.status(404).json({ error: 'This seller has no bank account on file.' }); }
       if (what === 'giveaway-round') { const r = await require('./_giveaway').setRound(String(b.action || '')); return res.status(r.error ? 400 : 200).json(r); }
@@ -429,7 +431,7 @@ module.exports = async (req, res) => {
       if (['zelle', 'venmo', 'cashapp', 'paypal'].indexOf(b.payHow) >= 0 && !seller.bank) seller.payHow = b.payHow;
       if (b.payTo != null && tidy(b.payTo, 80).length >= 3 && !seller.bank) seller.payTo = tidy(b.payTo, 80);
       // Their eBay user name: eBay listings they bring over must be theirs (see _ebay.js).
-      if (b.ebayUser != null) seller.ebayUser = tidy(b.ebayUser, 64).replace(/^@/, '');
+      if (b.ebayUser != null) { const u = tidy(b.ebayUser, 64).replace(/^@/, ''); if (u.toLowerCase() !== String(seller.ebayUser || '').toLowerCase()) seller.ebayOk = false; seller.ebayUser = u; }
       // Where packages ship from: needed for calculated shipping and labels.
       if (b.shipFrom && typeof b.shipFrom === 'object') {
         const a = b.shipFrom, f = { name: tidy(a.name, 60), street1: tidy(a.street1, 120), street2: tidy(a.street2, 60), city: tidy(a.city, 60), state: tidy(a.state, 30), zip: tidy(a.zip, 10), phone: tidy(a.phone, 20) };
@@ -485,6 +487,18 @@ module.exports = async (req, res) => {
       try { out = JSON.parse(txt.slice(txt.indexOf('{'), txt.lastIndexOf('}') + 1)); } catch (e) { out = {}; }
       if (!out.title) return res.status(503).json({ error: 'AI could not tell what that is. Try a clearer photo, or type the title yourself.' });
       return res.json({ title: String(out.title).slice(0, 120), description: String(out.description || '').slice(0, 1200), category: M.SECTIONS.indexOf(out.category) >= 0 ? out.category : '' });
+    }
+    // Every Buy It Now listing on the seller's eBay account, marked when it is already on V2V. Their eBay user name
+    // must be confirmed by the V2V owner first (the owner's own shop counts as confirmed), so nobody can copy
+    // someone else's eBay store.
+    if (what === 'ebay-list') {
+      const own = String(seller.email).toLowerCase() === String(process.env.OWNER_EMAIL || '').trim().toLowerCase();
+      if (!seller.ebayUser) return res.status(400).json({ error: 'Add your eBay user name in Settings first.' });
+      if (!seller.ebayOk && !own) return res.status(403).json({ error: 'V2V has not confirmed that ' + seller.ebayUser + ' is your eBay account yet. It usually takes a day; you can still bring listings over one at a time.' });
+      const r = await require('./_ebay').listAll(seller.ebayUser);
+      if (r.error) return res.status(400).json(r);
+      const have = {}; (await M.listings()).forEach((p) => { if (p.seller === seller.slug && p.ebay && p.ebay.id) have[p.ebay.id] = !p.hidden; });
+      return res.json({ items: r.items.map((x) => Object.assign(x, { here: have[x.id] === true })) });
     }
     if (what === 'ebay-import') { const r = await require('./_ebay').bring(seller, String(b.url || '').slice(0, 500)); return res.status(r.error ? 400 : 200).json(r); }
     if (what === 'photo') {

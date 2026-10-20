@@ -128,4 +128,27 @@ async function sync(limit) {
   return out;
 }
 
-module.exports = { idOf, read, bring, sync, apiOn };
+// Every Buy It Now listing an eBay seller has, found through eBay's search (Browse API), one search per top-level
+// eBay category. Returns [{ id, title, price, image }] (up to a few thousand), or { error }.
+const TOP = [1, 20081, 550, 2984, 267, 12576, 625, 15032, 11450, 11116, 58058, 293, 14339, 237, 11232, 45100, 172008, 26395, 11700, 281, 11233, 619, 1281, 870, 316, 888, 64482, 260, 1305, 220, 3252, 1249, 99];
+async function listAll(username) {
+  if (!apiOn()) return { error: 'Bringing over all your eBay listings needs the eBay keys (EBAY_CLIENT_ID and EBAY_CLIENT_SECRET) added by the V2V owner.' };
+  const user = String(username || '').trim().toLowerCase();
+  if (!/^[a-z0-9._-]{2,64}$/.test(user)) return { error: 'Add your eBay user name in Settings first.' };
+  const token = await appToken(), seen = {}, out = [];
+  const one = async (cat) => {
+    for (let offset = 0; offset < 2000; offset += 200) {
+      const r = await fetch('https://api.ebay.com/buy/browse/v1/item_summary/search?category_ids=' + cat + '&filter=' + encodeURIComponent('sellers:{' + user + '},buyingOptions:{FIXED_PRICE}') + '&limit=200&offset=' + offset, {
+        signal: AbortSignal.timeout(12000), headers: { authorization: 'Bearer ' + token, 'X-EBAY-C-MARKETPLACE-ID': 'EBAY_US' }
+      }).catch(() => null);
+      if (!r || !r.ok) return;
+      const j = await r.json().catch(() => ({}));
+      (j.itemSummaries || []).forEach((x) => { const id = String(x.legacyItemId || (/\|(\d{9,15})\|/.exec(x.itemId || '') || [])[1] || ''); if (id && !seen[id]) { seen[id] = 1; out.push({ id: id, title: x.title || '', price: Number(x.price && x.price.value) || 0, image: (x.image && x.image.imageUrl) || '' }); } });
+      if (!j.next || (j.itemSummaries || []).length < 200) return;
+    }
+  };
+  for (let i = 0; i < TOP.length; i += 6) await Promise.all(TOP.slice(i, i + 6).map(one));
+  return { items: out };
+}
+
+module.exports = { idOf, read, bring, sync, apiOn, listAll };

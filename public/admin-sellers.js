@@ -80,6 +80,15 @@
       top.appendChild(acts);
       c.appendChild(top);
       c.appendChild(el('div', s.stripeOn ? 'Card sales: paid automatically to their Stripe' : s.stripe ? 'Card sales: Stripe payout setup not finished, so card money comes to you' : 'Card sales: no Stripe payouts yet, so card money comes to you', 'sx-b ' + (s.stripeOn ? 'ok' : 'wait')));
+      // Their eBay user name: confirm it is really theirs before they can bring all their eBay listings over.
+      if (s.ebayUser) {
+        var er = el('div'); er.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;align-items:center';
+        er.appendChild(el('span', 'eBay: ' + s.ebayUser + (s.ebayOk ? ' · confirmed' : ' · not confirmed yet'), 'small'));
+        var eo = el('a', 'See their eBay store'); eo.href = 'https://www.ebay.com/usr/' + encodeURIComponent(s.ebayUser); eo.target = '_blank'; eo.rel = 'noopener'; eo.className = 'small'; er.appendChild(eo);
+        var ec = el('button', s.ebayOk ? 'Un-confirm' : 'Confirm it is theirs', 'ghost'); ec.type = 'button';
+        ec.addEventListener('click', function () { ec.disabled = true; post({ do: 'ebay-ok', slug: s.slug, on: !s.ebayOk }).then(function (x) { if (x.error) alert(x.error); load(); }); });
+        er.appendChild(ec); c.appendChild(er);
+      }
       // Their bank account (kept encrypted): shown only when asked, to send a payout by hand.
       if (s.bankHint) {
         var bkr = el('div'); bkr.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;align-items:center';
