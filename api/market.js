@@ -477,7 +477,7 @@ module.exports = async (req, res) => {
       const r = await M.apply(me, b);
       if (r.error) return res.status(400).json(r);
       const owner = (process.env.OWNER_EMAIL || '').trim();
-      if (owner) await mail(owner, 'New seller: ' + r.seller.name + (r.seller.status === 'pending' ? ' (needs your OK)' : ''), ['A new seller signed up on JarFriends.', '', 'Shop: ' + r.seller.name, 'Email: ' + r.seller.email, 'About: ' + (r.seller.about || '-'), 'Pay them by: ' + r.seller.payHow + ' ' + r.seller.payTo, '', r.seller.status === 'pending' ? 'Approve or decline them in the back office, Sellers tab.' : 'They were approved automatically.'], 'seller-new-' + r.seller.slug).catch(() => null);
+      if (owner) await mail(owner, 'New seller: ' + r.seller.name + (r.seller.status === 'pending' ? ' (needs your OK)' : ''), ['A new seller signed up on JarFriends.', '', 'Shop: ' + r.seller.name, 'Email: ' + r.seller.email, 'About: ' + (r.seller.about || '-'), 'Based: ' + (r.seller.based === 'intl' ? 'International (' + (r.seller.country || '?') + ')' : 'United States'), 'Payouts: ' + (r.seller.payTo ? r.seller.payTo : 'not added yet (they can add them later in Seller Hub)'), '', r.seller.status === 'pending' ? 'Approve or decline them in the back office, Sellers tab.' : 'They were approved automatically.'], 'seller-new-' + r.seller.slug).catch(() => null);
       return res.json({ seller: M.safe(r.seller) });
     }
     if (!seller) return res.status(403).json({ error: 'Open a seller shop first.' });
@@ -501,7 +501,7 @@ module.exports = async (req, res) => {
       const tidy = (v, n) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n);
       if (b.about != null) seller.about = tidy(b.about, 400);
       // A new bank account for payouts (routing and account number), kept encrypted.
-      if (b.routing != null || b.account != null) { const k = M.bankFrom(b); if (k.error) return res.status(400).json(k); Object.assign(seller, k.fields); }
+      if (b.routing != null || b.account != null || b.iban != null || b.swift != null) { const k = M.bankFrom(b); if (k.error) return res.status(400).json(k); Object.assign(seller, k.fields); }
       if (['zelle', 'venmo', 'cashapp', 'paypal'].indexOf(b.payHow) >= 0 && !seller.bank) seller.payHow = b.payHow;
       if (b.payTo != null && tidy(b.payTo, 80).length >= 3 && !seller.bank) seller.payTo = tidy(b.payTo, 80);
       // Their eBay user name: eBay listings they bring over must be theirs (see _ebay.js).

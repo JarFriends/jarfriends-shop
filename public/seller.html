@@ -31,18 +31,67 @@
   // How V2V pays this seller, in words: "bank transfer to Checking ••1234".
   var payWords = function (sl) { return sl.payHow === 'bank' ? 'bank transfer to ' + sl.payTo : ((PAY.filter(function (x) { return x[0] === sl.payHow; })[0] || ['', sl.payHow || 'not set'])[1] + (sl.payTo ? ' (' + sl.payTo + ')' : '')); };
   // The bank account for payouts: name on the account, routing number, account number twice, checking or savings.
-  function bankFields() {
+  // Where earnings are sent. US sellers: routing and account number. International sellers: an international wire
+  // (SWIFT/BIC plus IBAN or account number), which needs the bank's name and country and the holder's address.
+  function bankFields(based) {
     var w = el('div'); w.style.cssText = 'display:flex;flex-direction:column;gap:12px';
+    var region = based === 'intl' ? 'intl' : 'us';
+    var pick = el('div', null, 'jf-filters'); pick.setAttribute('role', 'group'); pick.setAttribute('aria-label', 'Where your bank is');
+    var bUS = el('button', 'Bank in the United States', 'pill'), bIn = el('button', 'Bank outside the US', 'pill'); bUS.type = bIn.type = 'button';
+    pick.appendChild(bUS); pick.appendChild(bIn);
+    w.appendChild(field('Where is your bank?', pick));
     var holder = input('text', '', { maxlength: '80', autocomplete: 'name', placeholder: 'Name on the bank account' });
+    w.appendChild(field('Name on the account', holder));
+    // US
+    var us = el('div'); us.style.cssText = 'display:flex;flex-direction:column;gap:12px';
     var routing = input('text', '', { inputmode: 'numeric', maxlength: '9', autocomplete: 'off', placeholder: '9 digits', pattern: '[0-9]{9}' });
     var acct = input('password', '', { inputmode: 'numeric', maxlength: '17', autocomplete: 'off', placeholder: 'Account number' });
     var acct2 = input('text', '', { inputmode: 'numeric', maxlength: '17', autocomplete: 'off', placeholder: 'Type it again' });
     var type = select([['checking', 'Checking'], ['savings', 'Savings']], 'checking');
-    w.appendChild(field('Name on the account', holder));
-    var a = el('div', null, 'two'); a.appendChild(field('Routing number', routing, 'The 9 digits at the bottom left of a check.')); a.appendChild(field('Account type', type)); w.appendChild(a);
-    var b2 = el('div', null, 'two'); b2.appendChild(field('Account number', acct)); b2.appendChild(field('Confirm account number', acct2)); w.appendChild(b2);
+    var a = el('div', null, 'two'); a.appendChild(field('Routing number', routing, 'The 9 digits at the bottom left of a check.')); a.appendChild(field('Account type', type)); us.appendChild(a);
+    var b2 = el('div', null, 'two'); b2.appendChild(field('Account number', acct)); b2.appendChild(field('Confirm account number', acct2)); us.appendChild(b2);
+    w.appendChild(us);
+    // International
+    var intl = el('div'); intl.style.cssText = 'display:flex;flex-direction:column;gap:12px';
+    var inst = input('text', '', { maxlength: '80', placeholder: 'e.g. Barclays' }), ctry = input('text', '', { maxlength: '60', autocomplete: 'country-name', placeholder: 'e.g. United Kingdom' });
+    var swift = input('text', '', { maxlength: '11', autocomplete: 'off', placeholder: '8 or 11 characters, e.g. BARCGB22' }); swift.style.textTransform = 'uppercase';
+    var iban = input('password', '', { maxlength: '42', autocomplete: 'off', placeholder: 'IBAN, or account number if your country has no IBAN' });
+    var iban2 = input('text', '', { maxlength: '42', autocomplete: 'off', placeholder: 'Type it again' });
+    var addr = input('text', '', { maxlength: '200', autocomplete: 'street-address', placeholder: 'Street, city, postcode, country' });
+    var i1 = el('div', null, 'two'); i1.appendChild(field('Bank name', inst)); i1.appendChild(field('Bank country', ctry)); intl.appendChild(i1);
+    intl.appendChild(field('SWIFT / BIC code', swift, 'Your bank’s international code. It is on your bank’s website or statement.'));
+    var i2 = el('div', null, 'two'); i2.appendChild(field('IBAN or account number', iban)); i2.appendChild(field('Confirm it', iban2)); intl.appendChild(i2);
+    intl.appendChild(field('Account holder’s address', addr, 'International wires need it.'));
+    intl.appendChild(el('div', '🌍 International payouts are sent by international wire (SWIFT) in US dollars. Banks along the way may charge a fee, and it usually takes 3 to 5 business days.', 'small'));
+    w.appendChild(intl);
     w.appendChild(el('div', '🔒 Encrypted and used only to send you your earnings. Only the last 4 digits are ever shown.', 'small dim'));
-    return { node: w, values: function () { return { bankName: holder.value, routing: routing.value, account: acct.value, account2: acct2.value, accType: type.value }; } };
+    var show = function () { us.hidden = region !== 'us'; intl.hidden = region !== 'intl'; bUS.setAttribute('aria-pressed', region === 'us' ? 'true' : 'false'); bIn.setAttribute('aria-pressed', region === 'intl' ? 'true' : 'false'); };
+    bUS.addEventListener('click', function () { region = 'us'; show(); }); bIn.addEventListener('click', function () { region = 'intl'; show(); });
+    show();
+    return { node: w, values: function () { return region === 'intl' ? { region: 'intl', bankName: holder.value, bankInst: inst.value, country: ctry.value, swift: swift.value, iban: iban.value, iban2: iban2.value, holderAddr: addr.value } : { region: 'us', bankName: holder.value, routing: routing.value, account: acct.value, account2: acct2.value, accType: type.value }; } };
+  }
+  // How a seller's payout details read: "Checking account ending 1234" or "SWIFT wire to Barclays ending 1234".
+  var bankLine = function (s) { var h = s.bankHint; if (!h) return ''; return h.type === 'intl' ? 'International wire to ' + (s.payTo || 'your bank').replace(/^SWIFT wire to /, '') + ' · ' + h.holder : (h.type === 'savings' ? 'Savings' : 'Checking') + ' account ending ' + h.last4 + ' · ' + h.holder; };
+  // The payout details card (Payments tab, and Settings): shows what is on file, or the form to add or change it.
+  function payoutCard(pane) {
+    var s = D.seller;
+    var c = el('section', null, 'card'); c.style.gap = '12px';
+    c.appendChild(el('h2', 'Payout details'));
+    c.appendChild(el('div', s.based === 'intl' ? 'Based outside the US' + (s.country ? ' (' + s.country + ')' : '') + '. Earnings are sent by international wire.' : 'Based in the United States. Earnings are sent to your bank account.', 'small dim'));
+    var f = bankFields(s.based), m = status(), open = !s.bankHint;
+    var line = el('div'); line.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;align-items:center';
+    line.appendChild(el('span', s.bankHint ? bankLine(s) : 'No payout details yet. You can sell now; add these whenever you are ready and your earnings will be sent. Until then they wait safely for you.', s.bankHint ? '' : 'alert small'));
+    var chg = el('button', 'Change payout details', 'ghost'); chg.type = 'button'; if (s.bankHint) line.appendChild(chg);
+    c.appendChild(line);
+    var form = el('form'); form.style.cssText = 'display:flex;flex-direction:column;gap:12px'; form.hidden = !open;
+    var go = el('button', 'Save payout details', 'solid'); go.type = 'submit';
+    form.appendChild(f.node); form.appendChild(go); form.appendChild(m); c.appendChild(form);
+    chg.addEventListener('click', function () { form.hidden = false; chg.remove(); });
+    form.addEventListener('submit', function (ev) {
+      ev.preventDefault(); go.disabled = true; m.textContent = 'Saving…';
+      JF.api('/api/market', Object.assign({ do: 'profile', t: tok, as: AS, ak: AK }, f.values())).then(function (r) { go.disabled = false; if (r.error) { m.textContent = r.error; return; } D.seller = r.seller; m.textContent = 'Saved.'; dash(); });
+    });
+    pane.appendChild(c);
   }
   var box = $('box');
   function field(label, input, hint) { var l = el('label', label); l.appendChild(input); if (hint) l.appendChild(el('span', hint, 'hint')); return l; }
@@ -100,28 +149,36 @@
     [['You list', 'Add pieces with a photo, price, stock and shipping cost. They show in the JarFriends market.'],
      ['Buyers pay JarFriends', 'Checkout, payment and receipts are handled for you.'],
      ['You ship', 'Once an order is paid you see the address here. Ship it and add the tracking number.'],
-     ['You get paid', 'V2V keeps ' + D.fee + '% of each sale, and 2% of that goes into the community wallet. You get the rest, sent to your bank account as fast as we can, usually within 24 to 48 hours.']].forEach(function (x) {
+     ['You get paid', 'V2V keeps ' + D.fee + '% of each sale, and 2% of that goes into the community wallet. You get the rest, sent to your bank as fast as we can, usually within 24 to 48 hours (international wires take 3 to 5 business days).']].forEach(function (x) {
       var r = el('div', null, 'row'); r.appendChild(el('b', x[0])); var s = el('span', x[1], 'dim'); s.style.textAlign = 'right'; s.style.maxWidth = '70%'; r.appendChild(s); how.appendChild(r);
     });
     c.appendChild(el('h2', 'How it works')); c.appendChild(how);
     var f = el('form');
     var name = input('text', '', { maxlength: '40', required: '', placeholder: 'e.g. Wolf Den Cards' });
     var about = el('textarea', null, 'jf-ta'); about.maxLength = 400; about.placeholder = 'What you collect and sell. Shown on your shop page.';
-    var bankF = bankFields();
+    // Where they are based. Payout details are added later (Seller Hub > Payments), whenever they are ready.
+    var region = 'us';
+    var bp = el('div', null, 'jf-filters'); bp.setAttribute('role', 'group');
+    var rUS = el('button', 'United States', 'pill'), rIn = el('button', 'International (outside the US)', 'pill'); rUS.type = rIn.type = 'button'; bp.appendChild(rUS); bp.appendChild(rIn);
+    var ctryIn = input('text', '', { maxlength: '60', autocomplete: 'country-name', placeholder: 'e.g. Canada' }), ctryL = field('Which country?', ctryIn);
+    var intlNote = el('div', '🌍 Sellers outside the US are paid by international wire (SWIFT). You add your bank details later, in Seller Hub > Payments. Shipping from abroad may cost buyers more, so set your shipping prices to match.', 'small');
+    var rShow = function () { rUS.setAttribute('aria-pressed', region === 'us' ? 'true' : 'false'); rIn.setAttribute('aria-pressed', region === 'intl' ? 'true' : 'false'); ctryL.hidden = intlNote.hidden = region !== 'intl'; };
+    rUS.addEventListener('click', function () { region = 'us'; rShow(); }); rIn.addEventListener('click', function () { region = 'intl'; rShow(); }); rShow();
     var al = el('div', null, 'small dim');
     var als = el('span'); als.appendChild(document.createTextNode('You already signed the ')); var alt = el('a', 'VeeFam.io Terms of Service'); alt.href = '/terms.html'; alt.target = '_blank'; alt.rel = 'noopener'; als.appendChild(alt);
     als.appendChild(document.createTextNode('. As a seller they mean: VeeFam.io keeps ' + D.fee + '% of each sale and pays you the rest; you are fully responsible for your listings, sales and shipping; ship within 3 days of payment, describe pieces honestly, only sell what you own, and never take payment outside VeeFam.io.'));
     al.appendChild(als);
     var go = el('button', 'Open my shop', 'solid'); go.type = 'submit'; var m = status();
     f.appendChild(field('Shop name', name)); f.appendChild(field('About your shop', about, 'Optional.'));
-    f.appendChild(el('h3', 'Payouts: where we send your earnings')); f.appendChild(bankF.node);
+    f.appendChild(field('Where are you based?', bp)); f.appendChild(ctryL); f.appendChild(intlNote);
+    f.appendChild(el('div', 'No bank details needed to start: open your shop and list right away. Add where to send your earnings in Seller Hub > Payments whenever you are ready.', 'small dim'));
     f.appendChild(al); f.appendChild(go); f.appendChild(m);
     c.appendChild(el('h2', 'Your shop')); c.appendChild(f);
     c.appendChild(el('div', 'Signed in as ' + D.email, 'small dim'));
     box.appendChild(c);
     f.addEventListener('submit', function (ev) {
       ev.preventDefault(); go.disabled = true; m.textContent = 'Opening your shop…';
-      JF.api('/api/market', Object.assign({ do: 'apply', t: tok, as: AS, ak: AK, name: name.value, about: about.value, agree: true }, bankF.values())).then(function (r) {
+      JF.api('/api/market', Object.assign({ do: 'apply', t: tok, as: AS, ak: AK, name: name.value, about: about.value, agree: true, region: region, country: ctryIn.value })).then(function (r) {
         go.disabled = false;
         if (r.error) { m.textContent = r.error; return; }
         load();
@@ -165,7 +222,12 @@
       var sa = el('a', 'Open the back office'); sa.href = '/admin.html'; site.appendChild(sa);
       wrap.appendChild(site);
     } else if (AS) wrap.appendChild(el('div', 'You are viewing this shop as the V2V owner. Anything you change here is saved for this seller.', 'alert small'));
-    if (D.stripe && (D.stripe.state === 'none' || D.stripe.state === 'started')) {
+    if (!s.bankHint && !AS) {
+      var pn = el('div', null, 'alert small'); pn.style.cssText = 'flex-direction:row;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between';
+      pn.appendChild(el('span', 'Add your payout details so we can send your earnings. You can keep selling in the meantime.'));
+      var pb = el('button', 'Add payout details', 'solid'); pb.type = 'button'; pb.addEventListener('click', function () { tab = 'payouts'; dash(); });
+      pn.appendChild(pb); wrap.appendChild(pn);
+    } else if (D.stripe && (D.stripe.state === 'none' || D.stripe.state === 'started')) {
       var nudge = el('div', null, 'alert small'); nudge.style.cssText = 'flex-direction:row;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between';
       nudge.appendChild(el('span', D.stripe.state === 'started' ? 'Finish linking your bank so card sales pay you automatically.' : 'Get paid automatically: link your bank with Stripe and card sales go straight to you.'));
       var nb = el('button', 'Set up payouts', 'solid'); nb.type = 'button'; nb.addEventListener('click', function () { tab = 'payouts'; dash(); });
@@ -299,6 +361,7 @@
   // Payments: the money tiles, then payouts.
   function payments(pane) {
     var t = D.totals;
+    payoutCard(pane);
     var tiles = el('div', null, 'jf-tiles');
     [['PAID SALES', String(t.sales), ''], ['SOLD (PIECES + SHIPPING)', JF.cents(t.gross), ''], ['V2V FEE (' + D.fee + '%)', JF.cents(t.fee), ''], ['YOU EARNED', JF.cents(t.net), ''], ['PAID TO YOUR BANK BY STRIPE', JF.cents(t.byStripe || 0), ''], ['SENT BY V2V', JF.cents(t.paidOut), ''], ['V2V STILL OWES YOU', JF.cents(t.owed), 'gold']].forEach(function (x) {
       var d = el('div', null, 'jf-tile ' + x[2]); d.appendChild(el('span', x[0], 'label')); d.appendChild(el('b', x[1])); tiles.appendChild(d);
@@ -832,15 +895,14 @@
     c.appendChild(el('h2', 'Shop settings'));
     var f = el('form');
     var about = el('textarea', null, 'jf-ta'); about.maxLength = 400; about.value = s.about || '';
-    var bankS = bankFields(), bankOpen = !s.bankHint;
     var go = el('button', 'Save', 'solid'); go.type = 'submit'; var m = status();
     f.appendChild(field('About your shop', about));
     f.appendChild(el('h3', 'Payouts'));
     var bk = el('div'); bk.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;align-items:center';
-    bk.appendChild(el('span', s.bankHint ? (s.bankHint.type === 'savings' ? 'Savings' : 'Checking') + ' account ending ' + s.bankHint.last4 + ' · ' + s.bankHint.holder : 'No bank account yet. Add one so V2V can send your earnings.', s.bankHint ? '' : 'alert small'));
-    var chg = el('button', 'Change bank account', 'ghost'); chg.type = 'button'; if (s.bankHint) bk.appendChild(chg);
-    f.appendChild(bk); bankS.node.hidden = !bankOpen; f.appendChild(bankS.node);
-    chg.addEventListener('click', function () { bankOpen = true; bankS.node.hidden = false; chg.remove(); });
+    bk.appendChild(el('span', s.bankHint ? bankLine(s) : 'No payout details yet.', s.bankHint ? '' : 'alert small'));
+    var chg = el('button', s.bankHint ? 'Change in Payments' : 'Add payout details', 'ghost'); chg.type = 'button'; bk.appendChild(chg);
+    chg.addEventListener('click', function () { tab = 'payouts'; dash(); });
+    f.appendChild(bk);
     // Where packages ship from: needed for calculated shipping and for buying labels.
     var sf = s.shipFrom || {};
     f.appendChild(el('h2', 'Ship from'));
@@ -855,7 +917,7 @@
     c.appendChild(f);
     c.appendChild(el('div', 'Shop name: ' + s.name + ' · Signed in as ' + D.email + ' · JarFriends fee: ' + D.fee + '% of each sale. To rename your shop, contact JarFriends.', 'small dim'));
     pane.appendChild(c);
-    f.addEventListener('submit', function (ev) { ev.preventDefault(); go.disabled = true; JF.api('/api/market', Object.assign({ do: 'profile', t: tok, as: AS, ak: AK, shipFrom: { name: fn.value, street1: fs1.value, street2: fs2.value, city: fc.value, state: fst.value, zip: fz.value, phone: fp.value }, about: about.value }, bankOpen ? bankS.values() : {})).then(function (r) { go.disabled = false; m.textContent = r.error || 'Saved.'; if (!r.error) D.seller = r.seller; }); });
+    f.addEventListener('submit', function (ev) { ev.preventDefault(); go.disabled = true; JF.api('/api/market', Object.assign({ do: 'profile', t: tok, as: AS, ak: AK, shipFrom: { name: fn.value, street1: fs1.value, street2: fs2.value, city: fc.value, state: fst.value, zip: fz.value, phone: fp.value }, about: about.value })).then(function (r) { go.disabled = false; m.textContent = r.error || 'Saved.'; if (!r.error) D.seller = r.seller; }); });
   }
   // Back from Stripe's payout setup: show the payouts tab. "again" means the link ran out, so open a fresh one.
   var sq = new URLSearchParams(location.search).get('stripe');

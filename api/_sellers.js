@@ -131,11 +131,15 @@ async function apply(email, f) {
   let slug = slugify(name);
   if (slug.length < 2) return { error: 'Use letters or numbers in your shop name.' };
   if (['v2v', 'admin', 'owner', 'shop', 'house', 'market'].indexOf(slug) >= 0 || await bySlug(slug)) slug = (slug + '-' + crypto.randomBytes(2).toString('hex')).slice(0, 30);
-  // Payouts: the bank account their earnings are sent to (routing and account number), required to open a shop.
-  const bank = bankFrom(f);
+  // Where they are based (the US, or international), asked when the shop opens. Payout details are optional here:
+  // a seller can open a shop and list straight away, and add where to send their earnings later (Seller Hub >
+  // Payments). Earnings wait until they do.
+  const based = f.region === 'intl' ? 'intl' : 'us';
+  const hasBank = ['routing', 'account', 'iban', 'swift'].some((k) => String(f[k] || '').trim());
+  const bank = hasBank ? bankFrom(Object.assign({}, f, { region: based })) : { fields: { payHow: '', payTo: '' } };
   if (bank.error) return bank;
   if (!f.agree) return { error: 'Tick the box to agree to the seller terms.' };
-  const s = Object.assign({ slug: slug, name: name, email: String(email).trim().toLowerCase(), about: tidy(f.about, 400), status: autoApprove() ? 'approved' : 'pending', at: Date.now(), agreedFee: feePct() }, bank.fields);
+  const s = Object.assign({ slug: slug, name: name, email: String(email).trim().toLowerCase(), about: tidy(f.about, 400), status: autoApprove() ? 'approved' : 'pending', at: Date.now(), agreedFee: feePct(), based: based, country: based === 'intl' ? tidy(f.country, 60) : 'United States' }, bank.fields);
   await save(s);
   await store.write('sellers/e/' + hashOf(email) + '.json', { slug: slug });
   return { seller: s };
@@ -155,7 +159,34 @@ function unseal(b) {
 }
 // US routing numbers have a check digit: 3·(d1+d4+d7) + 7·(d2+d5+d8) + (d3+d6+d9) must end in 0.
 const routingOk = (r) => /^[0-9]{9}$/.test(r) && (3 * (+r[0] + +r[3] + +r[6]) + 7 * (+r[1] + +r[4] + +r[7]) + (+r[2] + +r[5] + +r[8])) % 10 === 0;
+// International payouts go by SWIFT wire: the bank's SWIFT/BIC code plus an IBAN (most of Europe, the Middle East and
+// more) or the plain account number where IBANs are not used.
+const swiftOk = (c) => /^[A-Z]{4}[A-Z]{2}[A-Z0-9]{2}([A-Z0-9]{3})?$/.test(c);
+function ibanOk(i) {
+  if (!/^[A-Z]{2}[0-9]{2}[A-Z0-9]{10,30}$/.test(i)) return false;
+  const r = (i.slice(4) + i.slice(0, 4)).replace(/[A-Z]/g, (ch) => String(ch.charCodeAt(0) - 55));
+  let m = 0; for (const d of r) m = (m * 10 + +d) % 97;
+  return m === 1;
+}
+function intlFrom(f) {
+  const tidy = (v, n) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n);
+  const holder = tidy(f.bankName, 80), inst = tidy(f.bankInst, 80), country = tidy(f.country, 60), addr = tidy(f.holderAddr, 200);
+  const swift = String(f.swift || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const acct = String(f.iban || '').toUpperCase().replace(/[^A-Z0-9]/g, ''), again = String(f.iban2 == null ? acct : f.iban2).toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (holder.length < 2) return { error: 'Payouts: enter the name on the bank account.' };
+  if (country.length < 2) return { error: 'Payouts: enter the country your bank is in.' };
+  if (inst.length < 2) return { error: 'Payouts: enter the name of your bank.' };
+  if (!swiftOk(swift)) return { error: 'Payouts: that SWIFT/BIC code does not look right. It is 8 or 11 letters and numbers, like DEUTDEFF.' };
+  const isIban = /^[A-Z]{2}[0-9]{2}/.test(acct) && acct.length >= 15;
+  if (isIban && !ibanOk(acct)) return { error: 'Payouts: that IBAN is not right. Check it against your bank statement.' };
+  if (!isIban && !/^[A-Z0-9]{4,34}$/.test(acct)) return { error: 'Payouts: enter your IBAN or account number.' };
+  if (acct !== again) return { error: 'Payouts: the two account numbers do not match.' };
+  if (addr.length < 5) return { error: 'Payouts: enter the account holder\'s address (international wires need it).' };
+  const hint = { type: 'intl', last4: acct.slice(-4), holder: holder, country: country };
+  return { fields: { bank: seal({ region: 'intl', holder: holder, bank: inst, country: country, swift: swift, iban: isIban ? acct : '', account: isIban ? '' : acct, address: addr, at: Date.now() }), bankHint: hint, payHow: 'wire', payTo: 'SWIFT wire to ' + inst + ' ••' + hint.last4 + ' (' + country + ')', based: 'intl', country: country } };
+}
 function bankFrom(f) {
+  if (f.region === 'intl') return intlFrom(f);
   const holder = String(f.bankName || '').replace(/\s+/g, ' ').trim().slice(0, 80);
   const routing = String(f.routing || '').replace(/[^0-9]/g, ''), account = String(f.account || '').replace(/[^0-9]/g, ''), again = String(f.account2 == null ? account : f.account2).replace(/[^0-9]/g, '');
   const type = f.accType === 'savings' ? 'savings' : 'checking';
@@ -164,7 +195,7 @@ function bankFrom(f) {
   if (!/^[0-9]{4,17}$/.test(account)) return { error: 'Payouts: enter the account number (4 to 17 digits).' };
   if (account !== again) return { error: 'Payouts: the two account numbers do not match.' };
   const hint = { type: type, last4: account.slice(-4), holder: holder };
-  return { fields: { bank: seal({ holder: holder, routing: routing, account: account, type: type, at: Date.now() }), bankHint: hint, payHow: 'bank', payTo: (type === 'savings' ? 'Savings' : 'Checking') + ' ••' + hint.last4 } };
+  return { fields: { bank: seal({ region: 'us', holder: holder, routing: routing, account: account, type: type, at: Date.now() }), bankHint: hint, payHow: 'bank', payTo: (type === 'savings' ? 'Savings' : 'Checking') + ' ••' + hint.last4, based: 'us', country: 'United States' } };
 }
 const bankOf = (s) => unseal(s && s.bank);
 // A seller record without the sealed bank details, for pages.
@@ -437,6 +468,8 @@ async function notifySale(n, kind) {
   // A piece that is also on eBay: remind the seller to end that listing so it cannot sell twice.
   const l = (await listings()).filter((x) => x.id === sale.pid)[0];
   if (l && l.ebay && l.ebay.url) lines.push('', 'This piece is also listed on eBay. End that listing now so it does not sell twice: ' + l.ebay.url);
+  // No payout details yet: their earnings wait until they add them.
+  if (paid && !seller.bank) lines.push('', 'Add your payout details so we can send your earnings (Seller Hub > Payments): ' + portal + '. Your money is safe and waits for you until then.');
   return mail(seller.email, (paid ? 'Paid, ship it: ' : 'New order (not paid yet): ') + (d.product || 'your piece'), lines, 'seller-sale-' + n + '-' + (paid ? 'paid' : 'placed')).catch((e) => { console.error('SELLER_NOTIFY_FAIL', n, String(e && e.message || e)); return 'failed'; });
 }
 
