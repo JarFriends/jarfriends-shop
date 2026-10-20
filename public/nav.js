@@ -22,9 +22,9 @@
   function banner() {
     if (document.querySelector('.jfn-give') || location.pathname === '/giveaway.html') return;
     var a = document.createElement('a'); a.className = 'jfn-give'; a.href = '/giveaway.html';
-    a.innerHTML = '<b>2% of every sale goes back to the community</b><span class="jfn-nft"> · VeeFriends Series 1 &amp; 2 NFT giveaways</span> · <span class="jfn-w"></span>Vote →';
+    a.innerHTML = 'Community wallet: <b class="jfn-w">$0.00</b>';
     document.body.insertBefore(a, document.body.firstChild);
-    var show = function (c) { if (c > 0) a.querySelector('.jfn-w').textContent = 'Wallet $' + (c / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' · '; };
+    var show = function (c) { a.querySelector('.jfn-w').textContent = '$' + ((c || 0) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
     var kept = null; try { kept = JSON.parse(sessionStorage.getItem('v2vWallet') || 'null'); } catch (e) { kept = null; }
     if (kept && Date.now() - kept.at < 120000) return show(kept.c);
     fetch('/api/market?do=giveaway', { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
