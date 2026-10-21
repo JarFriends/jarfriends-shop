@@ -227,4 +227,35 @@ async function endLot(seller) {
 }
 // What the seller sees: their show, plus who is bidding (names only).
 const forSeller = (show) => { const s = JSON.parse(JSON.stringify(show)); if (s.lot) delete s.lot.byEmail; if (s.deal) s.deal.claims.forEach((c) => { delete c.pay; }); return s; };
-module.exports = { claim, putDeal, endDeal, camOn, watchToken, sellerToken, list, view, bid, say, mine, setShow, putUp, endLot, forSeller, streamOf, inc };
+// ---- Clips: viewers record up to 25 seconds of a camera show in their browser and post it to the show.
+// Files: clips/<id>.<webm|mp4> (private storage, handed out by the clip-file route); live/<slug>/clips/<id>.json.
+async function addClip(slug, me, b) {
+  const show = await get(slug);
+  if (!show) return { error: 'That show was not found.' };
+  const type = /mp4/.test(String(b.type || '')) ? 'video/mp4' : 'video/webm';
+  const buf = Buffer.from(String(b.data || '').replace(/^data:[^,]*,/, ''), 'base64');
+  if (buf.length < 5000) return { error: 'That clip is too short. Record a few seconds.' };
+  if (buf.length > 3200000) return { error: 'That clip is too big. Keep it under 25 seconds.' };
+  const id = 'C' + Date.now().toString(36).toUpperCase() + crypto.randomBytes(2).toString('hex').toUpperCase();
+  const { put: bput } = await import('@vercel/blob');
+  await bput('clips/' + id + (type === 'video/mp4' ? '.mp4' : '.webm'), buf, { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: type });
+  const meta = { id: id, slug: slug, by: hash(me), byName: nameOf(me), title: String(b.title || '').replace(/\s+/g, ' ').trim().slice(0, 80), type: type, secs: Math.min(30, Math.max(1, Math.round(Number(b.secs) || 0))), at: Date.now() };
+  await store.write('live/' + slug + '/clips/' + id + '.json', meta);
+  return { ok: true, clip: meta };
+}
+async function clips(slug) {
+  if (!store.on()) return [];
+  const { list: ls } = await import('@vercel/blob');
+  const r = await ls({ prefix: 'live/' + slug + '/clips/', limit: 1000 });
+  const all = (await Promise.all((r.blobs || []).map((x) => store.read(x.pathname)))).filter(Boolean);
+  return all.sort((a, b) => b.at - a.at).slice(0, 40).map((c) => ({ id: c.id, byName: c.byName, title: c.title, secs: c.secs, at: c.at, url: '/api/market?do=clip-file&id=' + c.id + '&k=' + (c.type === 'video/mp4' ? 'mp4' : 'webm') }));
+}
+async function clipFile(id, kind) {
+  if (!/^C[0-9A-Z]{6,24}$/.test(String(id || ''))) return null;
+  const ext = kind === 'mp4' ? 'mp4' : 'webm';
+  const { get: bget } = await import('@vercel/blob');
+  const r = await bget('clips/' + id + '.' + ext, { access: 'private' }).catch(() => null);
+  if (!r || r.statusCode !== 200 || !r.stream) return null;
+  return { buf: Buffer.from(await new Response(r.stream).arrayBuffer()), type: ext === 'mp4' ? 'video/mp4' : 'video/webm' };
+}
+module.exports = { addClip, clips, clipFile, claim, putDeal, endDeal, camOn, watchToken, sellerToken, list, view, bid, say, mine, setShow, putUp, endLot, forSeller, streamOf, inc };

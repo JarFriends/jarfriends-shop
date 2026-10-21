@@ -91,6 +91,7 @@
   var wrap = el('div', null, 'lv-wrap'); main.appendChild(wrap);
   var video = el('div', null, 'lv-video'); var left = el('div'); left.style.cssText = 'display:flex;flex-direction:column;gap:10px'; left.appendChild(video);
   var past = el('div', null, 'lv-past'); left.appendChild(past); wrap.appendChild(left);
+  setTimeout(function () { left.appendChild(clipsBox); loadClips(); }, 0);
   var panel = el('div', null, 'lv-panel'); wrap.appendChild(panel);
   var wonBox = el('div'); var dealBox = el('div'); var lotBox = el('div'); var dealKey = ''; var msg = el('div', '', 'small'); msg.setAttribute('role', 'status');
   var chat = el('div', null, 'lv-chat'), msgs = el('div', null, 'lv-msgs'), say = el('form', null, 'lv-say'), sayIn = el('input'), sayGo = el('button', 'Send', 'solid');
@@ -101,7 +102,7 @@
     var st = D.stream || {}, key = st.embed + '|' + st.url + '|' + D.status;
     if (key === streamKey) return; streamKey = key; video.textContent = '';
     if (D.status === 'live' && st.kind === 'camera') { watchCam(); return; }
-    if (D.status === 'live' && st.embed) { var f = el('iframe'); f.src = st.embed; f.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen'; f.allowFullscreen = true; f.title = 'Live stream'; video.appendChild(f); return; }
+    if (D.status === 'live' && st.embed) { var f = el('iframe'); f.src = st.embed; f.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen'; f.allowFullscreen = true; f.title = 'Live stream'; video.appendChild(f); if (!document.getElementById('lvTip')) { var tip = el('div', 'To clip this stream, use the Clip button on ' + (st.kind === 'twitch' ? 'Twitch' : 'YouTube') + '.', 'small dim'); tip.id = 'lvTip'; video.parentNode.insertBefore(tip, video.nextSibling); } return; }
     var off = el('div', null, 'lv-off');
     if (D.status === 'live' && st.url) {
       off.appendChild(el('b', 'The stream is on ' + ({ tiktok: 'TikTok', instagram: 'Instagram', facebook: 'Facebook', youtube: 'YouTube', twitch: 'Twitch' }[st.kind] || 'another site') + '.'));
@@ -112,14 +113,76 @@
     video.appendChild(off);
   }
   // The seller is live from the site itself (LiveKit): join the show's room as a viewer and play their camera.
-  var room = null;
+  var room = null, live = {};
+  // Clips: record up to 25 seconds of the live video in this browser, then post it to the show, save it or share it.
+  var clipBtn = el('button', '✂️ Clip', 'solid'); clipBtn.type = 'button'; clipBtn.hidden = true; clipBtn.style.cssText = 'position:absolute;right:10px;bottom:10px;z-index:3';
+  var rec = null, recParts = [], recStart = 0, recTimer = null, MAXS = 25;
+  clipBtn.addEventListener('click', function () {
+    if (rec) { rec.stop(); return; }
+    if (!tok) { location.href = '/me.html'; return; }
+    if (!window.MediaRecorder || !live.video) { msg.textContent = 'Your browser cannot record clips. Try Chrome or Safari.'; return; }
+    var tracks = [live.video]; if (live.audio) tracks.push(live.audio);
+    var type = ['video/mp4;codecs=avc1,mp4a', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'].filter(function (t) { return MediaRecorder.isTypeSupported(t); })[0] || '';
+    try { rec = new MediaRecorder(new MediaStream(tracks), { mimeType: type, videoBitsPerSecond: 700000, audioBitsPerSecond: 64000 }); } catch (e) { msg.textContent = 'Recording did not start in this browser.'; return; }
+    recParts = []; recStart = Date.now();
+    rec.ondataavailable = function (ev) { if (ev.data && ev.data.size) recParts.push(ev.data); };
+    rec.onstop = function () { clearInterval(recTimer); var secs = Math.round((Date.now() - recStart) / 1000); var blob = new Blob(recParts, { type: rec.mimeType || type || 'video/webm' }); rec = null; clipBtn.textContent = '✂️ Clip'; review(blob, secs); };
+    rec.start(1000);
+    recTimer = setInterval(function () { var t = Math.round((Date.now() - recStart) / 1000); clipBtn.textContent = '■ Stop (' + (MAXS - t) + 's)'; if (t >= MAXS && rec) rec.stop(); }, 250);
+    clipBtn.textContent = '■ Stop (' + MAXS + 's)';
+  });
+  function review(blob, secs) {
+    var bg = el('div'); bg.style.cssText = 'position:fixed;inset:0;z-index:2147483600;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;padding:16px';
+    var box = el('div', null, 'card'); box.style.cssText = 'max-width:460px;width:100%;gap:10px;display:flex;flex-direction:column';
+    box.appendChild(el('b', 'Your clip (' + secs + 's)'));
+    var v = el('video'); v.src = URL.createObjectURL(blob); v.controls = true; v.playsInline = true; v.autoplay = true; v.muted = true; v.style.cssText = 'width:100%;border-radius:8px;background:#000'; box.appendChild(v);
+    var ti = el('input'); ti.placeholder = 'Give it a title (optional)'; ti.maxLength = 80; box.appendChild(ti);
+    var row = el('div'); row.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px';
+    var post = el('button', 'Post to the show', 'solid'), save = el('a', 'Save to my device', 'ghost'), x = el('button', 'Close', 'ghost'); post.type = x.type = 'button';
+    var ext = /mp4/.test(blob.type) ? 'mp4' : 'webm'; save.href = v.src; save.download = 'v2v-clip.' + ext; save.style.cssText = 'text-decoration:none;padding:10px 14px';
+    [post, save, x].forEach(function (n) { row.appendChild(n); }); box.appendChild(row);
+    var m = el('div', '', 'small'); box.appendChild(m);
+    x.addEventListener('click', function () { bg.remove(); });
+    post.addEventListener('click', function () {
+      if (blob.size > 3200000) { m.textContent = 'That clip is too big to post. Save it to your device instead, or record a shorter one.'; return; }
+      post.disabled = true; m.textContent = 'Posting…';
+      var fr = new FileReader(); fr.onload = function () {
+        JF.api('/api/market', { do: 'clip-add', t: tok, s: slug, data: fr.result, type: blob.type, secs: secs, title: ti.value }).then(function (r) {
+          if (r.error) { post.disabled = false; m.textContent = r.error; return; }
+          var link = location.origin + '/live.html?s=' + encodeURIComponent(slug) + '&clip=' + r.clip.id;
+          m.textContent = 'Posted! '; var sh = el('button', navigator.share ? 'Share it' : 'Copy link', 'ghost'); sh.type = 'button';
+          sh.addEventListener('click', function () { if (navigator.share) navigator.share({ title: ti.value || 'V2V live clip', url: link }).catch(function () {}); else { try { navigator.clipboard.writeText(link); sh.textContent = 'Copied!'; } catch (e) { prompt('Copy this link:', link); } } });
+          m.appendChild(sh); loadClips();
+        });
+      }; fr.readAsDataURL(blob);
+    });
+    bg.appendChild(box); document.body.appendChild(bg);
+  }
+  // The show's clips, under the video. ?clip=<id> opens straight to one.
+  var clipsBox = el('div'); clipsBox.style.cssText = 'display:flex;flex-direction:column;gap:8px'; var wantClip = new URLSearchParams(location.search).get('clip') || '';
+  function loadClips() {
+    JF.api('/api/market?do=clips&s=' + encodeURIComponent(slug)).then(function (r) {
+      clipsBox.textContent = ''; var list = r.clips || []; if (!list.length) return;
+      clipsBox.appendChild(el('b', '✂️ Clips from this show'));
+      var g = el('div'); g.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px';
+      list.forEach(function (c) {
+        var w = el('div'); w.style.cssText = 'display:flex;flex-direction:column;gap:4px';
+        var v = el('video'); v.src = c.url; v.controls = true; v.playsInline = true; v.preload = 'metadata'; v.style.cssText = 'width:100%;aspect-ratio:9/16;object-fit:cover;border-radius:8px;background:#000';
+        w.appendChild(v); w.appendChild(el('span', (c.title || 'Clip') + ' · @' + c.byName, 'small dim')); g.appendChild(w);
+        if (c.id === wantClip) { wantClip = ''; setTimeout(function () { w.scrollIntoView({ behavior: 'smooth', block: 'center' }); v.play().catch(function () {}); }, 400); }
+      });
+      clipsBox.appendChild(g);
+    }).catch(function () {});
+  }
   function lkLoad() { return window.LivekitClient ? Promise.resolve() : new Promise(function (ok, no) { var sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/livekit-client@2.15.0/dist/livekit-client.umd.js'; sc.onload = ok; sc.onerror = no; document.head.appendChild(sc); }); }
   function watchCam() {
+    video.appendChild(clipBtn);
     var off = el('div', null, 'lv-off'); off.appendChild(el('b', 'Connecting to the live video…')); video.appendChild(off);
     Promise.all([lkLoad(), JF.api('/api/market?do=show-token&s=' + encodeURIComponent(slug))]).then(function (x) {
       var r = x[1]; if (r.error) { off.textContent = r.error; return; }
       var LK = window.LivekitClient; room = new LK.Room({ adaptiveStream: true });
       room.on(LK.RoomEvent.TrackSubscribed, function (track) {
+        live[track.kind] = track.mediaStreamTrack; clipBtn.hidden = !live.video;
         var m = track.attach(); if (track.kind === 'video') { off.remove(); m.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000'; m.playsInline = true; video.appendChild(m); } else { m.style.display = 'none'; video.appendChild(m); }
       });
       room.on(LK.RoomEvent.TrackUnsubscribed, function (track) { track.detach().forEach(function (n) { n.remove(); }); });

@@ -172,6 +172,22 @@ module.exports = async (req, res) => {
     }
     // Live shows (see _live.js): which are on, and one show as a viewer sees it (polled every couple of seconds).
     if (what === 'live') return res.json({ shows: await require('./_live').list() });
+    if (what === 'clips') return res.json({ clips: await require('./_live').clips(String(q.s || '').toLowerCase().slice(0, 30)) });
+    // One clip's video, with byte ranges so phones (Safari) can play and seek it.
+    if (what === 'clip-file') {
+      const f = await require('./_live').clipFile(String(q.id || ''), String(q.k || ''));
+      if (!f) return res.status(404).send('Not found');
+      res.setHeader('Content-Type', f.type); res.setHeader('Accept-Ranges', 'bytes'); res.setHeader('Cache-Control', 'public, max-age=86400');
+      const m = /bytes=(\d*)-(\d*)/.exec(String(req.headers.range || ''));
+      if (m) {
+        const total = f.buf.length, start = m[1] ? Number(m[1]) : Math.max(0, total - Number(m[2] || 0)), end = m[1] && m[2] ? Math.min(Number(m[2]), total - 1) : total - 1;
+        if (start >= total || start > end) { res.setHeader('Content-Range', 'bytes */' + total); return res.status(416).end(); }
+        res.setHeader('Content-Range', 'bytes ' + start + '-' + end + '/' + total); res.setHeader('Content-Length', String(end - start + 1));
+        return res.status(206).send(f.buf.subarray(start, end + 1));
+      }
+      res.setHeader('Content-Length', String(f.buf.length));
+      return res.status(200).send(f.buf);
+    }
     if (what === 'show-token') { const r = await require('./_live').watchToken(String(q.s || '').toLowerCase().slice(0, 30)); return res.status(r.error ? 400 : 200).json(r); }
     if (what === 'show' && req.method === 'GET') {
       const v = await require('./_live').view(String(q.s || '').toLowerCase().slice(0, 30), q.t ? gate.emailOf(String(q.t)) : '');
@@ -400,6 +416,12 @@ module.exports = async (req, res) => {
     }
 
     // Live show: bid on the piece that is up, or say something in the chat.
+    if (what === 'clip-add' && req.method === 'POST') {
+      const k = 'clip|' + me, now3 = Date.now(), seen3 = (photoHits.get(k) || []).filter((t3) => now3 - t3 < 3600000);
+      if (seen3.length >= 10) return res.status(429).json({ error: 'That is a lot of clips this hour. Try again later.' });
+      seen3.push(now3); photoHits.set(k, seen3);
+      const r = await require('./_live').addClip(String(b.s || '').toLowerCase().slice(0, 30), me, b); return res.status(r.error ? 400 : 200).json(r);
+    }
     if ((what === 'live-bid' || what === 'live-chat' || what === 'live-claim') && req.method === 'POST') {
       const L = require('./_live'), sl = String(b.s || '').toLowerCase().slice(0, 30);
       const k = 'lv|' + me, now2 = Date.now(), seen = (photoHits.get(k) || []).filter((t2) => now2 - t2 < 60000);
