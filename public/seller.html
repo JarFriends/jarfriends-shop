@@ -235,13 +235,13 @@
     }
     var tabs = el('div', null, 'hub-tabs'); tabs.setAttribute('role', 'tablist');
     var toShip = D.orders.filter(function (o) { return o.paid && !o.tracking; }).length;
-    [['overview', 'Overview'], ['orders', 'Orders' + (toShip ? ' (' + toShip + ')' : '')], ['listings', 'Listings'], ['offers', 'Offers'], ['trades', 'Trades'], ['marketing', 'Marketing'], ['reviews', 'Performance'], ['payouts', 'Payments'], ['profit', 'Profit & taxes'], ['research', 'Research'], ['settings', 'Settings']].forEach(function (x) {
+    [['overview', 'Overview'], ['orders', 'Orders' + (toShip ? ' (' + toShip + ')' : '')], ['listings', 'Listings'], ['live', '🔴 Live'], ['offers', 'Offers'], ['trades', 'Trades'], ['marketing', 'Marketing'], ['reviews', 'Performance'], ['payouts', 'Payments'], ['profit', 'Profit & taxes'], ['research', 'Research'], ['settings', 'Settings']].forEach(function (x) {
       var b = el('button', x[1]); b.type = 'button'; b.setAttribute('aria-pressed', tab === x[0] ? 'true' : 'false');
       b.addEventListener('click', function () { tab = x[0]; editing = null; adding = false; dash(); }); tabs.appendChild(b);
     });
     wrap.appendChild(tabs);
     var pane = el('div'); pane.style.cssText = 'display:flex;flex-direction:column;gap:18px';
-    ({ overview: overview, listings: listings, marketing: posts, reviews: performance, offers: offers, trades: trades, orders: orders, payouts: payments, profit: profit, research: research, settings: settings })[tab](pane);
+    ({ overview: overview, live: liveTab, listings: listings, marketing: posts, reviews: performance, offers: offers, trades: trades, orders: orders, payouts: payments, profit: profit, research: research, settings: settings })[tab](pane);
     wrap.appendChild(pane);
     var out = el('button', 'Sign out', 'ghost'); out.type = 'button'; out.style.alignSelf = 'flex-start';
     out.addEventListener('click', function () { if (AS) { location.href = '/admin.html'; return; } JF.signOut(); location.reload(); });
@@ -371,6 +371,80 @@
     payouts(pane);
   }
   // Research: what your pieces are worth, from what sold on V2V.
+  // Live shows: paste your stream link, go live, then put pieces up one at a time with a starting bid and a countdown.
+  // Buyers watch and bid at /live.html?s=<your shop>. The top bid when the clock runs out wins (api/_live.js).
+  var livePoll = null;
+  function liveTab(pane) {
+    if (livePoll) { clearInterval(livePoll); livePoll = null; }
+    var c = el('section', null, 'card'); c.style.gap = '14px'; pane.appendChild(c);
+    c.appendChild(el('h2', 'Sell live'));
+    if (D.seller.status !== 'approved') { c.appendChild(el('div', 'Your shop needs to be approved before you can go live.', 'alert small')); return; }
+    var body = el('div'); body.style.cssText = 'display:flex;flex-direction:column;gap:14px'; c.appendChild(body);
+    var m = status(); c.appendChild(m);
+    var S = null;
+    var call = function (b) { m.textContent = 'Working…'; return JF.api('/api/market', Object.assign({ t: tok, as: AS, ak: AK }, b)).then(function (r) { m.textContent = r.error || ''; if (r.show) { S = r.show; draw(); } return r; }); };
+    var usd = function (c2) { return '$' + (c2 / 100).toFixed(2); };
+    var page = location.origin + '/live.html?s=' + encodeURIComponent(D.seller.slug);
+    function draw() {
+      body.textContent = '';
+      var live = S.status === 'live';
+      var top = el('div'); top.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;align-items:center';
+      top.appendChild(el('b', live ? '🔴 You are LIVE' : S.status === 'scheduled' ? 'Scheduled for ' + new Date(S.startsAt).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) : 'Not live'));
+      var a = el('a', 'Your show page ↗'); a.href = page; a.target = '_blank'; a.rel = 'noopener'; top.appendChild(a);
+      var cp = el('button', 'Copy link to share', 'ghost'); cp.type = 'button'; cp.addEventListener('click', function () { try { navigator.clipboard.writeText(page); cp.textContent = 'Copied!'; } catch (e) { prompt('Copy this link:', page); } }); top.appendChild(cp);
+      body.appendChild(top);
+      // 1. The stream
+      var t1 = input('text', S.title || '', { maxlength: '80', placeholder: 'e.g. Friday night VeeFriends breaks' });
+      var u1 = input('url', S.url || '', { maxlength: '300', placeholder: 'https://www.youtube.com/live/… or https://twitch.tv/yourname' });
+      body.appendChild(field('Show title', t1));
+      body.appendChild(field('Your stream link', u1, 'Go live on YouTube, Twitch, TikTok or Instagram as usual and paste the link. YouTube and Twitch play right on your show page; TikTok and Instagram open in a new tab while buyers bid here.'));
+      var acts = el('div'); acts.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;align-items:center';
+      if (!live) {
+        var go = el('button', '🔴 Go live now', 'solid'); go.type = 'button'; go.addEventListener('click', function () { call({ do: 'live-set', action: 'go', title: t1.value, url: u1.value }); }); acts.appendChild(go);
+        var when = input('datetime-local', '', {}); var sch = el('button', 'Schedule it', 'ghost'); sch.type = 'button';
+        sch.addEventListener('click', function () { if (!when.value) { m.textContent = 'Pick a date and time first.'; return; } call({ do: 'live-set', action: 'schedule', title: t1.value, url: u1.value, startsAt: new Date(when.value).toISOString() }); });
+        acts.appendChild(el('span', 'or', 'small dim')); acts.appendChild(when); acts.appendChild(sch);
+      } else {
+        var sv = el('button', 'Save title and link', 'ghost'); sv.type = 'button'; sv.addEventListener('click', function () { call({ do: 'live-set', title: t1.value, url: u1.value }); }); acts.appendChild(sv);
+        var end = el('button', 'End the show', 'ghost'); end.type = 'button'; end.addEventListener('click', function () { if (confirm('End your live show?')) call({ do: 'live-set', action: 'end' }); }); acts.appendChild(end);
+      }
+      body.appendChild(acts);
+      if (!live) return;
+      // 2. The piece that is up, or put one up
+      body.appendChild(el('h3', 'Up for bids'));
+      if (S.lot && S.lot.endsAt > Date.now()) {
+        var L = S.lot, box = el('div', null, 'hub-card');
+        box.appendChild(el('b', L.name));
+        var tl = el('div', '', 'small');
+        var upd = function () { var left = Math.max(0, Math.ceil((L.endsAt - Date.now()) / 1000)); tl.textContent = (L.bid ? 'Top bid ' + usd(L.bid) + ' by @' + L.byName + ' · ' + L.n + ' bids' : 'Starting at ' + usd(L.start) + ' · no bids yet') + ' · ' + left + 's left'; };
+        upd(); box.appendChild(tl);
+        var en = el('button', 'End it now', 'ghost'); en.type = 'button'; en.style.alignSelf = 'flex-start'; en.addEventListener('click', function () { call({ do: 'live-lot-end' }); }); box.appendChild(en);
+        body.appendChild(box);
+        var tk = setInterval(function () { if (!document.body.contains(tl)) { clearInterval(tk); return; } upd(); }, 500);
+      } else {
+        var mineL = D.listings.filter(function (p) { return !p.removed && !p.hidden && !p.auction && p.left > 0; });
+        if (!mineL.length) { body.appendChild(el('div', 'Add pieces in Listings first (Buy now pieces with stock left), then put them up here.', 'small dim')); }
+        else {
+          var pick = select(mineL.map(function (p) { return [p.id, p.name + ' (' + p.left + ' left)']; }), mineL[0].id);
+          var st = input('number', '1', { min: '1', step: '1', inputmode: 'decimal' });
+          var secs = select([['15', '15 seconds'], ['20', '20 seconds'], ['30', '30 seconds'], ['45', '45 seconds'], ['60', '1 minute'], ['90', '90 seconds']], '30');
+          body.appendChild(field('Piece', pick));
+          var tw = el('div', null, 'two'); tw.appendChild(field('Starting bid (USD)', st)); tw.appendChild(field('Countdown', secs, 'A bid in the last 10 seconds puts the clock back to 10.')); body.appendChild(tw);
+          var up = el('button', 'Put it up for bids', 'solid'); up.type = 'button'; up.style.alignSelf = 'flex-start';
+          up.addEventListener('click', function () { call({ do: 'live-lot', pid: pick.value, start: st.value, secs: secs.value }); });
+          body.appendChild(up);
+        }
+      }
+      // 3. Sold so far
+      if (S.sold && S.sold.length) {
+        body.appendChild(el('h3', 'Sold this show'));
+        S.sold.slice(0, 20).forEach(function (x) { body.appendChild(el('div', x.name + ' · ' + (x.price ? usd(x.price) + ' to @' + x.byName + ' (they get a pay link; you get the usual "Paid, ship it" email once they pay)' : 'no bids'), 'small')); });
+      }
+    }
+    call({ do: 'live-mine' });
+    // Keep the seller's view fresh while live (every 2 seconds), only while this tab is open.
+    livePoll = setInterval(function () { if (tab !== 'live' || !document.body.contains(body)) { clearInterval(livePoll); livePoll = null; return; } if (S && S.status === 'live' && !document.hidden && !body.contains(document.activeElement)) JF.api('/api/market?do=live-mine&t=' + encodeURIComponent(tok) + (AS ? '&as=' + encodeURIComponent(AS) + '&ak=' + encodeURIComponent(AK) : '')).then(function (r) { if (r.show) { S = r.show; draw(); } }); }, 2000);
+  }
   function research(pane) {
     var c = el('section', null, 'card'); c.style.gap = '12px';
     c.appendChild(el('h2', 'Research'));

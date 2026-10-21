@@ -170,6 +170,12 @@ module.exports = async (req, res) => {
       if (!r.ok) { const t = (await r.text()).slice(0, 300); console.error('AI_CHECK_FAIL', r.status, t); return res.json({ ok: false, status: r.status, why: t.replace(/sk-[A-Za-z0-9_-]+/g, '') }); }
       return res.json({ ok: true, via: A.url().indexOf('vercel') > 0 ? 'Vercel AI Gateway' : 'Anthropic', model: A.model() });
     }
+    // Live shows (see _live.js): which are on, and one show as a viewer sees it (polled every couple of seconds).
+    if (what === 'live') return res.json({ shows: await require('./_live').list() });
+    if (what === 'show' && req.method === 'GET') {
+      const v = await require('./_live').view(String(q.s || '').toLowerCase().slice(0, 30), q.t ? gate.emailOf(String(q.t)) : '');
+      return v ? res.json(v) : res.status(404).json({ error: 'That show was not found.' });
+    }
     // The owner's own pages (/p/<address>) and the menu links to them (see _pages.js).
     if (what === 'pages-menu') { res.setHeader('cache-control', 'public, max-age=0, s-maxage=20'); return res.json(await require('./_pages').menu()); }
     if (what === 'page' && req.method === 'GET') { const pg = await require('./_pages').one(String(q.slug || ''), gate.isAdmin(q.ak)); return pg ? res.json({ page: pg }) : res.status(404).json({ error: 'This page was not found.' }); }
@@ -392,6 +398,16 @@ module.exports = async (req, res) => {
       return res.json({ ids: ids, items: ids.map((id) => live[id] || (names[id] ? { id: id, name: names[id].name, price: Number(names[id].price).toFixed(2), left: 0, gone: true, photo: photoOf(names[id]), sellerName: names[id].sellerName || 'JarFriends' } : null)).filter(Boolean) });
     }
 
+    // Live show: bid on the piece that is up, or say something in the chat.
+    if ((what === 'live-bid' || what === 'live-chat') && req.method === 'POST') {
+      const L = require('./_live'), sl = String(b.s || '').toLowerCase().slice(0, 30);
+      const k = 'lv|' + me, now2 = Date.now(), seen = (photoHits.get(k) || []).filter((t2) => now2 - t2 < 60000);
+      if (seen.length >= 40) return res.status(429).json({ error: 'Slow down a little.' });
+      seen.push(now2); photoHits.set(k, seen);
+      if (what === 'live-bid') { const r = await L.bid(sl, me, b.amt); return res.status(r.error ? 400 : 200).json(r); }
+      const mineShop = await M.byEmail(me).catch(() => null), own = mineShop && mineShop.slug === sl ? mineShop.name : '';
+      const r = await L.say(sl, me, b.text, own); return res.status(r.error ? 400 : 200).json(r);
+    }
     // My completed orders from sellers, with my review of each (if any).
     if (what === 'reviewable') {
       const sellers = {};
@@ -468,6 +484,15 @@ module.exports = async (req, res) => {
       return res.json({ email: me, seller: M.safe(seller), fee: M.feePct(), sections: M.SECTIONS, listings: listings, orders: orders, profit: prof, views: views, payouts: outs, totals: M.totals(rows, outs), posts: feed, stripe: st, stats: myStats, reviews: myReviews, presets: require('./_ship').PRESETS, labelsOn: require('./_ship').ready() });
     }
     // Offers on my pieces. A pending one carries its answer key (t) for /api/offer: accept, counter or decline.
+    // ---------- Live shows, as the seller ----------
+    if (what === 'live-mine' || what === 'live-set' || what === 'live-lot' || what === 'live-lot-end') {
+      if (!seller) return res.status(403).json({ error: 'Open a seller shop first.' });
+      if (seller.status !== 'approved') return res.status(403).json({ error: 'Your shop needs to be approved before you can go live.' });
+      const L = require('./_live');
+      const r = what === 'live-mine' ? { ok: true, show: await L.mine(seller) } : what === 'live-set' ? await L.setShow(seller, b) : what === 'live-lot' ? await L.putUp(seller, b) : await L.endLot(seller);
+      if (r.show) r.show = L.forSeller(r.show);
+      return res.status(r.error ? 400 : 200).json(r);
+    }
     // ---------- Trades, as the seller ----------
     if (what === 'trades') {
       if (!seller) return res.status(403).json({ error: 'Open a seller shop first.' });

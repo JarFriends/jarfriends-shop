@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Live shows · V2V</title>
+<meta name="description" content="Live VeeFriends shows on V2V: watch, chat and bid in real time.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&family=IBM+Plex+Mono:wght@400;500&family=Playfair+Display:wght@600;700;800&display=swap">
+<link rel="stylesheet" href="/site.css">
+<link rel="stylesheet" href="/market.css">
+<style>
+.lv-wrap{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(300px,1fr);gap:16px;align-items:start}
+@media(max-width:860px){.lv-wrap{grid-template-columns:1fr}}
+.lv-video{position:relative;background:#000;border-radius:10px;overflow:hidden;aspect-ratio:16/9}
+.lv-video iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.lv-off{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;height:100%;padding:20px;text-align:center;color:#D6E2DA}
+.lv-badge{display:inline-flex;align-items:center;gap:6px;background:#E5484D;color:#fff;font:800 12px/1 Archivo,sans-serif;letter-spacing:.08em;padding:5px 9px;border-radius:4px}
+.lv-badge:before{content:"";width:7px;height:7px;border-radius:50%;background:#fff;animation:lvp 1.2s infinite}
+@keyframes lvp{50%{opacity:.3}}
+.lv-panel{display:flex;flex-direction:column;gap:12px}
+.lv-lot{border:2px solid #C9A45C;border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:10px;background:rgba(201,164,92,.06)}
+.lv-lot-top{display:flex;gap:12px;align-items:center}
+.lv-lot-top img{width:78px;height:78px;object-fit:cover;border-radius:6px;flex:none;background:#11261C}
+.lv-price{font:800 32px/1 "IBM Plex Mono",monospace;color:#C9A45C}
+.lv-timer{font:800 28px/1 "IBM Plex Mono",monospace}
+.lv-timer.hot{color:#E5484D}
+.lv-row{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.lv-bids{display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px}
+.lv-bids button{min-height:54px;font-size:17px;font-weight:800}
+.lv-sold{background:#1F4D36;border-radius:8px;padding:12px;font-weight:800;text-align:center;font-size:18px}
+.lv-chat{border:1px solid #244536;border-radius:10px;display:flex;flex-direction:column;height:300px}
+.lv-msgs{flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:6px;font-size:14px}
+.lv-msgs b{color:#C9A45C;margin-right:6px}
+.lv-say{display:flex;gap:6px;border-top:1px solid #244536;padding:8px}
+.lv-say input{flex:1;min-width:0;min-height:42px;font-size:16px}
+.lv-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.lv-card{border:1px solid #244536;border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:8px;text-decoration:none;color:inherit}
+.lv-card:hover{border-color:#C9A45C}
+.lv-past{display:flex;flex-direction:column;gap:6px;font-size:14px}
+.lv-won{background:#C9A45C;color:#0B1A13;border-radius:8px;padding:12px;font-weight:800;display:flex;flex-direction:column;gap:8px}
+.lv-won a{color:#0B1A13;background:#0B1A13;color:#F7F2E6;padding:10px 14px;border-radius:6px;text-align:center;text-decoration:none}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap bar"><a class="brand" href="/" style="text-decoration:none">V2V</a><span style="display:flex;align-items:center;gap:20px"><span class="mono dim">LIVE</span><a class="home" href="/">Shop</a></span></div></header>
+<main class="wrap page" id="main" style="gap:18px"><p class="dim">Loading…</p></main>
+<script src="/jf.js"></script>
+<script>
+// Live shows. /live.html lists who is live and who is coming up; /live.html?s=<shop> is one show: the seller's
+// stream next to the piece that is up, its countdown, bid buttons and the chat. It checks for news every 2 seconds.
+(function () {
+  var $ = function (id) { return document.getElementById(id); }, el = JF.el, tok = JF.token(), main = $('main');
+  var slug = (new URLSearchParams(location.search).get('s') || '').toLowerCase();
+  var usd = function (c) { return '$' + (c / 100).toLocaleString('en-US', { minimumFractionDigits: c % 100 ? 2 : 0, maximumFractionDigits: 2 }); };
+  var when = function (t) { return new Date(t).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); };
+  if (!slug) return listShows();
+
+  function listShows() {
+    main.textContent = '';
+    main.appendChild(el('h1', 'Live shows'));
+    main.appendChild(el('div', 'Sellers go live, put up pieces one at a time, and the top bid when the clock hits zero wins. Join in, chat and bid.', 'small'));
+    var box = el('div', 'Loading…', 'lv-list'); main.appendChild(box);
+    JF.api('/api/market?do=live').then(function (r) {
+      box.textContent = '';
+      if (!r.shows || !r.shows.length) { box.appendChild(el('div', 'Nobody is live right now. Check back soon, or subscribe at the top for news about shows.', 'small dim')); return; }
+      r.shows.forEach(function (s) {
+        var a = el('a', null, 'lv-card'); a.href = '/live.html?s=' + encodeURIComponent(s.slug);
+        var top = el('div', null, 'lv-row');
+        if (s.status === 'live') top.appendChild(el('span', 'LIVE', 'lv-badge')); else top.appendChild(el('span', 'Starts ' + when(s.startsAt), 'small gold'));
+        a.appendChild(top); a.appendChild(el('b', s.title || s.shop)); a.appendChild(el('span', 'by ' + s.shop, 'small dim'));
+        if (s.lot) a.appendChild(el('span', 'Up now: ' + s.lot.name, 'small'));
+        box.appendChild(a);
+      });
+    });
+  }
+
+  // ---- One show ----
+  var D = null, skew = 0, lotId = '', lastChat = 0, busy = false;
+  main.textContent = '';
+  var head = el('div', null, 'lv-row'); var h1 = el('h1', ''); h1.style.margin = '0'; head.appendChild(h1); main.appendChild(head);
+  var wrap = el('div', null, 'lv-wrap'); main.appendChild(wrap);
+  var video = el('div', null, 'lv-video'); var left = el('div'); left.style.cssText = 'display:flex;flex-direction:column;gap:10px'; left.appendChild(video);
+  var past = el('div', null, 'lv-past'); left.appendChild(past); wrap.appendChild(left);
+  var panel = el('div', null, 'lv-panel'); wrap.appendChild(panel);
+  var wonBox = el('div'); var lotBox = el('div'); var msg = el('div', '', 'small'); msg.setAttribute('role', 'status');
+  var chat = el('div', null, 'lv-chat'), msgs = el('div', null, 'lv-msgs'), say = el('form', null, 'lv-say'), sayIn = el('input'), sayGo = el('button', 'Send', 'solid');
+  sayIn.placeholder = tok ? 'Say something…' : 'Sign in to chat'; sayIn.maxLength = 200; sayGo.type = 'submit'; say.appendChild(sayIn); say.appendChild(sayGo); chat.appendChild(msgs); chat.appendChild(say);
+  [wonBox, lotBox, msg, chat].forEach(function (n) { panel.appendChild(n); });
+  var streamKey = '';
+  function drawVideo() {
+    var st = D.stream || {}, key = st.embed + '|' + st.url + '|' + D.status;
+    if (key === streamKey) return; streamKey = key; video.textContent = '';
+    if (D.status === 'live' && st.embed) { var f = el('iframe'); f.src = st.embed; f.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen'; f.allowFullscreen = true; f.title = 'Live stream'; video.appendChild(f); return; }
+    var off = el('div', null, 'lv-off');
+    if (D.status === 'live' && st.url) {
+      off.appendChild(el('b', 'The stream is on ' + ({ tiktok: 'TikTok', instagram: 'Instagram', facebook: 'Facebook', youtube: 'YouTube', twitch: 'Twitch' }[st.kind] || 'another site') + '.'));
+      off.appendChild(el('span', 'Open it to watch, and keep this page open to bid and chat.', 'small'));
+      var a = el('a', 'Watch the stream ↗', 'solid'); a.href = st.url; a.target = '_blank'; a.rel = 'noopener'; a.style.textDecoration = 'none'; off.appendChild(a);
+    } else if (D.status === 'scheduled') off.appendChild(el('b', 'This show starts ' + when(D.startsAt) + '.'));
+    else off.appendChild(el('b', 'This show has ended. Thanks for watching!'));
+    video.appendChild(off);
+  }
+  var timerEl = null, priceEl = null, bidBtns = [];
+  function drawLot() {
+    lotBox.textContent = ''; timerEl = null; bidBtns = [];
+    var L = D.lot;
+    if (!L) {
+      var last = D.sold[0];
+      if (last && Date.now() - last.at < 15000) lotBox.appendChild(el('div', last.price ? '🎉 SOLD to @' + last.byName + ' for ' + usd(last.price) : 'No bids. ' + last.name + ' passed.', 'lv-sold'));
+      else lotBox.appendChild(el('div', D.status === 'live' ? 'Waiting for the next piece…' : '', 'small dim'));
+      return;
+    }
+    var c = el('div', null, 'lv-lot');
+    var top = el('div', null, 'lv-lot-top');
+    if (L.photo) { var im = el('img'); im.src = L.photo; im.alt = ''; top.appendChild(im); }
+    var t = el('div'); t.appendChild(el('b', L.name)); if (L.desc) t.appendChild(el('div', L.desc.slice(0, 120), 'small dim')); top.appendChild(t); c.appendChild(top);
+    var row = el('div', null, 'lv-row');
+    var pr = el('div'); pr.appendChild(el('div', L.bid ? 'Top bid · @' + L.byName + (L.mine ? ' (you!)' : '') : 'Starting bid', 'small dim')); priceEl = el('div', usd(L.bid || L.start), 'lv-price'); pr.appendChild(priceEl);
+    var tm = el('div'); tm.style.textAlign = 'right'; tm.appendChild(el('div', L.n + (L.n === 1 ? ' bid' : ' bids'), 'small dim')); timerEl = el('div', '', 'lv-timer'); tm.appendChild(timerEl);
+    row.appendChild(pr); row.appendChild(tm); c.appendChild(row);
+    var bids = el('div', null, 'lv-bids');
+    [[L.next, 'Bid ' + usd(L.next)], [L.next + 500, '+$5'], [L.next + 1000, '+$10']].forEach(function (x, i) {
+      var b = el('button', x[1], i === 0 ? 'solid' : 'ghost'); b.type = 'button'; b.disabled = L.mine; b.addEventListener('click', function () { place(x[0]); }); bids.appendChild(b); bidBtns.push(b);
+    });
+    c.appendChild(bids);
+    if (L.mine) c.appendChild(el('div', 'You have the top bid. 🙌', 'small gold'));
+    if (!tok) { var si = el('a', 'Sign in to bid'); si.href = '/me.html'; c.appendChild(si); }
+    lotBox.appendChild(c);
+    tick();
+  }
+  function tick() {
+    if (!timerEl || !D.lot) return;
+    var left = Math.max(0, Math.ceil((D.lot.endsAt - (Date.now() + skew)) / 1000));
+    timerEl.textContent = '0:' + (left < 10 ? '0' : '') + left; if (left > 59) timerEl.textContent = Math.floor(left / 60) + ':' + ('0' + left % 60).slice(-2);
+    timerEl.className = 'lv-timer' + (left <= 5 ? ' hot' : '');
+    if (left === 0) bidBtns.forEach(function (b) { b.disabled = true; });
+  }
+  setInterval(tick, 250);
+  function drawRest() {
+    h1.textContent = D.title || D.shop; if (D.status === 'live' && !head.querySelector('.lv-badge')) head.insertBefore(el('span', 'LIVE', 'lv-badge'), h1);
+    document.title = (D.status === 'live' ? '🔴 ' : '') + (D.title || D.shop) + ' · V2V Live';
+    past.textContent = '';
+    if (D.sold.length) { past.appendChild(el('b', 'Sold this show')); D.sold.forEach(function (x) { past.appendChild(el('div', x.name + ' · ' + (x.price ? usd(x.price) + ' to @' + x.byName : 'no bids'), 'dim')); }); }
+    wonBox.textContent = '';
+    if (D.won) { var w = el('div', null, 'lv-won'); w.appendChild(el('span', '🎉 You won ' + D.won.name + ' for ' + usd(D.won.price) + '! Pay within 24 hours to claim it.')); var a = el('a', 'Pay now'); a.href = D.won.pay; w.appendChild(a); wonBox.appendChild(w); }
+    var newest = D.chat.length ? D.chat[D.chat.length - 1].at : 0;
+    if (newest !== lastChat) {
+      var atBottom = msgs.scrollTop + msgs.clientHeight >= msgs.scrollHeight - 30;
+      msgs.textContent = '';
+      if (!D.chat.length) msgs.appendChild(el('div', 'No messages yet. Say hi!', 'dim'));
+      D.chat.forEach(function (m) { var d = el('div'); d.appendChild(el('b', m.who)); d.appendChild(document.createTextNode(m.text)); msgs.appendChild(d); });
+      if (atBottom || !lastChat) msgs.scrollTop = msgs.scrollHeight; lastChat = newest;
+    }
+  }
+  function load() {
+    if (busy) return; busy = true;
+    fetch('/api/market?do=show&s=' + encodeURIComponent(slug) + (tok ? '&t=' + encodeURIComponent(tok) : ''), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (r) {
+      busy = false;
+      if (r.error) { main.textContent = r.error; clearInterval(poll); return; }
+      skew = r.now - Date.now();
+      var key = r.lot ? r.lot.id + '|' + r.lot.bid + '|' + r.lot.endsAt + '|' + r.lot.mine : 'none|' + (r.sold[0] ? r.sold[0].at : '');
+      D = r; drawVideo(); drawRest();
+      if (key !== lotId) { lotId = key; drawLot(); }
+    }).catch(function () { busy = false; });
+  }
+  function place(amt) {
+    if (!tok) { location.href = '/me.html'; return; }
+    msg.textContent = 'Placing your bid…'; bidBtns.forEach(function (b) { b.disabled = true; });
+    JF.api('/api/market', { do: 'live-bid', t: tok, s: slug, amt: amt }).then(function (r) {
+      if (r._status === 401) { JF.signOut(); tok = ''; msg.innerHTML = '<a href="/me.html">Sign in again</a> to bid.'; return; }
+      msg.textContent = r.error || 'You are the top bidder at ' + usd(r.bid) + '!';
+      lotId = ''; load();
+    });
+  }
+  say.addEventListener('submit', function (ev) {
+    ev.preventDefault(); if (!tok) { location.href = '/me.html'; return; }
+    var t = sayIn.value.trim(); if (!t) return; sayIn.value = '';
+    JF.api('/api/market', { do: 'live-chat', t: tok, s: slug, text: t }).then(function (r) { if (r.error) msg.textContent = r.error; load(); });
+  });
+  load(); var poll = setInterval(function () { if (!document.hidden) load(); }, 2000);
+})();
+</script>
+</body>
+</html>

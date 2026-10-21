@@ -71,6 +71,7 @@
 .v-hero{padding:26px 0 8px}.v-hero h1{font-size:clamp(26px,4.6vw,48px);text-transform:uppercase;line-height:1.08;margin:0;max-width:900px;letter-spacing:.01em}
 @media(max-width:640px){.v-hero{padding:14px 0 4px}.v-hero h1{font-size:24px!important}}
 .v-bar .jfn-paste{flex:1 1 100%;grid-column:1/-1;min-height:42px;margin:0;padding:8px 12px}
+.v-live{display:flex;align-items:center;gap:10px;border:2px solid #E5484D;border-radius:10px;padding:10px 14px;margin:6px 0 10px;text-decoration:none;color:inherit;font-weight:700}.v-live[hidden]{display:none}.v-live i{font-style:normal;background:#E5484D;color:#fff;font-size:12px;letter-spacing:.08em;padding:4px 8px;border-radius:4px}
 </style>
 </head>
 <body>
@@ -80,6 +81,7 @@
 </div></header>
 <main class="wrap">
   <div class="v-hero"><h1>A unique community needs a 1 of a kind marketplace.</h1></div>
+  <a class="v-live" id="liveNow" href="/live.html" hidden></a>
   <div class="v-bar" role="group" aria-label="Filter and sort">
     <div class="jf-filters" id="views"></div>
     <label class="grow" style="display:block"><span class="jf-sr">Search</span><input id="find" type="search" placeholder="Search pins, cards, stickers, a character…" autocomplete="off"></label>
@@ -235,6 +237,16 @@
   }).catch(function () { $('count').textContent = 'The pieces did not load. Refresh to try again.'; });
   if (tok) JF.api('/api/market?do=wish&t=' + encodeURIComponent(tok)).then(function (r) { if (r.ids) { r.ids.forEach(function (x) { wish[x] = true; }); draw(); } });
 })();
+</script>
+<script>
+// Someone live right now: a red strip under the headline that opens the show.
+fetch('/api/market?do=live', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (r) {
+  var live = (r.shows || []).filter(function (x) { return x.status === 'live'; }), a = document.getElementById('liveNow');
+  if (!live.length || !a) return;
+  a.href = live.length === 1 ? '/live.html?s=' + encodeURIComponent(live[0].slug) : '/live.html';
+  a.innerHTML = '<i>LIVE</i>'; a.appendChild(document.createTextNode(live.length === 1 ? (live[0].title || live[0].shop) + ' is live now · watch and bid →' : live.length + ' shows are live now · watch and bid →'));
+  a.hidden = false;
+}).catch(function () {});
 </script>
 </body>
 </html>
