@@ -382,9 +382,42 @@
     var body = el('div'); body.style.cssText = 'display:flex;flex-direction:column;gap:14px'; c.appendChild(body);
     var m = status(); c.appendChild(m);
     var S = null;
-    var call = function (b) { m.textContent = 'Working…'; return JF.api('/api/market', Object.assign({ t: tok, as: AS, ak: AK }, b)).then(function (r) { m.textContent = r.error || ''; if (r.show) { S = r.show; draw(); } return r; }); };
+    var CAM = false;
+    var call = function (b) { m.textContent = 'Working…'; return JF.api('/api/market', Object.assign({ t: tok, as: AS, ak: AK }, b)).then(function (r) { m.textContent = r.error || ''; if (r.cam != null) CAM = r.cam; if (r.show) { S = r.show; draw(); } return r; }); };
     var usd = function (c2) { return '$' + (c2 / 100).toFixed(2); };
     var page = location.origin + '/live.html?s=' + encodeURIComponent(D.seller.slug);
+    // Your camera, live from this page (LiveKit). It keeps running when the panel below refreshes; keep this page open.
+    var camEl = null;
+    function stopCam() { if (window.__lvRoom) { try { window.__lvRoom.disconnect(); } catch (e) {} window.__lvRoom = null; } camEl = null; }
+    function camBox() {
+      if (camEl) return camEl;
+      camEl = el('div'); camEl.style.cssText = 'display:flex;flex-direction:column;gap:8px';
+      var vbox = el('div'); vbox.style.cssText = 'position:relative;background:#000;border-radius:10px;overflow:hidden;aspect-ratio:16/9;max-width:560px';
+      var note = el('div', 'Starting your camera… allow camera and microphone when your browser asks.', 'small'); note.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;padding:16px;text-align:center';
+      vbox.appendChild(note); camEl.appendChild(vbox);
+      var row = el('div'); row.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px';
+      var flip = el('button', '🔄 Switch camera', 'ghost'), mic = el('button', '🎙️ Mute mic', 'ghost'); flip.type = mic.type = 'button';
+      row.appendChild(flip); row.appendChild(mic); camEl.appendChild(row);
+      camEl.appendChild(el('div', 'Keep this page open while you are live. Buyers watch at your show page.', 'small dim'));
+      var facing = 'user', muted = false;
+      var load = window.LivekitClient ? Promise.resolve() : new Promise(function (ok, no) { var sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/livekit-client@2.15.0/dist/livekit-client.umd.js'; sc.onload = ok; sc.onerror = no; document.head.appendChild(sc); });
+      Promise.all([load, window.__lvRoom ? { reuse: true } : JF.api('/api/market', { do: 'live-token', t: tok, as: AS, ak: AK })]).then(function (x) {
+        var r = x[1]; if (r.error) { note.textContent = r.error; return; }
+        var LK = window.LivekitClient, room = window.__lvRoom || new LK.Room(); window.__lvRoom = room;
+        return (r.reuse ? Promise.resolve() : room.connect(r.url, r.token).then(function () { return room.localParticipant.enableCameraAndMicrophone(); })).then(function () {
+          var pub = room.localParticipant.getTrackPublication(LK.Track.Source.Camera);
+          if (pub && pub.track) { var v = pub.track.attach(); v.muted = true; v.playsInline = true; v.style.cssText = 'width:100%;height:100%;object-fit:cover;transform:scaleX(-1)'; note.remove(); vbox.appendChild(v); }
+          var live = el('span', '● LIVE', ''); live.style.cssText = 'position:absolute;top:8px;left:8px;background:#E5484D;color:#fff;font-weight:800;font-size:12px;padding:4px 8px;border-radius:4px'; vbox.appendChild(live);
+        });
+      }).catch(function (e) { note.textContent = 'Your camera did not start: ' + (e && e.message ? e.message : 'allow camera and microphone, then refresh.'); });
+      flip.addEventListener('click', function () {
+        var room = window.__lvRoom; if (!room) return; facing = facing === 'user' ? 'environment' : 'user';
+        var pub = room.localParticipant.getTrackPublication(window.LivekitClient.Track.Source.Camera);
+        if (pub && pub.track) pub.track.restartTrack({ facingMode: facing }).then(function () { var v = vbox.querySelector('video'); if (v) v.style.transform = facing === 'user' ? 'scaleX(-1)' : 'none'; });
+      });
+      mic.addEventListener('click', function () { var room = window.__lvRoom; if (!room) return; muted = !muted; room.localParticipant.setMicrophoneEnabled(!muted); mic.textContent = muted ? '🎙️ Unmute mic' : '🎙️ Mute mic'; });
+      return camEl;
+    }
     function draw() {
       body.textContent = '';
       var live = S.status === 'live';
@@ -393,20 +426,23 @@
       var a = el('a', 'Your show page ↗'); a.href = page; a.target = '_blank'; a.rel = 'noopener'; top.appendChild(a);
       var cp = el('button', 'Copy link to share', 'ghost'); cp.type = 'button'; cp.addEventListener('click', function () { try { navigator.clipboard.writeText(page); cp.textContent = 'Copied!'; } catch (e) { prompt('Copy this link:', page); } }); top.appendChild(cp);
       body.appendChild(top);
-      // 1. The stream
+      // 1. The stream: your camera, right here, or a link to a stream elsewhere.
+      if (live && S.mode === 'camera') { var cbx = camBox(); if (!cbx.parentNode) c.insertBefore(cbx, body); }
+      else if (camEl && camEl.parentNode) { camEl.remove(); stopCam(); }
       var t1 = input('text', S.title || '', { maxlength: '80', placeholder: 'e.g. Friday night VeeFriends breaks' });
       var u1 = input('url', S.url || '', { maxlength: '300', placeholder: 'https://www.youtube.com/live/… or https://twitch.tv/yourname' });
       body.appendChild(field('Show title', t1));
-      body.appendChild(field('Your stream link', u1, 'Go live on YouTube, Twitch, TikTok or Instagram as usual and paste the link. YouTube and Twitch play right on your show page; TikTok and Instagram open in a new tab while buyers bid here.'));
+      body.appendChild(field('Or a link to a stream elsewhere (optional)', u1, 'Only if you would rather stream on YouTube, Twitch, TikTok or Instagram. YouTube and Twitch play on your show page; TikTok and Instagram open in a new tab while buyers bid here.'));
       var acts = el('div'); acts.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;align-items:center';
       if (!live) {
-        var go = el('button', '🔴 Go live now', 'solid'); go.type = 'button'; go.addEventListener('click', function () { call({ do: 'live-set', action: 'go', title: t1.value, url: u1.value }); }); acts.appendChild(go);
+        if (CAM) { var gc = el('button', '🔴 Go live with my camera', 'solid'); gc.type = 'button'; gc.addEventListener('click', function () { call({ do: 'live-set', action: 'go', mode: 'camera', title: t1.value, url: u1.value }); }); acts.appendChild(gc); }
+        var go = el('button', CAM ? 'Go live with my stream link' : '🔴 Go live now', CAM ? 'ghost' : 'solid'); go.type = 'button'; go.addEventListener('click', function () { call({ do: 'live-set', action: 'go', mode: 'link', title: t1.value, url: u1.value }); }); acts.appendChild(go);
         var when = input('datetime-local', '', {}); var sch = el('button', 'Schedule it', 'ghost'); sch.type = 'button';
         sch.addEventListener('click', function () { if (!when.value) { m.textContent = 'Pick a date and time first.'; return; } call({ do: 'live-set', action: 'schedule', title: t1.value, url: u1.value, startsAt: new Date(when.value).toISOString() }); });
         acts.appendChild(el('span', 'or', 'small dim')); acts.appendChild(when); acts.appendChild(sch);
       } else {
         var sv = el('button', 'Save title and link', 'ghost'); sv.type = 'button'; sv.addEventListener('click', function () { call({ do: 'live-set', title: t1.value, url: u1.value }); }); acts.appendChild(sv);
-        var end = el('button', 'End the show', 'ghost'); end.type = 'button'; end.addEventListener('click', function () { if (confirm('End your live show?')) call({ do: 'live-set', action: 'end' }); }); acts.appendChild(end);
+        var end = el('button', 'End the show', 'ghost'); end.type = 'button'; end.addEventListener('click', function () { if (confirm('End your live show?')) { stopCam(); call({ do: 'live-set', action: 'end' }); } }); acts.appendChild(end);
       }
       body.appendChild(acts);
       if (!live) return;

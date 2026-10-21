@@ -12,6 +12,7 @@
 .lv-wrap{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(300px,1fr);gap:16px;align-items:start}
 @media(max-width:860px){.lv-wrap{grid-template-columns:1fr}}
 .lv-video{position:relative;background:#000;border-radius:10px;overflow:hidden;aspect-ratio:16/9}
+.lv-video video{background:#000}
 .lv-video iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
 .lv-off{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;height:100%;padding:20px;text-align:center;color:#D6E2DA}
 .lv-badge{display:inline-flex;align-items:center;gap:6px;background:#E5484D;color:#fff;font:800 12px/1 Archivo,sans-serif;letter-spacing:.08em;padding:5px 9px;border-radius:4px}
@@ -90,6 +91,7 @@
   function drawVideo() {
     var st = D.stream || {}, key = st.embed + '|' + st.url + '|' + D.status;
     if (key === streamKey) return; streamKey = key; video.textContent = '';
+    if (D.status === 'live' && st.kind === 'camera') { watchCam(); return; }
     if (D.status === 'live' && st.embed) { var f = el('iframe'); f.src = st.embed; f.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen'; f.allowFullscreen = true; f.title = 'Live stream'; video.appendChild(f); return; }
     var off = el('div', null, 'lv-off');
     if (D.status === 'live' && st.url) {
@@ -99,6 +101,24 @@
     } else if (D.status === 'scheduled') off.appendChild(el('b', 'This show starts ' + when(D.startsAt) + '.'));
     else off.appendChild(el('b', 'This show has ended. Thanks for watching!'));
     video.appendChild(off);
+  }
+  // The seller is live from the site itself (LiveKit): join the show's room as a viewer and play their camera.
+  var room = null;
+  function lkLoad() { return window.LivekitClient ? Promise.resolve() : new Promise(function (ok, no) { var sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/livekit-client@2.15.0/dist/livekit-client.umd.js'; sc.onload = ok; sc.onerror = no; document.head.appendChild(sc); }); }
+  function watchCam() {
+    var off = el('div', null, 'lv-off'); off.appendChild(el('b', 'Connecting to the live video…')); video.appendChild(off);
+    Promise.all([lkLoad(), JF.api('/api/market?do=show-token&s=' + encodeURIComponent(slug))]).then(function (x) {
+      var r = x[1]; if (r.error) { off.textContent = r.error; return; }
+      var LK = window.LivekitClient; room = new LK.Room({ adaptiveStream: true });
+      room.on(LK.RoomEvent.TrackSubscribed, function (track) {
+        var m = track.attach(); if (track.kind === 'video') { off.remove(); m.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000'; m.playsInline = true; video.appendChild(m); } else { m.style.display = 'none'; video.appendChild(m); }
+      });
+      room.on(LK.RoomEvent.TrackUnsubscribed, function (track) { track.detach().forEach(function (n) { n.remove(); }); });
+      room.on(LK.RoomEvent.AudioPlaybackStatusChanged, function () { sound.hidden = room.canPlaybackAudio; });
+      var sound = el('button', '🔊 Tap for sound', 'solid'); sound.type = 'button'; sound.style.cssText = 'position:absolute;left:10px;bottom:10px;z-index:2'; sound.hidden = true;
+      sound.addEventListener('click', function () { room.startAudio().then(function () { sound.hidden = true; }); }); video.appendChild(sound);
+      return room.connect(r.url, r.token).then(function () { sound.hidden = room.canPlaybackAudio; if (!room.remoteParticipants.size) off.textContent = 'The seller is getting their camera ready…'; });
+    }).catch(function () { off.textContent = 'The live video did not load. Refresh to try again.'; });
   }
   var timerEl = null, priceEl = null, bidBtns = [];
   function drawLot() {

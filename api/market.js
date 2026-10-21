@@ -172,6 +172,7 @@ module.exports = async (req, res) => {
     }
     // Live shows (see _live.js): which are on, and one show as a viewer sees it (polled every couple of seconds).
     if (what === 'live') return res.json({ shows: await require('./_live').list() });
+    if (what === 'show-token') { const r = await require('./_live').watchToken(String(q.s || '').toLowerCase().slice(0, 30)); return res.status(r.error ? 400 : 200).json(r); }
     if (what === 'show' && req.method === 'GET') {
       const v = await require('./_live').view(String(q.s || '').toLowerCase().slice(0, 30), q.t ? gate.emailOf(String(q.t)) : '');
       return v ? res.json(v) : res.status(404).json({ error: 'That show was not found.' });
@@ -485,11 +486,12 @@ module.exports = async (req, res) => {
     }
     // Offers on my pieces. A pending one carries its answer key (t) for /api/offer: accept, counter or decline.
     // ---------- Live shows, as the seller ----------
-    if (what === 'live-mine' || what === 'live-set' || what === 'live-lot' || what === 'live-lot-end') {
+    if (what === 'live-mine' || what === 'live-set' || what === 'live-lot' || what === 'live-lot-end' || what === 'live-token') {
       if (!seller) return res.status(403).json({ error: 'Open a seller shop first.' });
       if (seller.status !== 'approved') return res.status(403).json({ error: 'Your shop needs to be approved before you can go live.' });
       const L = require('./_live');
-      const r = what === 'live-mine' ? { ok: true, show: await L.mine(seller) } : what === 'live-set' ? await L.setShow(seller, b) : what === 'live-lot' ? await L.putUp(seller, b) : await L.endLot(seller);
+      if (what === 'live-token') { const r2 = await L.sellerToken(seller); return res.status(r2.error ? 400 : 200).json(r2); }
+      const r = what === 'live-mine' ? { ok: true, show: await L.mine(seller), cam: L.camOn() } : what === 'live-set' ? await L.setShow(seller, b) : what === 'live-lot' ? await L.putUp(seller, b) : await L.endLot(seller);
       if (r.show) r.show = L.forSeller(r.show);
       return res.status(r.error ? 400 : 200).json(r);
     }

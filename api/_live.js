@@ -17,6 +17,29 @@ const HOST = () => 'https://' + String(process.env.SITE_HOST || 'veefam.io').rep
 const hash = (e) => crypto.createHash('sha1').update(String(e).toLowerCase()).digest('hex').slice(0, 12);
 const nameOf = (e) => String(e || '').split('@')[0].replace(/[^A-Za-z0-9_.-]/g, '').slice(0, 14) || 'bidder';
 
+// Built-in streaming (go live from the site with your phone or computer camera) runs on LiveKit: sellers publish
+// their camera to a room named after their shop, viewers watch it. Needs LIVEKIT_URL, LIVEKIT_API_KEY and
+// LIVEKIT_API_SECRET; without them sellers can still paste a link to a stream elsewhere.
+const lk = () => ({ url: (process.env.LIVEKIT_URL || '').trim(), key: (process.env.LIVEKIT_API_KEY || '').trim(), secret: (process.env.LIVEKIT_API_SECRET || '').trim() });
+const camOn = () => { const c = lk(); return !!(c.url && c.key && c.secret); };
+const b64u = (o) => Buffer.from(typeof o === 'string' ? o : JSON.stringify(o)).toString('base64').replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_');
+// A LiveKit access token (a signed JWT): who you are, which room, and whether you may send video (the seller) or only watch.
+function lkToken(slug, identity, name, publish) {
+  const c = lk(), now = Math.floor(Date.now() / 1000);
+  const body = b64u({ alg: 'HS256', typ: 'JWT' }) + '.' + b64u({ iss: c.key, sub: identity, name: name, nbf: now - 10, exp: now + 6 * 3600, video: { room: 'v2v-' + slug, roomJoin: true, canPublish: !!publish, canSubscribe: true, canPublishData: false } });
+  return body + '.' + crypto.createHmac('sha256', c.secret).update(body).digest('base64').replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_');
+}
+async function watchToken(slug) {
+  const show = await get(slug);
+  if (!camOn() || !show || show.status !== 'live' || show.mode !== 'camera') return { error: 'This show is not streaming here right now.' };
+  return { url: lk().url, token: lkToken(slug, 'v-' + crypto.randomBytes(6).toString('hex'), 'viewer', false) };
+}
+async function sellerToken(seller) {
+  const show = await mine(seller);
+  if (!camOn()) return { error: 'Going live from the site is not switched on yet.' };
+  if (show.status !== 'live' || show.mode !== 'camera') return { error: 'Press Go live with my camera first.' };
+  return { url: lk().url, token: lkToken(seller.slug, 's-' + seller.slug, seller.name, true) };
+}
 // What kind of stream a link is, and how to show it on the page.
 function streamOf(url) {
   const u = String(url || '').trim();
@@ -74,7 +97,7 @@ async function list() {
   const paths = (r.blobs || []).map((b) => b.pathname).filter((p) => /^live\/[a-z0-9-]+\.json$/.test(p));
   const shops = {}; (await M.all()).forEach((s) => { shops[s.slug] = s; });
   const shows = (await Promise.all(paths.map((p) => store.read(p)))).filter((s) => s && shops[s.slug] && shops[s.slug].status === 'approved' && (s.status === 'live' || (s.status === 'scheduled' && s.startsAt > Date.now() - 3 * 3600000)));
-  return shows.map((s) => ({ slug: s.slug, shop: shops[s.slug].name, title: s.title, status: s.status, startsAt: s.startsAt || 0, kind: streamOf(s.url).kind, lot: s.lot ? { name: s.lot.name, photo: s.lot.photo } : null }))
+  return shows.map((s) => ({ slug: s.slug, shop: shops[s.slug].name, title: s.title, status: s.status, startsAt: s.startsAt || 0, kind: s.mode === 'camera' ? 'camera' : streamOf(s.url).kind, lot: s.lot ? { name: s.lot.name, photo: s.lot.photo } : null }))
     .sort((a, b) => (a.status === 'live' ? 0 : 1) - (b.status === 'live' ? 0 : 1) || a.startsAt - b.startsAt);
 }
 // One show, as a viewer sees it. me: the viewer's email if signed in (to show their own win and pay link).
@@ -87,7 +110,7 @@ async function view(slug, me) {
   const lot = show.lot ? { id: show.lot.id, pid: show.lot.pid, name: show.lot.name, photo: show.lot.photo, desc: show.lot.desc || '', start: show.lot.start, bid: show.lot.bid, byName: show.lot.byName || '', n: show.lot.n, endsAt: show.lot.endsAt, next: show.lot.bid ? show.lot.bid + inc(show.lot.bid) : show.lot.start, mine: !!(me && show.lot.by === hash(me)) } : null;
   let won = null;
   if (me) { const h = hash(me); const w = (show.sold || []).filter((x) => x.by === h && Date.now() - x.at < 24 * 3600000)[0]; if (w) { const rec = await store.read('live/' + slug + '/won/' + w.id + '.json'); if (rec) won = { name: w.name, price: w.price, pay: rec.pay }; } }
-  return { slug: slug, shop: shop ? shop.name : slug, title: show.title, status: show.status, startsAt: show.startsAt || 0, stream: streamOf(show.url), lot: lot, sold: (show.sold || []).slice(0, 12).map((x) => ({ name: x.name, price: x.price, byName: x.byName, photo: x.photo, at: x.at })), chat: chat.msgs.slice(-40), now: Date.now(), won: won };
+  return { slug: slug, shop: shop ? shop.name : slug, title: show.title, status: show.status, startsAt: show.startsAt || 0, stream: show.mode === 'camera' && camOn() ? { kind: 'camera' } : streamOf(show.url), lot: lot, sold: (show.sold || []).slice(0, 12).map((x) => ({ name: x.name, price: x.price, byName: x.byName, photo: x.photo, at: x.at })), chat: chat.msgs.slice(-40), now: Date.now(), won: won };
 }
 async function bid(slug, me, amt) {
   const show = await store.read('live/' + slug + '.json');
@@ -127,7 +150,7 @@ async function setShow(seller, b) {
   if (b.title != null) show.title = tidy(b.title, 80);
   if (b.url != null) { const u = tidy(b.url, 300); if (u && !/^https:\/\//.test(u)) return { error: 'Paste the full link to your stream, starting with https://' }; show.url = u; }
   if (b.action === 'schedule') { const t = Date.parse(b.startsAt); if (!(t > Date.now())) return { error: 'Pick a time in the future.' }; show.status = 'scheduled'; show.startsAt = t; }
-  else if (b.action === 'go') { if (!show.url) return { error: 'Paste your stream link first.' }; show.status = 'live'; show.startedAt = Date.now(); show.endedAt = 0; if (!show.title) show.title = seller.name + ' live'; }
+  else if (b.action === 'go') { show.mode = b.mode === 'camera' ? 'camera' : 'link'; if (show.mode === 'camera' && !camOn()) return { error: 'Going live from the site is not switched on yet.' }; if (show.mode === 'link' && !show.url) return { error: 'Paste your stream link first.' }; show.status = 'live'; show.startedAt = Date.now(); show.endedAt = 0; if (!show.title) show.title = seller.name + ' live'; }
   else if (b.action === 'end') { if (show.lot) { show.lot.endsAt = Date.now(); await settle(show); } show.status = 'ended'; show.endedAt = Date.now(); show.lot = null; }
   await put(show);
   return { ok: true, show: show };
@@ -156,4 +179,4 @@ async function endLot(seller) {
 }
 // What the seller sees: their show, plus who is bidding (names only).
 const forSeller = (show) => { const s = JSON.parse(JSON.stringify(show)); if (s.lot) delete s.lot.byEmail; return s; };
-module.exports = { list, view, bid, say, mine, setShow, putUp, endLot, forSeller, streamOf, inc };
+module.exports = { camOn, watchToken, sellerToken, list, view, bid, say, mine, setShow, putUp, endLot, forSeller, streamOf, inc };
