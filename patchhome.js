@@ -27,6 +27,27 @@ changes.forEach((c, n) => {
   }));
   if (done) made++; else if (already) skipped++; else { missed++; console.warn('patchhome: change ' + (n + 1) + ' did not fit the home page: ' + c[0].slice(0, 70)); }
 });
+// The on-screen error box also sits in each inner page of the bundle: silence it everywhere (errors go to the console).
+{
+  const box = "var d = document.getElementById('__bundler_err') || p.appendChild(document.createElement('div'));";
+  const quiet = "console.error('[bundle]', e.message || e.type, e.filename || '', e.lineno || ''); return; " + box;
+  let n = 0;
+  keys.forEach((k) => { [[box, quiet], [quoted(box), quoted(quiet)]].forEach((f) => { if (text[k].indexOf(f[1]) >= 0) return; const parts = text[k].split(f[0]); if (parts.length > 1) { n += parts.length - 1; text[k] = parts.join(f[1]); } }); });
+  console.log('patchhome: error box silenced in ' + n + ' inner pages');
+}
 keys.forEach((k) => { const b = Buffer.from(text[k], 'utf8'); man[k].data = (man[k].compressed ? zlib.gzipSync(b) : b).toString('base64'); });
 fs.writeFileSync(file, html.slice(0, m.index) + m[1] + JSON.stringify(man) + m[3] + html.slice(m.index + m[0].length));
 console.log('patchhome: ' + made + ' made, ' + skipped + ' already there, ' + missed + ' missed');
+
+// Visitors never see the bundle's on-screen error box (errors from browser wallets and extensions showed up there).
+// Errors still go to the browser console.
+{
+  const f2 = path.join(process.argv[2] || 'public', 'index.html');
+  let h = fs.readFileSync(f2, 'utf8');
+  const box = "    var p = document.body || document.documentElement;\n    var d = document.getElementById('__bundler_err') || p.appendChild(document.createElement('div'));";
+  if (h.split(box).length === 2) {
+    h = h.replace(box, () => "    console.error('[bundle]', e.message || e.type, e.filename || '', e.lineno || ''); return;\n" + box);
+    fs.writeFileSync(f2, h);
+    console.log('patchhome: on-screen error box turned off');
+  } else console.warn('patchhome: error box not found (already off, or the export changed)');
+}
