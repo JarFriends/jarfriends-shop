@@ -109,6 +109,8 @@
           });
           [iL, iW, iH].forEach(function (i) { i.addEventListener('input', function () { cb.checked = isReg(); }); });
           pk.insertBefore(reg, pk.children[1]);
+          // Saved boxes: one tick fills in that box's size (add boxes with "Save this box" on a shipped order).
+          if (window.jfBoxPresets) { var rp = window.jfBoxPresets(reg, { l: iL, w: iW, h: iH }, function () { cb.checked = isReg(); sync(); }); cb.addEventListener('change', rp); }
           pk.appendChild(line);
           var flat = !dims.length && /flat/i.test(String(pr.box || ''));
           pk.appendChild(el('div', flat ? 'Set to a USPS flat rate box. Leave the size blank to keep it, or type your own box size.' : 'Weigh and measure the packed box. The label is priced and bought with these numbers.', 'small'));
@@ -145,6 +147,22 @@
         var tr = el('a', 'Track package', 'solid'); tr.href = tu + encodeURIComponent(t); tr.target = '_blank'; tr.rel = 'noopener'; tr.style.cssText = 'padding:8px 14px;font-size:14px;text-decoration:none;display:inline-block';
         row.appendChild(tr);
       }
+      // Save this box: keep the size this label used as a tick-box for future labels.
+      if (o.hasLabel) row.appendChild(act('Save this box', function (bt) {
+        bt.disabled = true;
+        get('&boxfrom=' + encodeURIComponent(o.n)).then(function (r) {
+          bt.disabled = false;
+          if (r.error) { alert(r.error); return; }
+          if (r.template) { alert('This label used a USPS flat rate box, so there is no size to save.'); return; }
+          var name = prompt('Box from order ' + o.n + ': ' + r.l + ' x ' + r.w + ' x ' + r.h + ' in' + (r.oz ? ' (packed weight ' + Math.floor(r.oz / 16) + ' lb ' + Math.round((r.oz % 16) * 10) / 10 + ' oz)' : '') + '.\nName this box so you can tick it next time:', 'Binder box');
+          if (!name || !name.trim()) return;
+          get('&boxsave=1&name=' + encodeURIComponent(name.trim()) + '&l=' + r.l + '&w=' + r.w + '&h=' + r.h).then(function (x) {
+            if (x.error) { alert(x.error); return; }
+            if (window.jfBoxReload) window.jfBoxReload();
+            alert('Saved. "' + name.trim() + '" is now a tick-box when you set up a package.');
+          });
+        }, function () { bt.disabled = false; alert('Could not reach the site. Try again.'); });
+      }));
       if (o.hasLabel) { var p = el('a', 'Print label (half sheet)'); p.href = '/api/labelpdf?n=' + encodeURIComponent(o.n) + '&k=' + encodeURIComponent(key()); p.target = '_blank'; p.rel = 'noopener'; p.style.fontSize = '14px'; row.appendChild(p); }
     }
     c.appendChild(row);

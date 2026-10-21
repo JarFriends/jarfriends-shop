@@ -137,6 +137,8 @@
   });
 })();
 </script>
+<script src="/box-presets.js"></script>
+<script>(function () { var $ = function (id) { return document.getElementById(id); }; if (window.jfBoxPresets && $('regBox')) { var rp = window.jfBoxPresets($('regBox').parentNode, { l: $('dL'), w: $('dW'), h: $('dH') }, function () { $('regBox').checked = Number($('dL').value) === 12 && Number($('dW').value) === 9 && Number($('dH').value) === 6; if ($('flatNote')) $('flatNote').hidden = true; }); $('regBox').addEventListener('change', rp); } })();</script>
 <script src="/office-home.js" defer></script>
 </body>
 </html>
