@@ -38,6 +38,15 @@
 .lv-card{border:1px solid #244536;border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:8px;text-decoration:none;color:inherit}
 .lv-card:hover{border-color:#C9A45C}
 .lv-past{display:flex;flex-direction:column;gap:6px;font-size:14px}
+.lv-deal{border:2px solid #E5484D;border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:10px;background:rgba(229,72,77,.07)}
+.lv-deal h3{margin:0;font-size:14px;letter-spacing:.08em;color:#FF8A8E}
+.lv-was{position:relative;display:inline-block;font:700 20px/1 "IBM Plex Mono",monospace;opacity:.6;margin-right:10px}
+.lv-was:after{content:"";position:absolute;left:-2px;top:50%;height:3px;width:0;background:#E5484D;transform:rotate(-8deg);animation:lvStrike .5s ease-out forwards}
+@keyframes lvStrike{to{width:calc(100% + 4px)}}
+.lv-now{display:inline-block;font:800 34px/1 "IBM Plex Mono",monospace;color:#C9A45C}
+.lv-now.pop{animation:lvPop .6s ease-out}
+@keyframes lvPop{0%{transform:scale(1.5);color:#7DD3B0}100%{transform:scale(1)}}
+.lv-meter{height:8px;background:rgba(255,255,255,.1);border-radius:99px;overflow:hidden}.lv-meter span{display:block;height:100%;background:linear-gradient(90deg,#C9A45C,#E5484D);transition:width .5s}
 .lv-won{background:#C9A45C;color:#0B1A13;border-radius:8px;padding:12px;font-weight:800;display:flex;flex-direction:column;gap:8px}
 .lv-won a{color:#0B1A13;background:#0B1A13;color:#F7F2E6;padding:10px 14px;border-radius:6px;text-align:center;text-decoration:none}
 </style>
@@ -83,10 +92,10 @@
   var video = el('div', null, 'lv-video'); var left = el('div'); left.style.cssText = 'display:flex;flex-direction:column;gap:10px'; left.appendChild(video);
   var past = el('div', null, 'lv-past'); left.appendChild(past); wrap.appendChild(left);
   var panel = el('div', null, 'lv-panel'); wrap.appendChild(panel);
-  var wonBox = el('div'); var lotBox = el('div'); var msg = el('div', '', 'small'); msg.setAttribute('role', 'status');
+  var wonBox = el('div'); var dealBox = el('div'); var lotBox = el('div'); var dealKey = ''; var msg = el('div', '', 'small'); msg.setAttribute('role', 'status');
   var chat = el('div', null, 'lv-chat'), msgs = el('div', null, 'lv-msgs'), say = el('form', null, 'lv-say'), sayIn = el('input'), sayGo = el('button', 'Send', 'solid');
   sayIn.placeholder = tok ? 'Say something…' : 'Sign in to chat'; sayIn.maxLength = 200; sayGo.type = 'submit'; say.appendChild(sayIn); say.appendChild(sayGo); chat.appendChild(msgs); chat.appendChild(say);
-  [wonBox, lotBox, msg, chat].forEach(function (n) { panel.appendChild(n); });
+  [wonBox, dealBox, lotBox, msg, chat].forEach(function (n) { panel.appendChild(n); });
   var streamKey = '';
   function drawVideo() {
     var st = D.stream || {}, key = st.embed + '|' + st.url + '|' + D.status;
@@ -181,7 +190,35 @@
       var key = r.lot ? r.lot.id + '|' + r.lot.bid + '|' + r.lot.endsAt + '|' + r.lot.mine : 'none|' + (r.sold[0] ? r.sold[0].at : '');
       D = r; drawVideo(); drawRest();
       if (key !== lotId) { lotId = key; drawLot(); }
+      var dk = r.deal ? r.deal.id + '|' + r.deal.claimed + '|' + r.deal.mine.length : '';
+      if (dk !== dealKey) { var dropped = dealKey && r.deal && dealKey.split('|')[0] === r.deal.id; dealKey = dk; drawDeal(dropped); }
     }).catch(function () { busy = false; });
+  }
+  // The party deal: the price drops with every buy. The old price gets crossed out and the new one pops in.
+  function drawDeal(dropped) {
+    dealBox.textContent = ''; var d = D.deal; if (!d) return;
+    var c = el('div', null, 'lv-deal');
+    c.appendChild(el('h3', '🎉 PARTY DEAL · THE PRICE DROPS EVERY TIME SOMEONE BUYS'));
+    var top = el('div', null, 'lv-lot-top');
+    if (d.photo) { var im = el('img'); im.src = d.photo; im.alt = ''; top.appendChild(im); }
+    var t = el('div'); t.appendChild(el('b', d.name));
+    var pr = el('div'); pr.style.marginTop = '6px';
+    if (d.prev && d.prev !== d.price) pr.appendChild(el('span', usd(d.prev), 'lv-was'));
+    pr.appendChild(el('span', usd(d.price), 'lv-now' + (dropped ? ' pop' : '')));
+    t.appendChild(pr); top.appendChild(t); c.appendChild(top);
+    var pct = d.start > d.floor ? Math.round((d.start - d.price) * 100 / (d.start - d.floor)) : 100;
+    var meter = el('div', null, 'lv-meter'), f = el('span'); f.style.width = pct + '%'; meter.appendChild(f); c.appendChild(meter);
+    c.appendChild(el('div', d.claimed + ' bought · ' + d.left + ' left · ' + (d.price > d.floor ? 'next one drops to ' + usd(d.next) : 'lowest price reached!') + ' · started at ' + usd(d.start), 'small'));
+    var buy = el('button', d.left ? 'Buy now for ' + usd(d.price) : 'Sold out', 'solid'); buy.type = 'button'; buy.style.minHeight = '54px'; buy.style.fontSize = '18px'; buy.disabled = !d.left;
+    buy.addEventListener('click', function () {
+      if (!tok) { location.href = '/me.html'; return; }
+      buy.disabled = true; msg.textContent = 'Grabbing it…';
+      JF.api('/api/market', { do: 'live-claim', t: tok, s: slug }).then(function (r) { msg.textContent = r.error || 'You got it for ' + usd(r.price) + '! Pay within 30 minutes (link below and in your email).'; dealKey = ''; load(); });
+    });
+    c.appendChild(buy);
+    d.mine.forEach(function (x) { var a = el('a', 'Pay ' + usd(x.price) + ' now'); a.href = x.pay; a.className = 'solid'; a.style.cssText = 'text-align:center;text-decoration:none;background:#1F4D36;color:#F7F2E6;padding:10px'; c.appendChild(a); });
+    if (d.last.length) c.appendChild(el('div', d.last.map(function (x) { return '@' + x.byName + ' ' + usd(x.price); }).join(' · '), 'small dim'));
+    dealBox.appendChild(c);
   }
   function place(amt) {
     if (!tok) { location.href = '/me.html'; return; }

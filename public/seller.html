@@ -471,6 +471,30 @@
           body.appendChild(up);
         }
       }
+      // 2b. Party deal: price drops with every buy, down to your lowest price.
+      body.appendChild(el('h3', '🎉 Party deal'));
+      body.appendChild(el('div', 'A Buy now piece where the price drops every time someone buys, until it hits your lowest price. Buyers see the old price crossed out as it drops. It can run alongside your auctions.', 'small dim'));
+      if (S.deal) {
+        var dd = S.deal, db = el('div', null, 'hub-card');
+        db.appendChild(el('b', dd.name));
+        db.appendChild(el('div', dd.claims.length + ' bought of ' + dd.qty + ' · now ' + usd(dd.price) + ' (started ' + usd(dd.start) + ', lowest ' + usd(dd.floor) + ', drops ' + usd(dd.step) + ' each)', 'small'));
+        var de = el('button', 'End the party deal', 'ghost'); de.type = 'button'; de.style.alignSelf = 'flex-start'; de.addEventListener('click', function () { call({ do: 'live-deal-end' }); }); db.appendChild(de);
+        body.appendChild(db);
+      } else {
+        var dl = D.listings.filter(function (p) { return !p.removed && !p.hidden && !p.auction && p.left > 0; });
+        if (dl.length) {
+          var dp = select(dl.map(function (p) { return [p.id, p.name + ' (' + p.left + ' left)']; }), dl[0].id);
+          var ds = input('number', '', { min: '1', step: '0.01', placeholder: 'e.g. 30' }), df = input('number', '', { min: '1', step: '0.01', placeholder: 'e.g. 15' }), dst = input('number', '1', { min: '0.25', step: '0.25' }), dq = input('number', '', { min: '1', step: '1', placeholder: 'e.g. 20' });
+          dp.addEventListener('change', function () { var pp = dl.filter(function (x) { return x.id === dp.value; })[0]; if (pp) dq.value = pp.left; });
+          dq.value = dl[0].left;
+          body.appendChild(field('Piece', dp));
+          var d2 = el('div', null, 'two'); d2.appendChild(field('Starting price (USD)', ds)); d2.appendChild(field('Lowest price (USD)', df)); body.appendChild(d2);
+          var d3 = el('div', null, 'two'); d3.appendChild(field('Drop per buy (USD)', dst)); d3.appendChild(field('How many to sell', dq)); body.appendChild(d3);
+          var dgo = el('button', 'Start the party deal', 'solid'); dgo.type = 'button'; dgo.style.alignSelf = 'flex-start';
+          dgo.addEventListener('click', function () { call({ do: 'live-deal', pid: dp.value, start: ds.value, floor: df.value, step: dst.value, qty: dq.value }); });
+          body.appendChild(dgo);
+        }
+      }
       // 3. Sold so far
       if (S.sold && S.sold.length) {
         body.appendChild(el('h3', 'Sold this show'));

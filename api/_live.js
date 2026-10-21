@@ -110,7 +110,7 @@ async function view(slug, me) {
   const lot = show.lot ? { id: show.lot.id, pid: show.lot.pid, name: show.lot.name, photo: show.lot.photo, desc: show.lot.desc || '', start: show.lot.start, bid: show.lot.bid, byName: show.lot.byName || '', n: show.lot.n, endsAt: show.lot.endsAt, next: show.lot.bid ? show.lot.bid + inc(show.lot.bid) : show.lot.start, mine: !!(me && show.lot.by === hash(me)) } : null;
   let won = null;
   if (me) { const h = hash(me); const w = (show.sold || []).filter((x) => x.by === h && Date.now() - x.at < 24 * 3600000)[0]; if (w) { const rec = await store.read('live/' + slug + '/won/' + w.id + '.json'); if (rec) won = { name: w.name, price: w.price, pay: rec.pay }; } }
-  return { slug: slug, shop: shop ? shop.name : slug, title: show.title, status: show.status, startsAt: show.startsAt || 0, stream: show.mode === 'camera' && camOn() ? { kind: 'camera' } : streamOf(show.url), lot: lot, sold: (show.sold || []).slice(0, 12).map((x) => ({ name: x.name, price: x.price, byName: x.byName, photo: x.photo, at: x.at })), chat: chat.msgs.slice(-40), now: Date.now(), won: won };
+  return { slug: slug, shop: shop ? shop.name : slug, title: show.title, status: show.status, startsAt: show.startsAt || 0, stream: show.mode === 'camera' && camOn() ? { kind: 'camera' } : streamOf(show.url), lot: lot, sold: (show.sold || []).slice(0, 12).map((x) => ({ name: x.name, price: x.price, byName: x.byName, photo: x.photo, at: x.at })), chat: chat.msgs.slice(-40), now: Date.now(), won: won, deal: dealView(show.deal, me) };
 }
 async function bid(slug, me, amt) {
   const show = await store.read('live/' + slug + '.json');
@@ -151,7 +151,7 @@ async function setShow(seller, b) {
   if (b.url != null) { const u = tidy(b.url, 300); if (u && !/^https:\/\//.test(u)) return { error: 'Paste the full link to your stream, starting with https://' }; show.url = u; }
   if (b.action === 'schedule') { const t = Date.parse(b.startsAt); if (!(t > Date.now())) return { error: 'Pick a time in the future.' }; show.status = 'scheduled'; show.startsAt = t; }
   else if (b.action === 'go') { show.mode = b.mode === 'camera' ? 'camera' : 'link'; if (show.mode === 'camera' && !camOn()) return { error: 'Going live from the site is not switched on yet.' }; if (show.mode === 'link' && !show.url) return { error: 'Paste your stream link first.' }; show.status = 'live'; show.startedAt = Date.now(); show.endedAt = 0; if (!show.title) show.title = seller.name + ' live'; }
-  else if (b.action === 'end') { if (show.lot) { show.lot.endsAt = Date.now(); await settle(show); } show.status = 'ended'; show.endedAt = Date.now(); show.lot = null; }
+  else if (b.action === 'end') { if (show.lot) { show.lot.endsAt = Date.now(); await settle(show); } show.status = 'ended'; show.endedAt = Date.now(); show.lot = null; show.deal = null; }
   await put(show);
   return { ok: true, show: show };
 }
@@ -170,6 +170,54 @@ async function putUp(seller, b) {
   await put(show);
   return { ok: true, show: show };
 }
+// ---- Party deal: a Buy now piece whose price drops by a set amount every time someone buys, down to a lowest price.
+// Each buyer pays the price shown when they press Buy (a pay link good for 30 minutes), then the price drops for the next.
+function dealView(d, me) {
+  if (!d) return null;
+  const h = me ? hash(me) : '';
+  return { id: d.id, name: d.name, photo: d.photo, start: d.start, floor: d.floor, step: d.step, price: d.price, prev: d.claims.length ? d.claims[d.claims.length - 1].price : 0,
+    claimed: d.claims.length, left: Math.max(0, d.qty - d.claims.length), next: Math.max(d.floor, d.price - d.step), last: d.claims.slice(-6).reverse().map((c) => ({ byName: c.byName, price: c.price, at: c.at })),
+    mine: h ? d.claims.filter((c) => c.by === h && Date.now() - c.at < 30 * 60000).map((c) => ({ price: c.price, pay: c.pay })) : [] };
+}
+async function claim(slug, me) {
+  const show = await store.read('live/' + slug + '.json');
+  if (!show || show.status !== 'live' || !show.deal) return { error: 'There is no party deal on right now.' };
+  const d = show.deal;
+  const shop = await M.bySlug(slug);
+  if (shop && String(shop.email).toLowerCase() === me) return { error: 'You cannot buy your own piece.' };
+  if (d.claims.length >= d.qty) return { error: 'Sold out!' };
+  const h = hash(me);
+  if (d.claims.filter((c) => c.by === h).length >= 3) return { error: 'You can buy up to 3 in one party deal.' };
+  const price = d.price, id = d.id + '-' + (d.claims.length + 1);
+  const pay = HOST() + '/order.html?offer=' + lib.sign({ oa: 1, n: 'LIVEP-' + id, pid: d.pid, q: 1, c: price, x: Math.floor(Date.now() / 1000) + 30 * 60 }) + '&email=' + encodeURIComponent(me);
+  d.claims.push({ by: h, byName: nameOf(me), price: price, at: Date.now(), pay: pay });
+  d.price = Math.max(d.floor, d.price - d.step);
+  await put(show);
+  await lib.mail(me, 'You got it: ' + d.name + ' for $' + (price / 100).toFixed(2), ['You grabbed ' + d.name + ' in the party deal for $' + (price / 100).toFixed(2) + '.', 'Pay within 30 minutes to keep it.', '', 'Pay here:', pay], 'live-party-' + id).catch(() => null);
+  return { ok: true, price: price, pay: pay, now: d.price };
+}
+async function putDeal(seller, b) {
+  const show = await mine(seller);
+  if (show.status !== 'live') return { error: 'Go live first, then start a party deal.' };
+  const p = (await M.listings()).filter((x) => x.id === String(b.pid || '') && x.seller === seller.slug && !x.removed)[0];
+  if (!p) return { error: 'Pick one of your pieces.' };
+  if (p.hidden) return { error: 'That piece is hidden from the market. Untick "Hide it from the market" on it first.' };
+  const c = (v) => Math.round(Number(v) * 100);
+  const start = c(b.start), floor = c(b.floor), step = c(b.step), qty = Math.floor(Number(b.qty));
+  if (!(start >= 100)) return { error: 'The starting price must be at least $1.' };
+  if (!(floor >= 100 && floor <= start)) return { error: 'The lowest price must be at least $1 and no more than the starting price.' };
+  if (!(step >= 25)) return { error: 'The price drop must be at least $0.25.' };
+  if (!(qty >= 1 && qty <= 999)) return { error: 'Say how many you have (1 to 999).' };
+  show.deal = { id: 'P' + Date.now().toString(36).toUpperCase(), pid: p.id, name: p.name, photo: p.photo ? '/api/photo?id=' + p.id + '&v=' + p.photo : '', start: start, floor: floor, step: step, qty: qty, price: start, claims: [], at: Date.now() };
+  await put(show);
+  return { ok: true, show: show };
+}
+async function endDeal(seller) {
+  const show = await mine(seller);
+  if (!show.deal) return { error: 'No party deal is on.' };
+  show.deal = null; await put(show);
+  return { ok: true, show: show };
+}
 async function endLot(seller) {
   const show = await mine(seller);
   if (!show.lot) return { error: 'Nothing is up right now.' };
@@ -178,5 +226,5 @@ async function endLot(seller) {
   return { ok: true, show: show };
 }
 // What the seller sees: their show, plus who is bidding (names only).
-const forSeller = (show) => { const s = JSON.parse(JSON.stringify(show)); if (s.lot) delete s.lot.byEmail; return s; };
-module.exports = { camOn, watchToken, sellerToken, list, view, bid, say, mine, setShow, putUp, endLot, forSeller, streamOf, inc };
+const forSeller = (show) => { const s = JSON.parse(JSON.stringify(show)); if (s.lot) delete s.lot.byEmail; if (s.deal) s.deal.claims.forEach((c) => { delete c.pay; }); return s; };
+module.exports = { claim, putDeal, endDeal, camOn, watchToken, sellerToken, list, view, bid, say, mine, setShow, putUp, endLot, forSeller, streamOf, inc };

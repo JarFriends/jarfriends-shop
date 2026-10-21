@@ -400,12 +400,13 @@ module.exports = async (req, res) => {
     }
 
     // Live show: bid on the piece that is up, or say something in the chat.
-    if ((what === 'live-bid' || what === 'live-chat') && req.method === 'POST') {
+    if ((what === 'live-bid' || what === 'live-chat' || what === 'live-claim') && req.method === 'POST') {
       const L = require('./_live'), sl = String(b.s || '').toLowerCase().slice(0, 30);
       const k = 'lv|' + me, now2 = Date.now(), seen = (photoHits.get(k) || []).filter((t2) => now2 - t2 < 60000);
       if (seen.length >= 40) return res.status(429).json({ error: 'Slow down a little.' });
       seen.push(now2); photoHits.set(k, seen);
       if (what === 'live-bid') { const r = await L.bid(sl, me, b.amt); return res.status(r.error ? 400 : 200).json(r); }
+      if (what === 'live-claim') { const r = await L.claim(sl, me); return res.status(r.error ? 400 : 200).json(r); }
       const mineShop = await M.byEmail(me).catch(() => null), own = mineShop && mineShop.slug === sl ? mineShop.name : '';
       const r = await L.say(sl, me, b.text, own); return res.status(r.error ? 400 : 200).json(r);
     }
@@ -486,10 +487,11 @@ module.exports = async (req, res) => {
     }
     // Offers on my pieces. A pending one carries its answer key (t) for /api/offer: accept, counter or decline.
     // ---------- Live shows, as the seller ----------
-    if (what === 'live-mine' || what === 'live-set' || what === 'live-lot' || what === 'live-lot-end' || what === 'live-token') {
+    if (what === 'live-mine' || what === 'live-set' || what === 'live-lot' || what === 'live-lot-end' || what === 'live-token' || what === 'live-deal' || what === 'live-deal-end') {
       if (!seller) return res.status(403).json({ error: 'Open a seller shop first.' });
       if (seller.status !== 'approved') return res.status(403).json({ error: 'Your shop needs to be approved before you can go live.' });
       const L = require('./_live');
+      if (what === 'live-deal' || what === 'live-deal-end') { const r3 = what === 'live-deal' ? await L.putDeal(seller, b) : await L.endDeal(seller); if (r3.show) r3.show = L.forSeller(r3.show); return res.status(r3.error ? 400 : 200).json(r3); }
       if (what === 'live-token') { const r2 = await L.sellerToken(seller); return res.status(r2.error ? 400 : 200).json(r2); }
       const r = what === 'live-mine' ? { ok: true, show: await L.mine(seller), cam: L.camOn() } : what === 'live-set' ? await L.setShow(seller, b) : what === 'live-lot' ? await L.putUp(seller, b) : await L.endLot(seller);
       if (r.show) r.show = L.forSeller(r.show);
