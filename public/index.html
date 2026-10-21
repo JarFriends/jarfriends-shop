@@ -9,69 +9,80 @@
 <link rel="stylesheet" href="/site.css">
 <link rel="stylesheet" href="/market.css">
 <style>
-.v-logo{font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:28px;letter-spacing:.02em;color:#F7F2E6;text-decoration:none}
-.v-logo span{color:#C9A45C}
-.v-intro{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;justify-content:space-between;padding:22px 0 6px}
-.v-intro p{margin:8px 0 0;max-width:680px;color:#D6E2DA;font-size:16px}
-.v-wallet{font-size:14px;color:#A8BFB1;border-left:3px solid #C9A45C;padding:4px 12px;margin:10px 0 0}
-.v-bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:18px 0}
-.v-bar .pill{min-height:40px;padding:8px 16px;font-size:15px}
-.v-bar .grow{flex:1 1 200px}
-.v-bar input[type=search]{width:100%;min-height:42px;font-size:16px}
-.jf-time{font-family:'IBM Plex Mono',monospace;font-size:12px;color:#C9A45C}
-.v-foot{padding-top:40px;padding-bottom:60px;color:#A8BFB1;font-size:14px;display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between}
-.v-foot a{color:#D6E2DA}
+:root{--g:#C9A45C;--g2:#E9D29A;--ink:#0B1A13;--card:#102219;--line:rgba(201,164,92,.22);--txt:#F7F2E6;--dim:#A8BFB1}
+.v-logo{font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:28px;letter-spacing:.02em;color:var(--txt);text-decoration:none}
+.v-logo span{color:var(--g)}
 .v-sm{display:none}
-/* Phones: one compact block instead of a tall stack. */
+/* Hero: a gold-lit vitrine with a fan of cards */
+.v-hero{position:relative;overflow:hidden;margin:18px 0 6px;padding:34px 28px;border-radius:22px;border:1px solid var(--line);
+  background:radial-gradient(120% 140% at 100% 0%,rgba(201,164,92,.22) 0%,rgba(201,164,92,0) 55%),radial-gradient(80% 120% at 0% 100%,rgba(78,122,99,.35) 0%,rgba(78,122,99,0) 60%),linear-gradient(160deg,#10261B,#0A1610)}
+.v-hero:before{content:"";position:absolute;inset:0;background-image:radial-gradient(rgba(233,210,154,.10) 1px,transparent 1px);background-size:18px 18px;mask-image:linear-gradient(90deg,transparent,#000 70%);-webkit-mask-image:linear-gradient(90deg,transparent,#000 70%);pointer-events:none}
+.v-hero-in{position:relative;z-index:1;max-width:640px}
+.v-eyebrow{font:500 12px/1 'IBM Plex Mono',monospace;letter-spacing:.22em;text-transform:uppercase;color:var(--g);margin-bottom:12px}
+.v-hero h1{font-family:'Playfair Display',Georgia,serif;font-weight:800;text-transform:none;letter-spacing:-.01em;font-size:clamp(30px,5vw,54px);line-height:1.04;margin:0;color:var(--txt)}
+.v-hero h1 em{font-style:italic;background:linear-gradient(100deg,#B98D3E,#F3DDA3 45%,#C9A45C 70%,#F7E7B8);-webkit-background-clip:text;background-clip:text;color:transparent}
+.v-hero p{margin:12px 0 0;color:#CFE0D6;font-size:16px;line-height:1.5;max-width:520px}
+.v-fan{position:absolute;right:28px;top:50%;width:190px;height:170px;transform:translateY(-50%)}
+.v-fan i{position:absolute;left:50%;bottom:0;width:96px;height:134px;margin-left:-48px;border-radius:10px;border:1.5px solid rgba(233,210,154,.75);background:linear-gradient(150deg,rgba(201,164,92,.28),rgba(16,38,27,.9) 55%),repeating-linear-gradient(45deg,rgba(233,210,154,.08) 0 2px,transparent 2px 8px);box-shadow:0 10px 30px rgba(0,0,0,.45);transform-origin:50% 120%}
+.v-fan i:nth-child(1){transform:rotate(-16deg)}.v-fan i:nth-child(2){transform:rotate(0deg) translateY(-6px)}.v-fan i:nth-child(3){transform:rotate(16deg)}
+.v-fan i:nth-child(2):after{content:"✦";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--g2);font-size:30px}
+/* Search, photo search, view pills, category chips, filters */
+.v-bar{display:flex;flex-direction:column;gap:12px;padding:16px 0 6px}
+.v-search{display:flex;gap:8px;align-items:center}
+.v-search .grow{position:relative;flex:1;display:block}
+.v-glass{position:absolute;left:16px;top:50%;transform:translateY(-52%);color:var(--g);font-size:22px;pointer-events:none}
+.v-search input[type=search]{width:100%;min-height:50px;padding:0 18px 0 46px!important;border-radius:999px!important;border:1px solid var(--line)!important;background:#0E1E16!important;font-size:16px;color:var(--txt)}
+.v-search input[type=search]:focus{border-color:var(--g)!important;box-shadow:0 0 0 3px rgba(201,164,92,.18);outline:none}
+.v-cam{flex:none;width:50px;height:50px;border-radius:50%;border:1px solid var(--line);background:#0E1E16;font-size:20px;cursor:pointer}
+.v-cam[aria-expanded=true]{border-color:var(--g);background:rgba(201,164,92,.15)}
+.v-campop{display:flex;flex-direction:column;gap:10px;padding:14px;border:1px solid var(--line);border-radius:16px;background:#0E1E16}
+.v-campop[hidden]{display:none}.v-campop .solid{align-self:flex-start;border-radius:999px}
+.v-campop .jfn-paste{margin:0;border-radius:12px}
+#views{display:flex;gap:8px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0}#views::-webkit-scrollbar{display:none}
+#views .pill{flex:none;min-height:38px;padding:7px 16px;border-radius:999px;font-size:14px;white-space:nowrap}
+.v-cats{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}.v-cats::-webkit-scrollbar{display:none}.v-cats:empty{display:none}
+.v-cat{flex:none;display:flex;flex-direction:column;align-items:center;gap:6px;width:76px;padding:10px 4px 8px;border-radius:16px;border:1px solid var(--line);background:linear-gradient(180deg,#132A1F,#0D1D15);color:var(--txt);font:600 12px/1.15 Archivo,sans-serif;cursor:pointer;text-align:center}
+.v-cat b{font-size:24px;line-height:1}
+.v-cat[aria-pressed=true]{border-color:var(--g);background:linear-gradient(180deg,rgba(201,164,92,.28),rgba(201,164,92,.08));color:#FFF6DF}
+.v-more{border:1px solid var(--line);border-radius:14px;background:#0E1E16}
+.v-more summary{cursor:pointer;list-style:none;padding:11px 16px;font-weight:700;font-size:14px;color:var(--g)}.v-more summary::-webkit-details-marker{display:none}
+.v-ddrow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:0 14px 14px}
+.v-dd{display:flex;flex-direction:column;gap:4px;font-weight:700;font-size:12px;color:var(--dim);min-width:0}
+.v-ddrow select{width:100%;min-width:0;min-height:42px;font-size:14px;border-radius:10px}
+#count{font-size:13px;margin:8px 2px 0;color:var(--dim)}
+/* Cards */
+.jf-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:16px!important}
+.jf-item{border-radius:18px!important;border:1px solid var(--line)!important;background:linear-gradient(180deg,#122519,#0D1B14)!important;padding:10px!important;transition:transform .15s,border-color .15s,box-shadow .15s}
+.jf-item:hover{transform:translateY(-3px);border-color:rgba(201,164,92,.6)!important;box-shadow:0 14px 30px rgba(0,0,0,.35)}
+.jf-item .jf-pic{border-radius:12px;overflow:hidden;background:radial-gradient(circle at 50% 35%,#1B3427,#0A1510)}
+.jf-name{font-weight:700!important}
+.jf-price{font-family:'IBM Plex Mono',monospace!important;color:var(--g)!important;font-weight:600!important}
+.jf-tag{border-radius:999px!important}
+.jf-empty{border:1px solid var(--line)!important;border-style:solid!important;border-radius:20px;padding:34px 20px!important;text-align:center;background:radial-gradient(90% 120% at 50% 0%,rgba(201,164,92,.14),transparent 60%),#0E1E16}
+.v-empty b{display:block;font-family:'Playfair Display',Georgia,serif;font-size:24px;color:var(--txt);margin:6px 0}
+.v-empty .v-gem{font-size:34px}
+.v-empty p{margin:0 auto 16px;max-width:380px;color:var(--dim);font-size:15px}
+.v-empty .v-acts{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}.v-empty .v-acts a{border-radius:999px;padding:10px 18px;text-decoration:none}
+.jf-time{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--g)}
+.v-live{display:flex;align-items:center;gap:10px;border:1px solid #E5484D;border-radius:14px;padding:12px 16px;margin:10px 0 0;text-decoration:none;color:inherit;font-weight:700;background:rgba(229,72,77,.08)}.v-live[hidden]{display:none}.v-live i{font-style:normal;background:#E5484D;color:#fff;font-size:12px;letter-spacing:.08em;padding:4px 8px;border-radius:999px}
+.v-foot{padding-top:40px;padding-bottom:70px;color:var(--dim);font-size:14px;display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;border-top:1px solid var(--line);margin-top:40px}
+.v-foot a{color:#D6E2DA}
 @media (max-width:640px){
-  .v-intro{padding:12px 0 0;gap:6px}
-  .v-intro h1{font-size:24px!important}
-  .v-intro p{font-size:14px;margin-top:4px}
-  .v-wallet{display:none!important}
-  .v-intro p{display:none}
-  .v-intro h1{margin:0}
-  .v-bar{display:grid;grid-template-columns:1fr auto;gap:8px;padding:12px 0}
-  .v-bar #views{grid-column:1/-1;display:flex;flex-wrap:nowrap;overflow-x:auto;gap:6px;scrollbar-width:none;margin:0}
-  .v-bar #views::-webkit-scrollbar{display:none}
-  .v-bar .pill{min-height:34px;padding:6px 12px;font-size:14px;white-space:nowrap;flex:none}
-  .v-bar .grow{grid-column:1/2}
-  .v-bar input[type=search]{min-height:40px;font-size:15px}
-  .v-photo{display:flex;gap:6px;grid-column:2/3}
-  .v-photo .pill{width:40px;min-width:40px;padding:0;justify-content:center;font-size:17px}
-  .v-tx,.v-lab{display:none}
-  .v-sm{display:inline}
-  .v-dd{grid-column:auto;min-width:0}
-  .v-bar .v-dd:nth-of-type(n){display:block!important}
-  .v-ddrow{grid-column:1/-1;display:grid!important;grid-template-columns:1fr 1fr 1fr;gap:6px}
-  .v-ddrow select{width:100%;min-width:0;min-height:38px;font-size:13px;padding:6px 8px}
-  .jf-empty{padding:18px 14px;font-size:15px}
-  .jf-grid{gap:10px!important;margin-top:8px!important}
-  .jf-item{padding:8px!important;gap:6px!important}
-  .jf-name{font-size:14px!important;line-height:1.3!important;min-height:0!important;margin:0!important}
-  .jf-meta{flex-wrap:wrap;gap:2px 8px!important;margin-top:auto}
-  .jf-price{font-size:15px!important}
-  .jf-by{font-size:12px!important}
-  .jf-heart{width:34px!important;height:34px!important;font-size:16px!important}
-  #count{font-size:13px}
-  .v-foot{padding-top:24px}
+  .v-tx{display:none}.v-sm{display:inline}
+  .v-hero{margin:12px 0 4px;padding:22px 18px 22px;border-radius:18px}
+  .v-hero h1{font-size:30px}
+  .v-hero p{font-size:14px;max-width:72%}
+  .v-eyebrow{font-size:10px;letter-spacing:.18em;margin-bottom:10px}
+  .v-fan{right:-26px;top:auto;bottom:-34px;transform:scale(.62);transform-origin:100% 100%;opacity:.85}
+  .v-search input[type=search]{min-height:46px;font-size:15px}
+  .v-cam{width:46px;height:46px}
+  .v-ddrow{grid-template-columns:1fr;gap:8px}
+  .jf-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px!important}
+  .jf-item{padding:8px!important;border-radius:16px!important}
+  .jf-name{font-size:13.5px!important;line-height:1.3!important}
+  .jf-price{font-size:15px!important}.jf-by{font-size:11.5px!important}
+  .v-foot{gap:12px}
 }
-.v-vote{border:1px solid #4E7A63;padding:16px 18px;margin:18px 0 6px;display:flex;flex-direction:column;gap:10px}
-.v-vtop{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:baseline;justify-content:space-between}
-.v-vote h1{font-size:clamp(22px,3.4vw,34px);text-transform:none;margin:0}
-.v-vmore{font-size:14px}
-.v-vsub{margin:0;font-size:15px;color:#D6E2DA}
-.v-vsub b{color:#C9A45C}
-.v-vpick{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.v-vpick button{min-height:56px;padding:8px;border:2px solid #4E7A63;background:transparent;color:#F7F2E6;cursor:pointer;font-weight:800;font-size:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border-radius:2px}
-.v-vpick button small{font-weight:500;font-size:12px;opacity:.85}
-.v-vpick button[aria-pressed="true"]{background:#C9A45C;border-color:#C9A45C;color:#0B1A13}
-.v-vpick button:disabled{opacity:.55;cursor:default}
-.v-vother{display:flex;gap:8px;flex-wrap:wrap}.v-vother input{flex:1 1 200px;min-width:0;min-height:44px;font-size:16px}
-@media(max-width:640px){.v-vote{padding:12px;margin:10px 0 4px;gap:8px}.v-vote h1{font-size:20px!important}.v-vsub{font-size:13px}.v-vpick button{min-height:48px;font-size:14px}.v-vmore{font-size:13px}}
-.v-hero{padding:26px 0 8px}.v-hero h1{font-size:clamp(26px,4.6vw,48px);text-transform:uppercase;line-height:1.08;margin:0;max-width:900px;letter-spacing:.01em}
-@media(max-width:640px){.v-hero{padding:14px 0 4px}.v-hero h1{font-size:24px!important}}
-.v-bar .jfn-paste{flex:1 1 100%;grid-column:1/-1;min-height:42px;margin:0;padding:8px 12px}
-.v-live{display:flex;align-items:center;gap:10px;border:2px solid #E5484D;border-radius:10px;padding:10px 14px;margin:6px 0 10px;text-decoration:none;color:inherit;font-weight:700}.v-live[hidden]{display:none}.v-live i{font-style:normal;background:#E5484D;color:#fff;font-size:12px;letter-spacing:.08em;padding:4px 8px;border-radius:4px}
 </style>
 </head>
 <body>
@@ -80,19 +91,36 @@
   <span style="display:flex;align-items:center;gap:12px"><a class="solid" href="/seller.html" style="text-decoration:none;padding:9px 16px;min-height:0;font-size:15px"><span class="v-tx">Become a seller</span><span class="v-sm">Sell</span></a></span>
 </div></header>
 <main class="wrap">
-  <div class="v-hero"><h1>A unique community needs a 1 of a kind marketplace.</h1></div>
+  <section class="v-hero">
+    <div class="v-hero-in">
+      <div class="v-eyebrow">✦ The VeeFriends collectors market ✦</div>
+      <h1>A unique community needs a <em>1 of a kind</em> marketplace.</h1>
+      <p>Pins, cards, comics, toys and NFTs from collectors you can trust. Buy now, bid, or catch a live show.</p>
+    </div>
+    <div class="v-fan" aria-hidden="true"><i></i><i></i><i></i></div>
+  </section>
   <a class="v-live" id="liveNow" href="/live.html" hidden></a>
   <div class="v-bar" role="group" aria-label="Filter and sort">
+    <div class="v-search">
+      <label class="grow"><span class="jf-sr">Search</span><span class="v-glass" aria-hidden="true">⌕</span><input id="find" type="search" placeholder="Search pins, cards, a character…" autocomplete="off"></label>
+      <button type="button" class="v-cam" id="snap" aria-label="Search by photo" aria-expanded="false">📷</button>
+      <input type="file" id="snapFile" accept="image/*" capture="environment" hidden data-nopaste>
+    </div>
+    <div class="v-campop" id="camPop" hidden>
+      <b>Search by photo</b>
+      <button type="button" class="solid" id="camPick">📷 Take or choose a photo</button>
+      <input type="file" id="pasteSink" accept="image/*" hidden data-paste-ph="📋 Or paste a photo here (tap and hold, then Paste)">
+    </div>
     <div class="jf-filters" id="views"></div>
-    <label class="grow" style="display:block"><span class="jf-sr">Search</span><input id="find" type="search" placeholder="Search pins, cards, stickers, a character…" autocomplete="off"></label>
-    <div class="v-photo"><button type="button" class="pill" id="snap" aria-label="Search by photo">📷<span class="v-tx"> Search by photo</span></button><input type="file" id="snapFile" accept="image/*" capture="environment" hidden data-nopaste></div>
-    <div class="v-ddrow" style="display:contents"><label class="v-dd" style="display:flex;flex-direction:row;align-items:center;gap:8px;font-weight:700;font-size:15px"><span class="v-lab">Seller</span>
+    <div class="v-cats" id="cats" aria-label="Categories"></div>
+    <details class="v-more"><summary>⚙︎ Sort &amp; filter</summary>
+    <div class="v-ddrow"><label class="v-dd"><span class="v-lab">Seller</span>
       <select class="jf-sel" id="seller"><option value="">All sellers</option></select></label>
-    <label class="v-dd" style="display:flex;flex-direction:row;align-items:center;gap:8px;font-weight:700;font-size:15px"><span class="v-lab">Category</span>
+    <label class="v-dd"><span class="v-lab">Category</span>
       <select class="jf-sel" id="cat"><option value="">All categories</option></select></label>
-    <label class="v-dd" style="display:flex;flex-direction:row;align-items:center;gap:8px;font-weight:700;font-size:15px"><span class="v-lab">Sort</span>
+    <label class="v-dd"><span class="v-lab">Sort</span>
       <select class="jf-sel" id="sort"><option value="low">Price: low to high</option><option value="high">Price: high to low</option><option value="ending">Auctions ending soonest</option><option value="new">Newest</option></select></label></div>
-    <input type="file" id="pasteSink" accept="image/*" hidden data-paste-ph="📋 Search by photo: click here and paste a photo (Ctrl+V / ⌘+V), or tap and hold, then Paste">
+    </details>
   </div>
   <div class="small" id="photoBar" hidden style="display:flex;flex-wrap:wrap;gap:10px;align-items:center"></div>
   <div class="small dim" id="count" role="status" aria-live="polite">Loading…</div>
@@ -147,7 +175,7 @@
     $('count').textContent = list.length ? list.length + (list.length === 1 ? ' piece' : ' pieces') : '';
     if (!list.length) {
       var e = el('div', sort === 'ending' || view === 'auctions' ? 'No auctions running right now.' : 'Nothing matches.', 'jf-empty'); e.style.gridColumn = '1/-1';
-      if (!D.products.length) { e.textContent = 'The first pieces are on their way. '; var l = el('a', 'Open a shop and list yours.'); l.href = '/seller.html'; e.appendChild(l); }
+      if (!D.products.length) { e.textContent = ''; e.classList.add('v-empty'); e.appendChild(el('div', '💎', 'v-gem')); e.appendChild(el('b', 'The vault is opening')); e.appendChild(el('p', 'The first pieces are on their way. Be one of the first collectors to list here.')); var acts = el('div', null, 'v-acts'); var l = el('a', 'Open a shop', 'solid'); l.href = '/seller.html'; var l2 = el('a', 'See sold prices', 'ghost'); l2.href = '/sold.html'; acts.appendChild(l); acts.appendChild(l2); e.appendChild(acts); }
       g.appendChild(e); return;
     }
     list.forEach(function (p) {
@@ -199,7 +227,8 @@
     bar.appendChild(el('span', text));
     if (clear) { var c = el('button', 'Clear', 'pill'); c.type = 'button'; c.addEventListener('click', function () { photoIds = null; bar.hidden = true; bar.style.display = 'none'; draw(); }); bar.appendChild(c); }
   }
-  $('snap').addEventListener('click', function () { $('snapFile').click(); });
+  $('snap').addEventListener('click', function () { var o = $('camPop').hidden; $('camPop').hidden = !o; $('snap').setAttribute('aria-expanded', o ? 'true' : 'false'); });
+  $('camPick').addEventListener('click', function () { $('snapFile').click(); });
   $('snapFile').addEventListener('change', function () { var f = $('snapFile').files[0]; if (f) runPhoto(f); });
   // Paste: Ctrl+V / Cmd+V anywhere on the page with a picture copied, or the Paste button.
   document.addEventListener('paste', function (ev) {
@@ -231,6 +260,16 @@
     var n = {}; r.products.forEach(function (p) { n[p.section] = (n[p.section] || 0) + 1; });
     (r.sections || []).forEach(function (s) { var o = el('option', s + (n[s] ? ' (' + n[s] + ')' : '')); o.value = s; $('cat').appendChild(o); });
     if (wantCat) $('cat').value = wantCat;
+    // Category chips, collector style: tap one to filter, tap again for everything.
+    var ICON = [[/graded|slab/i, '🏆'], [/card/i, '🃏'], [/pin/i, '📌'], [/sticker/i, '✨'], [/comic|book/i, '📚'], [/toy|figure|plush/i, '🧸'], [/nft|digital/i, '💎'], [/apparel|shirt|hat|wear/i, '👕'], [/art|print|poster/i, '🖼️'], [/sealed|pack|box/i, '📦']];
+    var cats = $('cats'); cats.textContent = '';
+    (r.sections || []).forEach(function (sec) {
+      var ic = (ICON.filter(function (x) { return x[0].test(sec); })[0] || [0, '⭐'])[1];
+      var b = el('button', null, 'v-cat'); b.type = 'button'; b.appendChild(el('b', ic)); b.appendChild(el('span', sec.replace(/^VeeFriends /, '')));
+      b.setAttribute('aria-pressed', $('cat').value === sec ? 'true' : 'false');
+      b.addEventListener('click', function () { $('cat').value = $('cat').value === sec ? '' : sec; $('cat').dispatchEvent(new Event('change')); Array.prototype.forEach.call(cats.children, function (c) { c.setAttribute('aria-pressed', c === b && $('cat').value ? 'true' : 'false'); }); });
+      cats.appendChild(b);
+    });
     (r.sellers || []).slice().sort(function (a, b) { return a.name.localeCompare(b.name); }).forEach(function (s) { var o = el('option', s.name + (s.verified ? ' ✓' : '')); o.value = s.slug; $('seller').appendChild(o); });
     if (wantSeller) { $('seller').value = wantSeller; sellerLink(); }
     // (The community wallet amount shows in the banner at the top of every page.)
