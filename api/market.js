@@ -51,7 +51,7 @@ async function shopItems() {
     const left = Math.max(0, Number(p.stock || 0) - (sold[p.id] || 0) - (held[p.id] || 0));
     const free = p.shipping === 'free' || !Number(p.shipping);
     return { id: p.id, name: p.name, price: Number(p.price).toFixed(2), left: left, ship: free ? '0.00' : Number(p.shipping).toFixed(2), section: p.section || '', desc: p.desc || '',
-      photo: photoOf(p), seller: p.seller || '', sellerName: p.sellerName || 'JarFriends', auction: p.auction && p.auction.ends ? { ends: Date.parse(p.auction.ends) || 0, start: Number(p.auction.start) || 0 } : null, nft: !!(p.nft && p.nft !== 'no'), added: p.created || p.updated || 0 };
+      photo: photoOf(p), seller: p.seller || '', sellerName: p.sellerName || 'JarFriends', auction: p.auction && p.auction.ends ? { ends: Date.parse(p.auction.ends) || 0, start: Number(p.auction.start) || 0 } : null, nft: !!(p.nft && p.nft !== 'no'), added: p.created || p.updated || 0, party: p.party && p.party.ends > Date.now() ? { ends: p.party.ends, top: Math.max.apply(null, p.party.tiers.map((t) => t[1])) } : null };
   });
 }
 
@@ -171,6 +171,9 @@ module.exports = async (req, res) => {
       return res.json({ ok: true, via: A.url().indexOf('vercel') > 0 ? 'Vercel AI Gateway' : 'Anthropic', model: A.model() });
     }
     // Live shows (see _live.js): which are on, and one show as a viewer sees it (polled every couple of seconds).
+    // Party pricing on a seller's piece (see _partyS.js): where it stands, and the price and checkout key for q units.
+    if (what === 'party') { const P2 = require('./_partyS'), pc = await P2.piece(String(q.id || '')); return pc ? res.json(await P2.state(pc)) : res.status(404).json({ error: 'This piece is not in a party.' }); }
+    if (what === 'party-quote') { const r = await require('./_partyS').quote(String(q.id || ''), q.q); return res.status(r.error ? 400 : 200).json(r); }
     if (what === 'live') return res.json({ shows: await require('./_live').list() });
     if (what === 'clips') return res.json({ clips: await require('./_live').clips(String(q.s || '').toLowerCase().slice(0, 30)) });
     // One clip's video, with byte ranges so phones (Safari) can play and seek it.

@@ -272,7 +272,25 @@ async function saveListing(seller, f) {
     else if (!(hrs >= 1 && hrs <= 336)) return { error: 'An auction runs from 1 hour to 14 days.' };
     else auction = { start: price, ends: new Date(Date.now() + hrs * 3600000).toISOString() };
   }
-  const p = Object.assign({}, was || {}, { id: id, seller: seller.slug, name: name, desc: tidy(f.desc, 1200), price: price, min: 1, stock: auction ? 1 : stock, shipping: ship, section: section, sectionSet: !!section, cost: cost, hidden: !!f.hidden, minOffer: auction ? 0 : minOffer, auction: auction, shipMode: shipMode, pkg: pkg, updated: Date.now() }, was ? {} : { created: Date.now() });
+  // Party pricing (Buy now only): the more that sell before the countdown ends, the lower the price for everyone.
+  // tiers: [units sold, % off], up to 4 levels. When it ends, anyone who paid more than the final level is owed the
+  // difference (see _partyS.js). A running party keeps its start; changing it only changes the end and levels.
+  let party = null;
+  if (!auction && f.party && f.party.on) {
+    const ends = Date.parse(f.party.ends);
+    if (!(ends > Date.now() + 10 * 60000 && ends < Date.now() + 31 * 86400000)) return { error: 'Party pricing: pick an end time from 10 minutes to 30 days from now.' };
+    const tiers = (Array.isArray(f.party.tiers) ? f.party.tiers : []).map((t) => [Math.floor(Number(t && t.n)), Math.round(Number(t && t.off))]).filter((t) => t[0] > 0 || t[1] > 0);
+    if (!tiers.length) return { error: 'Party pricing: add at least one level (how many sold, and % off).' };
+    for (let i = 0; i < tiers.length; i++) {
+      if (!(tiers[i][0] >= 1 && tiers[i][0] <= stock)) return { error: 'Party pricing: each level needs a number sold from 1 to how many you have (' + stock + ').' };
+      if (!(tiers[i][1] >= 1 && tiers[i][1] <= 90)) return { error: 'Party pricing: each level needs 1% to 90% off.' };
+      if (i && !(tiers[i][0] > tiers[i - 1][0] && tiers[i][1] > tiers[i - 1][1])) return { error: 'Party pricing: each level needs more sold and more off than the one before.' };
+    }
+    if (tiers.length > 4) return { error: 'Party pricing: up to 4 levels.' };
+    const wasP = was && was.party && was.party.ends > Date.now() ? was.party : null;
+    party = { start: wasP ? wasP.start : Date.now(), ends: ends, tiers: tiers };
+  }
+  const p = Object.assign({}, was || {}, { id: id, seller: seller.slug, name: name, desc: tidy(f.desc, 1200), price: price, min: 1, stock: auction ? 1 : stock, shipping: ship, section: section, sectionSet: !!section, cost: cost, hidden: !!f.hidden, minOffer: auction ? 0 : minOffer, auction: auction, party: party, shipMode: shipMode, pkg: pkg, updated: Date.now() }, was ? {} : { created: Date.now() });
   await store.write('market/' + seller.slug + '/' + id + '.json', p);
   forget();
   return { listing: p };
@@ -312,7 +330,7 @@ async function ledger(slug) {
     const gross = dollars(d.items) + dollars(d.shipping);
     const fee = Math.round(gross * rate / 100);
     return { n: s.n, pid: s.pid, seller: mine[s.pid].seller, product: d.product || mine[s.pid].name, q: s.q, at: d.at || s.at, buyer: d.buyer || '', email: d.email || '', ship: d.ship || '', pay: d.pay || '',
-      gross: gross, rate: rate, fee: fee, net: gross - fee, paid: paidOf(d, m), tracking: m.tracking || '', shippedAt: m.shippedAt || 0,
+      gross: gross, items: dollars(d.items), rate: rate, fee: fee, net: gross - fee, paid: paidOf(d, m), tracking: m.tracking || '', shippedAt: m.shippedAt || 0,
       // Paid by card straight to the seller's own Stripe (see _connect.js): Stripe pays the seller, nothing is owed.
       direct: !!m.direct, issue: m.issue || null,
       // A shipping label the seller bought through V2V: its cost, and the part taken from money V2V holds for them.

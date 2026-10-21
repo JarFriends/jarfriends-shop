@@ -640,7 +640,29 @@
     f.appendChild(hoursL); f.appendChild(minL);
     var cost = input('number', p && p.cost != null ? p.cost : '', { min: '0', step: '0.01', inputmode: 'decimal', placeholder: 'Optional' });
     f.appendChild(field('What you paid for it (USD, each)', cost, 'Private: only you see this. When it sells, the Profit tab shows what you made.'));
-    var showMode = function () { var a = mode.value === 'auction'; hoursL.hidden = !a; minL.hidden = a; stockL.hidden = a; priceL.firstChild.textContent = a ? 'Starting bid (USD)' : 'Price (USD)'; };
+    // Party pricing: the more that sell before the countdown ends, the lower the price for everyone (api/_partyS.js).
+    var pp = (p && p.party && p.party.ends > Date.now()) ? p.party : null;
+    var partyBox = el('div'); partyBox.style.cssText = 'display:flex;flex-direction:column;gap:10px;border:1px dashed #E5484D;border-radius:8px;padding:12px 14px';
+    var pOn = input('checkbox'); pOn.checked = !!pp; var pl = el('label', null, 'jf-check'); pl.appendChild(pOn); pl.appendChild(el('span', '🎉 Party pricing: the more that sell before the countdown ends, the lower the price for everyone'));
+    partyBox.appendChild(pl);
+    var pIn = el('div'); pIn.style.cssText = 'display:flex;flex-direction:column;gap:10px';
+    var pad = function (n) { return ('0' + n).slice(-2); };
+    var dflt = new Date(pp ? pp.ends : Date.now() + 3 * 86400000), pEnds = input('datetime-local', dflt.getFullYear() + '-' + pad(dflt.getMonth() + 1) + '-' + pad(dflt.getDate()) + 'T' + pad(dflt.getHours()) + ':' + pad(dflt.getMinutes()), {});
+    pIn.appendChild(field('Party ends', pEnds, 'Buyers see a countdown. When it ends, anyone who paid more than the final price gets the difference back.'));
+    pIn.appendChild(el('div', 'Levels: once this many are sold, everyone gets this much off. Up to 4.', 'small dim'));
+    var rows = [], prev = el('div', '', 'small');
+    for (var ti = 0; ti < 4; ti++) {
+      var t0 = pp && pp.tiers[ti] ? pp.tiers[ti] : (!pp && ti < 3 ? [[3, 5], [6, 10], [10, 20]][ti] : null);
+      var rn = input('number', t0 ? t0[0] : '', { min: '1', step: '1', placeholder: 'Sold' }), ro = input('number', t0 ? t0[1] : '', { min: '1', max: '90', step: '1', placeholder: '% off' });
+      var rr = el('div', null, 'two'); rr.appendChild(field('Level ' + (ti + 1) + ': once sold', rn)); rr.appendChild(field('% off for everyone', ro)); pIn.appendChild(rr); rows.push([rn, ro]);
+    }
+    var preview = function () { var pr = Number(price.value) || 0; prev.textContent = rows.filter(function (r) { return r[0].value && r[1].value; }).map(function (r) { return r[0].value + ' sold → $' + (pr * (100 - Number(r[1].value)) / 100).toFixed(2); }).join(' · '); };
+    rows.forEach(function (r) { r[0].addEventListener('input', preview); r[1].addEventListener('input', preview); }); price.addEventListener('input', preview); preview();
+    pIn.appendChild(prev); partyBox.appendChild(pIn);
+    var pShow = function () { pIn.hidden = !pOn.checked; }; pOn.addEventListener('change', pShow); pShow();
+    var partyVal = function () { return pOn.checked && mode.value !== 'auction' ? { on: true, ends: pEnds.value ? new Date(pEnds.value).toISOString() : '', tiers: rows.map(function (r) { return { n: r[0].value, off: r[1].value }; }) } : null; };
+    f.appendChild(partyBox);
+    var showMode = function () { var a = mode.value === 'auction'; hoursL.hidden = !a; minL.hidden = a; stockL.hidden = a; partyBox.hidden = a; priceL.firstChild.textContent = a ? 'Starting bid (USD)' : 'Price (USD)'; };
     mode.addEventListener('change', showMode); showMode();
     f.appendChild(field('Shipping', shipMode));
     var shipL = field('Flat shipping price (USD, once per order)', ship);
@@ -667,7 +689,7 @@
     c.appendChild(f);
     f.addEventListener('submit', function (ev) {
       ev.preventDefault(); go.disabled = true; m.textContent = 'Saving…';
-      JF.api('/api/market', { do: 'listing', t: tok, as: AS, ak: AK, id: p ? p.id : '', cost: cost.value, name: name.value, desc: desc.value, price: price.value, stock: mode.value === 'auction' ? 1 : stock.value, shipping: ship.value, shipMode: shipMode.value, pkgPreset: pf.read().preset, pkgOz: pf.read().oz, pkgL: pf.read().l, pkgW: pf.read().w, pkgH: pf.read().h, section: sec.value, hidden: hidden.checked, mode: mode.value, hours: hours.value, minOffer: mode.value === 'auction' ? '' : minOffer.value }).then(function (r) {
+      JF.api('/api/market', { do: 'listing', t: tok, as: AS, ak: AK, id: p ? p.id : '', cost: cost.value, name: name.value, desc: desc.value, price: price.value, stock: mode.value === 'auction' ? 1 : stock.value, shipping: ship.value, shipMode: shipMode.value, pkgPreset: pf.read().preset, pkgOz: pf.read().oz, pkgL: pf.read().l, pkgW: pf.read().w, pkgH: pf.read().h, section: sec.value, hidden: hidden.checked, mode: mode.value, hours: hours.value, minOffer: mode.value === 'auction' ? '' : minOffer.value, party: partyVal() }).then(function (r) {
         if (r.error) { go.disabled = false; m.textContent = r.error; return; }
         var file = photo.files && photo.files[0];
         if (!file) return finish();

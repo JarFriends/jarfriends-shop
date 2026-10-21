@@ -141,5 +141,40 @@
       new MutationObserver(place).observe(ob, { attributes: true, attributeFilter: ['hidden'] }); place();
     }
     $('go').textContent = 'Buy now';
+    party(head, qty);
+  }
+  // Party pricing (api/_partyS.js): a countdown, the levels, and checkout at the party price for the units picked.
+  function party(head, qty) {
+    fetch('/api/market?do=party&id=' + encodeURIComponent(id), { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (st) {
+      if (!st || st.ended) return;
+      var usd = function (c) { return '$' + (c / 100).toFixed(2); }, skew = st.serverNow - Date.now();
+      var box = el('div'); box.style.cssText = 'border:2px solid #E5484D;border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:10px;background:rgba(229,72,77,.07)';
+      box.appendChild(el('b', '🎉 PARTY PRICING: the more that sell, the lower the price for everyone'));
+      var pr = el('div'); pr.style.cssText = 'display:flex;align-items:baseline;gap:10px;flex-wrap:wrap';
+      if (st.off) { var was = el('span', usd(st.price)); was.style.cssText = 'text-decoration:line-through;text-decoration-color:#E5484D;text-decoration-thickness:3px;opacity:.6;font-size:20px'; pr.appendChild(was); }
+      var now = el('span', usd(st.now)); now.style.cssText = 'font:800 32px/1 "IBM Plex Mono",monospace;color:#C9A45C'; pr.appendChild(now);
+      if (st.off) pr.appendChild(el('span', st.off + '% off right now', 'small'));
+      box.appendChild(pr);
+      var cd = el('div'); cd.style.cssText = 'font:700 18px/1.2 "IBM Plex Mono",monospace;color:#FF8A8E'; box.appendChild(cd);
+      var tickCd = function () { var l = Math.max(0, st.ends - (Date.now() + skew)), d = Math.floor(l / 864e5), h = Math.floor(l / 36e5) % 24, m = Math.floor(l / 6e4) % 60, sc = Math.floor(l / 1e3) % 60; cd.textContent = l ? '⏳ Ends in ' + (d ? d + 'd ' : '') + h + 'h ' + m + 'm ' + sc + 's' : 'The party has ended'; };
+      tickCd(); setInterval(tickCd, 1000);
+      var last = st.tiers[st.tiers.length - 1].need, bar = el('div'), fill = el('span'); bar.style.cssText = 'height:10px;background:rgba(255,255,255,.12);border-radius:99px;overflow:hidden'; fill.style.cssText = 'display:block;height:100%;background:linear-gradient(90deg,#C9A45C,#E5484D);width:' + Math.min(100, Math.round(st.sold * 100 / last)) + '%'; bar.appendChild(fill); box.appendChild(bar);
+      box.appendChild(el('div', st.sold + ' sold so far' + (st.next ? ' · ' + st.next.more + ' more to reach ' + st.next.off + '% off' : ' · top level reached!'), 'small'));
+      var ul = el('div'); ul.style.cssText = 'display:flex;flex-direction:column;gap:4px;font-size:14px';
+      st.tiers.forEach(function (t) { var li = el('div', (t.reached ? '✅ ' : '⬜ ') + t.need + ' sold → ' + t.off + '% off (' + usd(t.price) + ')'); if (t.reached) li.style.fontWeight = '700'; ul.appendChild(li); });
+      box.appendChild(ul);
+      box.appendChild(el('div', 'Your own units count toward the next level. If the price drops further after you buy, you get the difference back when the party ends.', 'small dim'));
+      head.parentNode.insertBefore(box, head.nextSibling);
+      // Checkout goes through the party price for the units picked.
+      var go = $('go'); go.textContent = 'Buy at the party price';
+      go.addEventListener('click', function (ev) {
+        ev.preventDefault(); ev.stopImmediatePropagation();
+        var n = Math.max(1, Number(qty && qty.value) || 1); go.disabled = true;
+        fetch('/api/market?do=party-quote&id=' + encodeURIComponent(id) + '&q=' + n, { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (r) {
+          if (r.error || !r.key) { go.disabled = false; alert(r.error || 'The party price did not load. Try again.'); return; }
+          location.href = '/order.html?offer=' + encodeURIComponent(r.key);
+        }).catch(function () { go.disabled = false; });
+      }, true);
+    }).catch(function () {});
   }
 })();

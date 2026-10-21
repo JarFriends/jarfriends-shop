@@ -153,10 +153,11 @@
     list.forEach(function (p) {
       var a = el('a', null, 'jf-item'); a.href = p.auction ? '/auction.html?id=' + encodeURIComponent(p.id) : '/order.html?product=' + encodeURIComponent(p.id);
       a.appendChild(JF.picture(p));
-      if (p.auction) a.appendChild(el('span', 'AUCTION', 'jf-tag')); else if (p.left === 1) a.appendChild(el('span', 'LAST ONE', 'jf-tag'));
+      if (p.auction) a.appendChild(el('span', 'AUCTION', 'jf-tag')); else if (p.party) { var pt = el('span', '🎉 PARTY · UP TO ' + p.party.top + '% OFF', 'jf-tag'); pt.style.background = '#E5484D'; pt.style.color = '#fff'; a.appendChild(pt); } else if (p.left === 1) a.appendChild(el('span', 'LAST ONE', 'jf-tag'));
       a.appendChild(el('div', p.name, 'jf-name'));
       var m = el('div', null, 'jf-meta');
       m.appendChild(el('span', (p.auction ? 'Bid ' : '') + JF.usd(p.price), 'jf-price'));
+      if (p.party) { var cd = el('div', '', 'small'); cd.style.cssText = 'color:#FF8A8E;font-weight:700'; cd.dataset.ends = p.party.ends; a.appendChild(cd); }
       var by = el('span', p.sellerName + ' ', 'jf-by'); if (p.sellerVerified) by.appendChild(JF.check(true)); m.appendChild(by);
       a.appendChild(m);
       if (p.auction) { var t = el('div', left(p.auction.ends), 'jf-time'); t.dataset.ends = p.auction.ends; a.appendChild(t); }
@@ -247,6 +248,10 @@ fetch('/api/market?do=live', { cache: 'no-store' }).then(function (r) { return r
   a.innerHTML = '<i>LIVE</i>'; a.appendChild(document.createTextNode(live.length === 1 ? (live[0].title || live[0].shop) + ' is live now · watch and bid →' : live.length + ' shows are live now · watch and bid →'));
   a.hidden = false;
 }).catch(function () {});
+</script>
+<script>
+// Party pieces count down on their cards.
+setInterval(function () { Array.prototype.forEach.call(document.querySelectorAll('[data-ends]'), function (n) { var l = Math.max(0, Number(n.dataset.ends) - Date.now()), d = Math.floor(l / 864e5), h = Math.floor(l / 36e5) % 24, m = Math.floor(l / 6e4) % 60, sc = Math.floor(l / 1e3) % 60; n.textContent = l ? '⏳ Party ends in ' + (d ? d + 'd ' : '') + h + 'h ' + m + 'm ' + sc + 's' : 'Party ended'; }); }, 1000);
 </script>
 </body>
 </html>

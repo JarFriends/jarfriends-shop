@@ -398,6 +398,7 @@ async function run() {
   // A queued round of safes goes live the moment the last safe on the site is bought (then safes() emails it).
   await require('./_rounds').checkQueue().catch((e) => console.error('SWEEP_QUEUE_FAIL', String(e && e.message || e)));
   await safes(now, mail).catch((e) => console.error('SWEEP_SAFES_FAIL', String(e && e.message || e)));
+  await require('./_partyS').wrapUp().catch((e) => console.error('SWEEP_PARTYS_FAIL', String(e && e.message || e)));
   await partyOpen(now, mail).catch((e) => console.error('SWEEP_PARTY_FAIL', String(e && e.message || e)));
   await auctions(now, mail).catch((e) => console.error('SWEEP_AUCTIONS_FAIL', String(e && e.message || e)));
   // Pieces brought over from eBay: take down any that sold or ended there (see _ebay.js).
