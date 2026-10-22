@@ -94,7 +94,7 @@ module.exports = async (req, res) => {
     // A Google or confirmed-email sign-in: the profile is made the first time it is seen.
     let u = (await U.get(me)) || (await U.put(me, { verified: true }));
     // Everyone signs the Terms (public/terms.html) before using their account.
-    if (!U.agreed(u)) return res.status(403).json({ needTerms: true, error: 'Please read and sign the VeeFam.io Terms of Service to continue.' });
+    if (!(await U.hasAgreed(u && u.email ? u.email : me, u))) return res.status(403).json({ needTerms: true, error: 'Please read and sign the VeeFam.io Terms of Service to continue.' });
 
     if (req.method === 'GET' && what === 'card-done') {
       const sid = String(q.session || '');

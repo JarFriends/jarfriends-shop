@@ -18,7 +18,7 @@ module.exports = async (req, res) => {
       && (j.iss === 'accounts.google.com' || j.iss === 'https://accounts.google.com');
     if (!ok) { console.error('GOOGLE_REJECT', r.status, String(j.error_description || j.error || 'claims did not match')); return res.status(401).json({ error: 'Google sign-in could not be verified.' }); }
     const em = String(j.email).toLowerCase(), U = require('./_users');
-    res.json({ token: sign({ a: 1, e: em, x: now + 30 * 86400 }), terms: U.agreed(await U.get(em).catch(() => null)) });
+    res.json({ token: sign({ a: 1, e: em, x: now + 30 * 86400 }), terms: await U.hasAgreed(em).catch(() => false) });
   } catch (e) {
     console.error('GOOGLE_FAIL', String(e && e.message || e));
     res.status(503).json({ error: 'Could not reach Google just now. Try again.' });

@@ -398,7 +398,7 @@ module.exports = async (req, res) => {
       return res.json({ ok: true });
     }
     // Everyone signs the Terms (public/terms.html) before using their account. The owner viewing a shop is exempt.
-    if (!actAs) { const U = require('./_users'); if (!U.agreed(await U.get(me))) return res.status(403).json({ needTerms: true, error: 'Please read and sign the VeeFam.io Terms of Service to continue.' }); }
+    if (!actAs) { const U = require('./_users'); if (!(await U.hasAgreed(me))) return res.status(403).json({ needTerms: true, error: 'Please read and sign the VeeFam.io Terms of Service to continue.' }); }
 
     if (what === 'wish') {
       const was = (await store.read(wishKey(me))) || { ids: [] };

@@ -66,7 +66,7 @@ module.exports = async (req, res) => {
       const u = await U.get(email);
       if ((u && pwConfirmed(u)) || skip) {
         if (!u || !pwConfirmed(u)) await U.put(email, { verified: true, pwOk: true });
-        return res.json({ token: U.tokenFor(email), created: b.do === 'signup', terms: U.agreed(await U.get(email)) });
+        return res.json({ token: U.tokenFor(email), created: b.do === 'signup', terms: await U.hasAgreed(email) });
       }
       const sent = await sendCode(email, host);
       if (sent !== 'sent' && sent !== 'duplicate') return res.status(503).json({ error: 'We could not email your code just now. Try again in a minute, or sign in with Google.' });
@@ -74,7 +74,7 @@ module.exports = async (req, res) => {
     }
     if (b.do === 'verify') {
       const r = await U.checkCode(email, b.code);
-      if (r === 'ok') { await U.put(email, { verified: true, pwOk: true }); return res.json({ token: U.tokenFor(email), terms: U.agreed(await U.get(email)) }); }
+      if (r === 'ok') { await U.put(email, { verified: true, pwOk: true }); return res.json({ token: U.tokenFor(email), terms: await U.hasAgreed(email) }); }
       return res.status(400).json({ error: r === 'wrong' ? 'That code is not right. Check the email and try again.' : r === 'tries' ? 'Too many wrong codes. Ask for a new one.' : 'That code has run out. Ask for a new one.' });
     }
     if (b.do === 'resend') {

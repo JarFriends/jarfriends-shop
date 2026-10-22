@@ -69,6 +69,13 @@ async function guarded(email) {
 // The Terms of Service (public/terms.html). Everyone signs them electronically; a new version means signing again.
 const TERMS_VERSION = '2026-10-20';
 const agreed = (u) => !!(u && u.terms && u.terms.v === TERMS_VERSION);
+// The signature is also kept in its own file that is written once and never rewritten, so a profile saved from an
+// older copy (storage can lag a few seconds right after a write) can never lose it and ask people to sign again.
+const termsKey = (email) => 'users/terms/' + h(email) + '-' + TERMS_VERSION + '.json';
+async function hasAgreed(email, u) {
+  if (agreed(u === undefined ? await get(email) : u)) return true;
+  return !!(await store.read(termsKey(email)));
+}
 // The electronic signature: the version, the typed name, when, and from where (kept with the account).
 async function signTerms(email, name, req) {
   const n = String(name || '').replace(/\s+/g, ' ').trim().slice(0, 80);
@@ -76,9 +83,11 @@ async function signTerms(email, name, req) {
   const ip = String((req && req.headers && (req.headers['x-forwarded-for'] || req.headers['x-real-ip'])) || '').split(',')[0].trim().slice(0, 64);
   const ua = String((req && req.headers && req.headers['user-agent']) || '').slice(0, 200);
   const was = await get(email);
-  if (agreed(was)) return { ok: true, already: true };
+  if (await hasAgreed(email, was)) return { ok: true, already: true };
   const at = Date.now();
-  await put(email, { terms: { v: TERMS_VERSION, name: n, at: at, ip: ip, ua: ua } });
+  const sig = { v: TERMS_VERSION, name: n, at: at, ip: ip, ua: ua };
+  await store.write(termsKey(email), sig);
+  await put(email, { terms: sig });
   // A copy of what they signed, for their records.
   const host = String(process.env.SITE_HOST || 'veefam.io').replace(/^https?:\/\//, '').replace(/\/+$/, '');
   const when = new Date(at).toLocaleString('en-US', { timeZone: 'America/Chicago', dateStyle: 'long', timeStyle: 'short' }) + ' (Central)';
@@ -97,4 +106,4 @@ async function signTerms(email, name, req) {
   return { ok: true };
 }
 
-module.exports = { TERMS_VERSION, agreed, sign: signTerms, guarded, h, get, put, setPassword, checkPassword, hasPassword, newCode, checkCode, tokenFor, skipCode, validEmail };
+module.exports = { TERMS_VERSION, agreed, hasAgreed, sign: signTerms, guarded, h, get, put, setPassword, checkPassword, hasPassword, newCode, checkCode, tokenFor, skipCode, validEmail };
