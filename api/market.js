@@ -511,6 +511,15 @@ module.exports = async (req, res) => {
       return res.json({ email: me, seller: M.safe(seller), fee: M.feePct(), sections: M.SECTIONS, listings: listings, orders: orders, profit: prof, views: views, payouts: outs, totals: M.totals(rows, outs), posts: feed, stripe: st, stats: myStats, reviews: myReviews, presets: require('./_ship').PRESETS, labelsOn: require('./_ship').ready() });
     }
     // Offers on my pieces. A pending one carries its answer key (t) for /api/offer: accept, counter or decline.
+    // Close my shop: the shop and its pieces go, the buyer account stays. Paid orders must be shipped first.
+    if (what === 'shop-close' && req.method === 'POST') {
+      if (!seller) return res.status(403).json({ error: 'You do not have a shop.' });
+      if (String(b.confirm || '').trim().toUpperCase() !== 'CLOSE') return res.status(400).json({ error: 'Type CLOSE to confirm.' });
+      const open = (await M.ledger(seller.slug)).filter((r) => r.paid && !r.tracking);
+      if (open.length) return res.status(400).json({ error: 'You still have ' + open.length + ' paid order' + (open.length === 1 ? '' : 's') + ' to ship. Ship them (add tracking) before closing your shop.' });
+      await M.removeShop(seller.slug, true);
+      return res.json({ ok: true });
+    }
     // ---------- Live shows, as the seller ----------
     if (what === 'live-mine' || what === 'live-set' || what === 'live-lot' || what === 'live-lot-end' || what === 'live-token' || what === 'live-deal' || what === 'live-deal-end') {
       if (!seller) return res.status(403).json({ error: 'Open a seller shop first.' });

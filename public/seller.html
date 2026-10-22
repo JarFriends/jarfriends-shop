@@ -1077,6 +1077,33 @@
     c.appendChild(f);
     c.appendChild(el('div', 'Shop name: ' + s.name + ' · Signed in as ' + D.email + ' · JarFriends fee: ' + D.fee + '% of each sale. To rename your shop, contact JarFriends.', 'small dim'));
     pane.appendChild(c);
+    if (AS) return;
+    // Close the shop (keep the buyer account), or delete the whole account.
+    var danger = el('section', null, 'card'); danger.style.cssText = 'gap:12px;border-color:#7a3b3b';
+    danger.appendChild(el('h2', 'Close shop or delete account'));
+    var mk = function (title, text, word, btnText, action) {
+      var w = el('div'); w.style.cssText = 'display:flex;flex-direction:column;gap:8px';
+      w.appendChild(el('b', title)); w.appendChild(el('div', text, 'small'));
+      var open = el('button', title, 'ghost'); open.type = 'button'; open.style.alignSelf = 'flex-start';
+      var f2 = el('div'); f2.hidden = true; f2.style.cssText = 'display:flex;flex-direction:column;gap:8px';
+      var inp = el('input'); inp.placeholder = 'Type ' + word + ' to confirm'; inp.autocomplete = 'off'; inp.style.maxWidth = '260px';
+      var go2 = el('button', btnText, 'solid'); go2.type = 'button'; go2.style.cssText = 'align-self:flex-start;background:#b54545;border-color:#b54545;color:#fff';
+      var m2 = el('div', '', 'small'); m2.setAttribute('role', 'status');
+      f2.appendChild(inp); f2.appendChild(go2); f2.appendChild(m2);
+      open.addEventListener('click', function () { f2.hidden = false; open.hidden = true; inp.focus(); });
+      go2.addEventListener('click', function () {
+        if (inp.value.trim().toUpperCase() !== word) { m2.textContent = 'Type ' + word + ' to confirm.'; return; }
+        go2.disabled = true; m2.textContent = 'Working…';
+        JF.api('/api/market', { do: action, t: tok, confirm: word }).then(function (r) {
+          if (r.error) { go2.disabled = false; m2.textContent = r.error; return; }
+          if (action === 'delete-account') { JF.signOut(); location.href = '/?deleted=1'; } else location.href = '/me.html';
+        });
+      });
+      w.appendChild(open); w.appendChild(f2); return w;
+    };
+    danger.appendChild(mk('Close my shop', 'Removes your shop and all its pieces. You keep your account to buy, bid and vote. Ship any paid orders first. Records of past sales are kept.', 'CLOSE', 'Close my shop for good', 'shop-close'));
+    danger.appendChild(mk('Delete my account', 'Removes everything: your shop and pieces, profile, password, saved address, wishlist, votes and trades. It cannot be undone. Records of past orders are kept, because sales and tax records have to be.', 'DELETE', 'Delete everything for good', 'delete-account'));
+    pane.appendChild(danger);
     f.addEventListener('submit', function (ev) { ev.preventDefault(); go.disabled = true; JF.api('/api/market', Object.assign({ do: 'profile', t: tok, as: AS, ak: AK, shipFrom: { name: fn.value, street1: fs1.value, street2: fs2.value, city: fc.value, state: fst.value, zip: fz.value, phone: fp.value }, about: about.value })).then(function (r) { go.disabled = false; m.textContent = r.error || 'Saved.'; if (!r.error) D.seller = r.seller; }); });
   }
   // Back from Stripe's payout setup: show the payouts tab. "again" means the link ran out, so open a fresh one.
