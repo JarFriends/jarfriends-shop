@@ -202,7 +202,7 @@ module.exports = async (req, res) => {
     // The owner's own wording for the site's pages (see _wording.js); nav.js swaps the words on every page.
     if (what === 'wording' && req.method === 'GET') { res.setHeader('cache-control', 'public, max-age=0, s-maxage=20'); return res.json({ rules: (await require('./_wording').get()).rules }); }
     // ---------- The owner ----------
-    if (what === 'pages' || what === 'page-save' || what === 'page-delete' || what === 'page-off' || what === 'wording-save' || what === 'site-photo' || what === 'broadcast' || what === 'broadcast-count' || what === 'broadcasts' || what === 'admin' || what === 'status' || what === 'payout' || what === 'issue' || what === 'review-remove' || what === 'verify' || what === 'charge' || what === 'import' || what === 'emails' || what === 'email-save' || what === 'email-ai' || what === 'email-test' || what === 'giveaway-round' || what === 'bank' || what === 'ebay-ok') {
+    if (what === 'subs-import' || what === 'pages' || what === 'page-save' || what === 'page-delete' || what === 'page-off' || what === 'wording-save' || what === 'site-photo' || what === 'broadcast' || what === 'broadcast-count' || what === 'broadcasts' || what === 'admin' || what === 'status' || what === 'payout' || what === 'issue' || what === 'review-remove' || what === 'verify' || what === 'charge' || what === 'import' || what === 'emails' || what === 'email-save' || what === 'email-ai' || what === 'email-test' || what === 'giveaway-round' || what === 'bank' || what === 'ebay-ok') {
       if (!gate.isAdmin(req.method === 'POST' ? b.ak : q.ak)) return res.status(401).json({ error: 'Sign in to the back office again.' });
       // Confirm (or un-confirm) that a seller's eBay user name is really theirs, so they can bring all their listings over.
       if (what === 'ebay-ok' && req.method === 'POST') { const s2 = await M.bySlug(String(b.slug || '')); if (!s2) return res.status(404).json({ error: 'That seller was not found.' }); s2.ebayOk = !!b.on; await M.save(s2); return res.json({ ok: true }); }
@@ -213,6 +213,23 @@ module.exports = async (req, res) => {
       if (what === 'page-save' && req.method === 'POST') { const r = await require('./_pages').save(b); return res.status(r.error ? 400 : 200).json(r); }
       if (what === 'page-delete' && req.method === 'POST') return res.json(await require('./_pages').remove(String(b.slug || '')));
       if (what === 'page-off' && req.method === 'POST') { const r = await require('./_pages').setOff(String(b.path || ''), !!b.off); return res.status(r.error ? 400 : 200).json(r); }
+      // Bring the JarFriends news list over as VeeFam subscribers (people who unsubscribed on either site are skipped).
+      if (what === 'subs-import' && req.method === 'POST') {
+        const key = (process.env.SUBS_EXPORT_KEY || '').trim(), src = String(process.env.JARFRIENDS_URL || 'https://jar' + 'friends.com').replace(/\/+$/, '');
+        if (!key) return res.status(503).json({ error: 'The subscriber move is not switched on yet (SUBS_EXPORT_KEY).' });
+        let list = [];
+        try { const r2 = await fetch(src + '/api/admin?subsx=' + encodeURIComponent(key), { signal: AbortSignal.timeout(30000) }); const j = await r2.json(); if (!r2.ok) throw new Error(j.error || r2.status); list = j.subscribers || []; }
+        catch (e) { return res.status(502).json({ error: 'Could not read the JarFriends list: ' + String(e && e.message || e).slice(0, 120) }); }
+        const crypto4 = require('crypto'); let added = 0, had = 0, skipped = 0;
+        for (const x of list) {
+          const e = String(x.email || '').trim().toLowerCase(); if (!/^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]{2,}$/.test(e)) continue;
+          const hh = crypto4.createHash('sha1').update(e).digest('hex').slice(0, 20);
+          const un = await store.read('unsub/' + hh + '.json'); if (un && un.at && !(un.back > un.at)) { skipped++; continue; }
+          if (await store.read('subs/' + hh + '.json')) { had++; continue; }
+          await store.write('subs/' + hh + '.json', { email: e, name: String(x.name || '').slice(0, 80), at: Date.now(), from: 'jarfriends' }); added++;
+        }
+        return res.json({ ok: true, total: list.length, added: added, already: had, skipped: skipped });
+      }
       if (what === 'broadcast-count') return res.json(await require('./_broadcast').count(String(q.aud || '')));
       if (what === 'broadcasts') return res.json({ sent: await require('./_broadcast').history() });
       if (what === 'broadcast' && req.method === 'POST') { const r = await require('./_broadcast').send(b, process.env.OWNER_EMAIL); return res.status(r.error ? 400 : 200).json(r); }

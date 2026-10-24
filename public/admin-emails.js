@@ -80,6 +80,17 @@
     box.appendChild(el('div', 'Every email the site sends by itself is listed here. Turn any of them off, or add your own words: your message goes at the top, your sign-off at the bottom, and the order details, tracking and pay links stay in so the email still works. Nothing changes until you press Save.', 'small'));
     if (!D.sending) box.appendChild(el('div', 'Emails are not being sent yet: RESEND_API_KEY and EMAIL_FROM still need to be added in Vercel. You can set everything up here now.', 'alert small'));
 
+    // Move the JarFriends news list over as subscribers here.
+    var mv = el('section', null, 'card'); mv.style.gap = '10px';
+    mv.appendChild(el('b', 'Bring my JarFriends subscribers over'));
+    mv.appendChild(el('div', 'Copies everyone on the jarfriends.com email list (buyers and people who joined it) into your VeeFam subscribers. Anyone who unsubscribed on either site is left out, and nobody is added twice. Nothing is emailed until you send something below.', 'small'));
+    var mvb = el('button', 'Bring them over', 'solid'); mvb.type = 'button'; mvb.style.alignSelf = 'flex-start';
+    var mvm = el('div', '', 'small'); mvm.setAttribute('role', 'status');
+    mvb.addEventListener('click', function () {
+      mvb.disabled = true; mvm.textContent = 'Copying…';
+      post({ do: 'subs-import' }).then(function (r) { mvb.disabled = false; mvm.textContent = r.error || 'Done: ' + r.added + ' added, ' + r.already + ' were already here, ' + r.skipped + ' had unsubscribed (left out), out of ' + r.total + '. Pick "Subscribers" below to send them a hello from VeeFam.'; });
+    });
+    mv.appendChild(mvb); mv.appendChild(mvm); box.appendChild(mv);
     box.appendChild(sendCard());
     // A sign-off for every email.
     var all = el('section', null, 'card'); all.style.gap = '12px';
