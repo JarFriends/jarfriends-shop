@@ -433,11 +433,13 @@
         // Sharp picture and clear sound: up to 1080p at 30 fps with a high bitrate, kept sharp (fewer frames before a blurrier
         // picture) so cards and slabs stay readable; lower-quality layers for slow connections; voice cleanup on the mic and
         // no silence-skipping, which can make the sound choppy.
+        // Phones send 720p (steadier on phone chips and cell data); computers send up to 1080p.
+        var phone = /iP(hone|ad|od)|Android/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1), RES = phone ? LK.VideoPresets.h720 : LK.VideoPresets.h1080;
         var room = window.__lvRoom || new LK.Room({
           adaptiveStream: false, dynacast: true,
-          videoCaptureDefaults: { resolution: LK.VideoPresets.h1080.resolution, facingMode: 'user' },
+          videoCaptureDefaults: { resolution: RES.resolution, facingMode: 'user' },
           audioCaptureDefaults: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },
-          publishDefaults: { videoEncoding: { maxBitrate: 3500000, maxFramerate: 30 }, videoSimulcastLayers: [LK.VideoPresets.h360, LK.VideoPresets.h720], degradationPreference: 'maintain-resolution', audioPreset: { maxBitrate: 64000 }, dtx: false, red: true, stopMicTrackOnMute: false }
+          publishDefaults: { videoEncoding: { maxBitrate: phone ? 2500000 : 3500000, maxFramerate: 30 }, videoSimulcastLayers: phone ? [LK.VideoPresets.h180, LK.VideoPresets.h360] : [LK.VideoPresets.h360, LK.VideoPresets.h720], degradationPreference: 'maintain-resolution', audioPreset: { maxBitrate: 64000 }, dtx: false, red: true, stopMicTrackOnMute: false }
         });
         window.__lvRoom = room;
         return (r.reuse ? Promise.resolve() : room.connect(r.url, r.token).then(function () { return room.localParticipant.enableCameraAndMicrophone(); })).then(function () {
@@ -449,7 +451,7 @@
       flip.addEventListener('click', function () {
         var room = window.__lvRoom; if (!room) return; facing = facing === 'user' ? 'environment' : 'user';
         var pub = room.localParticipant.getTrackPublication(window.LivekitClient.Track.Source.Camera);
-        if (pub && pub.track) pub.track.restartTrack({ facingMode: facing, resolution: window.LivekitClient.VideoPresets.h1080.resolution }).then(function () { var v = vbox.querySelector('video'); if (v) v.style.transform = facing === 'user' ? 'scaleX(-1)' : 'none'; });
+        if (pub && pub.track) pub.track.restartTrack({ facingMode: facing, resolution: (/iP(hone|ad|od)|Android/.test(navigator.userAgent) ? window.LivekitClient.VideoPresets.h720 : window.LivekitClient.VideoPresets.h1080).resolution }).then(function () { var v = vbox.querySelector('video'); if (v) v.style.transform = facing === 'user' ? 'scaleX(-1)' : 'none'; });
       });
       mic.addEventListener('click', function () { var room = window.__lvRoom; if (!room) return; muted = !muted; room.localParticipant.setMicrophoneEnabled(!muted); mic.textContent = muted ? '🔇' : '🎙️'; mic.title = muted ? 'Unmute mic' : 'Mute mic'; });
       return camEl;

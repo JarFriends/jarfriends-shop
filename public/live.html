@@ -232,9 +232,24 @@ body.has-dock .jfn-help{bottom:104px!important}
     ring = ring.filter(function (x) { if (!x.keep && Date.now() - x.at > RING_LIFE) { try { x.rec.stop(); } catch (er) {} return false; } return true; });
     ring.push(e);
   }
-  function ringStart() { if (ringTimer || !window.MediaRecorder) return; ringNew(); ringTimer = setInterval(ringNew, RING_EVERY); }
+  // iPhones and iPads: Safari can stall a live video while it is being recorded in the background, so there the
+  // Clip button records the next 30 seconds instead of keeping the last 30 ready.
+  var IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  var fwd = null;
+  function forwardClip() {
+    if (fwd) { try { fwd.rec.stop(); } catch (er) {} return; }
+    var r = makeRec(); if (!r) { msg.textContent = 'Your browser cannot record clips. Try Chrome or Safari.'; return; }
+    fwd = { rec: r, parts: [], at: Date.now() };
+    r.ondataavailable = function (ev) { if (ev.data && ev.data.size) fwd.parts.push(ev.data); };
+    r.onstop = function () { var f = fwd; fwd = null; clearInterval(f.t); clipBtn.textContent = '✂️ Clip 30s'; review(new Blob(f.parts, { type: r.mimeType || clipType || 'video/mp4' }), Math.round((Date.now() - f.at) / 1000)); };
+    try { r.start(1000); } catch (er) { fwd = null; msg.textContent = 'Recording did not start in this browser.'; return; }
+    fwd.t = setInterval(function () { var t = Math.round((Date.now() - fwd.at) / 1000); clipBtn.textContent = '■ Stop (' + Math.max(0, 30 - t) + 's)'; if (t >= 30) { try { fwd.rec.stop(); } catch (er) {} } }, 250);
+  }
+  if (IOS) clipBtn.textContent = '✂️ Clip 30s';
+  function ringStart() { if (IOS || ringTimer || !window.MediaRecorder) return; ringNew(); ringTimer = setInterval(ringNew, RING_EVERY); }
   clipBtn.addEventListener('click', function () {
     if (!tok) { location.href = '/me.html'; return; }
+    if (IOS || fwd) { forwardClip(); return; }
     var now = Date.now(), alive = ring.filter(function (x) { return !x.keep && x.rec.state === 'recording'; });
     if (!alive.length) { msg.textContent = 'Your browser cannot record clips. Try Chrome or Safari.'; return; }
     // The youngest recorder that already holds 30 seconds; early in the show, the oldest one there is.
@@ -290,18 +305,28 @@ body.has-dock .jfn-help{bottom:104px!important}
       clipsBox.appendChild(g);
     }).catch(function () {});
   }
+  // Phones sometimes block a video from starting by itself; then a big button starts it with one tap.
+  function playOrTap(v) {
+    var p = v.play && v.play(); if (!p || !p.catch) return;
+    p.catch(function () {
+      if (video.querySelector('.lv-tap')) return;
+      var b = el('button', '▶ Tap to watch', 'solid lv-tap'); b.type = 'button'; b.style.cssText = 'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:4;font-size:18px;padding:14px 22px';
+      b.addEventListener('click', function () { v.play().catch(function () {}); if (room && room.startAudio) room.startAudio().catch(function () {}); b.remove(); });
+      video.appendChild(b);
+    });
+  }
   function lkLoad() { return window.LivekitClient ? Promise.resolve() : new Promise(function (ok, no) { var sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/livekit-client@2.15.0/dist/livekit-client.umd.js'; sc.onload = ok; sc.onerror = no; document.head.appendChild(sc); }); }
   function watchCam() {
     video.appendChild(clipBtn);
     var off = el('div', null, 'lv-off'); off.appendChild(el('b', 'Connecting to the live video…')); video.appendChild(off);
     Promise.all([lkLoad(), JF.api('/api/market?do=show-token&s=' + encodeURIComponent(slug))]).then(function (x) {
       var r = x[1]; if (r.error) { off.textContent = r.error; return; }
-      var LK = window.LivekitClient; room = new LK.Room({ adaptiveStream: { pixelDensity: 'screen' } });
+      var LK = window.LivekitClient; room = new LK.Room({ adaptiveStream: true });
       room.on(LK.RoomEvent.TrackSubscribed, function (track) {
         live[track.kind] = track.mediaStreamTrack; clipBtn.hidden = !live.video || !window.MediaRecorder;
         if (track.kind === 'audio' && ringTimer) { ring.forEach(function (x) { try { x.rec.stop(); } catch (er) {} }); ring = []; clearInterval(ringTimer); ringTimer = null; }
         if (live.video) setTimeout(ringStart, 300);
-        var m = track.attach(); if (track.kind === 'video') { off.remove(); m.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000'; m.playsInline = true; video.appendChild(m); } else { m.style.display = 'none'; video.appendChild(m); }
+        var m = track.attach(); if (track.kind === 'video') { off.remove(); m.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000'; m.playsInline = true; m.muted = true; m.autoplay = true; m.setAttribute('playsinline', ''); m.setAttribute('muted', ''); video.appendChild(m); playOrTap(m); } else { m.style.display = 'none'; video.appendChild(m); }
       });
       room.on(LK.RoomEvent.TrackUnsubscribed, function (track) { track.detach().forEach(function (n) { n.remove(); }); });
       room.on(LK.RoomEvent.AudioPlaybackStatusChanged, function () { sound.hidden = room.canPlaybackAudio; });
