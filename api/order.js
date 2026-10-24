@@ -28,6 +28,11 @@ module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Use POST.' });
   const b = req.body && typeof req.body === 'object' ? req.body : {};
   if (b.website) return res.status(400).json({ error: 'Could not place this order.' });
+  // Only members can buy: a signed-in account with the Terms signed. The receipt goes to the account's email.
+  const acct = require('./_gate').emailOf(String(b.t || ''));
+  if (!acct) return res.status(401).json({ needSignIn: true, error: 'Sign in or create a free account to buy.' });
+  if (!(await require('./_users').hasAgreed(acct))) return res.status(403).json({ needTerms: true, error: 'Please read and sign the VeeFam.io Terms of Service to buy.' });
+  b.email = acct;
   const clip = (v, n) => String(v == null ? '' : v).trim().slice(0, n);
   // Zelle, Venmo or Cash App. Like cash, the owner confirms these by hand.
   const way = b.method === 'zelle' || b.method === 'venmo' || b.method === 'cashapp' ? b.method : '';

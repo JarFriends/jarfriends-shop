@@ -3,6 +3,22 @@
 // more than one, short pay choices, and the extras (promo code, offer, trade) tucked behind small links.
 // It only rearranges and hides what order.html already has, so checkout itself works exactly as before.
 (function () {
+  // Buying needs an account: someone not signed in sees the sign-in box (or Create an account) first, and the
+  // checkout opens once they are in. The order itself is refused without a sign-in too (api/order.js).
+  (function mustSignIn() {
+    var t = ''; try { t = localStorage.getItem('acct_token') || ''; } catch (e) { t = ''; }
+    var live = !!(window.JF && JF.emailOf && JF.emailOf(t));
+    if (live) return;
+    if (!window.JF || !JF.signInBox) return setTimeout(mustSignIn, 150);
+    var main = document.querySelector('main') || document.body;
+    Array.prototype.forEach.call(main.children, function (c) { c.dataset.coWait = '1'; c.style.display = 'none'; });
+    var host = document.createElement('div'); host.style.cssText = 'display:flex;flex-direction:column;gap:12px';
+    var h = document.createElement('h1'); h.textContent = 'Sign in to buy'; host.appendChild(h);
+    var p = document.createElement('div'); p.className = 'small'; p.textContent = 'Buying on VeeFam.io needs a free account. It keeps your orders, tracking and receipts in one place, and lets you vote on the community giveaway.'; host.appendChild(p);
+    var box = document.createElement('div'); host.appendChild(box);
+    main.insertBefore(host, main.firstChild);
+    JF.signInBox(box, '', function () { location.reload(); }, 'login');
+  })();
   // Every checkout (with or without an account) asks the buyer to agree to the Terms before placing the order.
   (function terms() {
     var go = document.getElementById('go');

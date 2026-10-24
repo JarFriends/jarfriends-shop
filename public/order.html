@@ -221,6 +221,7 @@ fieldset[hidden]{display:none}
     if ($('go').disabled) return;
     var data = {}; new FormData($('f')).forEach(function (v, k) { data[k] = v; });
     data.product = $('product').value; data.qty = Number($('qty').value);
+    try { data.t = localStorage.getItem('acct_token') || ''; } catch (e) { data.t = ''; }
     if (deal) data.offer = offerTok;
     data.promo = promo && !deal ? promo.code : '';
     $('go').disabled = true; $('msg').textContent = 'Placing your order...';
