@@ -107,13 +107,14 @@ async function retire() {
 async function all() {
   if (sMemo && Date.now() - sMemo.at < 5000) return sMemo.v;
   await seed();
-  const v = (await Promise.all((await paths('sellers/s/')).map((p) => store.read(p.path)))).filter((s) => s && s.slug);
+  const v = (await Promise.all((await paths('sellers/s/')).map((p) => store.read(p.path)))).filter((s) => s && s.slug).map(modeFix);
   v.sort((a, b) => (a.at || 0) - (b.at || 0));
   sMemo = { at: Date.now(), v: v };
   return v;
 }
 const forget = () => { sMemo = null; lMemo = null; };
-async function bySlug(slug) { return /^[a-z0-9-]{2,30}$/.test(String(slug || '')) ? store.read('sellers/s/' + slug + '.json') : null; }
+const modeFix = (s) => require('./_stripe').forMode(s, ['stripe', 'stripeOn']);
+async function bySlug(slug) { return /^[a-z0-9-]{2,30}$/.test(String(slug || '')) ? modeFix(await store.read('sellers/s/' + slug + '.json')) : null; }
 async function byEmail(email) {
   if (!email) return null;
   await seed();

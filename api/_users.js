@@ -18,7 +18,7 @@ const validEmail = (e) => /^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]{2,}$/.test(e);
 // The sign-in every page uses: an account token, good for 30 days.
 const tokenFor = (email) => sign({ a: 1, e: String(email).toLowerCase(), x: Math.floor(Date.now() / 1000) + 30 * 86400 });
 
-async function get(email) { return (await store.read('users/' + h(email) + '.json')) || null; }
+async function get(email) { return require('./_stripe').forMode((await store.read('users/' + h(email) + '.json')) || null, ['stripe']); }
 async function put(email, fields) {
   const was = (await get(email)) || { email: String(email).toLowerCase(), mode: 'buyer', at: Date.now() };
   const v = Object.assign(was, fields, { updated: Date.now() });

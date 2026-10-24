@@ -30,7 +30,7 @@ async function customer(email, u) {
   if (u.stripe) return u.stripe;
   const c = await stripe.call('POST', '/customers', { email: email, name: u.name || '', 'metadata[v2v_user]': U.h(email) }, 'v2v-customer-' + U.h(email));
   if (!c.ok || !c.body.id) throw new Error('Stripe customer: ' + c.status);
-  await U.put(email, { stripe: c.body.id });
+  await U.put(email, { stripe: c.body.id, stripeMode: stripe.test() ? 'test' : 'live' });
   return c.body.id;
 }
 async function cards(u) {

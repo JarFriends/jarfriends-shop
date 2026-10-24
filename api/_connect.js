@@ -40,7 +40,7 @@ async function accountFor(seller, host) {
   let r = await call('POST', '/accounts', Object.assign({ 'settings[payouts][schedule][interval]': 'weekly', 'settings[payouts][schedule][weekly_anchor]': 'friday' }, fields), 'v2v-acct-' + seller.slug);
   if (!r.ok) r = await call('POST', '/accounts', fields, 'v2v-acct2-' + seller.slug);
   if (!r.ok || !r.body.id) throw new Error('Stripe account: ' + r.status + ' ' + JSON.stringify(r.body && r.body.error || {}).slice(0, 200));
-  seller.stripe = r.body.id;
+  seller.stripe = r.body.id; seller.stripeMode = base.test() ? 'test' : 'live';
   await M.save(seller);
   return seller.stripe;
 }
@@ -56,8 +56,8 @@ async function onboardingLink(seller, host, as) {
 async function dashboardLink(seller) {
   if (!seller.stripe) throw new Error('no account');
   const r = await call('POST', '/accounts/' + seller.stripe + '/login_links', {});
-  if (!r.ok || !r.body.url) throw new Error('Stripe login link: ' + r.status + ' ' + JSON.stringify(r.body && r.body.error || {}).slice(0, 200));
-  return r.body.url;
+  // Sellers with the full Stripe dashboard sign in at stripe.com with the email they used when they set up payouts.
+  return r.ok && r.body.url ? r.body.url : 'https://dashboard.stripe.com/' + (base.test() ? 'test/' : '') + 'payouts';
 }
 // Where a seller's payouts stand: none, started (details still due), or on (taking card payments).
 async function status(seller) {
