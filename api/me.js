@@ -59,7 +59,7 @@ async function paid(inv, token, host, pi, client) {
     const rf = await client.call('POST', '/refunds', { payment_intent: pi.id, amount: inv.cf, 'metadata[invoice]': inv.n, 'metadata[reason]': 'card fee back, not a credit card' }, 'feeback-' + inv.n).catch(() => ({ ok: false }));
     back = rf.ok ? 'Debit card: the ' + money(inv.cf) + ' card fee was refunded to the buyer.' : 'Debit card: the ' + money(inv.cf) + ' card fee refund did NOT go through. Refund it by hand in Stripe.';
   }
-  await connect.markDirect(inv, client).catch((e) => console.error('MARK_DIRECT_FAIL', inv.n, String(e && e.message || e)));
+  await connect.markDirect(inv, client, pi.id).catch((e) => console.error('MARK_DIRECT_FAIL', inv.n, String(e && e.message || e)));
   const label = offline.labelLink(host, token, inv);
   const owner = (process.env.OWNER_EMAIL || '').trim();
   await Promise.all([

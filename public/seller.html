@@ -945,8 +945,31 @@
           f.addEventListener('submit', function (ev) { ev.preventDefault(); go.disabled = true; JF.api('/api/market', { do: 'ship', t: tok, as: AS, ak: AK, n: o.n, tracking: tr.value }).then(function (r) { go.disabled = false; if (r.error) { m.textContent = r.error; return; } load(); }); });
         }
       } else c.appendChild(el('div', (/zelle|venmo|cash ?app/i.test(o.pay || '') ? 'The buyer is paying by ' + o.pay + '. That money goes to VeeFam, and VeeFam marks the order paid once it arrives. ' : '') + 'You get a "Paid, ship it" email, and the address and the Buy label button show here, once it is paid. Do not ship before then.', 'small dim'));
+      if (!o.tracking && !o.shippedAt && !o.labelPdf) c.appendChild(cancelBox(o));
       pane.appendChild(c);
     });
+  }
+  // Cancel an order that has not shipped: the piece goes back on sale and the buyer is refunded.
+  function cancelBox(o) {
+    var d = el('details'); d.style.cssText = 'border-top:1px solid rgba(255,255,255,.08);padding-top:8px';
+    var sm = el('summary', 'Cancel this order', 'small dim'); sm.style.cursor = 'pointer'; d.appendChild(sm);
+    var box = el('div'); box.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-top:8px';
+    box.appendChild(el('div', !o.paid ? 'The buyer has not paid yet. Cancelling removes the order and puts the piece back on sale.'
+      : /card/i.test(o.pay || '') ? 'The buyer gets their card payment back in full, through Stripe. The piece goes back on sale. Stripe does not give back its own card fee on a refund.'
+      : 'The piece goes back on sale. The buyer paid VeeFam by ' + (o.pay || 'another way') + ', so VeeFam sends their money back.', 'small'));
+    var why = input('text', '', { placeholder: 'Reason (the buyer sees this), e.g. out of stock', maxlength: '300' });
+    box.appendChild(why);
+    var go = el('button', 'Yes, cancel order ' + o.n, 'ghost'); go.type = 'button'; go.style.cssText = 'align-self:flex-start;border-color:#E07A6B;color:#F2A497';
+    var m = status(); box.appendChild(go); box.appendChild(m); d.appendChild(box);
+    go.addEventListener('click', function () {
+      go.disabled = true; m.textContent = 'Cancelling\u2026';
+      JF.api('/api/market', { do: 'order-cancel', t: tok, as: AS, ak: AK, n: o.n, reason: why.value }).then(function (r) {
+        if (r.error) { go.disabled = false; m.textContent = r.error; return; }
+        m.textContent = !r.paid ? 'Cancelled. The buyer was emailed.' : r.refund === 'manual' ? 'Cancelled. VeeFam was told to send the buyer their money back.' : 'Cancelled and refunded. The buyer was emailed.';
+        setTimeout(function () { location.reload(); }, 1600);
+      });
+    });
+    return d;
   }
   function stripeCard() {
     var st = D.stripe || { state: 'off' };

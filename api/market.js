@@ -739,6 +739,38 @@ module.exports = async (req, res) => {
       const r = await M.setCost(seller.slug, n, b);
       return res.status(r.error ? 400 : 200).json(r);
     }
+    // The seller cancels one of their orders (before it ships). The order moves from sold/ to cancelled/, so the piece
+    // goes back on sale and the order leaves the sales totals and the giveaway wallet. A card payment is refunded in
+    // full through Stripe; money paid by Zelle, Venmo, Cash App or cash is with V2V, so the owner is emailed to send it back.
+    if (what === 'order-cancel' && req.method === 'POST') {
+      const n = String(b.n || ''), why = String(b.reason || '').replace(/\s+/g, ' ').trim().slice(0, 300);
+      const s = (await store.sales()).filter((x) => x.n === n)[0];
+      const row = s && (await M.ledger(seller.slug)).filter((r) => r.n === n)[0];
+      if (!s || !row) return res.status(404).json({ error: 'That order was not found, or it is already cancelled.' });
+      const d = await store.read(s.path), was = (await store.read('meta/' + n + '.json')) || {};
+      if (!d) return res.status(503).json({ error: 'Could not read that order just now. Try again.' });
+      if ((was.tracking && !was.testLabel) || was.shippedAt) return res.status(400).json({ error: 'This order has already shipped, so it cannot be cancelled. Use the Help button if there is a problem.' });
+      if (was.labelPdf && !was.testLabel) return res.status(400).json({ error: 'A shipping label was already bought for this order. Use the Help button and VeeFam will cancel the label and the order.' });
+      const paid = row.paid, card = /card/i.test(d.pay || '');
+      let refund = 'none';
+      if (paid && card) refund = await connect.refundOrder(n, was);
+      await store.write('cancelled/' + s.pid + '/' + n + '~' + s.q + '.json', Object.assign({}, d, { at: d.at || s.at }));
+      const { del } = await import('@vercel/blob');
+      await del(s.path);
+      await store.write('meta/' + n + '.json', Object.assign(was, { cancelledAt: Date.now(), wasPaid: paid, cancelledBy: seller.slug, cancelReason: why, refund: refund }));
+      walletMemo = null; M.forget();
+      const total = '$' + (d.total || '');
+      const buyerLine = !paid ? 'Nothing is due, and you were not charged.'
+        : refund === 'refunded' || refund === 'already' ? 'Your card payment of ' + total + ' has been refunded in full. It shows on your card in about 5 to 10 business days.'
+        : 'Your payment of ' + total + ' will be refunded soon, the same way you paid (' + (d.pay || '') + ').';
+      if (d.email) await mail(d.email, 'Your order ' + n + ' was cancelled', ['Your order ' + n + ' (' + (d.product || 'your order') + (s.q > 1 ? ' x ' + s.q : '') + ') from ' + seller.name + ' was cancelled by the seller.' + (why ? ' Reason: ' + why : ''), '', buyerLine, '', 'Questions? Reply to this email.'], 'seller-cancel-' + n).catch(() => null);
+      const owner = (process.env.OWNER_EMAIL || '').trim();
+      const ownerLine = !paid ? 'It was not paid, so there is nothing to refund.'
+        : refund === 'refunded' || refund === 'already' ? 'The card payment was refunded through Stripe' + (was.direct ? ' on the seller\'s account (your fee went back too).' : '.')
+        : 'REFUND TO SEND: ' + total + ' by ' + (d.pay || 'the way they paid') + ' to ' + (d.buyer || 'the buyer') + (d.email ? ' (' + d.email + ')' : '') + '.' + (card ? ' (The card payment was not found automatically: refund it in Stripe.)' : '');
+      if (owner) await mail(owner, (paid && refund === 'manual' ? 'Refund to send: ' : '') + 'order ' + n + ' cancelled by ' + seller.name, [seller.name + ' cancelled order ' + n + ' (' + (d.product || '') + ' x ' + s.q + ').' + (why ? ' Reason: ' + why : ''), '', ownerLine], 'seller-cancel-owner-' + n).catch(() => null);
+      return res.json({ ok: true, paid: paid, refund: refund });
+    }
     if (what === 'ship') {
       const n = String(b.n || ''), tracking = String(b.tracking || '').replace(/\s+/g, '').slice(0, 40);
       if (!/^[A-Za-z0-9]{8,40}$/.test(tracking)) return res.status(400).json({ error: 'Enter the tracking number.' });

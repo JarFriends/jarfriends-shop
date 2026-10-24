@@ -12,7 +12,7 @@ const changes = [
   //    application fee (see api/_connect.js). Everything else about the card page stays the same.
   ['api/stripe.js', "  if (!inv || !isCard(inv) || !(inv.u > 0)) return stop(res, 400, 'This payment link is not valid. Place the order again.');\n",
     "  if (!inv || !isCard(inv) || !(inv.u > 0)) return stop(res, 400, 'This payment link is not valid. Place the order again.');\n  const stripe = await require('./_connect').clientFor(inv);\n"],
-  ['api/stripe.js', '  const label = offline.labelLink(host, token, inv);', "  await require('./_connect').markDirect(inv, stripe).catch((e) => console.error('MARK_DIRECT_FAIL', inv.n, String(e && e.message || e)));\n  const label = offline.labelLink(host, token, inv);"],
+  ['api/stripe.js', '  const label = offline.labelLink(host, token, inv);', "  await require('./_connect').markDirect(inv, stripe, pay.id).catch((e) => console.error('MARK_DIRECT_FAIL', inv.n, String(e && e.message || e)));\n  const label = offline.labelLink(host, token, inv);"],
   // 4. Sellers hear about their own sales: a new order waiting for payment, and once it is paid (see _sellers.notifySale).
   ['api/testsheet.js', "      const om = inv && /^[A-Z0-9]{4,20}$/.test(String(inv.of || '')) ? String(inv.of) : '';",
     "      try { await require('./_sellers').notifySale(key, /payment due/i.test(String(row[13] || '')) ? 'placed' : 'paid'); } catch (e) { console.error('SELLER_NOTIFY_FAIL', key, String(e && e.message || e)); }\n      const om = inv && /^[A-Z0-9]{4,20}$/.test(String(inv.of || '')) ? String(inv.of) : '';"],

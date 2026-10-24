@@ -103,11 +103,25 @@ async function clientFor(inv) {
   };
 }
 // The sale was paid straight to the seller: note it beside the order, so nobody pays the seller a second time.
-async function markDirect(inv, client) {
-  if (!client || !client.acct) return;
+// The card payment's id is kept too, so the order can be refunded if it is cancelled.
+async function markDirect(inv, client, pi) {
   const was = (await store.read('meta/' + inv.n + '.json')) || {};
-  if (was.direct) return;
-  await store.write('meta/' + inv.n + '.json', Object.assign(was, { direct: client.acct, platformFee: client.fee, directAt: Date.now() }));
+  const add = {};
+  if (pi && /^pi_/.test(pi) && !was.pi) add.pi = pi;
+  if (client && client.acct && !was.direct) Object.assign(add, { direct: client.acct, platformFee: client.fee, directAt: Date.now() });
+  if (Object.keys(add).length) await store.write('meta/' + inv.n + '.json', Object.assign(was, add));
+}
+// Refund a cancelled card order in full. A sale paid straight to a seller is refunded on the seller's Stripe account,
+// and V2V's fee goes back with it. Returns 'refunded', 'already' or 'manual' (no payment id on file: refund by hand).
+async function refundOrder(n, m) {
+  if (!base.ready() || !m || !/^pi_/.test(m.pi || '')) return 'manual';
+  const r = m.direct
+    ? await call('POST', '/refunds', { payment_intent: m.pi, refund_application_fee: 'true', 'metadata[invoice]': n, 'metadata[reason]': 'order cancelled' }, 'cancel-refund-' + n, m.direct)
+    : await base.call('POST', '/refunds', { payment_intent: m.pi, 'metadata[invoice]': n, 'metadata[reason]': 'order cancelled' }, 'cancel-refund-' + n);
+  if (r.ok) return 'refunded';
+  if (/already been refunded|charge_already_refunded/i.test(JSON.stringify(r.body || {}))) return 'already';
+  console.error('CANCEL_REFUND_FAIL', n, r.status, JSON.stringify(r.body && r.body.error || {}).slice(0, 200));
+  return 'manual';
 }
 
-module.exports = { call, accountFor, onboardingLink, dashboardLink, status, platformFee, directSeller, clientFor, markDirect };
+module.exports = { call, accountFor, onboardingLink, dashboardLink, status, platformFee, directSeller, clientFor, markDirect, refundOrder };
