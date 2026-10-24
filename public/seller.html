@@ -412,7 +412,17 @@
       var load = window.LivekitClient ? Promise.resolve() : new Promise(function (ok, no) { var sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/livekit-client@2.15.0/dist/livekit-client.umd.js'; sc.onload = ok; sc.onerror = no; document.head.appendChild(sc); });
       Promise.all([load, window.__lvRoom ? { reuse: true } : JF.api('/api/market', { do: 'live-token', t: tok, as: AS, ak: AK })]).then(function (x) {
         var r = x[1]; if (r.error) { note.textContent = r.error; return; }
-        var LK = window.LivekitClient, room = window.__lvRoom || new LK.Room(); window.__lvRoom = room;
+        var LK = window.LivekitClient;
+        // Sharp picture and clear sound: up to 1080p at 30 fps with a high bitrate, kept sharp (fewer frames before a blurrier
+        // picture) so cards and slabs stay readable; lower-quality layers for slow connections; voice cleanup on the mic and
+        // no silence-skipping, which can make the sound choppy.
+        var room = window.__lvRoom || new LK.Room({
+          adaptiveStream: false, dynacast: true,
+          videoCaptureDefaults: { resolution: LK.VideoPresets.h1080.resolution, facingMode: 'user' },
+          audioCaptureDefaults: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },
+          publishDefaults: { videoEncoding: { maxBitrate: 3500000, maxFramerate: 30 }, videoSimulcastLayers: [LK.VideoPresets.h360, LK.VideoPresets.h720], degradationPreference: 'maintain-resolution', audioPreset: { maxBitrate: 64000 }, dtx: false, red: true, stopMicTrackOnMute: false }
+        });
+        window.__lvRoom = room;
         return (r.reuse ? Promise.resolve() : room.connect(r.url, r.token).then(function () { return room.localParticipant.enableCameraAndMicrophone(); })).then(function () {
           var pub = room.localParticipant.getTrackPublication(LK.Track.Source.Camera);
           if (pub && pub.track) { var v = pub.track.attach(); v.muted = true; v.playsInline = true; v.style.cssText = 'width:100%;height:100%;object-fit:cover;transform:scaleX(-1)'; note.remove(); vbox.appendChild(v); }
@@ -422,7 +432,7 @@
       flip.addEventListener('click', function () {
         var room = window.__lvRoom; if (!room) return; facing = facing === 'user' ? 'environment' : 'user';
         var pub = room.localParticipant.getTrackPublication(window.LivekitClient.Track.Source.Camera);
-        if (pub && pub.track) pub.track.restartTrack({ facingMode: facing }).then(function () { var v = vbox.querySelector('video'); if (v) v.style.transform = facing === 'user' ? 'scaleX(-1)' : 'none'; });
+        if (pub && pub.track) pub.track.restartTrack({ facingMode: facing, resolution: window.LivekitClient.VideoPresets.h1080.resolution }).then(function () { var v = vbox.querySelector('video'); if (v) v.style.transform = facing === 'user' ? 'scaleX(-1)' : 'none'; });
       });
       mic.addEventListener('click', function () { var room = window.__lvRoom; if (!room) return; muted = !muted; room.localParticipant.setMicrophoneEnabled(!muted); mic.textContent = muted ? '🎙️ Unmute mic' : '🎙️ Mute mic'; });
       return camEl;
@@ -437,7 +447,7 @@
       if (S.pin) {
         var r0 = el('div'); r0.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;align-items:center';
         r0.appendChild(el('b', 'On screen now: ' + S.pin.name + ' · ' + usd(S.pin.price)));
-        var off = el('button', 'Take it down', 'ghost'); off.type = 'button'; off.addEventListener('click', function () { call({ do: 'live-pin', pid: '' }); }); r0.appendChild(off);
+        var off = el('button', '■ Take it off screen', 'solid'); off.type = 'button'; off.style.cssText = 'background:#E5484D;border-color:#E5484D;color:#fff;align-self:flex-start'; off.addEventListener('click', function () { call({ do: 'live-pin', pid: '' }); }); r0.appendChild(off);
         w.appendChild(r0);
       } else w.appendChild(el('div', 'Viewers see it first in the swipe strip at the bottom of your show, with a Buy now button. Your other Buy now pieces follow it.', 'small dim'));
       var list = ready();
@@ -461,9 +471,16 @@
         var tx = el('div'); tx.style.cssText = 'flex:1;min-width:0;display:flex;flex-direction:column;gap:2px';
         tx.appendChild(el('b', (i + 1) + '. ' + it.name));
         tx.appendChild(el('span', kinds[it.kind] + ' · ' + (it.kind === 'auction' ? 'starts ' + usd(it.start) + ', ' + it.secs + 's' : it.kind === 'party' ? usd(it.start) + ' down to ' + usd(it.floor) + ', −' + usd(it.step) + ' each, ' + it.qty + ' to sell' : 'its listed price') + (it.done ? ' · started' : ''), 'small dim'));
+        if (live && ((it.kind === 'auction' && S.lot && S.lot.pid === it.pid && S.lot.endsAt > Date.now()) || (it.kind === 'party' && S.deal && S.deal.pid === it.pid) || (it.kind === 'buynow' && S.pin && S.pin.pid === it.pid))) tx.appendChild(el('span', '🔴 RUNNING NOW', 'small')).style.cssText = 'color:#FF8A8E;font-weight:800';
         r.appendChild(tx);
         var bt = el('div'); bt.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end';
-        if (live) { var st = el('button', it.done ? '▶ Again' : '▶ Start', it.done ? 'ghost' : 'solid'); st.type = 'button'; st.addEventListener('click', function () { call({ do: 'live-run', id: it.id }); }); bt.appendChild(st); }
+        var on = live && (it.kind === 'auction' ? !!(S.lot && S.lot.pid === it.pid && S.lot.endsAt > Date.now()) : it.kind === 'party' ? !!(S.deal && S.deal.pid === it.pid) : !!(S.pin && S.pin.pid === it.pid));
+        if (on) {
+          r.style.opacity = '1'; r.style.border = '2px solid #E5484D';
+          var sp = el('button', '■ Stop', 'solid'); sp.type = 'button'; sp.style.cssText = 'background:#E5484D;border-color:#E5484D;color:#fff';
+          sp.addEventListener('click', function () { call(it.kind === 'auction' ? { do: 'live-lot-end' } : it.kind === 'party' ? { do: 'live-deal-end' } : { do: 'live-pin', pid: '' }); });
+          bt.appendChild(sp);
+        } else if (live) { var st = el('button', it.done ? '▶ Again' : '▶ Start', it.done ? 'ghost' : 'solid'); st.type = 'button'; st.addEventListener('click', function () { call({ do: 'live-run', id: it.id }); }); bt.appendChild(st); }
         [['↑', 'up'], ['↓', 'down']].forEach(function (x) { var mv = el('button', x[0], 'ghost'); mv.type = 'button'; mv.style.padding = '6px 10px'; mv.addEventListener('click', function () { call({ do: 'live-plan', action: 'move', id: it.id, dir: x[1] }); }); bt.appendChild(mv); });
         var rm = el('button', '✕', 'ghost'); rm.type = 'button'; rm.style.padding = '6px 10px'; rm.title = 'Remove from the plan'; rm.addEventListener('click', function () { call({ do: 'live-plan', action: 'remove', id: it.id }); }); bt.appendChild(rm);
         r.appendChild(bt); w.appendChild(r);
@@ -531,7 +548,7 @@
         var tl = el('div', '', 'small');
         var upd = function () { var left = Math.max(0, Math.ceil((L.endsAt - Date.now()) / 1000)); tl.textContent = (L.bid ? 'Top bid ' + usd(L.bid) + ' by @' + L.byName + ' · ' + L.n + ' bids' : 'Starting at ' + usd(L.start) + ' · no bids yet') + ' · ' + left + 's left'; };
         upd(); box.appendChild(tl);
-        var en = el('button', 'End it now', 'ghost'); en.type = 'button'; en.style.alignSelf = 'flex-start'; en.addEventListener('click', function () { call({ do: 'live-lot-end' }); }); box.appendChild(en);
+        var en = el('button', '■ Stop the auction now', 'solid'); en.type = 'button'; en.style.cssText = 'background:#E5484D;border-color:#E5484D;color:#fff;align-self:flex-start'; en.addEventListener('click', function () { call({ do: 'live-lot-end' }); }); box.appendChild(en);
         body.appendChild(box);
         var tk = setInterval(function () { if (!document.body.contains(tl)) { clearInterval(tk); return; } upd(); }, 500);
       } else {
@@ -555,7 +572,7 @@
         var dd = S.deal, db = el('div', null, 'hub-card');
         db.appendChild(el('b', dd.name));
         db.appendChild(el('div', dd.claims.length + ' bought of ' + dd.qty + ' · now ' + usd(dd.price) + ' (started ' + usd(dd.start) + ', lowest ' + usd(dd.floor) + ', drops ' + usd(dd.step) + ' each)', 'small'));
-        var de = el('button', 'End the party deal', 'ghost'); de.type = 'button'; de.style.alignSelf = 'flex-start'; de.addEventListener('click', function () { call({ do: 'live-deal-end' }); }); db.appendChild(de);
+        var de = el('button', '■ Stop the party deal', 'solid'); de.type = 'button'; de.style.cssText = 'background:#E5484D;border-color:#E5484D;color:#fff;align-self:flex-start'; de.addEventListener('click', function () { call({ do: 'live-deal-end' }); }); db.appendChild(de);
         body.appendChild(db);
       } else {
         var dl = D.listings.filter(function (p) { return !p.removed && !p.hidden && !p.auction && p.left > 0; });

@@ -38,6 +38,20 @@
 .lv-card{border:1px solid #244536;border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:8px;text-decoration:none;color:inherit}
 .lv-card:hover{border-color:#C9A45C}
 .lv-past{display:flex;flex-direction:column;gap:6px;font-size:14px}
+.lv-big{display:flex;gap:14px;align-items:center;border:2px solid #C9A45C;border-radius:14px;padding:12px;background:linear-gradient(135deg,#2A2414,#11261C);animation:lvPin .5s ease}
+.lv-big img,.lv-big .ph{width:120px;height:120px;object-fit:cover;border-radius:10px;flex:none;background:#0B1712}
+.lv-big .tx{display:flex;flex-direction:column;gap:6px;min-width:0;flex:1}
+.lv-big .nm{font-size:18px;font-weight:800;line-height:1.2}
+.lv-big .pr{font-size:28px;font-weight:900;color:#F3DC9A;font-family:'Playfair Display',serif}
+.lv-big .av{font-size:13px;font-weight:700;color:#9FE0B6}
+.lv-big .av.low{color:#FF8A8E}
+.lv-big button.solid{font-size:17px;padding:13px 16px;font-weight:800}
+@media (max-width:520px){.lv-big img,.lv-big .ph{width:96px;height:96px}.lv-big .pr{font-size:24px}}
+.lv-confirm{position:fixed;inset:0;z-index:2147483600;background:rgba(0,0,0,.7);display:flex;align-items:flex-end;justify-content:center}
+.lv-confirm .sheet{background:#0F2219;border:1px solid #2E4A3B;border-radius:16px 16px 0 0;width:100%;max-width:480px;padding:18px 16px calc(18px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:12px;animation:lvPin .25s ease}
+.lv-confirm .row{display:flex;justify-content:space-between;gap:10px}
+.lv-confirm .qty{display:flex;align-items:center;gap:10px}
+.lv-confirm .qty button{width:40px;height:40px;font-size:20px;padding:0}
 .lv-dock{position:fixed;left:0;right:0;bottom:0;z-index:50;background:rgba(8,20,14,.96);backdrop-filter:blur(6px);border-top:1px solid #2E4A3B;padding:8px 12px calc(8px + env(safe-area-inset-bottom));display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch}
 .lv-dock[hidden]{display:none}
 .lv-dock .it{flex:none;width:250px;display:flex;gap:9px;align-items:center;scroll-snap-align:start;background:#11261C;border:1px solid #2E4A3B;border-radius:10px;padding:7px}
@@ -49,6 +63,7 @@
 .lv-dock .tag{font-size:10px;font-weight:800;letter-spacing:.08em;color:#E8C77A}
 @keyframes lvPin{from{transform:translateY(30px);opacity:0}to{transform:none;opacity:1}}
 body.has-dock{padding-bottom:96px}
+body.has-dock .jfn-help{bottom:104px!important}
 .lv-deal{border:2px solid #E5484D;border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:10px;background:rgba(229,72,77,.07)}
 .lv-deal h3{margin:0;font-size:14px;letter-spacing:.08em;color:#FF8A8E}
 .lv-was{position:relative;display:inline-block;font:700 20px/1 "IBM Plex Mono",monospace;opacity:.6;margin-right:10px}
@@ -101,6 +116,7 @@ body.has-dock{padding-bottom:96px}
   var head = el('div', null, 'lv-row'); var h1 = el('h1', ''); h1.style.margin = '0'; head.appendChild(h1); main.appendChild(head);
   var wrap = el('div', null, 'lv-wrap'); main.appendChild(wrap);
   var video = el('div', null, 'lv-video'); var left = el('div'); left.style.cssText = 'display:flex;flex-direction:column;gap:10px'; left.appendChild(video);
+  var pinCard = el('div'); left.appendChild(pinCard);
   var past = el('div', null, 'lv-past'); left.appendChild(past); wrap.appendChild(left);
   setTimeout(function () { left.appendChild(clipsBox); loadClips(); }, 0);
   var panel = el('div', null, 'lv-panel'); wrap.appendChild(panel);
@@ -126,20 +142,61 @@ body.has-dock{padding-bottom:96px}
     tx.appendChild(el('b', p.name));
     tx.appendChild(el('span', p.priceText + (p.left ? (p.left > 1 ? ' · ' + p.left + ' left' : ' · last one') : ''), 'small dim'));
     it.appendChild(tx);
-    var a = el('a', 'Buy now', 'solid'); a.href = '/order.html?product=' + encodeURIComponent(p.id); a.target = '_blank'; a.rel = 'noopener'; it.appendChild(a);
+    var a = el('button', 'Buy', 'solid'); a.type = 'button'; a.style.cssText = 'padding:8px 12px;font-size:13px';
+    a.addEventListener('click', function () { confirmBuy({ id: p.id, name: p.name, photo: p.photo, price: p.cents, left: p.left }); }); it.appendChild(a);
     return it;
   }
+  // The piece the seller put on screen, shown big under the video: photo, price, how many are left, one Buy button.
+  var pinKey = '';
+  function drawPin() {
+    var pin = D && D.pin, sp = pin ? shopList.filter(function (p) { return p.id === pin.pid; })[0] : null;
+    var left = sp ? sp.left : (pin ? -1 : 0), key = pin ? pin.pid + '|' + pin.at + '|' + left : '';
+    if (key === pinKey) return; var fresh = !pinKey || pinKey.split('|')[0] !== (pin ? pin.pid : ''); pinKey = key;
+    pinCard.textContent = ''; if (!pin) return;
+    var c = el('div', null, 'lv-big'); if (!fresh) c.style.animation = 'none';
+    if (pin.photo) { var im = el('img'); im.src = pin.photo; im.alt = ''; c.appendChild(im); } else c.appendChild(el('div', null, 'ph'));
+    var tx = el('div', null, 'tx');
+    tx.appendChild(el('span', '📌 ON SCREEN NOW · BUY IT NOW', 'small')).style.cssText = 'font-weight:800;letter-spacing:.08em;color:#E8C77A;font-size:11px';
+    tx.appendChild(el('div', pin.name, 'nm'));
+    tx.appendChild(el('div', '$' + (pin.price / 100).toFixed(2), 'pr'));
+    if (left === 0) tx.appendChild(el('div', 'SOLD OUT', 'av low'));
+    else if (left > 0) tx.appendChild(el('div', left === 1 ? 'Only 1 left!' : left + ' available', 'av' + (left <= 3 ? ' low' : '')));
+    var b = el('button', left === 0 ? 'Sold out' : 'Buy now', 'solid'); b.type = 'button'; b.disabled = left === 0;
+    b.addEventListener('click', function () { confirmBuy({ id: pin.pid, name: pin.name, photo: pin.photo, price: pin.price, ship: pin.ship || 0, left: left > 0 ? left : 1 }); });
+    tx.appendChild(b); c.appendChild(tx); pinCard.appendChild(c);
+  }
+  // Tap Buy: a sheet to confirm the piece, quantity and total, then on to checkout to pick how to pay.
+  function confirmBuy(p) {
+    var q = 1, max = Math.max(1, Math.min(p.left || 1, 10));
+    var bg = el('div', null, 'lv-confirm'), sh = el('div', null, 'sheet');
+    var top = el('div'); top.style.cssText = 'display:flex;gap:12px;align-items:center';
+    if (p.photo) { var im = el('img'); im.src = p.photo; im.alt = ''; im.style.cssText = 'width:64px;height:64px;object-fit:cover;border-radius:8px'; top.appendChild(im); }
+    top.appendChild(el('b', p.name)); sh.appendChild(top);
+    var qr = el('div', null, 'row'), qb = el('div', null, 'qty'), mi = el('button', '−', 'ghost'), num = el('b', '1'), pl = el('button', '+', 'ghost'); mi.type = pl.type = 'button';
+    qb.appendChild(mi); qb.appendChild(num); qb.appendChild(pl); qr.appendChild(el('span', 'Quantity' + (p.left > 1 ? ' (' + p.left + ' available)' : ''))); qr.appendChild(qb);
+    if (max > 1) sh.appendChild(qr);
+    var tot = el('div', null, 'row'); sh.appendChild(tot);
+    sh.appendChild(el('div', 'Shipping, any card fee and tax are shown on the next screen before you pay.', 'small dim'));
+    var go = el('button', '', 'solid'), x = el('button', 'Cancel', 'ghost'); go.type = x.type = 'button'; go.style.cssText = 'font-size:17px;padding:14px;font-weight:800';
+    var upd = function () { num.textContent = q; tot.textContent = ''; tot.appendChild(el('span', 'Price')); tot.appendChild(el('b', '$' + (p.price * q / 100).toFixed(2))); go.textContent = 'Confirm and pay · $' + (p.price * q / 100).toFixed(2); mi.disabled = q <= 1; pl.disabled = q >= max; };
+    mi.addEventListener('click', function () { if (q > 1) { q--; upd(); } }); pl.addEventListener('click', function () { if (q < max) { q++; upd(); } });
+    upd(); sh.appendChild(go); sh.appendChild(x);
+    x.addEventListener('click', function () { bg.remove(); }); bg.addEventListener('click', function (ev) { if (ev.target === bg) bg.remove(); });
+    go.addEventListener('click', function () { var url = '/order.html?product=' + encodeURIComponent(p.id) + '&qty=' + q; var w = window.open(url, '_blank'); if (!w) location.href = url; bg.remove(); });
+    bg.appendChild(sh); document.body.appendChild(bg);
+  }
   function drawDock() {
+    drawPin();
     var pin = D && D.pin, key = (pin ? pin.pid + '|' + pin.at : '') + '#' + shopList.map(function (p) { return p.id + p.left; }).join(',');
     if (key === dockKey) return; dockKey = key;
     dock.textContent = '';
     var rest = shopList.filter(function (p) { return !pin || p.id !== pin.pid; });
-    if (pin) { var sp = shopList.filter(function (p) { return p.id === pin.pid; })[0]; dock.appendChild(dockItem({ id: pin.pid, name: pin.name, photo: pin.photo, priceText: '$' + (pin.price / 100).toFixed(2), left: sp ? sp.left : 0 }, true)); }
-    rest.slice(0, 40).forEach(function (p) { dock.appendChild(dockItem({ id: p.id, name: p.name, photo: p.photo, priceText: '$' + p.price, left: p.left }, false)); });
+    if (pin) { var sp = shopList.filter(function (p) { return p.id === pin.pid; })[0]; dock.appendChild(dockItem({ id: pin.pid, name: pin.name, photo: pin.photo, priceText: '$' + (pin.price / 100).toFixed(2), cents: pin.price, left: sp ? sp.left : 0 }, true)); }
+    rest.slice(0, 40).forEach(function (p) { dock.appendChild(dockItem({ id: p.id, name: p.name, photo: p.photo, priceText: '$' + p.price, cents: Math.round(Number(p.price) * 100), left: p.left }, false)); });
     dock.hidden = !dock.children.length; document.body.classList.toggle('has-dock', !dock.hidden);
     if (pin) dock.scrollLeft = 0;
   }
-  loadShop(); setInterval(function () { if (!document.hidden) loadShop(); }, 30000);
+  var shopTick = 0; loadShop(); setInterval(function () { shopTick++; if (!document.hidden && (D && D.pin ? shopTick % 2 === 0 : shopTick % 6 === 0)) loadShop(); }, 5000);
   var streamKey = '';
   function drawVideo() {
     var st = D.stream || {}, key = st.embed + '|' + st.url + '|' + D.status;
@@ -239,7 +296,7 @@ body.has-dock{padding-bottom:96px}
     var off = el('div', null, 'lv-off'); off.appendChild(el('b', 'Connecting to the live video…')); video.appendChild(off);
     Promise.all([lkLoad(), JF.api('/api/market?do=show-token&s=' + encodeURIComponent(slug))]).then(function (x) {
       var r = x[1]; if (r.error) { off.textContent = r.error; return; }
-      var LK = window.LivekitClient; room = new LK.Room({ adaptiveStream: true });
+      var LK = window.LivekitClient; room = new LK.Room({ adaptiveStream: { pixelDensity: 'screen' } });
       room.on(LK.RoomEvent.TrackSubscribed, function (track) {
         live[track.kind] = track.mediaStreamTrack; clipBtn.hidden = !live.video || !window.MediaRecorder;
         if (track.kind === 'audio' && ringTimer) { ring.forEach(function (x) { try { x.rec.stop(); } catch (er) {} }); ring = []; clearInterval(ringTimer); ringTimer = null; }
