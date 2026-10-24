@@ -110,7 +110,7 @@ async function view(slug, me) {
   const lot = show.lot ? { id: show.lot.id, pid: show.lot.pid, name: show.lot.name, photo: show.lot.photo, desc: show.lot.desc || '', start: show.lot.start, bid: show.lot.bid, byName: show.lot.byName || '', n: show.lot.n, endsAt: show.lot.endsAt, next: show.lot.bid ? show.lot.bid + inc(show.lot.bid) : show.lot.start, mine: !!(me && show.lot.by === hash(me)) } : null;
   let won = null;
   if (me) { const h = hash(me); const w = (show.sold || []).filter((x) => x.by === h && Date.now() - x.at < 24 * 3600000)[0]; if (w) { const rec = await store.read('live/' + slug + '/won/' + w.id + '.json'); if (rec) won = { name: w.name, price: w.price, pay: rec.pay }; } }
-  return { slug: slug, shop: shop ? shop.name : slug, title: show.title, status: show.status, startsAt: show.startsAt || 0, stream: show.mode === 'camera' && camOn() ? { kind: 'camera' } : streamOf(show.url), lot: lot, sold: (show.sold || []).slice(0, 12).map((x) => ({ name: x.name, price: x.price, byName: x.byName, photo: x.photo, at: x.at })), chat: chat.msgs.slice(-40), now: Date.now(), won: won, deal: dealView(show.deal, me) };
+  return { slug: slug, shop: shop ? shop.name : slug, title: show.title, status: show.status, startsAt: show.startsAt || 0, stream: show.mode === 'camera' && camOn() ? { kind: 'camera' } : streamOf(show.url), lot: lot, sold: (show.sold || []).slice(0, 12).map((x) => ({ name: x.name, price: x.price, byName: x.byName, photo: x.photo, at: x.at })), chat: chat.msgs.slice(-40), now: Date.now(), won: won, deal: dealView(show.deal, me), pin: show.status === 'live' && show.pin ? show.pin : null };
 }
 async function bid(slug, me, amt) {
   const show = await store.read('live/' + slug + '.json');
@@ -151,7 +151,7 @@ async function setShow(seller, b) {
   if (b.url != null) { const u = tidy(b.url, 300); if (u && !/^https:\/\//.test(u)) return { error: 'Paste the full link to your stream, starting with https://' }; show.url = u; }
   if (b.action === 'schedule') { const t = Date.parse(b.startsAt); if (!(t > Date.now())) return { error: 'Pick a time in the future.' }; show.status = 'scheduled'; show.startsAt = t; }
   else if (b.action === 'go') { show.mode = b.mode === 'camera' ? 'camera' : 'link'; if (show.mode === 'camera' && !camOn()) return { error: 'Going live from the site is not switched on yet.' }; if (show.mode === 'link' && !show.url) return { error: 'Paste your stream link first.' }; show.status = 'live'; show.startedAt = Date.now(); show.endedAt = 0; if (!show.title) show.title = seller.name + ' live'; }
-  else if (b.action === 'end') { if (show.lot) { show.lot.endsAt = Date.now(); await settle(show); } show.status = 'ended'; show.endedAt = Date.now(); show.lot = null; show.deal = null; }
+  else if (b.action === 'end') { if (show.lot) { show.lot.endsAt = Date.now(); await settle(show); } show.status = 'ended'; show.endedAt = Date.now(); show.lot = null; show.deal = null; show.pin = null; }
   await put(show);
   return { ok: true, show: show };
 }
@@ -225,6 +225,71 @@ async function endLot(seller) {
   await settle(show);
   return { ok: true, show: show };
 }
+// ---- Show plan: the seller lines up pieces before going live (an auction, a party deal or a Buy now pin), then
+// starts each one with one press while live. show.lineup = [{ id, pid, kind, start, secs, floor, step, qty, done }].
+// ---- Buy now pin: one Buy now piece shown at the bottom of the show page for viewers to swipe and buy. show.pin.
+const photoUrl = (p) => (p.photo ? '/api/photo?id=' + p.id + '&v=' + p.photo : '');
+async function myPiece(seller, pid) {
+  const p = (await M.listings()).filter((x) => x.id === String(pid || '') && x.seller === seller.slug && !x.removed)[0];
+  if (!p) return { error: 'Pick one of your pieces.' };
+  if (p.hidden) return { error: 'That piece is hidden from the market. Untick "Hide it from the market" on it first.' };
+  return { p: p };
+}
+async function plan(seller, b) {
+  const show = await mine(seller);
+  show.lineup = show.lineup || [];
+  const c = (v) => Math.round(Number(v) * 100);
+  if (b.action === 'add') {
+    if (show.lineup.length >= 40) return { error: 'Your show plan is full (40 pieces). Remove some first.' };
+    const got = await myPiece(seller, b.pid); if (got.error) return got;
+    const kind = ['auction', 'party', 'buynow'].indexOf(b.kind) >= 0 ? b.kind : 'auction';
+    const it = { id: 'Q' + Date.now().toString(36).toUpperCase() + crypto.randomBytes(2).toString('hex').toUpperCase(), pid: got.p.id, name: got.p.name, photo: photoUrl(got.p), kind: kind, done: 0 };
+    if (kind === 'auction') {
+      it.start = c(b.start); it.secs = [15, 20, 30, 45, 60, 90].indexOf(Number(b.secs)) >= 0 ? Number(b.secs) : 30;
+      if (!(it.start >= 100)) return { error: 'The starting bid must be at least $1.' };
+    } else if (kind === 'party') {
+      it.start = c(b.start); it.floor = c(b.floor); it.step = c(b.step); it.qty = Math.floor(Number(b.qty));
+      if (!(it.start >= 100)) return { error: 'The starting price must be at least $1.' };
+      if (!(it.floor >= 100 && it.floor <= it.start)) return { error: 'The lowest price must be at least $1 and no more than the starting price.' };
+      if (!(it.step >= 25)) return { error: 'The price drop must be at least $0.25.' };
+      if (!(it.qty >= 1 && it.qty <= 999)) return { error: 'Say how many you have (1 to 999).' };
+    }
+    show.lineup.push(it);
+  } else if (b.action === 'remove') {
+    show.lineup = show.lineup.filter((x) => x.id !== b.id);
+  } else if (b.action === 'move') {
+    const i = show.lineup.findIndex((x) => x.id === b.id), j = i + (b.dir === 'up' ? -1 : 1);
+    if (i >= 0 && j >= 0 && j < show.lineup.length) { const t = show.lineup[i]; show.lineup[i] = show.lineup[j]; show.lineup[j] = t; }
+  } else if (b.action === 'reset') {
+    show.lineup.forEach((x) => { x.done = 0; });
+  } else return { error: 'Unknown request.' };
+  await put(show);
+  return { ok: true, show: show };
+}
+async function pin(seller, b) {
+  const show = await mine(seller);
+  if (show.status !== 'live') return { error: 'Go live first.' };
+  if (!b.pid) { show.pin = null; await put(show); return { ok: true, show: show }; }
+  const got = await myPiece(seller, b.pid); if (got.error) return got;
+  if (got.p.auction) return { error: 'That piece is an auction. Pick a Buy now piece.' };
+  show.pin = { pid: got.p.id, name: got.p.name, photo: photoUrl(got.p), price: Math.round(Number(got.p.price) * 100), ship: Math.round(Number(got.p.shipping) * 100) || 0, at: Date.now() };
+  await put(show);
+  return { ok: true, show: show };
+}
+// Start one planned piece: put it up for bids, start its party deal, or pin it for Buy now.
+async function runPlan(seller, b) {
+  const was = await mine(seller);
+  if (was.status !== 'live') return { error: 'Go live first, then start the pieces in your plan.' };
+  const it = (was.lineup || []).filter((x) => x.id === b.id)[0];
+  if (!it) return { error: 'That piece is no longer in your plan.' };
+  const r = it.kind === 'auction' ? await putUp(seller, { pid: it.pid, start: it.start / 100, secs: it.secs })
+    : it.kind === 'party' ? await putDeal(seller, { pid: it.pid, start: it.start / 100, floor: it.floor / 100, step: it.step / 100, qty: it.qty })
+    : await pin(seller, { pid: it.pid });
+  if (r.error) return r;
+  const show = r.show, x = (show.lineup || []).filter((y) => y.id === it.id)[0];
+  if (x) { x.done = Date.now(); await put(show); }
+  return { ok: true, show: show };
+}
 // What the seller sees: their show, plus who is bidding (names only).
 const forSeller = (show) => { const s = JSON.parse(JSON.stringify(show)); if (s.lot) delete s.lot.byEmail; if (s.deal) s.deal.claims.forEach((c) => { delete c.pay; }); return s; };
 // ---- Clips: viewers clip the last 30 to 42 seconds of a camera show in their browser and post it to the show.
@@ -258,4 +323,4 @@ async function clipFile(id, kind) {
   if (!r || r.statusCode !== 200 || !r.stream) return null;
   return { buf: Buffer.from(await new Response(r.stream).arrayBuffer()), type: ext === 'mp4' ? 'video/mp4' : 'video/webm' };
 }
-module.exports = { addClip, clips, clipFile, claim, putDeal, endDeal, camOn, watchToken, sellerToken, list, view, bid, say, mine, setShow, putUp, endLot, forSeller, streamOf, inc };
+module.exports = { plan, pin, runPlan, addClip, clips, clipFile, claim, putDeal, endDeal, camOn, watchToken, sellerToken, list, view, bid, say, mine, setShow, putUp, endLot, forSeller, streamOf, inc };

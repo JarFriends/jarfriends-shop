@@ -38,12 +38,17 @@
 .lv-card{border:1px solid #244536;border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:8px;text-decoration:none;color:inherit}
 .lv-card:hover{border-color:#C9A45C}
 .lv-past{display:flex;flex-direction:column;gap:6px;font-size:14px}
-.lv-shop{display:flex;flex-direction:column;gap:8px}
-.lv-shop-row{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;scroll-snap-type:x mandatory}
-.lv-shop-it{flex:none;width:132px;display:flex;flex-direction:column;gap:5px;scroll-snap-align:start;background:#11261C;border:1px solid #2E4A3B;border-radius:10px;padding:8px}
-.lv-shop-it img,.lv-shop-it .ph{width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;background:#0B1712}
-.lv-shop-it b{font-size:12px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.lv-shop-it a.solid{text-align:center;text-decoration:none;padding:7px 6px;font-size:12px}
+.lv-dock{position:fixed;left:0;right:0;bottom:0;z-index:50;background:rgba(8,20,14,.96);backdrop-filter:blur(6px);border-top:1px solid #2E4A3B;padding:8px 12px calc(8px + env(safe-area-inset-bottom));display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch}
+.lv-dock[hidden]{display:none}
+.lv-dock .it{flex:none;width:250px;display:flex;gap:9px;align-items:center;scroll-snap-align:start;background:#11261C;border:1px solid #2E4A3B;border-radius:10px;padding:7px}
+.lv-dock .it img,.lv-dock .it .ph{width:56px;height:56px;object-fit:cover;border-radius:6px;flex:none;background:#0B1712}
+.lv-dock .it .tx{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.lv-dock .it b{font-size:12px;line-height:1.2;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.lv-dock .it a.solid{text-align:center;text-decoration:none;padding:6px 8px;font-size:12px;white-space:nowrap}
+.lv-dock .it.pin{width:280px;border:2px solid #C9A45C;background:linear-gradient(135deg,#2A2414,#11261C);animation:lvPin .5s ease}
+.lv-dock .tag{font-size:10px;font-weight:800;letter-spacing:.08em;color:#E8C77A}
+@keyframes lvPin{from{transform:translateY(30px);opacity:0}to{transform:none;opacity:1}}
+body.has-dock{padding-bottom:96px}
 .lv-deal{border:2px solid #E5484D;border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:10px;background:rgba(229,72,77,.07)}
 .lv-deal h3{margin:0;font-size:14px;letter-spacing:.08em;color:#FF8A8E}
 .lv-was{position:relative;display:inline-block;font:700 20px/1 "IBM Plex Mono",monospace;opacity:.6;margin-right:10px}
@@ -102,25 +107,37 @@
   var wonBox = el('div'); var dealBox = el('div'); var lotBox = el('div'); var dealKey = ''; var msg = el('div', '', 'small'); msg.setAttribute('role', 'status');
   var chat = el('div', null, 'lv-chat'), msgs = el('div', null, 'lv-msgs'), say = el('form', null, 'lv-say'), sayIn = el('input'), sayGo = el('button', 'Send', 'solid');
   sayIn.placeholder = tok ? 'Say something…' : 'Sign in to chat'; sayIn.maxLength = 200; sayGo.type = 'submit'; say.appendChild(sayIn); say.appendChild(sayGo); chat.appendChild(msgs); chat.appendChild(say);
-  var shopBox = el('div', null, 'lv-shop');
-  [wonBox, dealBox, lotBox, msg, shopBox, chat].forEach(function (n) { panel.appendChild(n); });
-  // The seller's Buy now pieces, so viewers can buy while they watch. Opens checkout in a new tab so the show keeps playing.
+  [wonBox, dealBox, lotBox, msg, chat].forEach(function (n) { panel.appendChild(n); });
+  // The dock at the bottom of the screen: the piece the seller pinned ("Buy now"), then the rest of their Buy now
+  // pieces. Viewers swipe along it and buy while they watch; checkout opens in a new tab so the show keeps playing.
+  var dock = el('div', null, 'lv-dock'); dock.hidden = true; document.body.appendChild(dock);
+  var shopList = [], dockKey = '';
   function loadShop() {
     JF.api('/api/market?do=shop&seller=' + encodeURIComponent(slug)).then(function (r) {
-      var list = (r.products || []).filter(function (p) { return !p.auction && p.left > 0 && !p.nft; });
-      shopBox.textContent = ''; if (!list.length) return;
-      shopBox.appendChild(el('b', '🛍 Shop this show · buy now'));
-      var row = el('div', null, 'lv-shop-row');
-      list.slice(0, 40).forEach(function (p) {
-        var it = el('div', null, 'lv-shop-it');
-        if (p.photo) { var im = el('img'); im.src = p.photo; im.alt = ''; im.loading = 'lazy'; it.appendChild(im); } else it.appendChild(el('div', null, 'ph'));
-        it.appendChild(el('b', p.name));
-        it.appendChild(el('span', '$' + p.price + (p.left > 1 ? ' · ' + p.left + ' left' : ' · last one'), 'small dim'));
-        var a = el('a', 'Buy now', 'solid'); a.href = '/order.html?product=' + encodeURIComponent(p.id); a.target = '_blank'; a.rel = 'noopener'; it.appendChild(a);
-        row.appendChild(it);
-      });
-      shopBox.appendChild(row);
+      shopList = (r.products || []).filter(function (p) { return !p.auction && p.left > 0 && !p.nft; });
+      dockKey = ''; drawDock();
     }).catch(function () {});
+  }
+  function dockItem(p, pinned) {
+    var it = el('div', null, 'it' + (pinned ? ' pin' : ''));
+    if (p.photo) { var im = el('img'); im.src = p.photo; im.alt = ''; im.loading = 'lazy'; it.appendChild(im); } else it.appendChild(el('div', null, 'ph'));
+    var tx = el('div', null, 'tx');
+    if (pinned) tx.appendChild(el('span', '📌 BUY NOW · ON SCREEN', 'tag'));
+    tx.appendChild(el('b', p.name));
+    tx.appendChild(el('span', p.priceText + (p.left ? (p.left > 1 ? ' · ' + p.left + ' left' : ' · last one') : ''), 'small dim'));
+    it.appendChild(tx);
+    var a = el('a', 'Buy now', 'solid'); a.href = '/order.html?product=' + encodeURIComponent(p.id); a.target = '_blank'; a.rel = 'noopener'; it.appendChild(a);
+    return it;
+  }
+  function drawDock() {
+    var pin = D && D.pin, key = (pin ? pin.pid + '|' + pin.at : '') + '#' + shopList.map(function (p) { return p.id + p.left; }).join(',');
+    if (key === dockKey) return; dockKey = key;
+    dock.textContent = '';
+    var rest = shopList.filter(function (p) { return !pin || p.id !== pin.pid; });
+    if (pin) { var sp = shopList.filter(function (p) { return p.id === pin.pid; })[0]; dock.appendChild(dockItem({ id: pin.pid, name: pin.name, photo: pin.photo, priceText: '$' + (pin.price / 100).toFixed(2), left: sp ? sp.left : 0 }, true)); }
+    rest.slice(0, 40).forEach(function (p) { dock.appendChild(dockItem({ id: p.id, name: p.name, photo: p.photo, priceText: '$' + p.price, left: p.left }, false)); });
+    dock.hidden = !dock.children.length; document.body.classList.toggle('has-dock', !dock.hidden);
+    if (pin) dock.scrollLeft = 0;
   }
   loadShop(); setInterval(function () { if (!document.hidden) loadShop(); }, 30000);
   var streamKey = '';
@@ -297,6 +314,7 @@
       var key = r.lot ? r.lot.id + '|' + r.lot.bid + '|' + r.lot.endsAt + '|' + r.lot.mine : 'none|' + (r.sold[0] ? r.sold[0].at : '');
       D = r; drawVideo(); drawRest();
       if (key !== lotId) { lotId = key; drawLot(); }
+      drawDock();
       var dk = r.deal ? r.deal.id + '|' + r.deal.claimed + '|' + r.deal.mine.length : '';
       if (dk !== dealKey) { var dropped = dealKey && r.deal && dealKey.split('|')[0] === r.deal.id; dealKey = dk; drawDeal(dropped); }
     }).catch(function () { busy = false; });

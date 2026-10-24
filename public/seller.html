@@ -427,6 +427,72 @@
       mic.addEventListener('click', function () { var room = window.__lvRoom; if (!room) return; muted = !muted; room.localParticipant.setMicrophoneEnabled(!muted); mic.textContent = muted ? '🎙️ Unmute mic' : '🎙️ Mute mic'; });
       return camEl;
     }
+    var planOpen = false;
+    // Pieces that can go up live: listed, not hidden, Buy now with stock left.
+    function ready() { return D.listings.filter(function (p) { return !p.removed && !p.hidden && !p.auction && p.left > 0; }); }
+    // 📌 Buy now at the bottom: one press puts a piece in the strip at the bottom of the show page.
+    function pinBox() {
+      var w = el('div', null, 'hub-card'); w.style.cssText = 'display:flex;flex-direction:column;gap:8px;border:2px solid #C9A45C';
+      w.appendChild(el('h3', '📌 Buy now at the bottom of the screen'));
+      if (S.pin) {
+        var r0 = el('div'); r0.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;align-items:center';
+        r0.appendChild(el('b', 'On screen now: ' + S.pin.name + ' · ' + usd(S.pin.price)));
+        var off = el('button', 'Take it down', 'ghost'); off.type = 'button'; off.addEventListener('click', function () { call({ do: 'live-pin', pid: '' }); }); r0.appendChild(off);
+        w.appendChild(r0);
+      } else w.appendChild(el('div', 'Viewers see it first in the swipe strip at the bottom of your show, with a Buy now button. Your other Buy now pieces follow it.', 'small dim'));
+      var list = ready();
+      if (!list.length) { w.appendChild(el('div', 'Add Buy now pieces in Listings first.', 'small dim')); return w; }
+      var row = el('div'); row.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;align-items:center';
+      var pk = select(list.map(function (p) { return [p.id, p.name + ' · $' + Number(p.price).toFixed(2) + ' (' + p.left + ' left)']; }), list[0].id); pk.style.flex = '1 1 240px';
+      var go = el('button', S.pin ? '📌 Swap it' : '📌 Put it on screen', 'solid'); go.type = 'button'; go.addEventListener('click', function () { call({ do: 'live-pin', pid: pk.value }); });
+      row.appendChild(pk); row.appendChild(go); w.appendChild(row);
+      return w;
+    }
+    // 🗒 Show plan: line pieces up before the show, then start each with one press while live.
+    function planBox(live) {
+      var w = el('div', null, 'hub-card'); w.style.cssText = 'display:flex;flex-direction:column;gap:10px';
+      w.appendChild(el('h3', '🗒 Show plan'));
+      w.appendChild(el('div', live ? 'Press ▶ Start on the next piece. Auctions go up for bids, party deals start dropping, and Buy now pieces go on screen.' : 'Get your show ready before you go live: add each piece with its price and type. When you are live, each one starts with one press.', 'small dim'));
+      var kinds = { auction: '🔨 Auction', party: '🎉 Party deal', buynow: '📌 Buy now' };
+      var L = S.lineup || [];
+      L.forEach(function (it, i) {
+        var r = el('div'); r.style.cssText = 'display:flex;gap:10px;align-items:center;padding:8px;border:1px solid rgba(255,255,255,.1);border-radius:8px' + (it.done ? ';opacity:.55' : '');
+        if (it.photo) { var im = el('img'); im.src = it.photo; im.alt = ''; im.style.cssText = 'width:44px;height:44px;object-fit:cover;border-radius:6px;flex:none'; r.appendChild(im); }
+        var tx = el('div'); tx.style.cssText = 'flex:1;min-width:0;display:flex;flex-direction:column;gap:2px';
+        tx.appendChild(el('b', (i + 1) + '. ' + it.name));
+        tx.appendChild(el('span', kinds[it.kind] + ' · ' + (it.kind === 'auction' ? 'starts ' + usd(it.start) + ', ' + it.secs + 's' : it.kind === 'party' ? usd(it.start) + ' down to ' + usd(it.floor) + ', −' + usd(it.step) + ' each, ' + it.qty + ' to sell' : 'its listed price') + (it.done ? ' · started' : ''), 'small dim'));
+        r.appendChild(tx);
+        var bt = el('div'); bt.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end';
+        if (live) { var st = el('button', it.done ? '▶ Again' : '▶ Start', it.done ? 'ghost' : 'solid'); st.type = 'button'; st.addEventListener('click', function () { call({ do: 'live-run', id: it.id }); }); bt.appendChild(st); }
+        [['↑', 'up'], ['↓', 'down']].forEach(function (x) { var mv = el('button', x[0], 'ghost'); mv.type = 'button'; mv.style.padding = '6px 10px'; mv.addEventListener('click', function () { call({ do: 'live-plan', action: 'move', id: it.id, dir: x[1] }); }); bt.appendChild(mv); });
+        var rm = el('button', '✕', 'ghost'); rm.type = 'button'; rm.style.padding = '6px 10px'; rm.title = 'Remove from the plan'; rm.addEventListener('click', function () { call({ do: 'live-plan', action: 'remove', id: it.id }); }); bt.appendChild(rm);
+        r.appendChild(bt); w.appendChild(r);
+      });
+      if (L.some(function (x) { return x.done; })) { var rs = el('button', 'Mark all as not started', 'ghost'); rs.type = 'button'; rs.style.alignSelf = 'flex-start'; rs.addEventListener('click', function () { call({ do: 'live-plan', action: 'reset' }); }); w.appendChild(rs); }
+      var list = ready();
+      if (!list.length) { w.appendChild(el('div', 'Add Buy now pieces with stock in Listings first, then plan them here.', 'small dim')); return w; }
+      var add = el('details'); if (!L.length || planOpen) add.open = true; add.addEventListener('toggle', function () { planOpen = add.open; });
+      add.appendChild(el('summary', '＋ Add a piece to the plan', 'small')); add.firstChild.style.cursor = 'pointer';
+      var f = el('div'); f.style.cssText = 'display:flex;flex-direction:column;gap:10px;margin-top:10px';
+      var pk = select(list.map(function (p) { return [p.id, p.name + ' · $' + Number(p.price).toFixed(2) + ' (' + p.left + ' left)']; }), list[0].id);
+      var kd = select([['auction', '🔨 Auction (bids with a countdown)'], ['party', '🎉 Party deal (price drops with each buy)'], ['buynow', '📌 Buy now (on screen at its price)']], 'auction');
+      f.appendChild(field('Piece', pk)); f.appendChild(field('How to sell it', kd));
+      var aSt = input('number', '1', { min: '1', step: '1' }), aSec = select([['15', '15 seconds'], ['20', '20 seconds'], ['30', '30 seconds'], ['45', '45 seconds'], ['60', '1 minute'], ['90', '90 seconds']], '30');
+      var aBox = el('div', null, 'two'); aBox.appendChild(field('Starting bid (USD)', aSt)); aBox.appendChild(field('Countdown', aSec));
+      var pS = input('number', '', { min: '1', step: '0.01', placeholder: 'e.g. 30' }), pF = input('number', '', { min: '1', step: '0.01', placeholder: 'e.g. 15' }), pD = input('number', '1', { min: '0.25', step: '0.25' }), pQ = input('number', '', { min: '1', step: '1' });
+      var pBox = el('div'); pBox.style.cssText = 'display:flex;flex-direction:column;gap:10px';
+      var p1 = el('div', null, 'two'); p1.appendChild(field('Starting price (USD)', pS)); p1.appendChild(field('Lowest price (USD)', pF));
+      var p2 = el('div', null, 'two'); p2.appendChild(field('Drop per buy (USD)', pD)); p2.appendChild(field('How many to sell', pQ));
+      pBox.appendChild(p1); pBox.appendChild(p2);
+      var bNote = el('div', 'Shows at the bottom of the screen at its listed price, with a Buy now button.', 'small dim');
+      f.appendChild(aBox); f.appendChild(pBox); f.appendChild(bNote);
+      var sync = function () { var k = kd.value; aBox.style.display = k === 'auction' ? '' : 'none'; pBox.style.display = k === 'party' ? 'flex' : 'none'; bNote.style.display = k === 'buynow' ? '' : 'none'; var pp = list.filter(function (x) { return x.id === pk.value; })[0]; if (pp && !pQ.value) pQ.value = pp.left; };
+      kd.addEventListener('change', sync); pk.addEventListener('change', function () { pQ.value = ''; sync(); }); sync();
+      var ad = el('button', 'Add to the plan', 'solid'); ad.type = 'button'; ad.style.alignSelf = 'flex-start';
+      ad.addEventListener('click', function () { call({ do: 'live-plan', action: 'add', pid: pk.value, kind: kd.value, start: kd.value === 'auction' ? aSt.value : pS.value, secs: aSec.value, floor: pF.value, step: pD.value, qty: pQ.value }); });
+      f.appendChild(ad); add.appendChild(f); w.appendChild(add);
+      return w;
+    }
     function draw() {
       body.textContent = '';
       var live = S.status === 'live';
@@ -454,6 +520,8 @@
         var end = el('button', 'End the show', 'ghost'); end.type = 'button'; end.addEventListener('click', function () { if (confirm('End your live show?')) { stopCam(); call({ do: 'live-set', action: 'end' }); } }); acts.appendChild(end);
       }
       body.appendChild(acts);
+      if (live) body.appendChild(pinBox());
+      body.appendChild(planBox(live));
       if (!live) return;
       // 2. The piece that is up, or put one up
       body.appendChild(el('h3', 'Up for bids'));

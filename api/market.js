@@ -555,11 +555,12 @@ module.exports = async (req, res) => {
       return res.json({ ok: true });
     }
     // ---------- Live shows, as the seller ----------
-    if (what === 'live-mine' || what === 'live-set' || what === 'live-lot' || what === 'live-lot-end' || what === 'live-token' || what === 'live-deal' || what === 'live-deal-end') {
+    if (what === 'live-mine' || what === 'live-set' || what === 'live-lot' || what === 'live-lot-end' || what === 'live-token' || what === 'live-deal' || what === 'live-deal-end' || what === 'live-plan' || what === 'live-run' || what === 'live-pin') {
       if (!seller) return res.status(403).json({ error: 'Open a seller shop first.' });
       if (seller.status !== 'approved') return res.status(403).json({ error: 'Your shop needs to be approved before you can go live.' });
       const L = require('./_live');
       if (what === 'live-deal' || what === 'live-deal-end') { const r3 = what === 'live-deal' ? await L.putDeal(seller, b) : await L.endDeal(seller); if (r3.show) r3.show = L.forSeller(r3.show); return res.status(r3.error ? 400 : 200).json(r3); }
+      if (what === 'live-plan' || what === 'live-run' || what === 'live-pin') { const r4 = what === 'live-plan' ? await L.plan(seller, b) : what === 'live-run' ? await L.runPlan(seller, b) : await L.pin(seller, b); if (r4.show) r4.show = L.forSeller(r4.show); return res.status(r4.error ? 400 : 200).json(r4); }
       if (what === 'live-token') { const r2 = await L.sellerToken(seller); return res.status(r2.error ? 400 : 200).json(r2); }
       const r = what === 'live-mine' ? { ok: true, show: await L.mine(seller), cam: L.camOn() } : what === 'live-set' ? await L.setShow(seller, b) : what === 'live-lot' ? await L.putUp(seller, b) : await L.endLot(seller);
       if (r.show) r.show = L.forSeller(r.show);
