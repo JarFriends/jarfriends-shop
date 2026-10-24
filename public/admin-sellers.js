@@ -220,6 +220,24 @@
       buyers.forEach(function (x) { var tr = el('tr'); [x.name || '-', x.email, String(x.n), money(x.spent), new Date(x.last).toLocaleDateString('en-US', { dateStyle: 'medium' })].forEach(function (v, i) { var td = el('td', v); if (i === 2 || i === 3) td.className = 'num'; tr.appendChild(td); }); bb.appendChild(tr); });
       bt.appendChild(bb); bw.appendChild(bt); box.appendChild(bw);
     }
+    // Active sellers as a list, like the buyers: every open shop with its numbers. Click a shop to jump to its card.
+    var act = r.sellers.filter(function (x) { return x.status === 'approved'; }).sort(function (a, b) { return (b.totals ? b.totals.gross : 0) - (a.totals ? a.totals.gross : 0); });
+    box.appendChild(el('div', 'ACTIVE SELLERS LIST (' + act.length + ')', 'mono gold'));
+    if (!act.length) box.appendChild(el('div', 'No open shops yet.', 'small dim'));
+    else {
+      var sw = el('div', null, 'scroll'), stb = el('table'), sh = el('tr');
+      var heads = ['Shop', 'Email', 'Pieces', 'Paid sales', 'Sold', 'Your fee', 'You owe', 'Card payouts', 'Rating', 'Joined'];
+      heads.forEach(function (h, i) { var th2 = el('th', h); if (i >= 2 && i <= 6) th2.className = 'num'; sh.appendChild(th2); });
+      var sth = el('thead'); sth.appendChild(sh); stb.appendChild(sth); var sb = el('tbody');
+      act.forEach(function (x) {
+        var t2 = x.totals || {}, rt = x.stats && x.stats.rating ? x.stats.rating.toFixed(1) + '★ (' + (x.stats.reviews || 0) + ')' : '-';
+        var tr = el('tr'); tr.style.cursor = 'pointer'; tr.title = 'Open ' + x.name + '\u2019s card';
+        [x.name + (x.stats && x.stats.verified ? ' ✔' : ''), x.email, String(x.listings || 0), String(t2.sales || 0), money(t2.gross || 0), money(t2.fee || 0), money(t2.owed || 0), x.stripeOn ? 'Stripe on' : x.stripe ? 'Setup unfinished' : 'Not set up', rt, x.at ? new Date(x.at).toLocaleDateString('en-US', { dateStyle: 'medium' }) : '-'].forEach(function (v, i) { var td = el('td', v); if (i >= 2 && i <= 6) td.className = 'num'; tr.appendChild(td); });
+        tr.addEventListener('click', function () { var c2 = box.querySelector('[data-seller="' + x.slug + '"]'); if (c2) c2.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+        sb.appendChild(tr);
+      });
+      stb.appendChild(sb); sw.appendChild(stb); box.appendChild(sw);
+    }
     if (r.sales.length) {
       var w = el('div', null, 'scroll'), tb = el('table'), hr = el('tr');
       ['Placed', 'Order', 'Seller', 'Piece', 'Buyer', 'Sold for', 'Your fee', 'Seller gets', 'Status', 'Issue'].forEach(function (h, i) { var th = el('th', h); if (i >= 5 && i <= 7) th.className = 'num'; hr.appendChild(th); });
