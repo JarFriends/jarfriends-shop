@@ -227,7 +227,7 @@ async function endLot(seller) {
 }
 // What the seller sees: their show, plus who is bidding (names only).
 const forSeller = (show) => { const s = JSON.parse(JSON.stringify(show)); if (s.lot) delete s.lot.byEmail; if (s.deal) s.deal.claims.forEach((c) => { delete c.pay; }); return s; };
-// ---- Clips: viewers record up to 25 seconds of a camera show in their browser and post it to the show.
+// ---- Clips: viewers clip the last 30 to 42 seconds of a camera show in their browser and post it to the show.
 // Files: clips/<id>.<webm|mp4> (private storage, handed out by the clip-file route); live/<slug>/clips/<id>.json.
 async function addClip(slug, me, b) {
   const show = await get(slug);
@@ -235,11 +235,11 @@ async function addClip(slug, me, b) {
   const type = /mp4/.test(String(b.type || '')) ? 'video/mp4' : 'video/webm';
   const buf = Buffer.from(String(b.data || '').replace(/^data:[^,]*,/, ''), 'base64');
   if (buf.length < 5000) return { error: 'That clip is too short. Record a few seconds.' };
-  if (buf.length > 3200000) return { error: 'That clip is too big. Keep it under 25 seconds.' };
+  if (buf.length > 3200000) return { error: 'That clip is too big. Try clipping again.' };
   const id = 'C' + Date.now().toString(36).toUpperCase() + crypto.randomBytes(2).toString('hex').toUpperCase();
   const { put: bput } = await import('@vercel/blob');
   await bput('clips/' + id + (type === 'video/mp4' ? '.mp4' : '.webm'), buf, { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: type });
-  const meta = { id: id, slug: slug, by: hash(me), byName: nameOf(me), title: String(b.title || '').replace(/\s+/g, ' ').trim().slice(0, 80), type: type, secs: Math.min(30, Math.max(1, Math.round(Number(b.secs) || 0))), at: Date.now() };
+  const meta = { id: id, slug: slug, by: hash(me), byName: nameOf(me), title: String(b.title || '').replace(/\s+/g, ' ').trim().slice(0, 80), type: type, secs: Math.min(60, Math.max(1, Math.round(Number(b.secs) || 0))), at: Date.now() };
   await store.write('live/' + slug + '/clips/' + id + '.json', meta);
   return { ok: true, clip: meta };
 }

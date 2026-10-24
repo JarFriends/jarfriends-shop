@@ -38,6 +38,12 @@
 .lv-card{border:1px solid #244536;border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:8px;text-decoration:none;color:inherit}
 .lv-card:hover{border-color:#C9A45C}
 .lv-past{display:flex;flex-direction:column;gap:6px;font-size:14px}
+.lv-shop{display:flex;flex-direction:column;gap:8px}
+.lv-shop-row{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;scroll-snap-type:x mandatory}
+.lv-shop-it{flex:none;width:132px;display:flex;flex-direction:column;gap:5px;scroll-snap-align:start;background:#11261C;border:1px solid #2E4A3B;border-radius:10px;padding:8px}
+.lv-shop-it img,.lv-shop-it .ph{width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;background:#0B1712}
+.lv-shop-it b{font-size:12px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.lv-shop-it a.solid{text-align:center;text-decoration:none;padding:7px 6px;font-size:12px}
 .lv-deal{border:2px solid #E5484D;border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:10px;background:rgba(229,72,77,.07)}
 .lv-deal h3{margin:0;font-size:14px;letter-spacing:.08em;color:#FF8A8E}
 .lv-was{position:relative;display:inline-block;font:700 20px/1 "IBM Plex Mono",monospace;opacity:.6;margin-right:10px}
@@ -96,7 +102,27 @@
   var wonBox = el('div'); var dealBox = el('div'); var lotBox = el('div'); var dealKey = ''; var msg = el('div', '', 'small'); msg.setAttribute('role', 'status');
   var chat = el('div', null, 'lv-chat'), msgs = el('div', null, 'lv-msgs'), say = el('form', null, 'lv-say'), sayIn = el('input'), sayGo = el('button', 'Send', 'solid');
   sayIn.placeholder = tok ? 'Say something…' : 'Sign in to chat'; sayIn.maxLength = 200; sayGo.type = 'submit'; say.appendChild(sayIn); say.appendChild(sayGo); chat.appendChild(msgs); chat.appendChild(say);
-  [wonBox, dealBox, lotBox, msg, chat].forEach(function (n) { panel.appendChild(n); });
+  var shopBox = el('div', null, 'lv-shop');
+  [wonBox, dealBox, lotBox, msg, shopBox, chat].forEach(function (n) { panel.appendChild(n); });
+  // The seller's Buy now pieces, so viewers can buy while they watch. Opens checkout in a new tab so the show keeps playing.
+  function loadShop() {
+    JF.api('/api/market?do=shop&seller=' + encodeURIComponent(slug)).then(function (r) {
+      var list = (r.products || []).filter(function (p) { return !p.auction && p.left > 0 && !p.nft; });
+      shopBox.textContent = ''; if (!list.length) return;
+      shopBox.appendChild(el('b', '🛍 Shop this show · buy now'));
+      var row = el('div', null, 'lv-shop-row');
+      list.slice(0, 40).forEach(function (p) {
+        var it = el('div', null, 'lv-shop-it');
+        if (p.photo) { var im = el('img'); im.src = p.photo; im.alt = ''; im.loading = 'lazy'; it.appendChild(im); } else it.appendChild(el('div', null, 'ph'));
+        it.appendChild(el('b', p.name));
+        it.appendChild(el('span', '$' + p.price + (p.left > 1 ? ' · ' + p.left + ' left' : ' · last one'), 'small dim'));
+        var a = el('a', 'Buy now', 'solid'); a.href = '/order.html?product=' + encodeURIComponent(p.id); a.target = '_blank'; a.rel = 'noopener'; it.appendChild(a);
+        row.appendChild(it);
+      });
+      shopBox.appendChild(row);
+    }).catch(function () {});
+  }
+  loadShop(); setInterval(function () { if (!document.hidden) loadShop(); }, 30000);
   var streamKey = '';
   function drawVideo() {
     var st = D.stream || {}, key = st.embed + '|' + st.url + '|' + D.status;
@@ -114,22 +140,38 @@
   }
   // The seller is live from the site itself (LiveKit): join the show's room as a viewer and play their camera.
   var room = null, live = {};
-  // Clips: record up to 25 seconds of the live video in this browser, then post it to the show, save it or share it.
-  var clipBtn = el('button', '✂️ Clip', 'solid'); clipBtn.type = 'button'; clipBtn.hidden = true; clipBtn.style.cssText = 'position:absolute;right:10px;bottom:10px;z-index:3';
-  var rec = null, recParts = [], recStart = 0, recTimer = null, MAXS = 25;
+  // Clips: this browser keeps the last 30 to 42 seconds of the live video ready, so pressing Clip saves what just
+  // happened. A new recorder starts every 12 seconds and old ones are dropped, so the newest one 30+ seconds old is used.
+  var clipBtn = el('button', '✂️ Clip last 30s', 'solid'); clipBtn.type = 'button'; clipBtn.hidden = true; clipBtn.style.cssText = 'position:absolute;right:10px;bottom:10px;z-index:3';
+  var ring = [], ringTimer = null, RING_EVERY = 12000, RING_LIFE = 44000, WANT = 30000, clipType = '';
+  function makeRec() {
+    if (!window.MediaRecorder || !live.video || live.video.readyState === 'ended') return null;
+    var tracks = [live.video]; if (live.audio && live.audio.readyState !== 'ended') tracks.push(live.audio);
+    if (!clipType) clipType = ['video/mp4;codecs=avc1,mp4a', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'].filter(function (t) { return MediaRecorder.isTypeSupported(t); })[0] || '';
+    try { return new MediaRecorder(new MediaStream(tracks), { mimeType: clipType, videoBitsPerSecond: 450000, audioBitsPerSecond: 48000 }); } catch (e) { return null; }
+  }
+  function ringNew() {
+    var r = makeRec(); if (!r) return;
+    var e = { rec: r, parts: [], at: Date.now(), keep: false };
+    r.ondataavailable = function (ev) { if (ev.data && ev.data.size) e.parts.push(ev.data); };
+    try { r.start(1000); } catch (er) { return; }
+    ring = ring.filter(function (x) { if (!x.keep && Date.now() - x.at > RING_LIFE) { try { x.rec.stop(); } catch (er) {} return false; } return true; });
+    ring.push(e);
+  }
+  function ringStart() { if (ringTimer || !window.MediaRecorder) return; ringNew(); ringTimer = setInterval(ringNew, RING_EVERY); }
   clipBtn.addEventListener('click', function () {
-    if (rec) { rec.stop(); return; }
     if (!tok) { location.href = '/me.html'; return; }
-    if (!window.MediaRecorder || !live.video) { msg.textContent = 'Your browser cannot record clips. Try Chrome or Safari.'; return; }
-    var tracks = [live.video]; if (live.audio) tracks.push(live.audio);
-    var type = ['video/mp4;codecs=avc1,mp4a', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'].filter(function (t) { return MediaRecorder.isTypeSupported(t); })[0] || '';
-    try { rec = new MediaRecorder(new MediaStream(tracks), { mimeType: type, videoBitsPerSecond: 700000, audioBitsPerSecond: 64000 }); } catch (e) { msg.textContent = 'Recording did not start in this browser.'; return; }
-    recParts = []; recStart = Date.now();
-    rec.ondataavailable = function (ev) { if (ev.data && ev.data.size) recParts.push(ev.data); };
-    rec.onstop = function () { clearInterval(recTimer); var secs = Math.round((Date.now() - recStart) / 1000); var blob = new Blob(recParts, { type: rec.mimeType || type || 'video/webm' }); rec = null; clipBtn.textContent = '✂️ Clip'; review(blob, secs); };
-    rec.start(1000);
-    recTimer = setInterval(function () { var t = Math.round((Date.now() - recStart) / 1000); clipBtn.textContent = '■ Stop (' + (MAXS - t) + 's)'; if (t >= MAXS && rec) rec.stop(); }, 250);
-    clipBtn.textContent = '■ Stop (' + MAXS + 's)';
+    var now = Date.now(), alive = ring.filter(function (x) { return !x.keep && x.rec.state === 'recording'; });
+    if (!alive.length) { msg.textContent = 'Your browser cannot record clips. Try Chrome or Safari.'; return; }
+    // The youngest recorder that already holds 30 seconds; early in the show, the oldest one there is.
+    var old = alive.filter(function (x) { return now - x.at >= WANT; });
+    var e = old.length ? old[old.length - 1] : alive[0];
+    e.keep = true; ring = ring.filter(function (x) { return x !== e; });
+    var secs = Math.round((now - e.at) / 1000);
+    clipBtn.disabled = true; clipBtn.textContent = 'Saving clip…';
+    e.rec.onstop = function () { clipBtn.disabled = false; clipBtn.textContent = '✂️ Clip last 30s'; review(new Blob(e.parts, { type: e.rec.mimeType || clipType || 'video/webm' }), secs); };
+    try { e.rec.stop(); } catch (er) { clipBtn.disabled = false; clipBtn.textContent = '✂️ Clip last 30s'; }
+    if (!ring.length) ringNew();
   });
   function review(blob, secs) {
     var bg = el('div'); bg.style.cssText = 'position:fixed;inset:0;z-index:2147483600;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;padding:16px';
@@ -182,7 +224,9 @@
       var r = x[1]; if (r.error) { off.textContent = r.error; return; }
       var LK = window.LivekitClient; room = new LK.Room({ adaptiveStream: true });
       room.on(LK.RoomEvent.TrackSubscribed, function (track) {
-        live[track.kind] = track.mediaStreamTrack; clipBtn.hidden = !live.video;
+        live[track.kind] = track.mediaStreamTrack; clipBtn.hidden = !live.video || !window.MediaRecorder;
+        if (track.kind === 'audio' && ringTimer) { ring.forEach(function (x) { try { x.rec.stop(); } catch (er) {} }); ring = []; clearInterval(ringTimer); ringTimer = null; }
+        if (live.video) setTimeout(ringStart, 300);
         var m = track.attach(); if (track.kind === 'video') { off.remove(); m.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000'; m.playsInline = true; video.appendChild(m); } else { m.style.display = 'none'; video.appendChild(m); }
       });
       room.on(LK.RoomEvent.TrackUnsubscribed, function (track) { track.detach().forEach(function (n) { n.remove(); }); });
