@@ -944,7 +944,7 @@
           f.appendChild(l); f.appendChild(go); c.appendChild(f); c.appendChild(m);
           f.addEventListener('submit', function (ev) { ev.preventDefault(); go.disabled = true; JF.api('/api/market', { do: 'ship', t: tok, as: AS, ak: AK, n: o.n, tracking: tr.value }).then(function (r) { go.disabled = false; if (r.error) { m.textContent = r.error; return; } load(); }); });
         }
-      } else c.appendChild(el('div', 'The address shows here once the buyer pays. Do not ship before then.', 'small dim'));
+      } else c.appendChild(el('div', (/zelle|venmo|cash ?app/i.test(o.pay || '') ? 'The buyer is paying by ' + o.pay + '. That money goes to VeeFam, and VeeFam marks the order paid once it arrives. ' : '') + 'You get a "Paid, ship it" email, and the address and the Buy label button show here, once it is paid. Do not ship before then.', 'small dim'));
       pane.appendChild(c);
     });
   }
