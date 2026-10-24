@@ -52,6 +52,15 @@ module.exports = async (req, res) => {
   const now = Math.floor(Date.now() / 1000), host = 'https://' + req.headers.host;
   if (req.method === 'POST') return passIn(req, res, now, host);
   if (req.method !== 'GET') return res.status(405).json({ error: 'Use GET.' });
+  // The news list (buyers and people who joined the list, minus anyone who unsubscribed), for moving subscribers to
+  // the owner's VeeFam.io site. Needs the shared key in SUBS_EXPORT_KEY (set on both sites); off when it is not set.
+  if (req.query && req.query.subsx) {
+    const want = (process.env.SUBS_EXPORT_KEY || '').trim();
+    if (want.length < 20 || !crypto.timingSafeEqual(hash(String(req.query.subsx)), hash(want))) return res.status(403).json({ error: 'Not allowed.' });
+    const S = require('./_sweep'), who = await S.everyone(), out = [];
+    for (const e of Object.keys(who)) { if (!(await S.gone(e))) out.push({ email: e, name: who[e] || '' }); }
+    return res.json({ subscribers: out });
+  }
   const owner = (process.env.OWNER_EMAIL || '').trim();
   if (req.query && req.query.send) {
     if (!owner) return res.status(503).json({ error: 'No owner email is set up for this site.' });
