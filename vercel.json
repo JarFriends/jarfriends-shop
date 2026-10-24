@@ -1,1 +1,1 @@
-{"buildCommand": "npm run site", "installCommand": "npm install --no-audit --no-fund", "outputDirectory": "public", "framework": null, "crons": [{"path": "/api/party", "schedule": "10 4 * * *"}]}
+{"buildCommand":"npm run site","installCommand":"npm install --no-audit --no-fund","outputDirectory":"public","framework":null,"crons":[{"path":"/api/party","schedule":"10 4 * * *"}],"redirects":[{"source":"/","destination":"https://veefam.io","permanent":false},{"source":"/index.html","destination":"https://veefam.io","permanent":false}]}
