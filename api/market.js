@@ -511,6 +511,23 @@ module.exports = async (req, res) => {
       return res.json({ email: me, seller: M.safe(seller), fee: M.feePct(), sections: M.SECTIONS, listings: listings, orders: orders, profit: prof, views: views, payouts: outs, totals: M.totals(rows, outs), posts: feed, stripe: st, stats: myStats, reviews: myReviews, presets: require('./_ship').PRESETS, labelsOn: require('./_ship').ready() });
     }
     // Offers on my pieces. A pending one carries its answer key (t) for /api/offer: accept, counter or decline.
+    // A shipping label the seller bought, ready to print: on a half sheet (the default) or as a 4 x 6 label,
+    // as set in Seller Hub > Settings (or ?format=half|4x6 for just this print).
+    if (what === 'label-file') {
+      if (!seller) return res.status(403).send('Open a seller shop first.');
+      const n = String(q.n || '');
+      const row = (await M.ledger(seller.slug)).filter((r) => r.n === n)[0];
+      if (!row) return res.status(404).send('That order was not found in your shop.');
+      const m = (await store.read('meta/' + n + '.json')) || {};
+      if (!/^https:\/\//.test(m.labelPdf || '')) return res.status(404).send('No label has been bought for this order yet.');
+      let src;
+      try { const r = await fetch(m.labelPdf, { signal: AbortSignal.timeout(20000) }); if (!r.ok) throw new Error('status ' + r.status); src = Buffer.from(await r.arrayBuffer()); }
+      catch (e) { return res.status(502).send('The label file could not be fetched. Try again in a minute.'); }
+      const fmt = q.format === '4x6' || q.format === 'half' ? q.format : (seller.labelFormat || 'half');
+      const out = fmt === '4x6' ? src : await require('./_labelpdf').halfSheet(src);
+      res.setHeader('Content-Type', 'application/pdf'); res.setHeader('Content-Disposition', 'inline; filename="label-' + n + '.pdf"');
+      return res.send(out);
+    }
     // Close my shop: the shop and its pieces go, the buyer account stays. Paid orders must be shipped first.
     if (what === 'shop-close' && req.method === 'POST') {
       if (!seller) return res.status(403).json({ error: 'You do not have a shop.' });
@@ -575,6 +592,7 @@ module.exports = async (req, res) => {
     if (what === 'profile') {
       const tidy = (v, n) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n);
       if (b.about != null) seller.about = tidy(b.about, 400);
+      if (b.labelFormat === 'half' || b.labelFormat === '4x6') seller.labelFormat = b.labelFormat;
       // A new bank account for payouts (routing and account number), kept encrypted.
       if (b.routing != null || b.account != null || b.iban != null || b.swift != null) { const k = M.bankFrom(b); if (k.error) return res.status(400).json(k); Object.assign(seller, k.fields); }
       if (['zelle', 'venmo', 'cashapp', 'paypal'].indexOf(b.payHow) >= 0 && !seller.bank) seller.payHow = b.payHow;
