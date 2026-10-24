@@ -2,7 +2,7 @@
 // by hand). Reads the live JarFriends product list (JARFRIENDS_URL, https://jarfriends.com by default) and copies every
 // piece that is in stock, visible and not a running auction: name, description, price, stock, shipping and photo.
 // Run it again to refresh: a piece already brought over (same JarFriends id, kept as "jfid") is updated, not doubled.
-// Left out on purpose: sold-out pieces, hidden pieces, the buyers-only Customer Loyalty piece, party pricing, and
+// Left out on purpose: vault (safe) pieces, sold-out pieces, hidden pieces, the buyers-only Customer Loyalty piece, party pricing, and
 // auctions still running on JarFriends (their bids live there).
 const store = require('./_store');
 const M = require('./_sellers');
@@ -32,6 +32,8 @@ async function getImage(urls) {
 function wanted(p) {
   if (!p || !p.id || !(Number(p.stock) > 0) || p.hidden || p.draft || p.buyers) return false;
   if (/^MPARTY/.test(p.id)) return false;
+  // Vault (safe) pieces stay on JarFriends: they unlock there in order, so they are never copied.
+  if (Number(p.deal) > 0 || p.locked || p.vault || p.safe || /^SAFE/i.test(p.id)) return false;
   if (p.auction && Date.parse(p.auction.ends) > Date.now()) return false;
   return Number(p.price) > 0;
 }
@@ -83,7 +85,7 @@ async function run(slug, from, limit) {
   }
   M.forget();
   return { total: list.length, from: from, done: done, next: from + batch.length < list.length ? from + batch.length : null,
-    skipped: 'Sold out, hidden, buyers-only, party pricing and auctions still running on the Jar' + 'Friends site are left out.' };
+    skipped: 'Vault pieces (locked or open), sold out, hidden, buyers-only, party pricing and auctions still running on the Jar' + 'Friends site are left out.' };
 }
 
 module.exports = { run };

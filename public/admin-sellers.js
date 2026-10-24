@@ -50,6 +50,35 @@
       var d = el('div', null, 'sx-tile ' + x[2]); d.appendChild(el('span', x[0], 'label')); d.appendChild(el('b', x[1])); tiles.appendChild(d);
     });
     box.appendChild(tiles);
+    // Bring the JarFriends shop's pieces over into one shop here (api/_import.js). Vault pieces stay on JarFriends.
+    var im = el('section', null, 'card'); im.style.gap = '10px';
+    im.appendChild(el('b', 'Bring my JarFriends pieces over'));
+    im.appendChild(el('div', 'Copies every in-stock piece from jarfriends.com (name, description, price, stock, shipping and photo) into the shop you pick. Vault pieces, locked or open, are left out. Running it again updates pieces already copied instead of doubling them.', 'small'));
+    var shops = r.sellers.filter(function (x) { return x.status === 'approved'; });
+    if (!shops.length) im.appendChild(el('div', 'Approve your shop first, then come back here.', 'small dim'));
+    else {
+      var row = el('div'); row.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;align-items:center';
+      var sel = el('select'); sel.className = 'jf-sel'; shops.forEach(function (x) { var o = el('option', x.name + ' (' + x.email + ')'); o.value = x.slug; sel.appendChild(o); });
+      var mineS = shops.filter(function (x) { return /jarvisfriends@gmail\.com/i.test(x.email); })[0]; if (mineS) sel.value = mineS.slug;
+      var go = el('button', 'Bring them over', 'solid'); go.type = 'button';
+      var out = el('div', '', 'small'); out.setAttribute('role', 'status');
+      row.appendChild(sel); row.appendChild(go); im.appendChild(row); im.appendChild(out);
+      go.addEventListener('click', function () {
+        if (!confirm('Copy your JarFriends pieces into ' + sel.options[sel.selectedIndex].text + '? Vault pieces are left out.')) return;
+        go.disabled = true; var n = 0, made = 0, upd = 0;
+        var step = function (from) {
+          out.textContent = 'Copying… ' + n + ' done so far';
+          fetch('/api/market?do=import&ak=' + encodeURIComponent(key()) + '&slug=' + encodeURIComponent(sel.value) + '&from=' + from + '&limit=5', { cache: 'no-store' }).then(function (x) { return x.json(); }).then(function (r2) {
+            if (r2.error) { go.disabled = false; out.textContent = r2.error; return; }
+            r2.done.forEach(function (d) { n++; if (d.updated) upd++; else made++; });
+            if (r2.next != null) return step(r2.next);
+            go.disabled = false; out.textContent = 'Done: ' + made + ' new, ' + upd + ' updated, out of ' + r2.total + ' pieces. ' + r2.skipped;
+          }).catch(function () { go.disabled = false; out.textContent = 'The connection dropped after ' + n + '. Press the button again to carry on (nothing is doubled).'; });
+        };
+        step(0);
+      });
+    }
+    box.appendChild(im);
     // The community vote: which VeeFriends series the giveaway wallet buys (see api/_giveaway.js).
     var gv = el('section', null, 'card'); gv.style.gap = '10px'; box.appendChild(gv);
     fetch('/api/market?do=giveaway', { cache: 'no-store' }).then(function (x) { return x.json(); }).then(function (g) {
