@@ -45,11 +45,24 @@ async function wrapUp() {
     const k = 'partyS/' + p.id + '-' + p.party.ends + '.json';
     if (await store.read(k)) continue;
     const o = await owed(p), shop = await M.bySlug(p.seller), owner = (process.env.OWNER_EMAIL || '').trim();
-    const lines = ['The party for ' + p.name + ' has ended with ' + o.state.sold + ' sold.', o.state.off ? 'The final level is ' + o.state.off + '% off ($' + (o.final / 100).toFixed(2) + ' each). These buyers paid more and are owed the difference:' : 'It did not reach the first level, so nobody is owed money back.', ''].concat(o.orders.map((x) => 'Order ' + x.n + ' · ' + (x.buyer || x.email) + ' · owed $' + (x.back / 100).toFixed(2) + ' (' + (x.pay || '') + ')'));
-    if (o.orders.length) lines.push('', 'V2V sends the money back and takes it off what is owed to the seller.');
+    // Card orders get the difference back on the card automatically (on the seller's own Stripe for direct sales,
+    // with V2V's fee on that part going back too). Anything that cannot be refunded this way is listed to do by hand.
+    for (const x of o.orders) {
+      x.done = false;
+      if (!/card/i.test(x.pay || '')) continue;
+      const m = (await store.read('meta/' + x.n + '.json')) || {};
+      if (!/^pi_/.test(m.pi || '')) continue;
+      const C = require('./_connect'), form = { payment_intent: m.pi, amount: x.back, 'metadata[invoice]': x.n, 'metadata[reason]': 'party price drop' };
+      const r = m.direct ? await C.call('POST', '/refunds', Object.assign({ refund_application_fee: 'true' }, form), 'ptyS-' + p.id + '-' + x.n, m.direct).catch(() => ({ ok: false }))
+        : await require('./_stripe').call('POST', '/refunds', form, 'ptyS-' + p.id + '-' + x.n).catch(() => ({ ok: false }));
+      x.done = !!r.ok;
+      if (!r.ok) console.error('PARTY_REFUND_FAIL', x.n, r.status, JSON.stringify(r.body && r.body.error || {}).slice(0, 200));
+    }
+    const lines = ['The party for ' + p.name + ' has ended with ' + o.state.sold + ' sold.', o.state.off ? 'The final level is ' + o.state.off + '% off ($' + (o.final / 100).toFixed(2) + ' each). These buyers paid more and are owed the difference:' : 'It did not reach the first level, so nobody is owed money back.', ''].concat(o.orders.map((x) => 'Order ' + x.n + ' · ' + (x.buyer || x.email) + ' · $' + (x.back / 100).toFixed(2) + (x.done ? ' · REFUNDED to their card automatically' : ' · TO SEND BY HAND (' + (x.pay || '') + ')')));
+    if (o.orders.some((x) => !x.done)) lines.push('', 'Anything marked "to send by hand": V2V sends that money back and takes it off what is owed to the seller.');
     if (owner) await lib.mail(owner, 'Party ended: ' + p.name, lines, 'ptyS-own-' + p.id + '-' + p.party.ends).catch(() => null);
     if (shop) await lib.mail(shop.email, 'Your party ended: ' + p.name, lines, 'ptyS-sel-' + p.id + '-' + p.party.ends).catch(() => null);
-    for (const x of o.orders) if (x.email) await lib.mail(x.email, 'Money coming back: ' + p.name, ['The party for ' + p.name + ' ended at ' + o.state.off + '% off, lower than what you paid.', 'You are owed $' + (x.back / 100).toFixed(2) + ' back on order ' + x.n + '. It goes back to the way you paid.'], 'ptyS-buy-' + p.id + '-' + x.n).catch(() => null);
+    for (const x of o.orders) if (x.email) await lib.mail(x.email, 'Money coming back: ' + p.name, ['The party for ' + p.name + ' ended at ' + o.state.off + '% off, lower than what you paid.', x.done ? '$' + (x.back / 100).toFixed(2) + ' has been refunded to your card for order ' + x.n + '. It shows on your card in about 5 to 10 business days.' : 'You are owed $' + (x.back / 100).toFixed(2) + ' back on order ' + x.n + '. It goes back to the way you paid.'], 'ptyS-buy-' + p.id + '-' + x.n).catch(() => null);
     await store.write(k, { at: Date.now(), owed: o.orders });
   }
 }

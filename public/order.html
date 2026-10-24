@@ -199,6 +199,12 @@ fieldset[hidden]{display:none}
     // An accepted-offer link opens on the way to pay the buyer named.
     var pm = document.querySelector('input[name="method"][value="' + (HOW[qs.get('method')] ? qs.get('method') : '') + '"]');
     if (pm && !pm.parentNode.hidden) pm.checked = true;
+    if (deal && /^PTY/.test(String(deal.no || ''))) {
+      // Party pricing: card only, so a later price drop is refunded to the card automatically.
+      ['mZelle', 'mVenmo', 'mCashapp'].forEach(function (k) { $(k).hidden = true; });
+      Array.prototype.forEach.call(document.querySelectorAll('input[name="method"]'), function (x) { if (x.value !== 'card' && x.parentNode) x.parentNode.hidden = true; });
+      var cm = document.querySelector('input[name="method"][value="card"]'); if (cm) { cm.parentNode.hidden = false; cm.checked = true; }
+    }
     if (deal) {
       $('product').value = deal.product; $('qty').value = deal.qty;
       $('product').disabled = true; $('qty').readOnly = true;
@@ -206,6 +212,7 @@ fieldset[hidden]{display:none}
     } else if (offerTok) {
       $('lead').textContent = 'That accepted offer has run out or is not valid, so this shows the listed price.';
     }
+    if (deal && /^PTY/.test(String(deal.no || ''))) $('lead').textContent = 'Party price locked in for 30 minutes. Party pricing is paid by card only: if the price drops lower before the party ends, the difference goes back to your card automatically.';
     ['name', 'company', 'email'].forEach(function (k) { var v = qs.get(k); if (v) $('f').elements[k].value = v; });
     if (!products.length) { $('msg').textContent = 'No products are available right now.'; $('go').disabled = true; return; }
     total();

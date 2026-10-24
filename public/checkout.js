@@ -181,7 +181,7 @@
       var ul = el('div'); ul.style.cssText = 'display:flex;flex-direction:column;gap:4px;font-size:14px';
       st.tiers.forEach(function (t) { var li = el('div', (t.reached ? '✅ ' : '⬜ ') + t.need + ' sold → ' + t.off + '% off (' + usd(t.price) + ')'); if (t.reached) li.style.fontWeight = '700'; ul.appendChild(li); });
       box.appendChild(ul);
-      box.appendChild(el('div', 'Your own units count toward the next level. If the price drops further after you buy, you get the difference back when the party ends.', 'small dim'));
+      box.appendChild(el('div', 'Your own units count toward the next level. Paid by card only. If the price drops further after you buy, the difference goes back to your card automatically when the party ends.', 'small dim'));
       head.parentNode.insertBefore(box, head.nextSibling);
       // Checkout goes through the party price for the units picked.
       var go = $('go'); go.textContent = 'Buy at the party price';

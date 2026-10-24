@@ -763,7 +763,7 @@
     var pIn = el('div'); pIn.style.cssText = 'display:flex;flex-direction:column;gap:10px';
     var pad = function (n) { return ('0' + n).slice(-2); };
     var dflt = new Date(pp ? pp.ends : Date.now() + 3 * 86400000), pEnds = input('datetime-local', dflt.getFullYear() + '-' + pad(dflt.getMonth() + 1) + '-' + pad(dflt.getDate()) + 'T' + pad(dflt.getHours()) + ':' + pad(dflt.getMinutes()), {});
-    pIn.appendChild(field('Party ends', pEnds, 'Buyers see a countdown. When it ends, anyone who paid more than the final price gets the difference back.'));
+    pIn.appendChild(field('Party ends', pEnds, 'Buyers see a countdown. When it ends, anyone who paid more than the final price gets the difference refunded to their card automatically. Party pricing is card only (no Zelle, Venmo or Cash App).'));
     pIn.appendChild(el('div', 'Levels: once this many are sold, everyone gets this much off. Up to 4.', 'small dim'));
     var rows = [], prev = el('div', '', 'small');
     for (var ti = 0; ti < 4; ti++) {

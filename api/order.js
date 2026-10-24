@@ -67,6 +67,8 @@ module.exports = async (req, res) => {
   if (!Number.isInteger(qty) || qty < p.min) return res.status(400).json({ error: 'Quantity must be a whole number of at least ' + p.min + '.' });
   if (qty > p.stock) return res.status(409).json({ error: p.stock > 0 ? 'Only ' + p.stock + (p.stock === 1 ? ' unit is' : ' units are') + ' in stock right now.' : 'This product is sold out right now.' });
 
+  // A piece in a running party: card only (see _partyS.js), whatever way the order came in.
+  { const pty = await require('./_partyS').piece(p.id).catch(() => null); if (pty && Date.now() <= pty.party.ends + 120000 && !card) return res.status(400).json({ error: 'This piece is in a party. Party pricing is paid by card only, so any price drop is refunded to your card automatically.' }); }
   // An offer the owner accepted (see offer.js) sets the price per unit, for that product and quantity only.
   let deal = null;
   if (b.offer) {
@@ -74,6 +76,8 @@ module.exports = async (req, res) => {
     if (!deal || deal.oa !== 1) return res.status(400).json({ error: 'This offer link is not valid.' });
     if (Math.floor(Date.now() / 1000) > deal.x) return res.status(400).json({ error: 'This accepted offer has run out. Send a new offer, or order at the listed price.' });
     if (deal.pid !== p.id || deal.q !== qty) return res.status(400).json({ error: 'Your offer was accepted for ' + deal.q + ' x ' + p.name + ' only.' });
+    // Party pricing is card only, so money owed back when the price drops is refunded to the card automatically.
+    if (/^PTY/.test(String(deal.n || '')) && !card) return res.status(400).json({ error: 'Party pricing is paid by card only, so any price drop is refunded to your card automatically.' });
   }
   // A promo code takes money off the listed price. It does not stack on an accepted offer.
   const code = clip(b.promo, 20);
