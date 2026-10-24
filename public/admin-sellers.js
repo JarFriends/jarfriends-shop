@@ -47,9 +47,36 @@
     var t = r.totals;
     var tiles = el('div', null, 'sx-tiles');
     [['YOUR FEES EARNED (' + r.fee + '%)', money(t.fee), 'gold'], ['GIVEAWAY WALLET (' + (r.giveaway || 2) + '% OF SALES, FROM YOUR FEE)', money(t.wallet || 0), ''], ['YOU KEEP AFTER WALLET', money((t.fee || 0) - (t.wallet || 0)), 'gold'], ['SELLER SALES (PAID)', money(t.gross), ''], ['PAID TO SELLERS BY STRIPE', money(t.byStripe || 0), ''], ['SENT BY YOU', money(t.paidOut), ''], ['YOU STILL OWE SELLERS', money(t.owed), ''], ['SELLERS', String(r.sellers.length), '']].forEach(function (x) {
-      var d = el('div', null, 'sx-tile ' + x[2]); d.appendChild(el('span', x[0], 'label')); d.appendChild(el('b', x[1])); tiles.appendChild(d);
+      var owe = x[0] === 'YOU STILL OWE SELLERS';
+      var d = el(owe ? 'button' : 'div', null, 'sx-tile ' + x[2]); d.appendChild(el('span', x[0], 'label')); d.appendChild(el('b', x[1])); tiles.appendChild(d);
+      if (owe) { d.type = 'button'; d.style.cssText = 'cursor:pointer;text-align:left;font:inherit;color:inherit;border-color:#C9A45C'; d.appendChild(el('span', 'See who and why ›', 'label')).style.color = '#E8C77A'; d.addEventListener('click', function () { oweBox.hidden = !oweBox.hidden; if (!oweBox.hidden) oweBox.scrollIntoView({ behavior: 'smooth', block: 'start' }); }); }
     });
     box.appendChild(tiles);
+    // What you owe, seller by seller: every sale that paid you (not their Stripe), minus labels, charges and payouts.
+    var oweBox = el('section', null, 'card'); oweBox.hidden = true; oweBox.style.gap = '14px'; box.appendChild(oweBox);
+    (function () {
+      oweBox.appendChild(el('h2', 'What you owe sellers'));
+      oweBox.appendChild(el('div', 'These sales were paid to you (Zelle, Venmo, Cash App, cash, crypto, or a card sale before the seller set up Stripe payouts). You keep your ' + r.fee + '% and send the seller the rest. Card sales paid straight to a seller\u2019s Stripe are not listed: Stripe already paid them.', 'small dim'));
+      var due = r.sellers.filter(function (s) { return s.totals && s.totals.owed !== 0; }).sort(function (a, b) { return b.totals.owed - a.totals.owed; });
+      if (!due.length) { oweBox.appendChild(el('div', 'You are all square with every seller.', 'small')); return; }
+      due.forEach(function (s) {
+        var st = s.totals, w = el('div'); w.style.cssText = 'display:flex;flex-direction:column;gap:8px;border:1px solid #2E4A3B;border-radius:10px;padding:12px';
+        var hd = el('div'); hd.style.cssText = 'display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;align-items:baseline';
+        hd.appendChild(el('b', s.name)); hd.appendChild(el('b', (st.owed < 0 ? 'They owe you ' : 'You owe ') + money(Math.abs(st.owed))));
+        w.appendChild(hd);
+        w.appendChild(el('div', 'Send to: ' + (s.payTo ? (s.payHow === 'bank' || s.payHow === 'wire' ? 'bank account (Show bank details on their card below)' : (s.payHow || '') + ' ' + s.payTo) : 'no payout details yet. Ask them to add them in Seller Hub.') + ' · ' + s.email, 'small'));
+        var rows = (r.sales || []).filter(function (x) { return x.seller === s.slug && x.paid && !x.direct; });
+        var tb = el('div'); tb.style.cssText = 'display:flex;flex-direction:column;gap:4px;font-size:14px';
+        var line = function (a, b, dim) { var l = el('div'); l.style.cssText = 'display:flex;justify-content:space-between;gap:10px' + (dim ? ';opacity:.75' : ''); l.appendChild(el('span', a)); l.appendChild(el('span', b)); tb.appendChild(l); };
+        rows.forEach(function (x) { line('Order ' + x.n + ' · ' + x.product + (x.q > 1 ? ' ×' + x.q : '') + ' · ' + new Date(x.at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' · paid by ' + (x.pay || '?') + ' · sold ' + money(x.gross) + ' − your fee ' + money(x.fee), '+' + money(x.net)); });
+        if (st.labels) line('Shipping labels taken from their earnings', '−' + money(st.labels), true);
+        (s.payouts || []).forEach(function (p) { line((p.kind === 'deduct' ? 'Charge taken: ' : 'You sent them: ') + [p.how, p.note].filter(Boolean).join(' · ') + ' · ' + new Date(p.at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), '−' + money(p.cents), true); });
+        w.appendChild(tb);
+        var go = el('button', st.owed > 0 ? 'Record a payout to ' + s.name + ' ›' : 'Open their card ›', 'ghost'); go.type = 'button'; go.style.alignSelf = 'flex-start';
+        go.addEventListener('click', function () { var t2 = box.querySelector('[data-seller="' + s.slug + '"]'); if (t2) { t2.scrollIntoView({ behavior: 'smooth', block: 'start' }); var f2 = t2.querySelector('form input'); if (f2) setTimeout(function () { f2.focus(); }, 500); } });
+        w.appendChild(go); oweBox.appendChild(w);
+      });
+    })();
     // Bring the JarFriends shop's pieces over into one shop here (api/_import.js). Vault pieces stay on JarFriends.
     var im = el('section', null, 'card'); im.style.gap = '10px';
     im.appendChild(el('b', 'Bring my JarFriends pieces over'));
@@ -98,7 +125,7 @@
     if (!r.sellers.length) { box.appendChild(el('div', 'No sellers yet. Send people to /seller.html to open a shop. Sellers listed in SEED_SELLERS open by themselves the first time the site is visited.', 'card small')); return; }
     // One card per seller; the cards are shown in groups below.
     var cardOf = function (s, into) {
-      var c = el('section', null, 'card'); c.style.gap = '10px';
+      var c = el('section', null, 'card'); c.style.gap = '10px'; c.setAttribute('data-seller', s.slug);
       var top = el('div'); top.style.cssText = 'display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;align-items:center';
       var nm = el('div'); nm.appendChild(el('b', s.name + '  ')); nm.appendChild(el('span', s.status === 'approved' ? 'OPEN' : s.status === 'pending' ? 'NEEDS YOUR OK' : 'PAUSED', 'sx-b ' + (s.status === 'approved' ? 'ok' : s.status === 'pending' ? 'wait' : 'off')));
       top.appendChild(nm);
