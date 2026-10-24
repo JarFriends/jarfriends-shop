@@ -76,6 +76,21 @@ module.exports = async (req, res) => {
   if (!store.on()) return res.status(503).json({ error: 'The shop storage is not connected yet.' });
   try {
     // ---------- Anyone ----------
+    // A seller's short link, veefam.io/s/<shop>: a small page with the shop's name, blurb and a photo for social
+    // previews (Facebook, X, iMessage and the rest read these tags), which then opens the shop page.
+    if (req.method === 'GET' && what === 'share') {
+      const sl = String(q.s || '').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 30);
+      const s = sl && (await M.bySlug(sl));
+      const host = 'https://' + req.headers.host, to = s && s.status === 'approved' ? '/shop.html?s=' + encodeURIComponent(sl) : '/';
+      const live = s ? (await M.listings()).filter((p) => p.seller === sl && !p.removed && !p.hidden && p.photo) : [];
+      const img = live[0] ? host + '/api/photo?id=' + encodeURIComponent(live[0].id) + '&v=' + live[0].photo : '';
+      const title = s ? s.name + ' on VeeFam' : 'VeeFam', desc = s ? (String(s.about || s.bio || '').trim().slice(0, 180) || 'Shop ' + s.name + '\u2019s VeeFriends collectibles on VeeFam: buy now, bid, and watch live shows.') : 'A unique community needs a 1 of a kind marketplace.';
+      res.setHeader('content-type', 'text/html; charset=utf-8'); res.setHeader('cache-control', 'public, max-age=300');
+      return res.status(200).send('<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + esc(title) + '</title>'
+        + '<meta property="og:type" content="website"><meta property="og:site_name" content="VeeFam"><meta property="og:title" content="' + esc(title) + '"><meta property="og:description" content="' + esc(desc) + '"><meta property="og:url" content="' + esc(host + '/s/' + sl) + '">'
+        + (img ? '<meta property="og:image" content="' + esc(img) + '"><meta name="twitter:image" content="' + esc(img) + '">' : '') + '<meta name="twitter:card" content="' + (img ? 'summary_large_image' : 'summary') + '"><meta name="twitter:title" content="' + esc(title) + '"><meta name="twitter:description" content="' + esc(desc) + '">'
+        + '<meta http-equiv="refresh" content="0;url=' + esc(to) + '"><script>location.replace(' + JSON.stringify(to) + ')</script></head><body style="background:#0B1A13;color:#F7F2E6;font-family:sans-serif;padding:24px"><a style="color:#C9A45C" href="' + esc(to) + '">Open ' + esc(title) + '</a></body></html>');
+    }
     if (req.method === 'GET' && what === 'shop') {
       let items = await shopItems();
       const open = (await M.all()).filter((s) => s.status === 'approved');

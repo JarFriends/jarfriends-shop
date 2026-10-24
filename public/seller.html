@@ -271,8 +271,30 @@
     c.appendChild(r); return r;
   }
   // The first screen: everything at a glance, like eBay's Seller Hub overview.
+  // The seller's own short link (veefam.io/s/<shop>), to copy or share on socials. It shows the shop name and a
+  // photo when posted on Facebook, X, Instagram stories, iMessage and the rest.
+  function shareCard(s) {
+    var link = location.origin + '/s/' + s.slug, text = 'Shop my VeeFriends collectibles on VeeFam: ' + s.name;
+    var c = el('section', null, 'card'); c.style.cssText = 'gap:10px;border:2px solid #C9A45C';
+    c.appendChild(el('h2', '🔗 Your shop link'));
+    var box = input('text', link, { readonly: '' }); box.style.cssText = 'width:100%;max-width:100%;min-width:0;box-sizing:border-box;font-weight:700'; box.addEventListener('focus', function () { box.select(); });
+    c.appendChild(box);
+    var row = el('div'); row.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px';
+    var cp = el('button', '📋 Copy link', 'solid'); cp.type = 'button';
+    cp.addEventListener('click', function () { var done = function () { cp.textContent = '✓ Copied!'; setTimeout(function () { cp.textContent = '📋 Copy link'; }, 1800); }; try { navigator.clipboard.writeText(link).then(done, function () { box.select(); document.execCommand('copy'); done(); }); } catch (e) { box.select(); document.execCommand('copy'); done(); } });
+    row.appendChild(cp);
+    if (navigator.share) { var sh = el('button', '📤 Share', 'ghost'); sh.type = 'button'; sh.addEventListener('click', function () { navigator.share({ title: s.name + ' on VeeFam', text: text, url: link }).catch(function () {}); }); row.appendChild(sh); }
+    var u = encodeURIComponent(link), tx = encodeURIComponent(text);
+    [['X', 'https://twitter.com/intent/tweet?text=' + tx + '&url=' + u], ['Facebook', 'https://www.facebook.com/sharer/sharer.php?u=' + u], ['WhatsApp', 'https://wa.me/?text=' + encodeURIComponent(text + ' ' + link)], ['Text', 'sms:?&body=' + encodeURIComponent(text + ' ' + link)], ['Email', 'mailto:?subject=' + encodeURIComponent(s.name + ' on VeeFam') + '&body=' + encodeURIComponent(text + '\n' + link)]].forEach(function (x) {
+      var a = el('a', x[0], 'ghost'); a.href = x[1]; if (/^https/.test(x[1])) { a.target = '_blank'; a.rel = 'noopener'; } a.style.cssText = 'text-decoration:none;padding:10px 14px'; row.appendChild(a);
+    });
+    c.appendChild(row);
+    c.appendChild(el('div', 'For Instagram or TikTok: copy the link and put it in your bio or story. Going live? Your show link is in the 🔴 Live tab.', 'small dim'));
+    return c;
+  }
   function overview(pane) {
     var now = Date.now(), L = D.listings, O = D.orders, t = D.totals, s = D.seller;
+    if (s.status === 'approved') pane.appendChild(shareCard(s));
     var live = function (p) { return p.auction && Date.parse(p.auction.ends) > now; };
     var active = L.filter(function (p) { return !p.hidden && (live(p) || (!p.auction && p.left > 0)); });
     var drafts = L.filter(function (p) { return p.hidden && !p.removed && !(p.ebay && p.ebay.status === 'gone'); });
