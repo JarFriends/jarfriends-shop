@@ -958,11 +958,13 @@
     if (st.schedule) line.appendChild(el('span', 'Paid to your bank ' + st.schedule, 'small dim'));
     c.appendChild(line);
     c.appendChild(el('div', st.state === 'on'
-      ? 'When a buyer pays by card, the money goes straight to your Stripe account and Stripe sends it to your bank. Stripe takes its own card fee from you, and V2V\u2019s ' + D.fee + '% is taken at the time of sale. See every payment and payout at dashboard.stripe.com.'
+      ? 'When a buyer pays by card, the money goes straight to your Stripe account and Stripe sends it to your bank. Stripe takes its own card fee from you, and V2V\u2019s ' + D.fee + '% is taken at the time of sale. Press See my balance and payouts to see every payment and payout.'
       : 'Link your bank once, on Stripe\u2019s secure page (like setting up payouts on eBay). After that, card sales go straight to your Stripe account and Stripe pays you out automatically. Stripe charges you its normal card fee; V2V\u2019s ' + D.fee + '% is taken at the time of sale. V2V never sees your bank or tax details.', 'small'));
     c.appendChild(el('div', 'Sales paid by Zelle, Venmo, Cash App, cash or crypto go to V2V, and V2V sends you your share by ' + payWords(D.seller) + '.', 'small dim'));
     var m = status();
-    if (st.state === 'on') { var a = el('a', 'Open my Stripe dashboard', 'ghost'); a.href = 'https://dashboard.stripe.com/'; a.target = '_blank'; a.rel = 'noopener'; a.style.cssText = 'text-decoration:none;align-self:flex-start'; c.appendChild(a); }
+    if (st.state === 'on') { var a = el('button', 'See my balance and payouts', 'solid'); a.type = 'button'; a.style.alignSelf = 'flex-start';
+      a.addEventListener('click', function () { a.disabled = true; m.textContent = 'Opening Stripe\u2026'; var w = window.open('', '_blank'); JF.api('/api/market', { do: 'stripe-dashboard', t: tok, as: AS, ak: AK }).then(function (r) { a.disabled = false; if (r.url) { m.textContent = ''; if (w) w.location = r.url; else location.href = r.url; } else { if (w) w.close(); m.textContent = r.error || 'Could not open Stripe.'; } }); });
+      c.appendChild(a); }
     else {
       var b = el('button', st.state === 'started' ? 'Finish setting up payouts' : 'Set up payouts with Stripe', 'solid'); b.type = 'button';
       b.addEventListener('click', function () { b.disabled = true; m.textContent = 'Opening Stripe\u2026'; JF.api('/api/market', { do: 'stripe-setup', t: tok, as: AS, ak: AK }).then(function (r) { if (r.url) location.href = r.url; else { b.disabled = false; m.textContent = r.error || 'Could not open Stripe.'; } }); });

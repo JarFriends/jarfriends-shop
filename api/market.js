@@ -598,6 +598,12 @@ module.exports = async (req, res) => {
       try { return res.json({ url: await connect.onboardingLink(seller, 'https://' + req.headers.host, actAs ? seller.slug : '') }); }
       catch (e) { console.error('STRIPE_SETUP_FAIL', seller.slug, String(e && e.message || e)); return res.status(502).json({ error: /signed up for Connect/i.test(String(e && e.message || '')) ? 'Payouts are not switched on yet: the Stripe account V2V uses has not turned on Stripe Connect. (V2V owner: use the secret key from the Stripe account where Connect is on.)' : 'Stripe could not open the payout setup just now. Try again in a minute.' }); }
     }
+    // The seller's own Stripe page: balance, payouts and bank.
+    if (what === 'stripe-dashboard') {
+      if (!stripeBase.ready()) return res.status(503).json({ error: 'Automatic payouts are not switched on for V2V yet.' });
+      try { return res.json({ url: await connect.dashboardLink(seller) }); }
+      catch (e) { console.error('STRIPE_DASH_FAIL', seller.slug, String(e && e.message || e)); return res.status(502).json({ error: 'Stripe could not open your payouts page just now. Try again in a minute.' }); }
+    }
     // The seller answers a review on their shop page.
     if (what === 'reply') {
       const n = String(b.n || ''), r = /^[A-Z0-9]{4,20}$/.test(n) ? await store.read('reviews/' + seller.slug + '/' + n + '.json') : null;

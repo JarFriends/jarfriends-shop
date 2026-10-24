@@ -52,6 +52,13 @@ async function onboardingLink(seller, host, as) {
   if (!r.ok || !r.body.url) throw new Error('Stripe link: ' + r.status);
   return r.body.url;
 }
+// A one-time sign-in link to the seller's own Stripe Express page (balance, payouts, bank).
+async function dashboardLink(seller) {
+  if (!seller.stripe) throw new Error('no account');
+  const r = await call('POST', '/accounts/' + seller.stripe + '/login_links', {});
+  if (!r.ok || !r.body.url) throw new Error('Stripe login link: ' + r.status + ' ' + JSON.stringify(r.body && r.body.error || {}).slice(0, 200));
+  return r.body.url;
+}
 // Where a seller's payouts stand: none, started (details still due), or on (taking card payments).
 async function status(seller) {
   if (!seller.stripe) return { state: 'none' };
@@ -103,4 +110,4 @@ async function markDirect(inv, client) {
   await store.write('meta/' + inv.n + '.json', Object.assign(was, { direct: client.acct, platformFee: client.fee, directAt: Date.now() }));
 }
 
-module.exports = { call, accountFor, onboardingLink, status, platformFee, directSeller, clientFor, markDirect };
+module.exports = { call, accountFor, onboardingLink, dashboardLink, status, platformFee, directSeller, clientFor, markDirect };
