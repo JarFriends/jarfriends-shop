@@ -385,7 +385,24 @@
   var livePoll = null;
   function liveTab(pane) {
     if (livePoll) { clearInterval(livePoll); livePoll = null; }
-    var c = el('section', null, 'card'); c.style.gap = '14px'; pane.appendChild(c);
+    if (!document.getElementById('lvsCss')) { var css = el('style'); css.id = 'lvsCss'; css.textContent = [
+      '.lvs select,.lvs input{max-width:100%;min-width:0;box-sizing:border-box}',
+      '.lvs .jf-sel{width:100%}',
+      '.lvs-cam{position:relative;background:#000;border-radius:14px;overflow:hidden;width:100%;max-width:560px;aspect-ratio:16/9;margin:0 auto}',
+      '@media(max-width:700px){.lvs-cam{aspect-ratio:3/4;max-height:64vh}}',
+      '.lvs-cam video{width:100%;height:100%;object-fit:cover}',
+      '.lvs-ctl{position:absolute;right:10px;top:10px;display:flex;flex-direction:column;gap:8px;z-index:2}',
+      '.lvs-ctl button{width:46px;height:46px;border-radius:50%;padding:0;font-size:20px;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.35);color:#fff;min-height:0}',
+      '.lvs-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}',
+      '.lvs-bar button,.lvs-bar a{flex:0 0 auto}',
+      '.lvs-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px;border:1px solid rgba(255,255,255,.1);border-radius:10px}',
+      '.lvs-row .tx{flex:1 1 150px;min-width:0;display:flex;flex-direction:column;gap:2px}',
+      '.lvs-row .bt{display:flex;gap:6px;flex-wrap:wrap;width:100%}',
+      '.lvs-row .bt button{min-height:40px;padding:8px 12px}',
+      '.lvs-row .bt .go{flex:1 1 auto}',
+      '.lvs h3{margin:0}'
+    ].join('\n'); document.head.appendChild(css); }
+    var c = el('section', null, 'card lvs'); c.style.gap = '14px'; pane.appendChild(c);
     c.appendChild(el('h2', 'Sell live'));
     if (D.seller.status !== 'approved') { c.appendChild(el('div', 'Your shop needs to be approved before you can go live.', 'alert small')); return; }
     var body = el('div'); body.style.cssText = 'display:flex;flex-direction:column;gap:14px'; c.appendChild(body);
@@ -401,13 +418,13 @@
     function camBox() {
       if (camEl) return camEl;
       camEl = el('div'); camEl.style.cssText = 'display:flex;flex-direction:column;gap:8px';
-      var vbox = el('div'); vbox.style.cssText = 'position:relative;background:#000;border-radius:10px;overflow:hidden;aspect-ratio:16/9;max-width:560px';
+      var vbox = el('div', null, 'lvs-cam');
       var note = el('div', 'Starting your camera… allow camera and microphone when your browser asks.', 'small'); note.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;padding:16px;text-align:center';
       vbox.appendChild(note); camEl.appendChild(vbox);
-      var row = el('div'); row.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px';
-      var flip = el('button', '🔄 Switch camera', 'ghost'), mic = el('button', '🎙️ Mute mic', 'ghost'); flip.type = mic.type = 'button';
-      row.appendChild(flip); row.appendChild(mic); camEl.appendChild(row);
-      camEl.appendChild(el('div', 'Keep this page open while you are live. Buyers watch at your show page.', 'small dim'));
+      var row = el('div', null, 'lvs-ctl');
+      var flip = el('button', '🔄'), mic = el('button', '🎙️'); flip.type = mic.type = 'button'; flip.title = 'Switch camera'; mic.title = 'Mute mic';
+      row.appendChild(flip); row.appendChild(mic); vbox.appendChild(row);
+      camEl.appendChild(el('div', 'Keep this page open while you are live. 🔄 switches to your back camera (sharper for cards).', 'small dim'));
       var facing = 'user', muted = false;
       var load = window.LivekitClient ? Promise.resolve() : new Promise(function (ok, no) { var sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/livekit-client@2.15.0/dist/livekit-client.umd.js'; sc.onload = ok; sc.onerror = no; document.head.appendChild(sc); });
       Promise.all([load, window.__lvRoom ? { reuse: true } : JF.api('/api/market', { do: 'live-token', t: tok, as: AS, ak: AK })]).then(function (x) {
@@ -434,7 +451,7 @@
         var pub = room.localParticipant.getTrackPublication(window.LivekitClient.Track.Source.Camera);
         if (pub && pub.track) pub.track.restartTrack({ facingMode: facing, resolution: window.LivekitClient.VideoPresets.h1080.resolution }).then(function () { var v = vbox.querySelector('video'); if (v) v.style.transform = facing === 'user' ? 'scaleX(-1)' : 'none'; });
       });
-      mic.addEventListener('click', function () { var room = window.__lvRoom; if (!room) return; muted = !muted; room.localParticipant.setMicrophoneEnabled(!muted); mic.textContent = muted ? '🎙️ Unmute mic' : '🎙️ Mute mic'; });
+      mic.addEventListener('click', function () { var room = window.__lvRoom; if (!room) return; muted = !muted; room.localParticipant.setMicrophoneEnabled(!muted); mic.textContent = muted ? '🔇' : '🎙️'; mic.title = muted ? 'Unmute mic' : 'Mute mic'; });
       return camEl;
     }
     var planOpen = false;
@@ -453,7 +470,7 @@
       var list = ready();
       if (!list.length) { w.appendChild(el('div', 'Add Buy now pieces in Listings first.', 'small dim')); return w; }
       var row = el('div'); row.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;align-items:center';
-      var pk = select(list.map(function (p) { return [p.id, p.name + ' · $' + Number(p.price).toFixed(2) + ' (' + p.left + ' left)']; }), list[0].id); pk.style.flex = '1 1 240px';
+      var pk = select(list.map(function (p) { return [p.id, p.name + ' · $' + Number(p.price).toFixed(2) + ' (' + p.left + ' left)']; }), list[0].id); pk.style.flex = '1 1 100%';
       var go = el('button', S.pin ? '📌 Swap it' : '📌 Put it on screen', 'solid'); go.type = 'button'; go.addEventListener('click', function () { call({ do: 'live-pin', pid: pk.value }); });
       row.appendChild(pk); row.appendChild(go); w.appendChild(row);
       return w;
@@ -466,21 +483,21 @@
       var kinds = { auction: '🔨 Auction', party: '🎉 Party deal', buynow: '📌 Buy now' };
       var L = S.lineup || [];
       L.forEach(function (it, i) {
-        var r = el('div'); r.style.cssText = 'display:flex;gap:10px;align-items:center;padding:8px;border:1px solid rgba(255,255,255,.1);border-radius:8px' + (it.done ? ';opacity:.55' : '');
+        var r = el('div', null, 'lvs-row'); if (it.done) r.style.opacity = '.55';
         if (it.photo) { var im = el('img'); im.src = it.photo; im.alt = ''; im.style.cssText = 'width:44px;height:44px;object-fit:cover;border-radius:6px;flex:none'; r.appendChild(im); }
-        var tx = el('div'); tx.style.cssText = 'flex:1;min-width:0;display:flex;flex-direction:column;gap:2px';
+        var tx = el('div', null, 'tx');
         tx.appendChild(el('b', (i + 1) + '. ' + it.name));
         tx.appendChild(el('span', kinds[it.kind] + ' · ' + (it.kind === 'auction' ? 'starts ' + usd(it.start) + ', ' + it.secs + 's' : it.kind === 'party' ? usd(it.start) + ' down to ' + usd(it.floor) + ', −' + usd(it.step) + ' each, ' + it.qty + ' to sell' : 'its listed price') + (it.done ? ' · started' : ''), 'small dim'));
         if (live && ((it.kind === 'auction' && S.lot && S.lot.pid === it.pid && S.lot.endsAt > Date.now()) || (it.kind === 'party' && S.deal && S.deal.pid === it.pid) || (it.kind === 'buynow' && S.pin && S.pin.pid === it.pid))) tx.appendChild(el('span', '🔴 RUNNING NOW', 'small')).style.cssText = 'color:#FF8A8E;font-weight:800';
         r.appendChild(tx);
-        var bt = el('div'); bt.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end';
+        var bt = el('div', null, 'bt');
         var on = live && (it.kind === 'auction' ? !!(S.lot && S.lot.pid === it.pid && S.lot.endsAt > Date.now()) : it.kind === 'party' ? !!(S.deal && S.deal.pid === it.pid) : !!(S.pin && S.pin.pid === it.pid));
         if (on) {
           r.style.opacity = '1'; r.style.border = '2px solid #E5484D';
-          var sp = el('button', '■ Stop', 'solid'); sp.type = 'button'; sp.style.cssText = 'background:#E5484D;border-color:#E5484D;color:#fff';
+          var sp = el('button', '■ Stop', 'solid go'); sp.type = 'button'; sp.style.cssText = 'background:#E5484D;border-color:#E5484D;color:#fff';
           sp.addEventListener('click', function () { call(it.kind === 'auction' ? { do: 'live-lot-end' } : it.kind === 'party' ? { do: 'live-deal-end' } : { do: 'live-pin', pid: '' }); });
           bt.appendChild(sp);
-        } else if (live) { var st = el('button', it.done ? '▶ Again' : '▶ Start', it.done ? 'ghost' : 'solid'); st.type = 'button'; st.addEventListener('click', function () { call({ do: 'live-run', id: it.id }); }); bt.appendChild(st); }
+        } else if (live) { var st = el('button', it.done ? '▶ Again' : '▶ Start', (it.done ? 'ghost' : 'solid') + ' go'); st.type = 'button'; st.addEventListener('click', function () { call({ do: 'live-run', id: it.id }); }); bt.appendChild(st); }
         [['↑', 'up'], ['↓', 'down']].forEach(function (x) { var mv = el('button', x[0], 'ghost'); mv.type = 'button'; mv.style.padding = '6px 10px'; mv.addEventListener('click', function () { call({ do: 'live-plan', action: 'move', id: it.id, dir: x[1] }); }); bt.appendChild(mv); });
         var rm = el('button', '✕', 'ghost'); rm.type = 'button'; rm.style.padding = '6px 10px'; rm.title = 'Remove from the plan'; rm.addEventListener('click', function () { call({ do: 'live-plan', action: 'remove', id: it.id }); }); bt.appendChild(rm);
         r.appendChild(bt); w.appendChild(r);
@@ -513,7 +530,7 @@
     function draw() {
       body.textContent = '';
       var live = S.status === 'live';
-      var top = el('div'); top.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;align-items:center';
+      var top = el('div', null, 'lvs-bar');
       top.appendChild(el('b', live ? '🔴 You are LIVE' : S.status === 'scheduled' ? 'Scheduled for ' + new Date(S.startsAt).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) : 'Not live'));
       var a = el('a', 'Your show page ↗'); a.href = page; a.target = '_blank'; a.rel = 'noopener'; top.appendChild(a);
       var cp = el('button', 'Copy link to share', 'ghost'); cp.type = 'button'; cp.addEventListener('click', function () { try { navigator.clipboard.writeText(page); cp.textContent = 'Copied!'; } catch (e) { prompt('Copy this link:', page); } }); top.appendChild(cp);
@@ -523,9 +540,11 @@
       else if (camEl && camEl.parentNode) { camEl.remove(); stopCam(); }
       var t1 = input('text', S.title || '', { maxlength: '80', placeholder: 'e.g. Friday night VeeFriends breaks' });
       var u1 = input('url', S.url || '', { maxlength: '300', placeholder: 'https://www.youtube.com/live/… or https://twitch.tv/yourname' });
-      body.appendChild(field('Show title', t1));
-      body.appendChild(field('Or a link to a stream elsewhere (optional)', u1, 'Only if you would rather stream on YouTube, Twitch, TikTok or Instagram. YouTube and Twitch play on your show page; TikTok and Instagram open in a new tab while buyers bid here.'));
-      var acts = el('div'); acts.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;align-items:center';
+      var setBox = body;
+      if (live) { var sd = el('details'); sd.appendChild(el('summary', '⚙︎ Show title and stream link', 'small')); sd.firstChild.style.cursor = 'pointer'; setBox = el('div'); setBox.style.cssText = 'display:flex;flex-direction:column;gap:12px;margin-top:10px'; sd.appendChild(setBox); body.appendChild(sd); }
+      setBox.appendChild(field('Show title', t1));
+      setBox.appendChild(field('Or a link to a stream elsewhere (optional)', u1, 'Only if you would rather stream on YouTube, Twitch, TikTok or Instagram. YouTube and Twitch play on your show page; TikTok and Instagram open in a new tab while buyers bid here.'));
+      var acts = el('div', null, 'lvs-bar');
       if (!live) {
         if (CAM) { var gc = el('button', '🔴 Go live with my camera', 'solid'); gc.type = 'button'; gc.addEventListener('click', function () { call({ do: 'live-set', action: 'go', mode: 'camera', title: t1.value, url: u1.value }); }); acts.appendChild(gc); }
         var go = el('button', CAM ? 'Go live with my stream link' : '🔴 Go live now', CAM ? 'ghost' : 'solid'); go.type = 'button'; go.addEventListener('click', function () { call({ do: 'live-set', action: 'go', mode: 'link', title: t1.value, url: u1.value }); }); acts.appendChild(go);
@@ -533,8 +552,8 @@
         sch.addEventListener('click', function () { if (!when.value) { m.textContent = 'Pick a date and time first.'; return; } call({ do: 'live-set', action: 'schedule', title: t1.value, url: u1.value, startsAt: new Date(when.value).toISOString() }); });
         acts.appendChild(el('span', 'or', 'small dim')); acts.appendChild(when); acts.appendChild(sch);
       } else {
-        var sv = el('button', 'Save title and link', 'ghost'); sv.type = 'button'; sv.addEventListener('click', function () { call({ do: 'live-set', title: t1.value, url: u1.value }); }); acts.appendChild(sv);
-        var end = el('button', 'End the show', 'ghost'); end.type = 'button'; end.addEventListener('click', function () { if (confirm('End your live show?')) { stopCam(); call({ do: 'live-set', action: 'end' }); } }); acts.appendChild(end);
+        var sv = el('button', 'Save title and link', 'ghost'); sv.type = 'button'; sv.style.alignSelf = 'flex-start'; sv.addEventListener('click', function () { call({ do: 'live-set', title: t1.value, url: u1.value }); }); setBox.appendChild(sv);
+        var end = el('button', '■ End the show', 'ghost'); end.type = 'button'; end.style.cssText = 'border-color:#E5484D;color:#FF8A8E'; end.addEventListener('click', function () { if (confirm('End your live show?')) { stopCam(); call({ do: 'live-set', action: 'end' }); } }); acts.appendChild(end);
       }
       body.appendChild(acts);
       if (live) body.appendChild(pinBox());
