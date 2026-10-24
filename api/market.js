@@ -614,6 +614,13 @@ module.exports = async (req, res) => {
       try { return res.json({ url: await connect.onboardingLink(seller, 'https://' + req.headers.host, actAs ? seller.slug : '') }); }
       catch (e) { console.error('STRIPE_SETUP_FAIL', seller.slug, String(e && e.message || e)); return res.status(502).json({ error: /signed up for Connect/i.test(String(e && e.message || '')) ? 'Payouts are not switched on yet: the Stripe account V2V uses has not turned on Stripe Connect. (V2V owner: use the secret key from the Stripe account where Connect is on.)' : 'Stripe could not open the payout setup just now. Try again in a minute.' }); }
     }
+    // Start Stripe payouts over with a new account (wrong or test bank details), then open the new setup right away.
+    if (what === 'stripe-reset' && req.method === 'POST') {
+      if (!stripeBase.ready()) return res.status(503).json({ error: 'Automatic payouts are not switched on for V2V yet.' });
+      await connect.reset(seller);
+      try { return res.json({ url: await connect.onboardingLink(seller, 'https://' + req.headers.host, actAs ? seller.slug : '') }); }
+      catch (e) { console.error('STRIPE_RESET_FAIL', seller.slug, String(e && e.message || e)); return res.status(502).json({ error: 'Your old payout setup was cleared, but Stripe could not open the new one just now. Press Set up payouts with Stripe in a minute.' }); }
+    }
     // The seller's own Stripe page: balance, payouts and bank.
     if (what === 'stripe-dashboard') {
       if (!stripeBase.ready()) return res.status(503).json({ error: 'Automatic payouts are not switched on for V2V yet.' });

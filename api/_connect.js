@@ -37,8 +37,8 @@ async function accountFor(seller, host) {
   };
   // Weekly payouts on Fridays, as the owner wants; if Stripe will not take a schedule for this kind of account,
   // the seller keeps Stripe's default and can change it in their own dashboard.
-  let r = await call('POST', '/accounts', Object.assign({ 'settings[payouts][schedule][interval]': 'weekly', 'settings[payouts][schedule][weekly_anchor]': 'friday' }, fields), 'v2v-acct-' + seller.slug);
-  if (!r.ok) r = await call('POST', '/accounts', fields, 'v2v-acct2-' + seller.slug);
+  let r = await call('POST', '/accounts', Object.assign({ 'settings[payouts][schedule][interval]': 'weekly', 'settings[payouts][schedule][weekly_anchor]': 'friday' }, fields), 'v2v-acct-' + seller.slug + (seller.stripeResets ? '-r' + seller.stripeResets : ''));
+  if (!r.ok) r = await call('POST', '/accounts', fields, 'v2v-acct2-' + seller.slug + (seller.stripeResets ? '-r' + seller.stripeResets : ''));
   if (!r.ok || !r.body.id) throw new Error('Stripe account: ' + r.status + ' ' + JSON.stringify(r.body && r.body.error || {}).slice(0, 200));
   seller.stripe = r.body.id; seller.stripeMode = base.test() ? 'test' : 'live';
   await M.save(seller);
@@ -51,6 +51,13 @@ async function onboardingLink(seller, host, as) {
   const r = await call('POST', '/account_links', { account: acct, type: 'account_onboarding', return_url: back + 'stripe=done', refresh_url: back + 'stripe=again' });
   if (!r.ok || !r.body.url) throw new Error('Stripe link: ' + r.status);
   return r.body.url;
+}
+// Start over: the seller's Stripe account is let go (kept on their record, never deleted) and the next setup makes a
+// brand-new one, for wrong bank details, a test setup, or a different business. Card sales go to V2V until they finish.
+async function reset(seller) {
+  if (seller.stripe) seller.stripeOld = (seller.stripeOld || []).concat([{ id: seller.stripe, mode: seller.stripeMode || '', at: Date.now() }]).slice(-10);
+  delete seller.stripe; seller.stripeOn = false; seller.stripeResets = (seller.stripeResets || 0) + 1;
+  await M.save(seller);
 }
 // A one-time sign-in link to the seller's own Stripe Express page (balance, payouts, bank).
 async function dashboardLink(seller) {
@@ -124,4 +131,4 @@ async function refundOrder(n, m) {
   return 'manual';
 }
 
-module.exports = { call, accountFor, onboardingLink, dashboardLink, status, platformFee, directSeller, clientFor, markDirect, refundOrder };
+module.exports = { reset, call, accountFor, onboardingLink, dashboardLink, status, platformFee, directSeller, clientFor, markDirect, refundOrder };
