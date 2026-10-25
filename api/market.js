@@ -411,6 +411,10 @@ module.exports = async (req, res) => {
     if (as && gate.isAdmin(req.method === 'POST' ? b.ak : q.ak)) { const who = await M.bySlug(as); if (who) { me = who.email; actAs = true; } }
     if (!me) me = await signedIn(req.method === 'POST' ? b.t : q.t);
     if (!me) return res.status(401).json({ error: 'Sign in first.' });
+    // Messages between buyers and sellers (see _msgs.js).
+    if (what === 'msg-send' && req.method === 'POST' && !actAs) { const r = await require('./_msgs').send(me, b, 'https://' + req.headers.host); return res.status(r.error ? 400 : 200).json(r); }
+    if (what === 'msg-open' && !actAs) { const r = await require('./_msgs').open(me, String((req.method === 'POST' ? b.id : q.id) || '')); return res.status(r.error ? 404 : 200).json(r); }
+    if (what === 'msg-inbox' && !actAs) return res.json(await require('./_msgs').inbox(me));
     // Delete my account for good: profile, password, saved cards, wishlist, votes, trades they sent and, for a seller,
     // their shop and pieces. Not while paid orders still need shipping. Order records stay (tax and sales records).
     if (what === 'delete-account' && req.method === 'POST' && !actAs) {

@@ -244,13 +244,13 @@
     }
     var tabs = el('div', null, 'hub-tabs'); tabs.setAttribute('role', 'tablist');
     var toShip = D.orders.filter(function (o) { return o.paid && !o.tracking; }).length;
-    [['overview', 'Overview'], ['orders', 'Orders' + (toShip ? ' (' + toShip + ')' : '')], ['listings', 'Listings'], ['live', '🔴 Live'], ['offers', 'Offers'], ['trades', 'Trades'], ['marketing', 'Marketing'], ['reviews', 'Performance'], ['payouts', 'Payments'], ['profit', 'Profit & taxes'], ['research', 'Research'], ['settings', 'Settings']].forEach(function (x) {
+    [['overview', 'Overview'], ['orders', 'Orders' + (toShip ? ' (' + toShip + ')' : '')], ['listings', 'Listings'], ['live', '🔴 Live'], ['messages', '💬 Messages'], ['offers', 'Offers'], ['trades', 'Trades'], ['marketing', 'Marketing'], ['reviews', 'Performance'], ['payouts', 'Payments'], ['profit', 'Profit & taxes'], ['research', 'Research'], ['settings', 'Settings']].forEach(function (x) {
       var b = el('button', x[1]); b.type = 'button'; b.setAttribute('aria-pressed', tab === x[0] ? 'true' : 'false');
       b.addEventListener('click', function () { tab = x[0]; editing = null; adding = false; dash(); }); tabs.appendChild(b);
     });
     wrap.appendChild(tabs);
     var pane = el('div'); pane.style.cssText = 'display:flex;flex-direction:column;gap:18px';
-    ({ overview: overview, live: liveTab, listings: listings, marketing: posts, reviews: performance, offers: offers, trades: trades, orders: orders, payouts: payments, profit: profit, research: research, settings: settings })[tab](pane);
+    ({ messages: messagesTab, overview: overview, live: liveTab, listings: listings, marketing: posts, reviews: performance, offers: offers, trades: trades, orders: orders, payouts: payments, profit: profit, research: research, settings: settings })[tab](pane);
     wrap.appendChild(pane);
     var out = el('button', 'Sign out', 'ghost'); out.type = 'button'; out.style.alignSelf = 'flex-start';
     out.addEventListener('click', function () { if (AS) { location.href = '/admin.html'; return; } JF.signOut(); location.reload(); });
@@ -291,6 +291,26 @@
     c.appendChild(row);
     c.appendChild(el('div', 'For Instagram or TikTok: copy the link and put it in your bio or story. Going live? Your show link is in the 🔴 Live tab.', 'small dim'));
     return c;
+  }
+  // Buyers' questions to this shop (the full conversations are on /messages.html).
+  function messagesTab(pane) {
+    var c = el('section', null, 'card'); c.style.gap = '10px'; pane.appendChild(c);
+    c.appendChild(el('h2', '💬 Messages from buyers'));
+    c.appendChild(el('div', 'Buyers can ask about any of your pieces (condition, which cover, more photos). You get an email for each new message. Answer quickly: it helps you sell.', 'small dim'));
+    if (AS) { c.appendChild(el('div', 'Messages open only for the shop owner, signed in as themselves.', 'small')); return; }
+    var list = el('div', 'Loading…', 'small'); list.style.cssText = 'display:flex;flex-direction:column;gap:8px'; c.appendChild(list);
+    var all = el('a', 'Open all messages ›', 'solid'); all.href = '/messages.html'; all.style.cssText = 'text-decoration:none;align-self:flex-start'; c.appendChild(all);
+    JF.api('/api/market?do=msg-inbox&t=' + encodeURIComponent(tok)).then(function (r) {
+      list.textContent = '';
+      var mine = (r.threads || []).filter(function (t) { return t.side === 's'; });
+      if (!mine.length) { list.appendChild(el('div', 'No questions yet.', 'small dim')); return; }
+      mine.slice(0, 20).forEach(function (t) {
+        var a = el('a'); a.href = '/messages.html?t=' + encodeURIComponent(t.id); a.style.cssText = 'display:flex;flex-direction:column;gap:2px;padding:10px 12px;border:1px solid ' + (t.unread ? '#C9A45C' : 'rgba(255,255,255,.12)') + ';border-radius:10px;text-decoration:none;color:inherit';
+        a.appendChild(el('b', t.buyerName + (t.unread ? '  · ' + t.unread + ' new' : '') + (t.product ? ' · ' + t.product : '')));
+        if (t.last) a.appendChild(el('span', (t.last.from === 's' ? 'You: ' : '') + t.last.text.slice(0, 140), 'small dim'));
+        list.appendChild(a);
+      });
+    });
   }
   function overview(pane) {
     var now = Date.now(), L = D.listings, O = D.orders, t = D.totals, s = D.seller;

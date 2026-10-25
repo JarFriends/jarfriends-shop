@@ -15,6 +15,12 @@
       if (!document.documentElement.classList.contains('co')) d.appendChild(document.createTextNode('· sold and paid through V2V'));
     }
     else d.appendChild(document.createTextNode(p.sellerName));
+    // Ask the seller a question about this piece (messages.html).
+    if (p.seller) {
+      var q = document.createElement('a'); q.href = '/messages.html?to=' + encodeURIComponent(p.seller) + '&pid=' + encodeURIComponent(id); q.textContent = '💬 Ask the seller a question';
+      q.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border:1px solid #C9A45C;border-radius:999px;color:#E8C77A;text-decoration:none;font-weight:700;font-size:14px;margin-left:4px';
+      d.appendChild(q);
+    }
     var h = document.querySelector('main h1');
     if (h && h.parentNode) h.parentNode.insertBefore(d, h.nextSibling); else { var m = document.querySelector('main'); if (m) m.insertBefore(d, m.firstChild); }
   }).catch(function () {});

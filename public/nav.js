@@ -2,7 +2,7 @@
 // sold archive and seller portal. Added to each page at build time (marketpages.js).
 (function () {
   if (window.__jfNav) return; window.__jfNav = 1;
-  var links = [['Market', '/market.html'], ['Auctions', '/market.html?view=auctions'], ['Live shows', '/live.html'], ['My wishlist', '/wishlist.html'], ['Giveaway and vote', '/giveaway.html'], ['Terms of Service', '/terms.html'], ['Sold prices', '/sold.html'], ['My account', '/me.html'], ['My orders', '/account.html'], ['Seller Hub', '/seller.html']];
+  var links = [['Market', '/market.html'], ['Auctions', '/market.html?view=auctions'], ['Live shows', '/live.html'], ['Messages', '/messages.html'], ['My wishlist', '/wishlist.html'], ['Giveaway and vote', '/giveaway.html'], ['Terms of Service', '/terms.html'], ['Sold prices', '/sold.html'], ['My account', '/me.html'], ['My orders', '/account.html'], ['Seller Hub', '/seller.html']];
   var css = '.jfn-btn{position:fixed;left:16px;bottom:16px;z-index:2147483000;background:#C9A45C;color:#0B1A13;border:0;border-radius:999px;padding:12px 18px;font:700 15px Archivo,system-ui,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.35);cursor:pointer}'
     + '.jfn-btn:focus-visible{outline:2px solid #F7F2E6;outline-offset:3px}'
     + '.jfn-panel{position:fixed;left:16px;bottom:72px;z-index:2147483000;background:#0B1A13;border:1px solid #C9A45C;min-width:220px;padding:8px 0;box-shadow:0 10px 30px rgba(0,0,0,.45);font:16px Archivo,system-ui,sans-serif}'

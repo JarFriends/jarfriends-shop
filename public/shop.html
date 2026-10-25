@@ -32,6 +32,7 @@
       <div id="rate" style="display:flex;flex-wrap:wrap;gap:12px;align-items:center"></div>
       <div class="small" id="about"></div>
       <div class="small dim" id="since"></div>
+      <a id="askShop" hidden style="align-self:flex-start;display:inline-flex;gap:6px;padding:8px 14px;border:1px solid #C9A45C;border-radius:999px;color:#E8C77A;text-decoration:none;font-weight:700;font-size:14px">💬 Message this seller</a>
     </div>
   </div>
   <div class="jf-tabs" role="tablist" aria-label="Shop sections">
@@ -91,6 +92,7 @@
     var s = r.seller;
     document.title = s.name + ' · V2V';
     $('name').textContent = s.name;
+    $('askShop').href = '/messages.html?to=' + encodeURIComponent(s.slug); $('askShop').hidden = false;
     $('av').textContent = s.name.replace(/[^A-Za-z0-9 ]/g, '').split(/\s+/).filter(Boolean).slice(0, 2).map(function (w) { return w[0]; }).join('').toUpperCase() || '?';
     $('about').textContent = s.about || '';
     $('since').textContent = 'On V2V since ' + new Date(s.since).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });

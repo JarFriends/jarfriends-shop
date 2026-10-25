@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Messages · VeeFam</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&family=IBM+Plex+Mono:wght@400;500&family=Playfair+Display:wght@600;700;800&display=swap">
+<link rel="stylesheet" href="/site.css">
+<link rel="stylesheet" href="/market.css">
+<style>
+.mg{display:grid;grid-template-columns:minmax(240px,320px) 1fr;gap:16px;align-items:start}
+@media(max-width:760px){.mg{grid-template-columns:1fr}.mg.open .mg-list{display:none}.mg:not(.open) .mg-thread{display:none}}
+.mg-list{display:flex;flex-direction:column;gap:8px}
+.mg-item{display:flex;flex-direction:column;gap:3px;text-align:left;background:#11261C;border:1px solid #2E4A3B;border-radius:10px;padding:10px 12px;color:#F7F2E6;cursor:pointer;font:inherit;min-height:0}
+.mg-item.on{border-color:#C9A45C}
+.mg-item .top{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.mg-item .pv{font-size:13px;color:#B9C9BF;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mg-dot{background:#E5484D;color:#fff;border-radius:10px;font-size:11px;font-weight:800;padding:1px 7px}
+.mg-tag{font-size:10px;letter-spacing:.08em;font-weight:800;color:#E8C77A}
+.mg-thread{display:flex;flex-direction:column;gap:10px;background:#0F2219;border:1px solid #2E4A3B;border-radius:12px;padding:14px;min-height:380px}
+.mg-head{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;border-bottom:1px solid #2E4A3B;padding-bottom:10px}
+.mg-msgs{display:flex;flex-direction:column;gap:8px;max-height:58vh;overflow-y:auto;padding:4px 2px}
+.mg-b{max-width:82%;padding:9px 12px;border-radius:14px;white-space:pre-wrap;word-wrap:break-word;line-height:1.4;font-size:15px}
+.mg-b.me{align-self:flex-end;background:#C9A45C;color:#0B1A13;border-bottom-right-radius:4px}
+.mg-b.them{align-self:flex-start;background:#1C3A2B;color:#F7F2E6;border-bottom-left-radius:4px}
+.mg-t{font-size:11px;opacity:.7;margin-top:3px}
+.mg-say{display:flex;gap:8px;align-items:flex-end}
+.mg-say textarea{flex:1;min-width:0;min-height:46px;max-height:160px;resize:vertical;font:inherit;font-size:16px;padding:10px 12px;background:#0B1A13;border:1px solid #4E7A63;color:#F7F2E6;border-radius:10px}
+.mg-back{display:none}
+@media(max-width:760px){.mg-back{display:inline-flex}}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap bar"><a class="brand" href="/" style="text-decoration:none">VeeFam</a><span style="display:flex;align-items:center;gap:20px"><a class="home" href="/market.html">Shop</a></span></div></header>
+<main class="wrap page" style="gap:20px">
+  <div class="stack-s">
+    <div class="mono gold">YOUR ACCOUNT</div>
+    <h1>Messages</h1>
+    <div class="small">Questions to sellers, and buyers' questions to your shop. You get an email when someone writes back.</div>
+  </div>
+  <div id="signin" hidden></div>
+  <div class="mg" id="mg" hidden>
+    <div class="mg-list" id="list"></div>
+    <div class="mg-thread" id="thread"><div class="small dim">Pick a conversation.</div></div>
+  </div>
+</main>
+<script src="/jf.js"></script>
+<script>
+(function () {
+  var el = function (t, x, c) { var e = document.createElement(t); if (x != null) e.textContent = x; if (c) e.className = c; return e; };
+  var $ = function (id) { return document.getElementById(id); };
+  var qs = new URLSearchParams(location.search), tok = JF.token(), cur = null, poll = null, threads = [];
+  var when = function (t) { var d = new Date(t), now = new Date(); return d.toDateString() === now.toDateString() ? d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }); };
+  function start() {
+    if (!tok) { var b = $('signin'); b.hidden = false; JF.signInBox(b, 'Sign in, or create a free account, to message sellers.', function (t) { tok = t; b.hidden = true; start(); }); return; }
+    $('mg').hidden = false;
+    loadList().then(function () {
+      if (qs.get('t')) openThread(qs.get('t'));
+      else if (qs.get('to')) compose(qs.get('to'), qs.get('pid') || '');
+    });
+  }
+  function loadList() {
+    return JF.api('/api/market?do=msg-inbox&t=' + encodeURIComponent(tok)).then(function (r) {
+      if (r._status === 401) { JF.signOut(); tok = ''; $('mg').hidden = true; start(); return; }
+      threads = r.threads || []; drawList();
+    });
+  }
+  function drawList() {
+    var L = $('list'); L.textContent = '';
+    if (!threads.length) { L.appendChild(el('div', 'No messages yet. Tap "Ask the seller a question" on any piece to start one.', 'small dim')); return; }
+    threads.forEach(function (t) {
+      var b = el('button', null, 'mg-item' + (cur && cur.id === t.id ? ' on' : '')); b.type = 'button';
+      var top = el('div', null, 'top'); top.appendChild(el('b', t.side === 'b' ? t.sellerName : t.buyerName));
+      if (t.unread) top.appendChild(el('span', String(t.unread), 'mg-dot')); else if (t.last) top.appendChild(el('span', when(t.last.at), 'small dim'));
+      b.appendChild(top);
+      b.appendChild(el('span', t.side === 'b' ? 'YOU ASKED A SELLER' : 'A BUYER ASKED YOUR SHOP', 'mg-tag'));
+      if (t.product) b.appendChild(el('span', t.product, 'small'));
+      if (t.last) b.appendChild(el('span', (t.last.from === t.side ? 'You: ' : '') + t.last.text, 'pv'));
+      b.addEventListener('click', function () { openThread(t.id); });
+      L.appendChild(b);
+    });
+  }
+  function frame(title, sub, links) {
+    var T = $('thread'); T.textContent = ''; $('mg').classList.add('open');
+    var hd = el('div', null, 'mg-head'), l = el('div'); l.style.cssText = 'display:flex;flex-direction:column;gap:2px';
+    var back = el('button', '‹ All messages', 'ghost mg-back'); back.type = 'button'; back.style.cssText = 'padding:6px 10px;min-height:0'; back.addEventListener('click', function () { $('mg').classList.remove('open'); cur = null; stop(); history.replaceState(null, '', '/messages.html'); drawList(); });
+    l.appendChild(back); l.appendChild(el('b', title)); if (sub) l.appendChild(el('span', sub, 'small dim'));
+    hd.appendChild(l);
+    var r = el('div'); r.style.cssText = 'display:flex;gap:10px;flex-wrap:wrap'; (links || []).forEach(function (x) { var a = el('a', x[0]); a.href = x[1]; r.appendChild(a); }); hd.appendChild(r);
+    T.appendChild(hd);
+    var box = el('div', null, 'mg-msgs'); T.appendChild(box);
+    var f = el('form', null, 'mg-say'), ta = el('textarea'), go = el('button', 'Send', 'solid'); go.type = 'submit'; ta.maxLength = 1500; ta.rows = 2;
+    f.appendChild(ta); f.appendChild(go); T.appendChild(f);
+    var m = el('div', '', 'small'); m.setAttribute('role', 'status'); T.appendChild(m);
+    ta.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' && !ev.shiftKey && window.innerWidth > 760) { ev.preventDefault(); f.requestSubmit ? f.requestSubmit() : go.click(); } });
+    return { box: box, form: f, ta: ta, go: go, msg: m };
+  }
+  function drawMsgs(box, t) {
+    var atEnd = box.scrollHeight - box.scrollTop - box.clientHeight < 60;
+    box.textContent = '';
+    t.msgs.forEach(function (x) { var b = el('div', null, 'mg-b ' + (x.from === t.side ? 'me' : 'them')); b.appendChild(document.createTextNode(x.text)); b.appendChild(el('div', when(x.at), 'mg-t')); box.appendChild(b); });
+    if (atEnd || !box.dataset.seen) { box.scrollTop = box.scrollHeight; box.dataset.seen = '1'; }
+  }
+  function stop() { if (poll) { clearInterval(poll); poll = null; } }
+  function openThread(id) {
+    stop();
+    JF.api('/api/market?do=msg-open&t=' + encodeURIComponent(tok) + '&id=' + encodeURIComponent(id)).then(function (r) {
+      if (r.error) { $('thread').textContent = r.error; return; }
+      var t = r.thread; cur = t; history.replaceState(null, '', '/messages.html?t=' + encodeURIComponent(t.id));
+      var links = t.side === 'b' ? [['Visit shop', '/shop.html?s=' + encodeURIComponent(t.seller)]].concat(t.pid ? [['See the piece', '/order.html?product=' + encodeURIComponent(t.pid)]] : []) : (t.pid ? [['Your piece', '/order.html?product=' + encodeURIComponent(t.pid)]] : []);
+      var F = frame(t.side === 'b' ? t.sellerName : t.buyerName + ' (buyer)', t.product ? 'About: ' + t.product : '', links);
+      drawMsgs(F.box, t);
+      F.form.addEventListener('submit', function (ev) { ev.preventDefault(); send(F, { id: t.id }); });
+      threads.forEach(function (x) { if (x.id === t.id) x.unread = 0; }); drawList();
+      poll = setInterval(function () { if (document.hidden || !cur || cur.id !== t.id) return; JF.api('/api/market?do=msg-open&t=' + encodeURIComponent(tok) + '&id=' + encodeURIComponent(t.id)).then(function (r2) { if (r2.thread && r2.thread.msgs.length !== cur.msgs.length) { cur = r2.thread; drawMsgs(F.box, cur); } }); }, 8000);
+    });
+  }
+  // A new question to a shop, about one of its pieces if there is one.
+  function compose(slug, pid) {
+    var have = threads.filter(function (x) { return x.side === 'b' && x.seller === slug && x.pid === pid; })[0];
+    if (have) { openThread(have.id); return; }
+    JF.api('/api/market?do=shop&seller=' + encodeURIComponent(slug)).then(function (r) {
+      var shop = r.seller, p = (r.products || []).filter(function (x) { return x.id === pid; })[0];
+      if (!shop) { $('thread').textContent = 'That shop was not found.'; $('mg').classList.add('open'); return; }
+      var F = frame(shop.name, p ? 'About: ' + p.name : 'A question for this shop', [['Visit shop', '/shop.html?s=' + encodeURIComponent(slug)]]);
+      F.box.appendChild(el('div', 'Ask anything: condition, which cover or version it is, more photos, shipping. ' + shop.name + ' gets an email and replies here.', 'small dim'));
+      F.ta.placeholder = p ? 'e.g. Is this ' + p.name + ' a cover A or a blind bag?' : 'Write your question…';
+      setTimeout(function () { F.ta.focus(); }, 100);
+      F.form.addEventListener('submit', function (ev) { ev.preventDefault(); send(F, { seller: slug, pid: p ? pid : '' }); });
+    });
+  }
+  function send(F, extra) {
+    var text = F.ta.value.trim(); if (!text) return;
+    F.go.disabled = true; F.msg.textContent = 'Sending…';
+    JF.api('/api/market', Object.assign({ do: 'msg-send', t: tok, text: text }, extra)).then(function (r) {
+      F.go.disabled = false;
+      if (r.error) { F.msg.textContent = r.error; return; }
+      F.ta.value = ''; F.msg.textContent = '';
+      var first = !extra.id; cur = r.thread;
+      if (first) { loadList().then(function () { openThread(r.thread.id); }); return; }
+      drawMsgs(F.box, cur); F.box.scrollTop = F.box.scrollHeight;
+      loadList();
+    });
+  }
+  start();
+})();
+</script>
+</body>
+</html>
