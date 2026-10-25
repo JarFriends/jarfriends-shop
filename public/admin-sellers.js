@@ -174,17 +174,15 @@
       if (!list.length) { box.appendChild(el('div', empty, 'small dim')); return; }
       list.sort(function (a, b) { return b.at - a.at; }).forEach(function (x) { cardOf(x, box); });
     };
-    group('NEEDS YOUR APPROVAL', r.sellers.filter(function (x) { return x.status === 'pending'; }), 'Nobody is waiting. New shops show up here until you approve them.');
     // Active sellers: a Gallery (each shop's full card) or a List (one row per shop with its numbers). The choice is remembered.
-    (function () {
-      var act = r.sellers.filter(function (x) { return x.status === 'approved'; });
+    var sellerGroup = function (title, act, empty, vkey) {
       var hd = el('div'); hd.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between';
-      hd.appendChild(el('div', 'ACTIVE SELLERS (' + act.length + ')', 'mono gold'));
+      hd.appendChild(el('div', title + ' (' + act.length + ')', 'mono gold'));
       var sw2 = el('div'); sw2.style.cssText = 'display:inline-flex;border:1px solid #4E7A63;border-radius:999px;padding:3px;gap:3px';
       var bG = el('button', '▦ Gallery'), bL = el('button', '☰ List'); bG.type = bL.type = 'button';
       [bG, bL].forEach(function (x) { x.style.cssText = 'border:0;border-radius:999px;padding:7px 14px;min-height:0;font-weight:800;font-size:13px;cursor:pointer'; sw2.appendChild(x); });
       hd.appendChild(sw2); box.appendChild(hd);
-      if (!act.length) { box.appendChild(el('div', 'No open shops yet.', 'small dim')); return; }
+      if (!act.length) { sw2.hidden = true; if (empty) box.appendChild(el('div', empty, 'small dim')); return; }
       var gal = el('div'); gal.style.cssText = 'display:flex;flex-direction:column;gap:14px'; box.appendChild(gal);
       act.slice().sort(function (a, b) { return b.at - a.at; }).forEach(function (x) { cardOf(x, gal); });
       var lstBox = el('div'); box.appendChild(lstBox);
@@ -193,7 +191,7 @@
     act = act.slice().sort(function (a, b) { return (b.totals ? b.totals.gross : 0) - (a.totals ? a.totals.gross : 0); });
     if (!act.length) box.appendChild(el('div', 'No open shops yet.', 'small dim'));
     else {
-      var sw = el('div', null, 'scroll'), stb = el('table'), sh = el('tr');
+      var sw = el('div', null, 'scroll'), stb = el('table'), sh = el('tr'); stb.setAttribute('data-noview', '1');
       var heads = ['Shop', 'Email', 'Pieces', 'Paid sales', 'Sold', 'Your fee', 'You owe', 'Card payouts', 'Rating', 'Joined'];
       heads.forEach(function (h, i) { var th2 = el('th', h); if (i >= 2 && i <= 6) th2.className = 'num'; sh.appendChild(th2); });
       var sth = el('thead'); sth.appendChild(sh); stb.appendChild(sth); var sb = el('tbody');
@@ -201,24 +199,26 @@
         var t2 = x.totals || {}, rt = x.stats && x.stats.rating ? x.stats.rating.toFixed(1) + '★ (' + (x.stats.reviews || 0) + ')' : '-';
         var tr = el('tr'); tr.style.cursor = 'pointer'; tr.title = 'Open ' + x.name + '\u2019s card';
         [x.name + (x.stats && x.stats.verified ? ' ✔' : ''), x.email, String(x.listings || 0), String(t2.sales || 0), money(t2.gross || 0), money(t2.fee || 0), money(t2.owed || 0), x.stripeOn ? 'Stripe on' : x.stripe ? 'Setup unfinished' : 'Not set up', rt, x.at ? new Date(x.at).toLocaleDateString('en-US', { dateStyle: 'medium' }) : '-'].forEach(function (v, i) { var td = el('td', v); if (i >= 2 && i <= 6) td.className = 'num'; tr.appendChild(td); });
-        tr.addEventListener('click', function () { var c2 = box.querySelector('[data-seller="' + x.slug + '"]'); if (c2) { view('gallery'); c2.scrollIntoView({ behavior: 'smooth', block: 'start' }); } });
+        tr.addEventListener('click', function () { var c2 = gal.querySelector('[data-seller="' + x.slug + '"]'); if (c2) { view('gallery'); c2.scrollIntoView({ behavior: 'smooth', block: 'start' }); } });
         sb.appendChild(tr);
       });
       stb.appendChild(sb); sw.appendChild(stb); box.appendChild(sw);
     }
       })(lstBox);
       var view = function (v) {
-        try { localStorage.setItem('adminSellerView', v); } catch (e) {}
+        try { localStorage.setItem('adminSellerView-' + vkey, v); } catch (e) {}
         gal.hidden = v !== 'gallery'; lstBox.hidden = v === 'gallery';
         bG.style.background = v === 'gallery' ? '#C9A45C' : 'transparent'; bG.style.color = v === 'gallery' ? '#0B1A13' : '#F7F2E6';
         bL.style.background = v !== 'gallery' ? '#C9A45C' : 'transparent'; bL.style.color = v !== 'gallery' ? '#0B1A13' : '#F7F2E6';
       };
       bG.addEventListener('click', function () { view('gallery'); }); bL.addEventListener('click', function () { view('list'); });
-      var saved = 'gallery'; try { saved = localStorage.getItem('adminSellerView') || 'gallery'; } catch (e) {}
+      var saved = 'gallery'; try { saved = localStorage.getItem('adminSellerView-' + vkey) || 'gallery'; } catch (e) {}
       view(saved);
-    })();
+    };
+    sellerGroup('NEEDS YOUR APPROVAL', r.sellers.filter(function (x) { return x.status === 'pending'; }), 'Nobody is waiting. New shops show up here until you approve them.', 'pending');
+    sellerGroup('ACTIVE SELLERS', r.sellers.filter(function (x) { return x.status === 'approved'; }), 'No open shops yet.', 'active');
     var paused = r.sellers.filter(function (x) { return x.status !== 'pending' && x.status !== 'approved'; });
-    if (paused.length) group('PAUSED SHOPS', paused, '');
+    if (paused.length) sellerGroup('PAUSED SHOPS', paused, '', 'paused');
     // Active buyers: everyone with a paid order, with how many orders and how much they spent.
     var by = {};
     (r.sales || []).forEach(function (o) { if (!o.paid || !o.email) return; var k = String(o.email).toLowerCase(); var b2 = by[k] = by[k] || { email: k, name: o.buyer || '', n: 0, spent: 0, last: 0 }; b2.n++; b2.spent += o.gross || 0; if (o.at > b2.last) { b2.last = o.at; if (o.buyer) b2.name = o.buyer; } });

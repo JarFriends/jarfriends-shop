@@ -206,6 +206,72 @@
     } else { document.body.appendChild(p); document.body.appendChild(b); }
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go); else go();
+  // Gallery or List, everywhere: product grids (.jf-grid), lists of rows (.jf-row, like Seller Hub pieces) and tables
+  // (back office, orders) each get a small ▦ Gallery / ☰ List switch above them. The choice is remembered per page.
+  (function views() {
+    var css = document.createElement('style');
+    css.textContent = '.vw-sw{display:inline-flex;align-self:flex-end;margin-left:auto;border:1px solid #4E7A63;border-radius:999px;padding:3px;gap:3px;margin-bottom:8px}'
+      + '.vw-sw button{border:0!important;border-radius:999px!important;padding:6px 12px!important;min-height:0!important;font-weight:800!important;font-size:12px!important;cursor:pointer;background:transparent!important;color:#F7F2E6!important;box-shadow:none!important}'
+      + '.vw-sw button[aria-pressed=true]{background:#C9A45C!important;color:#0B1A13!important}'
+      + '.vw-bar{display:flex;width:100%}'
+      + '.jf-grid.vw-list{grid-template-columns:1fr!important;gap:10px!important}'
+      + '.jf-grid.vw-list .jf-item{display:grid!important;grid-template-columns:92px 1fr;column-gap:14px;align-items:center;padding:10px!important}'
+      + '.jf-grid.vw-list .jf-item>:first-child{grid-row:1/span 8;width:92px!important;height:92px!important;aspect-ratio:1;margin:0!important}'
+      + '.jf-grid.vw-list .jf-item>:not(:first-child):not(.jf-heart):not(.jf-tag){grid-column:2}'
+      + '.jf-grid.vw-list .jf-tag{top:12px!important;left:12px!important;font-size:9px!important}'
+      + '.jf-grid.vw-list .jf-offer{width:auto!important;justify-self:start;margin-top:6px!important}.jf-grid.vw-list .jf-name{padding-right:44px;margin:0!important}.jf-grid.vw-list .jf-item{min-height:0!important;row-gap:4px}'
+      + 'table.vw-cards thead{display:none}'
+      + 'table.vw-cards,table.vw-cards tbody{display:grid!important;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;width:100%;border:0!important}'
+      + 'table.vw-cards tr{display:flex!important;flex-direction:column;gap:4px;border:1px solid #2E4A3B;border-radius:12px;padding:12px;background:#11261C}'
+      + 'table.vw-cards td{display:block!important;border:0!important;padding:0!important;text-align:left!important}'
+      + 'table.vw-cards td[data-label]:before{content:attr(data-label) ": ";color:#9FB3A7;font-size:12px}'
+      + 'table.vw-cards td:first-child{font-weight:800;font-size:15px}table.vw-cards td:first-child:before{content:none}'
+      + '.vw-gal{display:grid!important;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}'
+      + '.vw-gal>.jf-row{display:flex!important;flex-direction:column!important;align-items:stretch!important;border:1px solid #2E4A3B;border-radius:12px;padding:12px!important}'
+      + '.vw-gal>.jf-row>:first-child{width:100%!important;height:auto!important;aspect-ratio:1}';
+    (document.head || document.documentElement).appendChild(css);
+    var n = 0;
+    function key(kind, i) { return 'vw:' + location.pathname + ':' + kind + ':' + i; }
+    function get(k, d) { try { return localStorage.getItem(k) || d; } catch (e) { return d; } }
+    function put(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+    function sw(target, kind, i, apply, dflt) {
+      var k = key(kind, i), bar = document.createElement('div'), s = document.createElement('div'); bar.className = 'vw-bar'; s.className = 'vw-sw';
+      var g = document.createElement('button'), l = document.createElement('button'); g.type = l.type = 'button'; g.textContent = '▦ Gallery'; l.textContent = '☰ List';
+      var set = function (v) { put(k, v); g.setAttribute('aria-pressed', v === 'gallery' ? 'true' : 'false'); l.setAttribute('aria-pressed', v === 'list' ? 'true' : 'false'); apply(v); };
+      g.addEventListener('click', function () { set('gallery'); }); l.addEventListener('click', function () { set('list'); });
+      s.appendChild(g); s.appendChild(l); bar.appendChild(s);
+      var at = target.parentNode && target.parentNode.classList && target.parentNode.classList.contains('scroll') ? target.parentNode : target;
+      at.parentNode.insertBefore(bar, at);
+      set(get(k, dflt));
+    }
+    function labels(t) {
+      var hs = Array.prototype.map.call(t.querySelectorAll('thead th'), function (h) { return h.textContent.trim(); });
+      Array.prototype.forEach.call(t.querySelectorAll('tbody tr'), function (tr) { Array.prototype.forEach.call(tr.children, function (td, i) { if (hs[i] && !td.hasAttribute('data-label')) td.setAttribute('data-label', hs[i]); }); });
+    }
+    function scan() {
+      var idx = { grid: 0, table: 0, rows: 0 };
+      Array.prototype.forEach.call(document.querySelectorAll('.jf-grid'), function (g) { var i = idx.grid++; if (g.dataset.vw || g.dataset.noview || !g.children.length) return; g.dataset.vw = '1'; sw(g, 'grid', i, function (v) { g.classList.toggle('vw-list', v === 'list'); }, 'gallery'); });
+      Array.prototype.forEach.call(document.querySelectorAll('main table'), function (t) {
+        var i = idx.table++; if (t.dataset.noview || t.closest('[data-noview]')) return;
+        if (t.dataset.vw) { labels(t); return; }
+        if (t.querySelectorAll('tbody tr').length < 2 || !t.querySelector('thead th')) return;
+        t.dataset.vw = '1'; labels(t); sw(t, 'table', i, function (v) { labels(t); t.classList.toggle('vw-cards', v === 'gallery'); }, 'list');
+      });
+      var seen = [];
+      Array.prototype.forEach.call(document.querySelectorAll('.jf-row'), function (r) { var p = r.parentNode; if (p && seen.indexOf(p) < 0) seen.push(p); });
+      seen.forEach(function (p) {
+        var i = idx.rows++; var rows = Array.prototype.filter.call(p.children, function (c) { return c.classList.contains('jf-row'); });
+        if (p.dataset.vw || p.dataset.noview || rows.length < 2) return;
+        // Rows share a parent with a heading: wrap them so only the rows turn into a gallery.
+        var box = p; if (rows.length !== p.children.length) { box = document.createElement('div'); p.insertBefore(box, rows[0]); rows.forEach(function (r) { box.appendChild(r); }); }
+        box.dataset.vw = '1'; p.dataset.vw = '1'; sw(box, 'rows', i, function (v) { box.classList.toggle('vw-gal', v === 'gallery'); }, 'list');
+      });
+    }
+    var t0 = null;
+    var run = function () { clearTimeout(t0); t0 = setTimeout(scan, 120); };
+    var start = function () { scan(); new MutationObserver(run).observe(document.body, { childList: true, subtree: true }); };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
+  })();
   // The shopping cart: kept in this browser (localStorage 'v2vCart'), checked out on /cart.html. window.V2VCart
   // lets any page add a piece; the 🛒 in the header shows how many pieces are in it.
   function cartRead() { try { var c = JSON.parse(localStorage.getItem('v2vCart') || '[]'); return Array.isArray(c) ? c : []; } catch (e) { return []; } }
