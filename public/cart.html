@@ -120,7 +120,7 @@
     var P = el('div', null, 'ct-pay'); s.appendChild(P);
     var opt = function (val, label, sub2) { var l = el('label'), r = el('input'); r.type = 'radio'; r.name = 'm'; r.value = val; r.checked = method === val; r.addEventListener('change', function () { method = val; draw(); }); l.appendChild(r); var t = el('span'); t.appendChild(el('b', label)); if (sub2) { t.appendChild(el('br')); t.appendChild(el('span', sub2, 'small dim')); } l.appendChild(t); P.appendChild(l); };
     if (CFG.card !== false) opt('card', 'Card', ME.cards && ME.cards.length ? 'Your saved card, one tap' : 'Add a card on Stripe’s secure page first');
-    var W = CFG.ways || {}; if (W.zelle) opt('zelle', 'Zelle'); if (W.venmo) opt('venmo', 'Venmo'); if (W.cashapp) opt('cashapp', 'Cash App');
+    var W = CFG.ways || {}; opt('crypto', 'Crypto', 'ETH, USDC or USDT. Each order gets its own payment page'); if (W.zelle) opt('zelle', 'Zelle'); if (W.venmo) opt('venmo', 'Venmo'); if (W.cashapp) opt('cashapp', 'Cash App');
     if (method === 'card') {
       if (ME.cards && ME.cards.length) {
         var sel = el('select', null, 'jf-sel'); ME.cards.forEach(function (c) { var o = el('option', (c.brand || 'Card') + ' ending ' + c.last4 + (c.exp ? ' · ' + c.exp : '')); o.value = c.id; sel.appendChild(o); }); sel.value = pm; sel.addEventListener('change', function () { pm = sel.value; }); s.appendChild(sel);
@@ -182,7 +182,8 @@
     var box = el('div', null, 'ct-sum'); I.appendChild(box);
     var allPaid = D.method === 'card' && good.length && good.every(function (o) { return o.paid; });
     box.appendChild(el('h2', allPaid ? '🎉 Paid! Thank you.' : good.length ? 'Your orders are placed' : 'Your orders were not placed'));
-    if (D.method !== 'card' && good.length) box.appendChild(el('div', 'Open each order below to see where to send the ' + ({ zelle: 'Zelle', venmo: 'Venmo', cashapp: 'Cash App' }[D.method] || '') + ' payment and how much. Put the order number in the payment note. You also got an email for each one.', 'small'));
+    if (D.method === 'crypto' && good.length) box.appendChild(el('div', 'Open each order below to pay it with crypto (ETH, USDC or USDT). Each payment page shows the exact amount and address, and the order is marked paid by itself once the payment lands.', 'small'));
+    else if (D.method !== 'card' && good.length) box.appendChild(el('div', 'Open each order below to see where to send the ' + ({ zelle: 'Zelle', venmo: 'Venmo', cashapp: 'Cash App' }[D.method] || '') + ' payment and how much. Put the order number in the payment note. You also got an email for each one.', 'small'));
     D.orders.forEach(function (o) {
       var c = el('div', null, 'ct-done');
       c.appendChild(el('b', o.name + (o.qty > 1 ? ' × ' + o.qty : '') + (o.n ? ' · order ' + o.n : '')));

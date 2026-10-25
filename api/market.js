@@ -418,7 +418,7 @@ module.exports = async (req, res) => {
     if (what === 'cart-place' && req.method === 'POST' && !actAs) {
       const items = (Array.isArray(b.items) ? b.items : []).slice(0, 25);
       if (!items.length) return res.status(400).json({ error: 'Your cart is empty.' });
-      const method = ['card', 'zelle', 'venmo', 'cashapp'].indexOf(b.method) >= 0 ? b.method : '';
+      const method = ['card', 'zelle', 'venmo', 'cashapp', 'crypto'].indexOf(b.method) >= 0 ? b.method : '';
       if (!method) return res.status(400).json({ error: 'Pick a way to pay.' });
       const a = b.ship || {}, place = require('./order'), out = [];
       // Combined shipping: pieces are grouped by shop; in each group the piece with the highest shipping pays it,

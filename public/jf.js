@@ -248,7 +248,7 @@
       var amt = el('input'); amt.type = 'number'; amt.min = '0.01'; amt.step = '0.01'; amt.inputMode = 'decimal'; amt.placeholder = 'Your offer in USD'; amt.style.cssText = 'font-size:22px;font-weight:800;padding:12px 14px;width:100%;box-sizing:border-box';
       [90, 85, 80].forEach(function (pc) { var c = Math.floor(list * pc / 100) / 100; var b = el('button', uc(Math.round(c * 100)) + ' (' + pc + '%)', 'ghost'); b.type = 'button'; b.style.cssText = 'padding:8px 12px;min-height:0;font-size:14px;flex:1'; b.addEventListener('click', function () { amt.value = c.toFixed(2); }); quick.appendChild(b); });
       body.appendChild(el('span', 'Your price', 'small')); body.appendChild(amt); body.appendChild(quick);
-      var pay = el('select'); pay.className = 'jf-sel'; [['Card', 'Card'], ['Venmo', 'Venmo'], ['Zelle', 'Zelle'], ['Cash App', 'Cash App']].forEach(function (w) { var o = el('option', w[1]); o.value = w[0]; pay.appendChild(o); });
+      var pay = el('select'); pay.className = 'jf-sel'; [['Card', 'Card'], ['Venmo', 'Venmo'], ['Zelle', 'Zelle'], ['Cash App', 'Cash App'], ['Ethereum', 'Crypto: ETH'], ['USDC', 'Crypto: USDC'], ['USDT', 'Crypto: USDT']].forEach(function (w) { var o = el('option', w[1]); o.value = w[0]; pay.appendChild(o); });
       body.appendChild(el('span', 'How would you pay?', 'small')); body.appendChild(pay);
       body.appendChild(el('div', 'The seller can accept, counter, or decline, and you get an email either way. An offer does not hold the piece: someone else can still buy it at the listed price.', 'small dim'));
       var go = el('button', 'Send offer', 'solid'); go.type = 'button'; go.style.cssText = 'font-size:17px;padding:14px;font-weight:800';

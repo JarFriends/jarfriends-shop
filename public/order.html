@@ -199,6 +199,8 @@ fieldset[hidden]{display:none}
     // An accepted-offer link opens on the way to pay the buyer named.
     var pm = document.querySelector('input[name="method"][value="' + (HOW[qs.get('method')] ? qs.get('method') : '') + '"]');
     if (pm && !pm.parentNode.hidden) pm.checked = true;
+    // Card is the way picked first, when it is on and the link did not ask for another way to pay.
+    else if (!$('mCard').hidden) { var cmx = document.querySelector('input[name="method"][value="card"]'); if (cmx) { cmx.checked = true; Array.prototype.forEach.call(document.querySelectorAll('label.plan'), function (l) { l.classList.toggle('on', l.id === 'mCard'); }); } }
     if (deal && /^PTY/.test(String(deal.no || ''))) {
       // Party pricing: card only, so a later price drop is refunded to the card automatically.
       ['mZelle', 'mVenmo', 'mCashapp'].forEach(function (k) { $(k).hidden = true; });
