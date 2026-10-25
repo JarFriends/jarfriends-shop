@@ -31,14 +31,8 @@
     // Make an offer: opens the offer form on this page (checkout.js keeps it behind a small link).
     if (!p.auction && !p.party && p.left > 0) {
       var mo = document.createElement('button'); mo.type = 'button'; mo.textContent = '💸 Make an offer';
-      mo.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border:1px solid #C9A45C;border-radius:999px;background:none;color:#E8C77A;font-weight:700;font-size:14px;cursor:pointer;min-height:0;margin-left:4px';
-      mo.addEventListener('click', function () {
-        var ob = document.getElementById('offerBox');
-        if (!ob || ob.hidden) { mo.textContent = 'Offers are not open on this piece'; mo.disabled = true; return; }
-        var link = Array.prototype.filter.call(document.querySelectorAll('button'), function (x) { return /make an offer instead/i.test(x.textContent); })[0];
-        if (link) link.click(); else ob.style.display = '';
-        ob.scrollIntoView({ behavior: 'smooth', block: 'start' }); var inp = document.getElementById('oPrice'); if (inp) setTimeout(function () { inp.focus(); }, 400);
-      });
+      mo.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border:2px solid #C9A45C;border-radius:999px;background:#2A2414;color:#F3DC9A;font-weight:800;font-size:15px;cursor:pointer;min-height:0;margin-left:4px';
+      mo.addEventListener('click', function () { if (window.JF && JF.quickOffer) JF.quickOffer({ id: p.id, name: p.name, price: p.price, photo: p.photo, sellerName: p.sellerName }); });
       d.appendChild(mo);
     }
     var h = document.querySelector('main h1');

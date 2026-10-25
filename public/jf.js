@@ -226,5 +226,57 @@
     if (!ev.length) box.appendChild(el('li', 'No history yet.', 'small dim'));
     return box;
   }
-  window.JF = { offerHistory: offerHistory, stars: stars, check: check, modeBar: modeBar, token: token, emailOf: emailOf, signOut: signOut, el: el, usd: usd, cents: cents, api: api, signInBox: signInBox, picture: picture };
+  // Quick offer: a sheet to offer on a piece from anywhere (a market card, a shop, the piece's page). Signed-in
+  // buyers send it in two taps; the seller accepts, declines or counters in their Seller Hub.
+  function quickOffer(p) {
+    var uc = function (c) { return usd(c / 100); };
+    var list = Math.round(Number(String(p.price).replace(/[^0-9.]/g, '')) * 100) || 0;
+    var bg = el('div'); bg.style.cssText = 'position:fixed;inset:0;z-index:2147483600;background:rgba(0,0,0,.7);display:flex;align-items:flex-end;justify-content:center';
+    var sh = el('div'); sh.style.cssText = 'background:#0F2219;border:1px solid #2E4A3B;border-radius:18px 18px 0 0;width:100%;max-width:480px;padding:18px 16px calc(18px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:12px;color:#F7F2E6;max-height:92vh;overflow:auto';
+    bg.appendChild(sh); document.body.appendChild(bg);
+    var close = function () { bg.remove(); };
+    bg.addEventListener('click', function (ev) { if (ev.target === bg) close(); });
+    var top = el('div'); top.style.cssText = 'display:flex;gap:12px;align-items:center';
+    if (p.photo) { var im = el('img'); im.src = p.photo; im.alt = ''; im.style.cssText = 'width:60px;height:60px;object-fit:cover;border-radius:8px;flex:none'; top.appendChild(im); }
+    var tt = el('div'); tt.style.cssText = 'display:flex;flex-direction:column;gap:2px;min-width:0'; tt.appendChild(el('b', '💸 Make an offer')); tt.appendChild(el('span', p.name, 'small')); tt.appendChild(el('span', 'Listed at ' + uc(list) + (p.sellerName ? ' · ' + p.sellerName : ''), 'small dim')); top.appendChild(tt);
+    sh.appendChild(top);
+    var body = el('div'); body.style.cssText = 'display:flex;flex-direction:column;gap:12px'; sh.appendChild(body);
+    var x = el('button', 'Cancel', 'ghost'); x.type = 'button'; x.addEventListener('click', close); sh.appendChild(x);
+    var form = function (me) {
+      body.textContent = '';
+      var quick = el('div'); quick.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap';
+      var amt = el('input'); amt.type = 'number'; amt.min = '0.01'; amt.step = '0.01'; amt.inputMode = 'decimal'; amt.placeholder = 'Your offer in USD'; amt.style.cssText = 'font-size:22px;font-weight:800;padding:12px 14px;width:100%;box-sizing:border-box';
+      [90, 85, 80].forEach(function (pc) { var c = Math.floor(list * pc / 100) / 100; var b = el('button', uc(Math.round(c * 100)) + ' (' + pc + '%)', 'ghost'); b.type = 'button'; b.style.cssText = 'padding:8px 12px;min-height:0;font-size:14px;flex:1'; b.addEventListener('click', function () { amt.value = c.toFixed(2); }); quick.appendChild(b); });
+      body.appendChild(el('span', 'Your price', 'small')); body.appendChild(amt); body.appendChild(quick);
+      var pay = el('select'); pay.className = 'jf-sel'; [['Card', 'Card'], ['Venmo', 'Venmo'], ['Zelle', 'Zelle'], ['Cash App', 'Cash App']].forEach(function (w) { var o = el('option', w[1]); o.value = w[0]; pay.appendChild(o); });
+      body.appendChild(el('span', 'How would you pay?', 'small')); body.appendChild(pay);
+      body.appendChild(el('div', 'The seller can accept, counter, or decline, and you get an email either way. An offer does not hold the piece: someone else can still buy it at the listed price.', 'small dim'));
+      var go = el('button', 'Send offer', 'solid'); go.type = 'button'; go.style.cssText = 'font-size:17px;padding:14px;font-weight:800';
+      var m = el('div', '', 'small'); m.setAttribute('role', 'status');
+      go.addEventListener('click', function () {
+        var v = Number(amt.value); if (!(v > 0)) { m.textContent = 'Enter your offer.'; amt.focus(); return; }
+        go.disabled = true; m.textContent = 'Sending your offer…';
+        fetch('/api/offer', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ product: p.id, qty: 1, offer: v.toFixed(2), pay: pay.value, name: me.name || String(me.email).split('@')[0], email: me.email, website: '' }) })
+          .then(function (r) { return r.json(); }).then(function (r) {
+            if (r.status === 'sent') { body.textContent = ''; body.appendChild(el('b', '✓ Offer sent!')); body.appendChild(el('div', r.message || 'The seller has your offer. You get an email when they answer.', 'small')); x.textContent = 'Done'; return; }
+            go.disabled = r.status === 'buy' ? true : false; m.textContent = r.error || r.message || 'The offer was not sent.';
+            if (r.status === 'buy') { var bn = el('a', 'Buy it now at ' + uc(list), 'solid'); bn.href = '/order.html?product=' + encodeURIComponent(p.id); bn.style.cssText = 'text-decoration:none;text-align:center'; body.appendChild(bn); }
+          }, function () { go.disabled = false; m.textContent = 'Could not reach the site. Try again.'; });
+      });
+      body.appendChild(go); body.appendChild(m);
+      setTimeout(function () { amt.focus(); }, 150);
+    };
+    var t = token();
+    if (!t) { var b2 = el('div'); body.appendChild(b2); signInBox(b2, 'Sign in, or create a free account, to make an offer.', function (t2) { api('/api/me?t=' + encodeURIComponent(t2)).then(function (r) { form({ email: r.email, name: r.name }); }); }); return; }
+    body.textContent = 'Loading…';
+    api('/api/me?t=' + encodeURIComponent(t)).then(function (r) { if (r._status === 401 || !r.email) { signOut(); body.textContent = ''; var b3 = el('div'); body.appendChild(b3); signInBox(b3, 'Sign in again to make an offer.', function (t2) { api('/api/me?t=' + encodeURIComponent(t2)).then(function (r2) { form({ email: r2.email, name: r2.name }); }); }); return; } form({ email: r.email, name: r.name }); });
+  }
+  // The "Offer" button on a product card. It opens quickOffer without following the card's link.
+  function offerChip(p) {
+    var b = el('button', '💸 Make an offer', 'jf-offer'); b.type = 'button'; b.setAttribute('aria-label', 'Make an offer on ' + p.name);
+    b.addEventListener('click', function (ev) { ev.preventDefault(); ev.stopPropagation(); quickOffer(p); });
+    return b;
+  }
+  if (!document.getElementById('jfOfferCss')) { var oc = document.createElement('style'); oc.id = 'jfOfferCss'; oc.textContent = '.jf-offer{display:block;width:100%;margin-top:10px;padding:9px 10px;min-height:0;border-radius:999px;border:1px solid #C9A45C;background:#2A2414;color:#F3DC9A;font-weight:800;font-size:14px;cursor:pointer;line-height:1.1;text-align:center}.jf-offer:hover{background:#C9A45C;color:#0B1A13}@media(max-width:520px){.jf-offer{font-size:13px;padding:8px 6px}}'; (document.head || document.documentElement).appendChild(oc); }
+  window.JF = { quickOffer: quickOffer, offerChip: offerChip, offerHistory: offerHistory, stars: stars, check: check, modeBar: modeBar, token: token, emailOf: emailOf, signOut: signOut, el: el, usd: usd, cents: cents, api: api, signInBox: signInBox, picture: picture };
 })();
