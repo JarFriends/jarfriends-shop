@@ -48,6 +48,7 @@
     $('item').textContent = o.item;
     $('list').textContent = usd(o.list) + ' each';
     $('offer').textContent = usd(o.offer) + ' each';
+    if (o.note) { var nr = document.createElement('div'); nr.className = 'row'; var a1 = document.createElement('span'); a1.className = 'dim'; a1.textContent = 'Their message'; var a2 = document.createElement('span'); a2.textContent = '\u201c' + o.note + '\u201d'; nr.appendChild(a1); nr.appendChild(a2); $('offer').parentNode.parentNode.insertBefore(nr, $('offer').parentNode.nextSibling); }
     $('qty').textContent = o.qty;
     $('total').textContent = usd(o.total);
     $('pay').textContent = o.pay || 'Not said';

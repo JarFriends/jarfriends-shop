@@ -985,6 +985,7 @@
         top.appendChild(el('span', words[o.status] || String(o.status).toUpperCase(), 'jf-badge ' + (o.status === 'pending' ? 'wait' : o.status === 'accepted' ? 'ok' : '')));
         c.appendChild(top);
         c.appendChild(el('div', o.buyer + ' offered ' + JF.cents(o.offer) + (o.q > 1 ? ' each' : '') + ' (your price ' + JF.cents(o.list) + ') · would pay with ' + (o.pay || '-') + ' · ' + new Date(o.at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }), 'small'));
+        if (o.note) { var nq = el('div', '\u201c' + o.note + '\u201d'); nq.style.cssText = 'font-style:italic;border-left:3px solid #C9A45C;padding-left:10px'; c.appendChild(nq); }
         if (o.status === 'countered') c.appendChild(el('div', 'You countered at ' + JF.cents(o.counter) + '.', 'small dim'));
         // Every offer this buyer made on this piece, and what happened to each.
         var same = r.offers.filter(function (x) { return x.pid === o.pid && x.who === o.who; });

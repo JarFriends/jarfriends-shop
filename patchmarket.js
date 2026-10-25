@@ -41,6 +41,12 @@ const changes = [
   // Offers never hold a piece: while an offer is waiting, accepted or countered, anyone can still buy it, and the
   // first to pay gets it. (Set OFFER_HOLDS=on to hold pieces for offers again.)
   ['api/_holds.js', 'async function add(pid, n, q, until) {\n  await release(n);', "async function add(pid, n, q, until) {\n  await release(n);\n  if (!/^on$/i.test((process.env.OFFER_HOLDS || '').trim())) { memo = null; return; }"],
+  // A short message with an offer (up to 200 characters): carried in the offer, shown to the seller everywhere.
+  ['api/offer.js', "const o = { o: 1, w: pay,", "const note = clip(b.note, 200).replace(/\\s+/g, ' ');\n  const o = { o: 1, m: note, w: pay,"],
+  ['api/offer.js', "await saveOffer(o, tok, 'pending');", "await saveOffer(o, tok, 'pending', o.m ? { note: o.m } : {});"],
+  ['api/offer.js', "'Wants to pay with: ' + pay, '',", "'Wants to pay with: ' + pay, o.m ? 'Their message: ' + o.m : '', '',"],
+  ['api/offer.js', "' · would pay with ' + pay + ' · answer it: '", "' · would pay with ' + pay + (o.m ? '\\nMessage: ' + o.m : '') + ' · answer it: '"],
+  ['api/offer.js', "buyer: o.b, email: o.e, pay: o.w || '' });", "buyer: o.b, email: o.e, pay: o.w || '', note: o.m || '' });"],
   ['api/offer.js', "'It is held for you until the link runs out.'", "'It is not held for you: others can still buy it, so pay soon to make sure it is yours.'"],
   ['api/offer.js', "'It is held for you until the link runs out. If the price does not work, you are welcome to send another offer.'", "'It is not held for you: others can still buy it, so pay soon to make sure it is yours. If the price does not work, you are welcome to send another offer.'"]
 ];

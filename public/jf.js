@@ -250,13 +250,15 @@
       body.appendChild(el('span', 'Your price', 'small')); body.appendChild(amt); body.appendChild(quick);
       var pay = el('select'); pay.className = 'jf-sel'; [['Card', 'Card'], ['Venmo', 'Venmo'], ['Zelle', 'Zelle'], ['Cash App', 'Cash App'], ['Ethereum', 'Crypto: ETH'], ['USDC', 'Crypto: USDC'], ['USDT', 'Crypto: USDT']].forEach(function (w) { var o = el('option', w[1]); o.value = w[0]; pay.appendChild(o); });
       body.appendChild(el('span', 'How would you pay?', 'small')); body.appendChild(pay);
+      var note = el('textarea'); note.maxLength = 200; note.rows = 2; note.placeholder = 'Add a short message (optional), e.g. Can you do this price if I buy two?'; note.style.cssText = 'width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:10px 12px;background:#0B1A13;border:1px solid #4E7A63;color:#F7F2E6;border-radius:8px;resize:vertical';
+      body.appendChild(el('span', 'Message to the seller', 'small')); body.appendChild(note);
       body.appendChild(el('div', 'The seller can accept, counter, or decline, and you get an email either way. An offer does not hold the piece: someone else can still buy it at the listed price.', 'small dim'));
       var go = el('button', 'Send offer', 'solid'); go.type = 'button'; go.style.cssText = 'font-size:17px;padding:14px;font-weight:800';
       var m = el('div', '', 'small'); m.setAttribute('role', 'status');
       go.addEventListener('click', function () {
         var v = Number(amt.value); if (!(v > 0)) { m.textContent = 'Enter your offer.'; amt.focus(); return; }
         go.disabled = true; m.textContent = 'Sending your offer…';
-        fetch('/api/offer', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ product: p.id, qty: 1, offer: v.toFixed(2), pay: pay.value, name: me.name || String(me.email).split('@')[0], email: me.email, website: '' }) })
+        fetch('/api/offer', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ product: p.id, qty: 1, offer: v.toFixed(2), pay: pay.value, note: note.value, name: me.name || String(me.email).split('@')[0], email: me.email, website: '' }) })
           .then(function (r) { return r.json(); }).then(function (r) {
             if (r.status === 'sent') { body.textContent = ''; body.appendChild(el('b', '✓ Offer sent!')); body.appendChild(el('div', r.message || 'The seller has your offer. You get an email when they answer.', 'small')); x.textContent = 'Done'; return; }
             go.disabled = r.status === 'buy' ? true : false; m.textContent = r.error || r.message || 'The offer was not sent.';
