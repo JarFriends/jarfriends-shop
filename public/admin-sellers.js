@@ -52,6 +52,26 @@
       if (owe) { d.type = 'button'; d.style.cssText = 'cursor:pointer;text-align:left;font:inherit;color:inherit;border-color:#C9A45C'; d.appendChild(el('span', 'See who and why ›', 'label')).style.color = '#E8C77A'; d.addEventListener('click', function () { oweBox.hidden = !oweBox.hidden; if (!oweBox.hidden) oweBox.scrollIntoView({ behavior: 'smooth', block: 'start' }); }); }
     });
     box.appendChild(tiles);
+    // Vouches: every seller's answer to "Who can vouch for you?", newest first.
+    (function () {
+      var vs = r.sellers.slice().sort(function (a, b) { return (b.at || 0) - (a.at || 0); });
+      var vb = el('details', null, 'card'); vb.style.gap = '10px'; box.appendChild(vb);
+      var sum = el('summary'); sum.style.cssText = 'cursor:pointer;font-weight:800;font-size:17px'; sum.textContent = '🤝 Vouches (' + vs.filter(function (s) { return s.vouch; }).length + ')'; vb.appendChild(sum);
+      var wrap = el('div'); wrap.style.cssText = 'display:flex;flex-direction:column;gap:10px;margin-top:12px'; vb.appendChild(wrap);
+      wrap.appendChild(el('div', 'Who each seller said can vouch for them, asked when they opened their shop. Shops opened before this question have no answer.', 'small dim'));
+      if (!vs.length) wrap.appendChild(el('div', 'No sellers yet.', 'small dim'));
+      vs.forEach(function (s) {
+        var c = el('div'); c.style.cssText = 'display:flex;flex-direction:column;gap:4px;border:1px solid #2E4A3B;border-radius:10px;padding:10px 12px';
+        var hd = el('div'); hd.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between';
+        hd.appendChild(el('b', s.name)); hd.appendChild(el('span', (s.status === 'approved' ? 'Open' : s.status === 'pending' ? 'Needs your OK' : 'Paused') + ' · joined ' + (s.at ? new Date(s.at).toLocaleDateString('en-US', { dateStyle: 'medium' }) : '-'), 'small dim'));
+        c.appendChild(hd); c.appendChild(el('span', s.email, 'small dim'));
+        var a = el('div', s.vouch || 'No answer (opened before this question).'); a.style.cssText = 'white-space:pre-wrap;' + (s.vouch ? '' : 'opacity:.6;font-style:italic');
+        c.appendChild(a);
+        var j = el('button', 'Open their card ›', 'ghost'); j.type = 'button'; j.style.cssText = 'align-self:flex-start;padding:6px 10px;min-height:0;font-size:13px';
+        j.addEventListener('click', function () { var t2 = box.querySelector('[data-seller="' + s.slug + '"]'); if (t2) { var hid = t2.closest('[hidden]'); if (hid) { var gb = Array.prototype.filter.call(box.querySelectorAll('button'), function (x) { return x.textContent === '▦ Gallery'; }); gb.forEach(function (x) { x.click(); }); } t2.scrollIntoView({ behavior: 'smooth', block: 'start' }); } });
+        c.appendChild(j); wrap.appendChild(c);
+      });
+    })();
     // What you owe, seller by seller: every sale that paid you (not their Stripe), minus labels, charges and payouts.
     var oweBox = el('section', null, 'card'); oweBox.hidden = true; oweBox.style.gap = '14px'; box.appendChild(oweBox);
     (function () {
@@ -125,6 +145,7 @@
         bkb.addEventListener('click', function () { bkb.disabled = true; post({ do: 'bank', slug: s.slug }).then(function (x) { bkb.disabled = false; if (x.error) { bko.textContent = x.error; return; } var k = x.bank; bko.textContent = k.region === 'intl' ? 'INTERNATIONAL WIRE · ' + k.holder + ' · ' + k.bank + ' (' + k.country + ') · SWIFT ' + k.swift + ' · ' + (k.iban ? 'IBAN ' + k.iban : 'account ' + k.account) + ' · holder address: ' + k.address : k.holder + ' · ' + k.type + ' · routing ' + k.routing + ' · account ' + k.account; bkb.remove(); }); });
         bkr.appendChild(bkb); bkr.appendChild(bko); c.appendChild(bkr);
       }
+      c.appendChild(el('div', '🤝 Vouch: ' + (s.vouch || 'no answer (opened before this question)'), 'small'));
       c.appendChild(el('div', s.email + (s.based === 'intl' ? ' · based outside the US' + (s.country ? ' (' + s.country + ')' : '') : '') + ' · paid by ' + (s.payHow === 'bank' || s.payHow === 'wire' ? s.payTo : s.payTo ? (s.payHow || '') + ': ' + s.payTo : 'no payout details yet') + ' · ' + s.listings + ' listings · joined ' + new Date(s.at).toLocaleDateString('en-US', { dateStyle: 'medium' }), 'small dim'));
       if (s.about) c.appendChild(el('div', s.about, 'small'));
       // Rating and the verified checkmark, with a way to set it by hand.

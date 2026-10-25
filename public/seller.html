@@ -164,6 +164,7 @@
     c.appendChild(el('h2', 'How it works')); c.appendChild(how);
     var f = el('form');
     var name = input('text', '', { maxlength: '40', required: '', placeholder: 'e.g. Wolf Den Cards' });
+    var vouch = el('textarea', null, 'jf-ta'); vouch.maxLength = 600; vouch.required = true; vouch.rows = 3; vouch.placeholder = 'e.g. @collector on Whatnot, my eBay name, people in the VeeFriends Discord who know me';
     var about = el('textarea', null, 'jf-ta'); about.maxLength = 400; about.placeholder = 'What you collect and sell. Shown on your shop page.';
     // Where they are based. Payout details are added later (Seller Hub > Payments), whenever they are ready.
     var region = 'us';
@@ -179,6 +180,7 @@
     al.appendChild(als);
     var go = el('button', 'Open my shop', 'solid'); go.type = 'submit'; var m = status();
     f.appendChild(field('Shop name', name)); f.appendChild(field('About your shop', about, 'Optional.'));
+    f.appendChild(field('Who can vouch for you? (required)', vouch, 'Names, @handles or shops that know you: other sellers, Discord or Whatnot people, your eBay or Instagram. Only VeeFam sees this.'));
     f.appendChild(field('Where are you based?', bp)); f.appendChild(ctryL); f.appendChild(intlNote);
     f.appendChild(el('div', 'No bank details needed to start: open your shop and list right away. Add where to send your earnings in Seller Hub > Payments whenever you are ready.', 'small dim'));
     f.appendChild(al); f.appendChild(go); f.appendChild(m);
@@ -186,8 +188,8 @@
     c.appendChild(el('div', 'Signed in as ' + D.email, 'small dim'));
     box.appendChild(c);
     f.addEventListener('submit', function (ev) {
-      ev.preventDefault(); go.disabled = true; m.textContent = 'Opening your shop…';
-      JF.api('/api/market', Object.assign({ do: 'apply', t: tok, as: AS, ak: AK, name: name.value, about: about.value, agree: true, region: region, country: ctryIn.value })).then(function (r) {
+      ev.preventDefault(); if (vouch.value.trim().length < 3) { m.textContent = 'Tell us who can vouch for you.'; vouch.focus(); return; } go.disabled = true; m.textContent = 'Opening your shop…';
+      JF.api('/api/market', Object.assign({ do: 'apply', t: tok, as: AS, ak: AK, name: name.value, about: about.value, vouch: vouch.value, agree: true, region: region, country: ctryIn.value })).then(function (r) {
         go.disabled = false;
         if (r.error) { m.textContent = r.error; return; }
         load();

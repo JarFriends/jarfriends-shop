@@ -139,8 +139,11 @@ async function apply(email, f) {
   const hasBank = ['routing', 'account', 'iban', 'swift'].some((k) => String(f[k] || '').trim());
   const bank = hasBank ? bankFrom(Object.assign({}, f, { region: based })) : { fields: { payHow: '', payTo: '' } };
   if (bank.error) return bank;
+  // Who can vouch for them: required; the owner reads every answer in the back office (Sellers > Vouches).
+  const vouch = String(f.vouch == null ? '' : f.vouch).replace(/\r/g, '').replace(/[ \t]+/g, ' ').trim().slice(0, 600);
+  if (vouch.length < 3) return { error: 'Tell us who can vouch for you.' };
   if (!f.agree) return { error: 'Tick the box to agree to the seller terms.' };
-  const s = Object.assign({ slug: slug, name: name, email: String(email).trim().toLowerCase(), about: tidy(f.about, 400), status: autoApprove() ? 'approved' : 'pending', at: Date.now(), agreedFee: feePct(), based: based, country: based === 'intl' ? tidy(f.country, 60) : 'United States' }, bank.fields);
+  const s = Object.assign({ slug: slug, name: name, email: String(email).trim().toLowerCase(), about: tidy(f.about, 400), vouch: vouch, status: autoApprove() ? 'approved' : 'pending', at: Date.now(), agreedFee: feePct(), based: based, country: based === 'intl' ? tidy(f.country, 60) : 'United States' }, bank.fields);
   await save(s);
   await store.write('sellers/e/' + hashOf(email) + '.json', { slug: slug });
   return { seller: s };
