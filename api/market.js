@@ -603,6 +603,8 @@ module.exports = async (req, res) => {
       if (r.error) return res.status(400).json(r);
       const owner = (process.env.OWNER_EMAIL || '').trim();
       if (owner) await mail(owner, 'New seller: ' + r.seller.name + (r.seller.status === 'pending' ? ' (needs your OK)' : ''), ['A new seller signed up on JarFriends.', '', 'Shop: ' + r.seller.name, 'Email: ' + r.seller.email, 'About: ' + (r.seller.about || '-'), 'Based: ' + (r.seller.based === 'intl' ? 'International (' + (r.seller.country || '?') + ')' : 'United States'), 'Payouts: ' + (r.seller.payTo ? r.seller.payTo : 'not added yet (they can add them later in Seller Hub)'), '', r.seller.status === 'pending' ? 'Approve or decline them in the back office, Sellers tab.' : 'They were approved automatically.'], 'seller-new-' + r.seller.slug).catch(() => null);
+      const host = 'https://' + req.headers.host, sx = r.seller;
+      await require('./_discord')('**NEW SELLER** ' + sx.name + (sx.status === 'pending' ? ' (needs your OK)' : ' (open)') + '\n' + sx.email + (sx.based === 'intl' ? ' · outside the US' + (sx.country ? ' (' + sx.country + ')' : '') : '') + (sx.about ? '\n' + String(sx.about).slice(0, 300) : '') + '\n' + host + '/s/' + sx.slug, 'sellers').catch(() => null);
       return res.json({ seller: M.safe(r.seller) });
     }
     if (!seller) return res.status(403).json({ error: 'Open a seller shop first.' });
