@@ -166,9 +166,9 @@
     var box = document.createElement('div'); box.id = 'jfOld'; box.style.cssText = 'display:flex;flex-direction:column;gap:14px'; $('list').appendChild(box);
     fetch('/api/market?do=jf-orders&t=' + encodeURIComponent(token), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (r) {
       var os = r.orders || [];
-      if (!os.length && !r.error) return;
-      var h = el('div', 'mono gold', 'YOUR ORDERS FROM JARFRIENDS.COM'); box.appendChild(h);
-      if (r.error) { box.appendChild(el('div', 'small', r.error)); return; }
+      // Only people who ordered on jarfriends.com see this section; nobody else sees anything (not even an error).
+      if (!os.length) { box.remove(); return; }
+      box.appendChild(el('div', 'mono gold', 'YOUR ORDERS FROM JARFRIENDS.COM'));
       os.forEach(function (o) {
         var card = el('section', 'card order'), head = el('div', 'ohead'), left = el('div');
         left.appendChild(el('div', 'label', 'JARFRIENDS ORDER ' + o.n));
