@@ -61,6 +61,25 @@ module.exports = async (req, res) => {
     for (const e of Object.keys(who)) { if (!(await S.gone(e))) out.push({ email: e, name: who[e] || '' }); }
     return res.json({ subscribers: out });
   }
+  // One buyer's past orders (with shipping and tracking), so VeeFam.io can show them in that buyer's account.
+  // Same shared key as above; the email comes from VeeFam.io's signed-in account, never from the visitor.
+  if (req.query && req.query.ordersx) {
+    const want = (process.env.SUBS_EXPORT_KEY || '').trim();
+    if (want.length < 20 || !crypto.timingSafeEqual(hash(String(req.query.ordersx)), hash(want))) return res.status(403).json({ error: 'Not allowed.' });
+    const who = String(req.query.email || '').trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(who)) return res.status(400).json({ error: 'Email needed.' });
+    let all = [];
+    try { all = await store.sales(); } catch (e) { return res.status(503).json({ error: 'Could not read the orders just now.' }); }
+    const mine = (await Promise.all(all.map((s) => store.read(s.path).then((d) => (d && String(d.email || '').trim().toLowerCase() === who ? { s: s, d: d } : null))))).filter(Boolean);
+    const out = await Promise.all(mine.map(async (x) => {
+      const m = (await store.read('meta/' + x.s.n + '.json')) || {}, d = x.d;
+      const due = /payment due/i.test(d.status || '') && !m.paidAt, tr = m.testLabel ? '' : String(m.tracking || '');
+      return { n: x.s.n, product: d.product || '', q: x.s.q, at: d.at || x.s.at, total: d.total || '', pay: d.pay || '', paid: !due, shipped: !!(tr || m.shippedAt), shippedAt: Number(m.shippedAt) || 0, tracking: tr,
+        track: /^9\d{19,21}$/.test(tr) ? 'https://tools.usps.com/go/TrackConfirmAction?tLabels=' + tr : /^1Z/i.test(tr) ? 'https://www.ups.com/track?tracknum=' + tr : tr ? 'https://www.google.com/search?q=' + encodeURIComponent(tr) : '', ship: d.ship || '' };
+    }));
+    out.sort((a, b) => b.at - a.at);
+    return res.json({ orders: out.slice(0, 200) });
+  }
   const owner = (process.env.OWNER_EMAIL || '').trim();
   if (req.query && req.query.send) {
     if (!owner) return res.status(503).json({ error: 'No owner email is set up for this site.' });
