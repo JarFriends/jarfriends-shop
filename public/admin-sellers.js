@@ -52,6 +52,11 @@
       if (owe) { d.type = 'button'; d.style.cssText = 'cursor:pointer;text-align:left;font:inherit;color:inherit;border-color:#C9A45C'; d.appendChild(el('span', 'See who and why ›', 'label')).style.color = '#E8C77A'; d.addEventListener('click', function () { oweBox.hidden = !oweBox.hidden; if (!oweBox.hidden) oweBox.scrollIntoView({ behavior: 'smooth', block: 'start' }); }); }
     });
     box.appendChild(tiles);
+    // Send a test message to the Discord channels (orders and new sellers).
+    var dz = el('div'); dz.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;align-items:center';
+    var dzb = el('button', 'Send a test to Discord', 'ghost'); dzb.type = 'button'; var dzo = el('span', '', 'small');
+    dzb.addEventListener('click', function () { dzb.disabled = true; dzo.textContent = 'Sending…'; post({ do: 'discord-test' }).then(function (x) { dzb.disabled = false; var w = function (v) { return v === 'sent' ? 'sent ✓' : v === 'off' ? 'not set up' : 'failed (check the webhook link)'; }; dzo.textContent = x.error || ('#orders: ' + w(x.orders) + ' · #new-sellers: ' + w(x.sellers)); }); });
+    dz.appendChild(dzb); dz.appendChild(dzo); box.appendChild(dz);
     // What you owe, seller by seller: every sale that paid you (not their Stripe), minus labels, charges and payouts.
     var oweBox = el('section', null, 'card'); oweBox.hidden = true; oweBox.style.gap = '14px'; box.appendChild(oweBox);
     (function () {
