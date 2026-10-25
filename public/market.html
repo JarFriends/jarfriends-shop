@@ -19,7 +19,7 @@
   </div>
   <div class="jf-filters" id="views" role="group" aria-label="What to show"></div>
   <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">
-    <label style="flex:1 1 240px;max-width:380px">Search<input id="find" type="search" placeholder="Name of a piece" autocomplete="off"></label>
+    <label style="flex:1 1 240px;max-width:380px">Search<input id="find" type="search" placeholder="Search any word: name, character, cover, grade…" autocomplete="off"></label>
     <label style="flex:0 1 220px">Seller<select class="jf-sel" id="who"><option value="">Everyone</option></select></label>
     <label style="flex:0 1 220px">Sort<select class="jf-sel" id="sort"><option value="new">Newest first</option><option value="low">Price: low to high</option><option value="high">Price: high to low</option><option value="name">Name</option><option value="ending">Auctions ending soonest</option></select></label>
   </div>
@@ -70,7 +70,7 @@
     if (!D) return;
     var q = $('find').value.trim().toLowerCase(), who = $('who').value, now = Date.now();
     var list = D.products.filter(function (p) {
-      if (q && p.name.toLowerCase().indexOf(q) < 0) return false;
+      if (q && !JF.matches(p, q)) return false;
       if (who && p.seller !== who) return false;
       if (view === 'auctions' && !p.auction) return false;
       if (view === 'buy' && p.auction) return false;

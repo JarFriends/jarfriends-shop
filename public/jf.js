@@ -292,5 +292,13 @@
     return b;
   }
   if (!document.getElementById('jfOfferCss')) { var oc = document.createElement('style'); oc.id = 'jfOfferCss'; oc.textContent = '.jf-acts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:10px}.jf-act{min-height:0;padding:9px 4px;border-radius:999px;border:1px solid #C9A45C;background:transparent;color:#F3DC9A;font-weight:800;font-size:13px;letter-spacing:.02em;cursor:pointer;line-height:1;transition:background .15s,color .15s}.jf-act:hover{background:#2A2414}.jf-act.buy{background:#C9A45C;color:#0B1A13}.jf-act.buy:hover{background:#E0BE73}@media(max-width:520px){.jf-act{font-size:12px;padding:8px 2px}}.jf-offer{display:block;width:100%;margin-top:10px;padding:9px 10px;min-height:0;border-radius:999px;border:1px solid #C9A45C;background:#2A2414;color:#F3DC9A;font-weight:800;font-size:14px;cursor:pointer}'; (document.head || document.documentElement).appendChild(oc); }
-  window.JF = { cardActions: cardActions, quickOffer: quickOffer, offerChip: offerChip, offerHistory: offerHistory, stars: stars, check: check, modeBar: modeBar, token: token, emailOf: emailOf, signOut: signOut, el: el, usd: usd, cents: cents, api: api, signInBox: signInBox, picture: picture };
+  // Search: every word typed is looked for anywhere in the listing (name, description, shop, category), in any
+  // order, ignoring case, punctuation and a plural "s". "gary pin" finds "VeeFriends Gary Vee enamel PIN".
+  function words(s) { return String(s || '').toLowerCase().replace(/[^a-z0-9#.]+/g, ' ').trim().split(/\s+/).filter(Boolean); }
+  function matches(p, q) {
+    var ws = words(q); if (!ws.length) return true;
+    var hay = ' ' + words([p.name, p.desc, p.sellerName, p.section, p.id].join(' ')).join(' ') + ' ';
+    return ws.every(function (w) { var stem = w.length > 3 ? w.replace(/(es|s)$/, '') : w; return hay.indexOf(w) >= 0 || hay.indexOf(stem) >= 0; });
+  }
+  window.JF = { matches: matches, cardActions: cardActions, quickOffer: quickOffer, offerChip: offerChip, offerHistory: offerHistory, stars: stars, check: check, modeBar: modeBar, token: token, emailOf: emailOf, signOut: signOut, el: el, usd: usd, cents: cents, api: api, signInBox: signInBox, picture: picture };
 })();

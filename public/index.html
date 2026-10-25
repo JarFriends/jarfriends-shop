@@ -162,7 +162,7 @@
       if ($('cat').value && p.section !== $('cat').value) return false;
       if ($('seller').value && p.seller !== $('seller').value) return false;
       if (photoIds && photoIds.indexOf(p.id) < 0) return false;
-      return !q || (p.name + ' ' + p.sellerName + ' ' + (p.section || '') + ' ' + (p.desc || '')).toLowerCase().indexOf(q) >= 0;
+      return !q || JF.matches(p, q);
     });
     list.sort(function (a, b) {
       if (photoIds) return photoIds.indexOf(a.id) - photoIds.indexOf(b.id);
