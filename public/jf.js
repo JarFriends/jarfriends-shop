@@ -271,12 +271,24 @@
     body.textContent = 'Loading…';
     api('/api/me?t=' + encodeURIComponent(t)).then(function (r) { if (r._status === 401 || !r.email) { signOut(); body.textContent = ''; var b3 = el('div'); body.appendChild(b3); signInBox(b3, 'Sign in again to make an offer.', function (t2) { api('/api/me?t=' + encodeURIComponent(t2)).then(function (r2) { form({ email: r2.email, name: r2.name }); }); }); return; } form({ email: r.email, name: r.name }); });
   }
+  // Buy · Offer · Trade on a product card. Buy opens checkout, Offer opens the quick offer sheet, Trade opens the
+  // piece's page with the trade form ready (sellers' pieces only).
+  function cardActions(p) {
+    var w = el('div', null, 'jf-acts'), go = function (ev, f) { ev.preventDefault(); ev.stopPropagation(); f(); };
+    var b = el('button', 'Buy', 'jf-act buy'), o = el('button', 'Offer', 'jf-act'); b.type = o.type = 'button';
+    b.addEventListener('click', function (ev) { go(ev, function () { location.href = '/order.html?product=' + encodeURIComponent(p.id); }); });
+    o.addEventListener('click', function (ev) { go(ev, function () { quickOffer(p); }); });
+    w.appendChild(b); w.appendChild(o);
+    if (p.seller) { var t = el('button', 'Trade', 'jf-act'); t.type = 'button'; t.addEventListener('click', function (ev) { go(ev, function () { location.href = '/order.html?product=' + encodeURIComponent(p.id) + '&trade=1'; }); }); w.appendChild(t); }
+    else w.style.gridTemplateColumns = '1fr 1fr';
+    return w;
+  }
   // The "Offer" button on a product card. It opens quickOffer without following the card's link.
   function offerChip(p) {
     var b = el('button', '💸 Make an offer', 'jf-offer'); b.type = 'button'; b.setAttribute('aria-label', 'Make an offer on ' + p.name);
     b.addEventListener('click', function (ev) { ev.preventDefault(); ev.stopPropagation(); quickOffer(p); });
     return b;
   }
-  if (!document.getElementById('jfOfferCss')) { var oc = document.createElement('style'); oc.id = 'jfOfferCss'; oc.textContent = '.jf-offer{display:block;width:100%;margin-top:10px;padding:9px 10px;min-height:0;border-radius:999px;border:1px solid #C9A45C;background:#2A2414;color:#F3DC9A;font-weight:800;font-size:14px;cursor:pointer;line-height:1.1;text-align:center}.jf-offer:hover{background:#C9A45C;color:#0B1A13}@media(max-width:520px){.jf-offer{font-size:13px;padding:8px 6px}}'; (document.head || document.documentElement).appendChild(oc); }
-  window.JF = { quickOffer: quickOffer, offerChip: offerChip, offerHistory: offerHistory, stars: stars, check: check, modeBar: modeBar, token: token, emailOf: emailOf, signOut: signOut, el: el, usd: usd, cents: cents, api: api, signInBox: signInBox, picture: picture };
+  if (!document.getElementById('jfOfferCss')) { var oc = document.createElement('style'); oc.id = 'jfOfferCss'; oc.textContent = '.jf-acts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:10px}.jf-act{min-height:0;padding:9px 4px;border-radius:999px;border:1px solid #C9A45C;background:transparent;color:#F3DC9A;font-weight:800;font-size:13px;letter-spacing:.02em;cursor:pointer;line-height:1;transition:background .15s,color .15s}.jf-act:hover{background:#2A2414}.jf-act.buy{background:#C9A45C;color:#0B1A13}.jf-act.buy:hover{background:#E0BE73}@media(max-width:520px){.jf-act{font-size:12px;padding:8px 2px}}.jf-offer{display:block;width:100%;margin-top:10px;padding:9px 10px;min-height:0;border-radius:999px;border:1px solid #C9A45C;background:#2A2414;color:#F3DC9A;font-weight:800;font-size:14px;cursor:pointer}'; (document.head || document.documentElement).appendChild(oc); }
+  window.JF = { cardActions: cardActions, quickOffer: quickOffer, offerChip: offerChip, offerHistory: offerHistory, stars: stars, check: check, modeBar: modeBar, token: token, emailOf: emailOf, signOut: signOut, el: el, usd: usd, cents: cents, api: api, signInBox: signInBox, picture: picture };
 })();

@@ -34,6 +34,8 @@
       if (!tok()) { open.hidden = true; var s = el('div', null, 'small'); s.appendChild(document.createTextNode('Sign in to propose a trade: ')); var a = el('a', 'sign in or make an account'); a.href = '/me.html'; s.appendChild(a); s.appendChild(document.createTextNode(', then come back to this piece.')); card.appendChild(s); return; }
       form.hidden = false; open.hidden = true;
     });
+    // Arrived from a product card's Trade button: open the form straight away.
+    if (new URLSearchParams(location.search).get('trade')) setTimeout(function () { if (!open.hidden) open.click(); card.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 700);
     var lab = function (t, node, hint) { var l = el('label', t); l.appendChild(node); if (hint) l.appendChild(el('span', hint, 'small dim')); l.style.cssText = 'display:flex;flex-direction:column;gap:6px'; return l; };
     var file = el('input'); file.type = 'file'; file.accept = 'image/*'; file.required = true;
     var prev = el('img'); prev.alt = ''; prev.hidden = true; prev.style.cssText = 'max-width:220px;border-radius:6px';

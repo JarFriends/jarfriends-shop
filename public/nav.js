@@ -219,7 +219,7 @@
       + '.jf-grid.vw-list .jf-item>:first-child{grid-row:1/span 8;width:92px!important;height:92px!important;aspect-ratio:1;margin:0!important}'
       + '.jf-grid.vw-list .jf-item>:not(:first-child):not(.jf-heart):not(.jf-tag){grid-column:2}'
       + '.jf-grid.vw-list .jf-tag{top:12px!important;left:12px!important;font-size:9px!important}'
-      + '.jf-grid.vw-list .jf-offer{width:auto!important;justify-self:start;margin-top:6px!important}.jf-grid.vw-list .jf-name{padding-right:44px;margin:0!important}.jf-grid.vw-list .jf-item{min-height:0!important;row-gap:4px}'
+      + '.jf-grid.vw-list .jf-acts{max-width:330px;width:100%}.jf-grid.vw-list .jf-offer{width:auto!important;justify-self:start;margin-top:6px!important}.jf-grid.vw-list .jf-name{padding-right:44px;margin:0!important}.jf-grid.vw-list .jf-item{min-height:0!important;row-gap:4px}'
       + 'table.vw-cards thead{display:none}'
       + 'table.vw-cards,table.vw-cards tbody{display:grid!important;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;width:100%;border:0!important}'
       + 'table.vw-cards tr{display:flex!important;flex-direction:column;gap:4px;border:1px solid #2E4A3B;border-radius:12px;padding:12px;background:#11261C}'

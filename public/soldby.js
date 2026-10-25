@@ -34,6 +34,12 @@
       mo.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border:2px solid #C9A45C;border-radius:999px;background:#2A2414;color:#F3DC9A;font-weight:800;font-size:15px;cursor:pointer;min-height:0;margin-left:4px';
       mo.addEventListener('click', function () { if (window.JF && JF.quickOffer) JF.quickOffer({ id: p.id, name: p.name, price: p.price, photo: p.photo, sellerName: p.sellerName }); });
       d.appendChild(mo);
+      if (p.seller) {
+        var tr = document.createElement('button'); tr.type = 'button'; tr.textContent = '🔁 Propose a trade';
+        tr.style.cssText = mo.style.cssText.replace('background:#2A2414', 'background:none');
+        tr.addEventListener('click', function () { var b = Array.prototype.filter.call(document.querySelectorAll('button'), function (x) { return /^propose a trade/i.test(x.textContent.trim()) && x !== tr && x.offsetParent; })[0]; if (b) { b.click(); b.scrollIntoView({ behavior: 'smooth', block: 'center' }); } else location.href = '/order.html?product=' + encodeURIComponent(id) + '&trade=1'; });
+        d.appendChild(tr);
+      }
     }
     var h = document.querySelector('main h1');
     if (h && h.parentNode) h.parentNode.insertBefore(d, h.nextSibling); else { var m = document.querySelector('main'); if (m) m.insertBefore(d, m.firstChild); }

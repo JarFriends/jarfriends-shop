@@ -128,7 +128,7 @@
       list.appendChild(card);
     });
     list.hidden = false; $('foot').hidden = false; $('foot').style.display = 'flex';
-    jarsCard();
+    jarsCard(); jfOrders();
   }
 
   // Change the shipping address of an order that has not shipped yet.
@@ -159,6 +159,34 @@
       });
     });
     return w;
+  }
+  // Orders this email placed on jarfriends.com before the move to VeeFam, with their tracking.
+  function jfOrders() {
+    if ($('jfOld')) return;
+    var box = document.createElement('div'); box.id = 'jfOld'; box.style.cssText = 'display:flex;flex-direction:column;gap:14px'; $('list').appendChild(box);
+    fetch('/api/market?do=jf-orders&t=' + encodeURIComponent(token), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (r) {
+      var os = r.orders || [];
+      if (!os.length && !r.error) return;
+      var h = el('div', 'mono gold', 'YOUR ORDERS FROM JARFRIENDS.COM'); box.appendChild(h);
+      if (r.error) { box.appendChild(el('div', 'small', r.error)); return; }
+      os.forEach(function (o) {
+        var card = el('section', 'card order'), head = el('div', 'ohead'), left = el('div');
+        left.appendChild(el('div', 'label', 'JARFRIENDS ORDER ' + o.n));
+        left.appendChild(el('h2', null, o.product + (o.q > 1 ? ' x ' + o.q : '')));
+        head.appendChild(left); head.appendChild(el('div', 'stat', o.shipped ? 'SHIPPED' : o.paid ? 'PAID · PACKING' : 'PAYMENT DUE'));
+        card.appendChild(head);
+        var rows = el('div', 'rows');
+        rows.appendChild(row('Placed', new Date(o.at).toLocaleDateString('en-US', { dateStyle: 'medium' })));
+        if (o.pay) rows.appendChild(row('Paid with', o.pay));
+        if (o.total) rows.appendChild(row('Order total', money(o.total)));
+        if (o.ship) rows.appendChild(row('Ships to', o.ship));
+        if (o.shippedAt) rows.appendChild(row('Shipped', new Date(o.shippedAt).toLocaleDateString('en-US', { dateStyle: 'medium' })));
+        if (o.tracking) rows.appendChild(row('Tracking', o.tracking));
+        card.appendChild(rows);
+        if (o.track) { var a = el('a', null, 'Track this package'); a.href = o.track; a.target = '_blank'; a.rel = 'noopener'; card.appendChild(a); }
+        box.appendChild(card);
+      });
+    }).catch(function () {});
   }
   // How many jars this customer has, at the top of their orders.
   function jarsCard() {

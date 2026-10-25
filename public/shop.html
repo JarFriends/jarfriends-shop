@@ -84,7 +84,7 @@
         JF.api('/api/market', { do: 'wish', t: tok, id: p.id, on: wish[p.id] }).then(function (r) { if (r._status === 401) { JF.signOut(); location.href = '/wishlist.html?add=' + encodeURIComponent(p.id); } });
       });
       a.appendChild(h);
-      if (!p.auction && !p.party && p.left > 0 && JF.offerChip) a.appendChild(JF.offerChip(p));
+      if (!p.auction && !p.party && p.left > 0 && JF.cardActions) a.appendChild(JF.cardActions(p));
       g.appendChild(a);
     });
   }

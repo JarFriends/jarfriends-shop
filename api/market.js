@@ -449,6 +449,20 @@ module.exports = async (req, res) => {
       }
       return res.json({ orders: out });
     }
+    // Past orders on jarfriends.com for this account's email, with shipping and tracking (see the ordersx export on
+    // JarFriends; both sites share SUBS_EXPORT_KEY). Kept for 10 minutes so the page stays quick.
+    if (what === 'jf-orders' && !actAs) {
+      const key = (process.env.SUBS_EXPORT_KEY || '').trim(), src = String(process.env.JARFRIENDS_URL || 'https://jar' + 'friends.com').replace(/\/+$/, '');
+      if (!key) return res.json({ orders: [], off: true });
+      const ck = 'jforders/' + M.hashOf(me) + '.json', was = await store.read(ck);
+      if (was && Date.now() - was.at < 10 * 60000 && !q.fresh) return res.json({ orders: was.orders });
+      try {
+        const r2 = await fetch(src + '/api/admin?ordersx=' + encodeURIComponent(key) + '&email=' + encodeURIComponent(me), { signal: AbortSignal.timeout(20000) });
+        const j = await r2.json(); if (!r2.ok) throw new Error(j.error || r2.status);
+        await store.write(ck, { at: Date.now(), orders: j.orders || [] });
+        return res.json({ orders: j.orders || [] });
+      } catch (e) { console.error('JF_ORDERS_FAIL', String(e && e.message || e)); return res.json({ orders: was ? was.orders : [], error: was ? '' : 'Your jarfriends.com orders did not load just now. Try again in a minute.' }); }
+    }
     // Messages between buyers and sellers (see _msgs.js).
     if (what === 'msg-send' && req.method === 'POST' && !actAs) { const r = await require('./_msgs').send(me, b, 'https://' + req.headers.host); return res.status(r.error ? 400 : 200).json(r); }
     if (what === 'msg-open' && !actAs) { const r = await require('./_msgs').open(me, String((req.method === 'POST' ? b.id : q.id) || '')); return res.status(r.error ? 404 : 200).json(r); }
