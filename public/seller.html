@@ -23,7 +23,7 @@
 <script>
 (function () {
   var $ = function (id) { return document.getElementById(id); }, el = JF.el;
-  var tok = JF.token(), D = null, tab = 'overview', editing = null, adding = false, openEbay = false, pendingEdit = '';
+  var tok = JF.token(), D = null, tab = 'overview', editing = null, adding = false, bulkOn = false, BULK = [], openEbay = false, pendingEdit = '';
   // The owner can open any seller's portal from the back office: seller.html?as=<shop>. Uses the back-office key.
   var AS = new URLSearchParams(location.search).get('as') || '', AK = '';
   if (AS) { try { AK = localStorage.getItem('adminKey') || ''; } catch (e) { AK = ''; } }
@@ -709,6 +709,124 @@
     });
   }
 
+  // ---- Bulk listing: pick many photos (one piece per photo). AI writes each listing (title, description, category,
+  // a price guess) and it is saved as a hidden draft with its photo. The seller checks each one, then presses
+  // Go live, or keeps it as a draft for later. Nothing is shown to buyers until they say so.
+  function bulkPanel() {
+    var c = el('section', null, 'card'); c.style.gap = '14px';
+    var top = el('div'); top.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;align-items:center';
+    top.appendChild(el('h2', '📸 Bulk list from photos'));
+    var back = el('button', '‹ Back to my pieces', 'ghost'); back.type = 'button'; back.addEventListener('click', function () { bulkOn = false; BULK = BULK.filter(function (x) { return x.status !== 'done'; }); dash(); }); top.appendChild(back);
+    c.appendChild(top);
+    c.appendChild(el('div', 'Pick a photo of each piece (one piece per photo, as many as you like). AI writes the title, description and category, and guesses a price. Each one is saved as a draft that only you can see. Check them below, fix anything, then press Go live, or keep them as drafts for later.', 'small dim'));
+    var pick = el('input'); pick.type = 'file'; pick.accept = 'image/*'; pick.multiple = true; pick.setAttribute('data-nopaste', '1'); pick.style.display = 'none';
+    var pb = el('button', '＋ Choose photos', 'solid'); pb.type = 'button'; pb.addEventListener('click', function () { pick.click(); });
+    var row = el('div'); row.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;align-items:center'; row.appendChild(pb); row.appendChild(pick);
+    var allLive = el('button', '✅ Make all checked ones live', 'ghost'); allLive.type = 'button'; row.appendChild(allLive);
+    c.appendChild(row);
+    var prog = el('div', '', 'small'); prog.setAttribute('role', 'status'); c.appendChild(prog);
+    var list = el('div'); list.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px'; c.appendChild(list);
+    var running = 0;
+    var update = function () {
+      var n = BULK.length, ready = BULK.filter(function (x) { return x.status === 'ready'; }).length, busy = BULK.filter(function (x) { return x.status === 'waiting' || x.status === 'thinking' || x.status === 'saving'; }).length, live = BULK.filter(function (x) { return x.status === 'done' && x.live; }).length;
+      prog.textContent = !n ? '' : (busy ? 'Working on ' + busy + ' photo' + (busy === 1 ? '' : 's') + '… ' : '') + ready + ' draft' + (ready === 1 ? '' : 's') + ' ready to check' + (live ? ' · ' + live + ' live' : '');
+      allLive.hidden = !ready;
+    };
+    var card = function (it) {
+      var w = el('div'); w.style.cssText = 'display:flex;flex-direction:column;gap:8px;border:1px solid ' + (it.status === 'done' ? (it.live ? '#3E8E5E' : '#4E7A63') : it.status === 'error' ? '#E07A6B' : '#2E4A3B') + ';border-radius:12px;padding:10px;background:#11261C';
+      var im = el('img'); im.alt = ''; im.src = it.preview; im.style.cssText = 'width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;background:#0B1712'; w.appendChild(im);
+      if (it.status === 'waiting' || it.status === 'thinking' || it.status === 'saving') { w.appendChild(el('div', it.status === 'waiting' ? '⏳ Waiting…' : it.status === 'thinking' ? '🤖 AI is writing the listing…' : '💾 Saving the draft…', 'small')); return w; }
+      if (it.status === 'error') {
+        w.appendChild(el('div', '⚠ ' + it.err, 'small'));
+        var rt = el('button', 'Try again', 'ghost'); rt.type = 'button'; rt.addEventListener('click', function () { it.status = 'waiting'; it.err = ''; draw(); pump(); }); w.appendChild(rt);
+        var rm0 = el('button', 'Remove', 'ghost'); rm0.type = 'button'; rm0.addEventListener('click', function () { BULK.splice(BULK.indexOf(it), 1); draw(); }); w.appendChild(rm0);
+        return w;
+      }
+      if (it.status === 'done') { w.appendChild(el('b', it.name)); w.appendChild(el('div', it.live ? '✅ Live in your shop · $' + Number(it.price).toFixed(2) : '📝 Saved as a draft (find it in your pieces)', 'small')); return w; }
+      // ready: everything editable
+      var ck = el('input'); ck.type = 'checkbox'; ck.checked = it.pick !== false; ck.addEventListener('change', function () { it.pick = ck.checked; });
+      var cl = el('label'); cl.style.cssText = 'display:flex!important;flex-direction:row!important;gap:8px;align-items:center;font-size:13px'; cl.appendChild(ck); cl.appendChild(document.createTextNode('Include in "Make all live"')); w.appendChild(cl);
+      var nm = input('text', it.name, { maxlength: '120' }); nm.addEventListener('input', function () { it.name = nm.value; });
+      var pr = input('number', it.price, { min: '1', step: '0.01', inputmode: 'decimal' }); pr.addEventListener('input', function () { it.price = pr.value; });
+      var qt = input('number', it.stock, { min: '1', step: '1' }); qt.addEventListener('input', function () { it.stock = qt.value; });
+      var sh = input('text', it.shipping, { placeholder: 'free, or e.g. 5' }); sh.addEventListener('input', function () { it.shipping = sh.value; });
+      var cat = select([['', 'Category']].concat((D.sections || []).map(function (s2) { return [s2, s2]; })), it.section); cat.addEventListener('change', function () { it.section = cat.value; });
+      var ds = el('textarea', null, 'jf-ta'); ds.value = it.desc; ds.rows = 4; ds.maxLength = 1200; ds.addEventListener('input', function () { it.desc = ds.value; });
+      w.appendChild(field('Title', nm));
+      var two = el('div', null, 'two'); two.appendChild(field('Price (USD)', pr, it.guess ? 'AI guess: check it' : 'Set your price')); two.appendChild(field('How many', qt)); w.appendChild(two);
+      var two2 = el('div', null, 'two'); two2.appendChild(field('Shipping', sh)); two2.appendChild(field('Category', cat)); w.appendChild(two2);
+      var dd = el('details'); dd.appendChild(el('summary', 'Description', 'small')); dd.appendChild(ds); w.appendChild(dd);
+      var m = el('div', '', 'small'); 
+      var bar = el('div'); bar.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px';
+      var gl = el('button', '✅ Go live', 'solid'), kd = el('button', 'Keep as draft', 'ghost'), del = el('button', '🗑', 'ghost'); gl.type = kd.type = del.type = 'button'; del.title = 'Delete this draft';
+      gl.addEventListener('click', function () { finish(it, true, m); }); kd.addEventListener('click', function () { finish(it, false, m); });
+      del.addEventListener('click', function () { if (!confirm('Delete this draft?')) return; JF.api('/api/market', { do: 'remove', t: tok, as: AS, ak: AK, id: it.id }).then(function () { BULK.splice(BULK.indexOf(it), 1); draw(); }); });
+      bar.appendChild(gl); bar.appendChild(kd); bar.appendChild(del); w.appendChild(bar); w.appendChild(m);
+      Array.prototype.forEach.call(w.querySelectorAll('input:not([type=checkbox]),select,textarea'), function (x) { x.style.width = '100%'; x.style.minWidth = '0'; x.style.boxSizing = 'border-box'; });
+      return w;
+    };
+    var save = function (it, live) {
+      var s0 = String(it.shipping || '').trim().toLowerCase(), free = !s0 || s0 === 'free' || Number(s0.replace(/[^0-9.]/g, '')) === 0;
+      return JF.api('/api/market', { do: 'listing', t: tok, as: AS, ak: AK, id: it.id || '', name: it.name, desc: it.desc, price: it.price, stock: it.stock, shipping: free ? 'free' : s0.replace(/[^0-9.]/g, ''), shipMode: free ? 'free' : 'flat', section: it.section, hidden: !live, mode: 'buy' });
+    };
+    var finish = function (it, live, m) {
+      if (live && !(Number(it.price) >= 1)) { if (m) m.textContent = 'Set a price first.'; return Promise.resolve(); }
+      if (m) m.textContent = live ? 'Putting it live…' : 'Saving…';
+      return save(it, live).then(function (r) { if (r.error) { if (m) m.textContent = r.error; return; } it.status = 'done'; it.live = live; draw(); loadQuiet(); });
+    };
+    allLive.addEventListener('click', function () {
+      var todo = BULK.filter(function (x) { return x.status === 'ready' && x.pick !== false; }); if (!todo.length) return;
+      allLive.disabled = true; var i = 0;
+      var step = function () { if (i >= todo.length) { allLive.disabled = false; return; } finish(todo[i++], true, null).then(step); }; step();
+    });
+    var one = function (it) {
+      it.status = 'thinking'; draw();
+      JF.api('/api/market', { do: 'listing-ai', t: tok, as: AS, ak: AK, kind: 'photo', estimate: 1, data: it.data }).then(function (r) {
+        if (r.error) throw new Error(r.error);
+        it.name = r.title; it.desc = r.description || ''; it.section = r.category || ''; it.guess = r.price > 0; it.price = r.price >= 1 ? r.price : 1;
+        it.status = 'saving'; draw();
+        return save(it, false).then(function (s) {
+          if (s.error) throw new Error(s.error);
+          it.id = s.listing ? s.listing.id : s.id || (s.p && s.p.id) || '';
+          if (!it.id) throw new Error('The draft was not saved.');
+          return JF.api('/api/market', { do: 'photo', t: tok, as: AS, ak: AK, id: it.id, data: it.data });
+        });
+      }).then(function (ph) { if (ph && ph.error) throw new Error(ph.error); it.status = 'ready'; it.data = it.data; })
+        .catch(function (e) { it.status = 'error'; it.err = (e && e.message) || 'That did not work.'; })
+        .then(function () { running--; draw(); pump(); });
+    };
+    var pump = function () {
+      while (running < 2) {
+        var nx = BULK.filter(function (x) { return x.status === 'waiting' && x.data; })[0];
+        if (!nx) break; running++; one(nx);
+      }
+    };
+    // Only cards whose state changed are redrawn, so typing in one card is not interrupted while others finish.
+    var draw = function () {
+      Array.prototype.slice.call(list.children).forEach(function (n) { if (!BULK.some(function (it) { return it.node === n; })) n.remove(); });
+      BULK.forEach(function (it) {
+        var key = it.status + (it.live ? 'L' : '') + (it.preview ? 'p' : '') + (it.err || '');
+        if (it.node && it.node.parentNode === list && it.drawn === key) return;
+        var n = card(it);
+        if (it.node && it.node.parentNode === list) list.replaceChild(n, it.node); else list.appendChild(n);
+        it.node = n; it.drawn = key;
+      });
+      update();
+    };
+    pick.addEventListener('change', function () {
+      var files = Array.prototype.slice.call(pick.files || []).slice(0, 60); pick.value = '';
+      files.forEach(function (f) {
+        var it = { status: 'waiting', name: '', desc: '', section: '', price: '', stock: 1, shipping: 'free' };
+        BULK.push(it);
+        shrink(f).then(function (d) { it.data = d; it.preview = d; draw(); pump(); }, function (e) { it.status = 'error'; it.err = e.message; it.preview = ''; draw(); });
+      });
+      draw();
+    });
+    draw(); pump();
+    return c;
+  }
+  // Refresh the seller's data quietly (after bulk changes) without leaving the bulk screen.
+  function loadQuiet() { JF.api('/api/market?do=me&t=' + encodeURIComponent(tok) + (AS ? '&as=' + encodeURIComponent(AS) + '&ak=' + encodeURIComponent(AK) : '')).then(function (r) { if (r && r.seller) D = r; }); }
   function listingForm(p) {
     var c = el('section', null, 'card'); c.style.gap = '14px';
     c.appendChild(el('h2', p ? 'Change this piece' : 'Add a piece'));
@@ -866,10 +984,13 @@
     if (pendingEdit) { var pe0 = D.listings.filter(function (x) { return x.id === pendingEdit; })[0]; pendingEdit = ''; if (pe0) { editing = pe0; adding = false; } }
     if (editing) { pane.appendChild(listingForm(editing)); return; }
     if (adding) { pane.appendChild(listingForm(null)); return; }
+    if (bulkOn) { pane.appendChild(bulkPanel()); return; }
     // Your pieces come first; the form only opens when you press Add a product.
     var add = el('button', '+ Add a product', 'solid'); add.type = 'button';
     add.addEventListener('click', function () { adding = true; dash(); window.scrollTo(0, 0); });
-    var acts0 = el('div'); acts0.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px'; acts0.appendChild(add); pane.appendChild(acts0);
+    var acts0 = el('div'); acts0.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px'; acts0.appendChild(add);
+    var bk = el('button', '📸 Bulk list from photos', 'ghost'); bk.type = 'button'; bk.addEventListener('click', function () { bulkOn = true; dash(); window.scrollTo(0, 0); }); acts0.appendChild(bk);
+    pane.appendChild(acts0);
     if (pendingEdit) { var pe = D.listings.filter(function (x) { return x.id === pendingEdit; })[0]; pendingEdit = ''; if (pe) { editing = pe; pane.textContent = ''; pane.appendChild(listingForm(pe)); return; } }
     if (!D.listings.length) { pane.appendChild(el('div', 'No pieces yet. Press Add a product to list your first one.', 'jf-empty')); return; }
     var list = el('section', null, 'card'); list.style.gap = '0';
