@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Your cart · VeeFam</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&family=IBM+Plex+Mono:wght@400;500&family=Playfair+Display:wght@600;700;800&display=swap">
+<link rel="stylesheet" href="/site.css">
+<link rel="stylesheet" href="/market.css">
+<style>
+.ct{display:grid;grid-template-columns:1fr minmax(280px,380px);gap:20px;align-items:start}
+@media(max-width:820px){.ct{grid-template-columns:1fr}}
+.ct-shop{border:1px solid #2E4A3B;border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px;background:#0F2219}
+.ct-it{display:flex;gap:12px;align-items:center}
+.ct-it img,.ct-it .ph{width:72px;height:72px;object-fit:cover;border-radius:8px;background:#11261C;flex:none}
+.ct-it .tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.ct-q{display:inline-flex;align-items:center;gap:6px}
+.ct-q button{width:32px;height:32px;padding:0;min-height:0;font-size:16px}
+.ct-x{background:none;border:none;color:#B9C9BF;text-decoration:underline;cursor:pointer;font:inherit;font-size:13px;padding:0;min-height:0}
+.ct-sum{position:sticky;top:12px;border:2px solid #C9A45C;border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px;background:#0F2219}
+.ct-row{display:flex;justify-content:space-between;gap:10px}
+.ct-row.tot{font-size:20px;font-weight:900;border-top:1px solid #2E4A3B;padding-top:10px}
+.ct-pay label{display:flex!important;flex-direction:row!important;gap:10px!important;align-items:center!important;text-align:left!important;padding:10px 12px!important;border:1px solid #2E4A3B;border-radius:10px;cursor:pointer;font-weight:400}
+.ct-pay label:has(input:checked){border-color:#C9A45C;background:#16301F}
+.ct-pay input[type=radio]{width:18px;height:18px;flex:none;margin:0;accent-color:#C9A45C}
+.ct-pay{display:flex;flex-direction:column;gap:6px}
+.ct-f{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.ct-f input{width:100%;box-sizing:border-box;min-width:0}
+.ct-f .w{grid-column:1/-1}
+.ct-done{border:1px solid #2E4A3B;border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:4px}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap bar"><a class="brand" href="/" style="text-decoration:none">VeeFam</a><span style="display:flex;align-items:center;gap:20px"><a class="home" href="/market.html">Shop</a></span></div></header>
+<main class="wrap page" style="gap:20px">
+  <div class="stack-s"><div class="mono gold">CHECKOUT</div><h1>Your cart</h1><div class="small" id="lead">Buy several pieces at once. Pieces from the same shop ship together, so you pay that shop's shipping once.</div></div>
+  <div id="signin" hidden></div>
+  <div class="ct" id="ct"><div id="items" style="display:flex;flex-direction:column;gap:14px"></div><div id="sum"></div></div>
+</main>
+<script src="/jf.js"></script>
+<script>
+(function () {
+  var el = function (t, x, c) { var e = document.createElement(t); if (x != null) e.textContent = x; if (c) e.className = c; return e; };
+  var $ = function (id) { return document.getElementById(id); };
+  var usd = function (c) { return '$' + (c / 100).toFixed(2); };
+  var cents = function (v) { return Math.round(Number(String(v || 0).replace(/[^0-9.]/g, '')) * 100) || 0; };
+  var C = function () { return window.V2VCart; };
+  var tok = JF.token(), ME = null, CFG = {}, method = '', pm = '', busy = false, done = null;
+  var qs = new URLSearchParams(location.search);
+  function ready(f) { if (window.V2VCart) f(); else setTimeout(function () { ready(f); }, 50); }
+  ready(function () {
+    // Back from saving a card on Stripe's page.
+    var added = qs.get('added');
+    var first = added && tok ? JF.api('/api/me?do=card-done&session=' + encodeURIComponent(added) + '&t=' + encodeURIComponent(tok)).then(function () { history.replaceState(null, '', '/cart.html'); }) : Promise.resolve();
+    first.then(function () { return Promise.all([fetch('/api/order', { cache: 'no-store' }).then(function (r) { return r.json(); }).catch(function () { return {}; }), refresh()]); }).then(function (x) { CFG = x[0] || {}; loadMe(); });
+  });
+  // Bring prices and stock up to date, and drop pieces that sold out or are no longer for sale.
+  function refresh() {
+    var list = C().items();
+    return Promise.all(list.map(function (it) { return fetch('/api/market?do=item&id=' + encodeURIComponent(it.id), { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return undefined; }); })).then(function (got) {
+      got.forEach(function (p, i) {
+        var it = list[i]; if (p === undefined) return;
+        if (!p || p.auction || p.party || !(p.left > 0)) { C().remove(it.id); return; }
+        C().remove(it.id); C().add({ id: p.id, name: p.name, price: p.price, ship: p.ship, photo: p.photo, seller: p.seller, sellerName: p.sellerName, left: p.left, nft: p.nft, qty: Math.min(p.left, it.qty || 1) });
+      });
+    });
+  }
+  function loadMe() {
+    if (!tok) { draw(); return; }
+    JF.api('/api/me?t=' + encodeURIComponent(tok)).then(function (r) {
+      if (r._status === 401) { JF.signOut(); tok = ''; } else if (!r.error) ME = r;
+      if (ME) { pm = ME.defaultCard || (ME.cards && ME.cards[0] && ME.cards[0].id) || ''; method = method || (ME.prefer && ME.prefer !== 'card' && CFG.ways && CFG.ways[ME.prefer] ? ME.prefer : 'card'); }
+      draw();
+    });
+  }
+  function groups() {
+    var g = {}, order = [];
+    C().items().forEach(function (it) { var k = it.seller || '_house'; if (!g[k]) { g[k] = { name: it.sellerName || 'VeeFam', slug: it.seller, items: [] }; order.push(k); } g[k].items.push(it); });
+    return order.map(function (k) { var x = g[k]; x.ship = x.items.some(function (i) { return !i.nft; }) ? Math.max.apply(null, x.items.map(function (i) { return i.nft ? 0 : cents(i.ship); })) : 0; return x; });
+  }
+  function draw() {
+    if (done) return drawDone();
+    var I = $('items'), S = $('sum'); I.textContent = ''; S.textContent = '';
+    var G = groups();
+    if (!G.length) { I.appendChild(el('div', 'Your cart is empty.', 'small')); var a = el('a', 'Browse the market', 'solid'); a.href = '/market.html'; a.style.cssText = 'text-decoration:none;align-self:flex-start'; I.appendChild(a); return; }
+    var sub = 0, ship = 0, orders = 0;
+    G.forEach(function (g) {
+      var box = el('div', null, 'ct-shop');
+      var hd = el('div'); hd.style.cssText = 'display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap';
+      hd.appendChild(el('b', g.name)); hd.appendChild(el('span', g.items.length > 1 && g.ship ? '📦 Ships together · one shipping fee ' + usd(g.ship) : g.ship ? 'Shipping ' + usd(g.ship) : 'Free shipping', 'small'));
+      box.appendChild(hd);
+      g.items.forEach(function (it) {
+        var r = el('div', null, 'ct-it');
+        if (it.photo) { var im = el('img'); im.src = it.photo; im.alt = ''; r.appendChild(im); } else r.appendChild(el('div', null, 'ph'));
+        var tx = el('div', null, 'tx'); var nm = el('a', it.name); nm.href = '/order.html?product=' + encodeURIComponent(it.id); nm.style.cssText = 'color:inherit;font-weight:700;text-decoration:none'; tx.appendChild(nm);
+        tx.appendChild(el('span', usd(cents(it.price)) + ' each' + (it.left > 1 ? ' · ' + it.left + ' available' : ' · last one'), 'small dim'));
+        var q = el('div', null, 'ct-q'), mi = el('button', '−', 'ghost'), n = el('b', String(it.qty)), pl = el('button', '+', 'ghost'), x = el('button', 'Remove', 'ct-x'); mi.type = pl.type = x.type = 'button';
+        mi.disabled = it.qty <= 1; pl.disabled = it.qty >= it.left;
+        mi.addEventListener('click', function () { C().set(it.id, it.qty - 1); draw(); }); pl.addEventListener('click', function () { C().set(it.id, it.qty + 1); draw(); }); x.addEventListener('click', function () { C().remove(it.id); draw(); });
+        q.appendChild(mi); q.appendChild(n); q.appendChild(pl); q.appendChild(x); tx.appendChild(q);
+        r.appendChild(tx); r.appendChild(el('b', usd(cents(it.price) * it.qty)));
+        box.appendChild(r);
+        sub += cents(it.price) * it.qty; orders++;
+      });
+      ship += g.ship; I.appendChild(box);
+    });
+    // The summary: where it ships, how to pay, and the total.
+    var s = el('div', null, 'ct-sum'); S.appendChild(s);
+    if (!tok || !ME) {
+      s.appendChild(el('b', 'Sign in to check out')); var b = el('div'); s.appendChild(b);
+      JF.signInBox(b, 'Sign in, or create a free account, to buy.', function (t) { tok = t; loadMe(); }); return;
+    }
+    s.appendChild(el('b', 'Ship to'));
+    var A = ME.address || {}, f = el('div', null, 'ct-f');
+    var fld = function (k, ph, v, w) { var i = el('input'); i.placeholder = ph; i.value = v || ''; i.id = 'a_' + k; i.autocomplete = { name: 'name', street: 'address-line1', line2: 'address-line2', city: 'address-level2', state: 'address-level1', zip: 'postal-code' }[k] || 'off'; if (w) i.className = 'w'; f.appendChild(i); return i; };
+    fld('name', 'Full name', A.name || ME.name, true); fld('street', 'Street address', A.street, true); fld('line2', 'Apt, suite (optional)', A.line2, true); fld('city', 'City', A.city); fld('state', 'State', A.state); fld('zip', 'ZIP code', A.zip);
+    s.appendChild(f);
+    s.appendChild(el('b', 'Pay with'));
+    var P = el('div', null, 'ct-pay'); s.appendChild(P);
+    var opt = function (val, label, sub2) { var l = el('label'), r = el('input'); r.type = 'radio'; r.name = 'm'; r.value = val; r.checked = method === val; r.addEventListener('change', function () { method = val; draw(); }); l.appendChild(r); var t = el('span'); t.appendChild(el('b', label)); if (sub2) { t.appendChild(el('br')); t.appendChild(el('span', sub2, 'small dim')); } l.appendChild(t); P.appendChild(l); };
+    if (CFG.card !== false) opt('card', 'Card', ME.cards && ME.cards.length ? 'Your saved card, one tap' : 'Add a card on Stripe’s secure page first');
+    var W = CFG.ways || {}; if (W.zelle) opt('zelle', 'Zelle'); if (W.venmo) opt('venmo', 'Venmo'); if (W.cashapp) opt('cashapp', 'Cash App');
+    if (method === 'card') {
+      if (ME.cards && ME.cards.length) {
+        var sel = el('select', null, 'jf-sel'); ME.cards.forEach(function (c) { var o = el('option', (c.brand || 'Card') + ' ending ' + c.last4 + (c.exp ? ' · ' + c.exp : '')); o.value = c.id; sel.appendChild(o); }); sel.value = pm; sel.addEventListener('change', function () { pm = sel.value; }); s.appendChild(sel);
+      }
+      var add = el('button', ME.cards && ME.cards.length ? '+ Use a different card' : '+ Add a card', 'ghost'); add.type = 'button';
+      add.addEventListener('click', function () { add.disabled = true; JF.api('/api/me', { do: 'card-add', back: 'cart', t: tok }).then(function (r) { if (r.url) location.href = r.url; else { add.disabled = false; msg.textContent = r.error || 'Could not open the card page.'; } }); });
+      s.appendChild(add);
+    }
+    // Totals. Card orders add the card fee per order; Illinois addresses add sales tax. Exact amounts are on each order.
+    var st = ($('a_state') ? $('a_state').value : A.state || '').trim().toLowerCase().replace(/\.$/, '');
+    var tax = /^(il|ill|illinois)$/.test(st) && CFG.taxIL ? Math.round(sub * CFG.taxIL / 100) : 0;
+    var fee = method === 'card' && CFG.cardFee != null ? Math.round((sub + ship + tax) * Number(CFG.cardFee) / 100) + Math.round(Number(CFG.cardFeeFixed || 0)) * orders : 0;
+    var row = function (a, b, c) { var r = el('div', null, 'ct-row' + (c ? ' ' + c : '')); r.appendChild(el('span', a)); r.appendChild(el('span', b)); s.appendChild(r); };
+    row('Pieces', usd(sub)); row('Shipping' + (G.length > 1 ? ' (' + G.length + ' shops)' : ''), ship ? usd(ship) : 'Free');
+    if (tax) row('Illinois sales tax', usd(tax));
+    if (fee) row('Card fee', usd(fee));
+    row('Total', usd(sub + ship + tax + fee), 'tot');
+    s.appendChild(el('div', 'Each piece becomes its own order (same as buying it on its own), with one shipping fee per shop. ' + (method === 'card' ? 'Your card is charged once per order. A debit card gets the card fee back.' : 'You get where to send the payment on the next screen.') + ' Shipping can change a little once your address is checked.', 'small dim'));
+    var go = el('button', method === 'card' ? 'Place order and pay ' + usd(sub + ship + tax + fee) : 'Place order', 'solid'); go.type = 'button'; go.style.cssText = 'font-size:17px;padding:14px;font-weight:800';
+    go.disabled = busy || !method || (method === 'card' && !(ME.cards && ME.cards.length));
+    var msg = el('div', '', 'small'); msg.setAttribute('role', 'status');
+    go.addEventListener('click', function () { place(go, msg); });
+    s.appendChild(go); s.appendChild(msg);
+    ['state'].forEach(function (k) { var i = $('a_' + k); if (i) i.addEventListener('change', draw); });
+  }
+  function place(go, msg) {
+    var a = {}; ['name', 'street', 'line2', 'city', 'state', 'zip'].forEach(function (k) { a[k] = ($('a_' + k).value || '').trim(); });
+    if (!a.name || !a.street || !a.city || !a.state || !a.zip) { msg.textContent = 'Fill in where it ships.'; return; }
+    busy = true; go.disabled = true; msg.textContent = 'Placing your orders…';
+    var items = C().items().map(function (x) { return { id: x.id, qty: x.qty }; });
+    JF.api('/api/me', { do: 'address', t: tok, name: a.name, street: a.street, line2: a.line2, city: a.city, state: a.state, zip: a.zip }).catch(function () {});
+    JF.api('/api/market', { do: 'cart-place', t: tok, method: method, items: items, ship: a }).then(function (r) {
+      if (r.error) { busy = false; go.disabled = false; msg.textContent = r.error; return; }
+      var ok = r.orders.filter(function (o) { return o.ok; });
+      C().clear(ok.map(function (o) { return o.id; }));
+      done = { method: method, orders: r.orders.map(function (o) { var it = items.filter(function (x) { return x.id === o.id; })[0]; return Object.assign(o, { name: (C().items().concat(lastItems).filter(function (x) { return x.id === o.id; })[0] || {}).name || o.id, qty: it ? it.qty : 1 }); }) };
+      if (method !== 'card') { busy = false; draw(); return; }
+      // Pay each card order with the saved card, one after another.
+      var i = 0;
+      var next = function () {
+        var o = done.orders.filter(function (x) { return x.ok && !x.paid && !x.payErr && x.inv; })[0];
+        if (!o) { busy = false; draw(); return; }
+        msg.textContent = 'Paying order ' + (++i) + ' of ' + ok.length + '…';
+        JF.api('/api/me', { do: 'quickpay', t: tok, inv: o.inv, pm: pm }).then(function (p) {
+          if (p.ok) o.paid = true;
+          else if (p.redirect) { o.payErr = 'Your bank wants to check this payment.'; o.finish = p.redirect; }
+          else { o.payErr = p.error || 'This payment did not go through.'; o.finish = p.fallback || o.link; }
+          next();
+        }).catch(function () { o.payErr = 'This payment did not go through.'; o.finish = o.link; next(); });
+      };
+      next();
+    });
+  }
+  var lastItems = C ? [] : []; ready(function () { lastItems = C().items(); });
+  function drawDone() {
+    var I = $('items'), S = $('sum'); I.textContent = ''; S.textContent = '';
+    var D = done, good = D.orders.filter(function (o) { return o.ok; }), bad = D.orders.filter(function (o) { return !o.ok; });
+    $('lead').textContent = '';
+    var box = el('div', null, 'ct-sum'); I.appendChild(box);
+    var allPaid = D.method === 'card' && good.length && good.every(function (o) { return o.paid; });
+    box.appendChild(el('h2', allPaid ? '🎉 Paid! Thank you.' : good.length ? 'Your orders are placed' : 'Your orders were not placed'));
+    if (D.method !== 'card' && good.length) box.appendChild(el('div', 'Open each order below to see where to send the ' + ({ zelle: 'Zelle', venmo: 'Venmo', cashapp: 'Cash App' }[D.method] || '') + ' payment and how much. Put the order number in the payment note. You also got an email for each one.', 'small'));
+    D.orders.forEach(function (o) {
+      var c = el('div', null, 'ct-done');
+      c.appendChild(el('b', o.name + (o.qty > 1 ? ' × ' + o.qty : '') + (o.n ? ' · order ' + o.n : '')));
+      if (!o.ok) c.appendChild(el('span', '✗ ' + o.error, 'small'));
+      else if (o.paid) c.appendChild(el('span', '✓ Paid' + (o.bundled ? ' · ships in the same box as your other piece from this shop' : ''), 'small'));
+      else if (o.payErr) { c.appendChild(el('span', o.payErr, 'small')); var f = el('a', 'Finish paying this order ›', 'solid'); f.href = o.finish; f.style.cssText = 'text-decoration:none;align-self:flex-start'; c.appendChild(f); }
+      else { var l = el('a', 'See how to pay ›', 'solid'); l.href = o.link; l.style.cssText = 'text-decoration:none;align-self:flex-start'; c.appendChild(l); if (o.bundled) c.appendChild(el('span', 'No shipping on this one: it ships with your other piece from the same shop.', 'small dim')); }
+      box.appendChild(c);
+    });
+    if (bad.length) box.appendChild(el('div', 'Pieces that could not be ordered are still in your cart.', 'small dim'));
+    var a = el('a', 'Keep shopping', 'ghost'); a.href = '/market.html'; a.style.cssText = 'text-decoration:none;align-self:flex-start'; box.appendChild(a);
+  }
+})();
+</script>
+</body>
+</html>

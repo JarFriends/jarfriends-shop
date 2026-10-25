@@ -21,6 +21,13 @@
       q.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border:1px solid #C9A45C;border-radius:999px;color:#E8C77A;text-decoration:none;font-weight:700;font-size:14px;margin-left:4px';
       d.appendChild(q);
     }
+    // Add to cart, for Buy now pieces (not auctions or party pricing, which have their own checkout).
+    if (!p.auction && !p.party && p.left > 0 && window.V2VCart) {
+      var ca = document.createElement('button'); ca.type = 'button'; ca.textContent = '🛒 Add to cart';
+      ca.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border:1px solid #C9A45C;border-radius:999px;background:#C9A45C;color:#0B1A13;font-weight:800;font-size:14px;cursor:pointer;min-height:0;margin-left:4px';
+      var added = false; ca.addEventListener('click', function () { if (added) { location.href = '/cart.html'; return; } added = true; var qn = document.getElementById('qty'); window.V2VCart.add({ id: p.id, name: p.name, price: p.price, ship: p.ship, photo: p.photo, seller: p.seller, sellerName: p.sellerName, left: p.left, nft: p.nft, qty: Math.max(1, Number(qn && qn.value) || 1) }); ca.textContent = '✓ In your cart · View cart ›'; });
+      d.appendChild(ca);
+    }
     var h = document.querySelector('main h1');
     if (h && h.parentNode) h.parentNode.insertBefore(d, h.nextSibling); else { var m = document.querySelector('main'); if (m) m.insertBefore(d, m.firstChild); }
   }).catch(function () {});

@@ -18,16 +18,30 @@
 .mg-item .pv{font-size:13px;color:#B9C9BF;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .mg-dot{background:#E5484D;color:#fff;border-radius:10px;font-size:11px;font-weight:800;padding:1px 7px}
 .mg-tag{font-size:10px;letter-spacing:.08em;font-weight:800;color:#E8C77A}
-.mg-thread{display:flex;flex-direction:column;gap:10px;background:#0F2219;border:1px solid #2E4A3B;border-radius:12px;padding:14px;min-height:380px}
-.mg-head{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;border-bottom:1px solid #2E4A3B;padding-bottom:10px}
-.mg-msgs{display:flex;flex-direction:column;gap:8px;max-height:58vh;overflow-y:auto;padding:4px 2px}
-.mg-b{max-width:82%;padding:9px 12px;border-radius:14px;white-space:pre-wrap;word-wrap:break-word;line-height:1.4;font-size:15px}
-.mg-b.me{align-self:flex-end;background:#C9A45C;color:#0B1A13;border-bottom-right-radius:4px}
-.mg-b.them{align-self:flex-start;background:#1C3A2B;color:#F7F2E6;border-bottom-left-radius:4px}
-.mg-t{font-size:11px;opacity:.7;margin-top:3px}
-.mg-say{display:flex;gap:8px;align-items:flex-end}
-.mg-say textarea{flex:1;min-width:0;min-height:46px;max-height:160px;resize:vertical;font:inherit;font-size:16px;padding:10px 12px;background:#0B1A13;border:1px solid #4E7A63;color:#F7F2E6;border-radius:10px}
+.mg-thread{display:flex;flex-direction:column;background:#0F2219;border:1px solid #2E4A3B;border-radius:16px;overflow:hidden;min-height:440px}
+.mg-head{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:14px 16px;background:#132A1F;border-bottom:1px solid #2E4A3B}
+.mg-who{display:flex;gap:12px;align-items:center;min-width:0;flex:1}
+.mg-av{width:44px;height:44px;border-radius:50%;background:#C9A45C;color:#0B1A13;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:18px;flex:none}
+.mg-who .nm{font-size:17px;font-weight:800;line-height:1.2}
+.mg-piece{display:flex;gap:10px;align-items:center;margin:12px 16px 0;padding:8px 10px;border:1px solid #2E4A3B;border-radius:12px;background:#11261C;text-decoration:none;color:inherit}
+.mg-piece img,.mg-piece .ph{width:48px;height:48px;border-radius:8px;object-fit:cover;background:#0B1712;flex:none}
+.mg-piece .tx{display:flex;flex-direction:column;gap:2px;min-width:0}
+.mg-piece .tx b{font-size:14px;line-height:1.25;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.mg-links{display:flex;gap:8px;flex-wrap:wrap}
+.mg-links a{padding:7px 12px;border:1px solid #4E7A63;border-radius:999px;text-decoration:none;font-size:13px;font-weight:700;color:#E8C77A}
+.mg-msgs{display:flex;flex-direction:column;gap:10px;flex:1;min-height:220px;max-height:56vh;overflow-y:auto;padding:16px}
+.mg-b{max-width:78%;padding:10px 14px;border-radius:18px;white-space:pre-wrap;word-wrap:break-word;line-height:1.45;font-size:15px;box-shadow:0 1px 0 rgba(0,0,0,.25)}
+.mg-b.me{align-self:flex-end;background:#C9A45C;color:#0B1A13;border-bottom-right-radius:6px}
+.mg-b.them{align-self:flex-start;background:#1E3D2E;color:#F7F2E6;border-bottom-left-radius:6px}
+.mg-t{font-size:11px;opacity:.65;margin-top:4px;text-align:right}
+.mg-hint{align-self:center;text-align:center;max-width:420px;color:#B9C9BF;font-size:14px;padding:18px 8px}
+form.mg-say{display:flex!important;flex-direction:row!important;gap:10px!important;align-items:flex-end!important;max-width:none!important;padding:12px 14px;border-top:1px solid #2E4A3B;background:#132A1F;margin:0}
+.mg-say textarea{flex:1;min-width:0;height:46px;min-height:46px;max-height:140px;resize:none;font:inherit;font-size:16px;line-height:1.35;padding:12px 16px;background:#0B1A13;border:1px solid #4E7A63;color:#F7F2E6;border-radius:23px;box-sizing:border-box}
+.mg-say textarea:focus{outline:none;border-color:#C9A45C}
+.mg-say button{width:46px;height:46px;min-height:0;border-radius:50%;padding:0;font-size:20px;flex:none;display:flex;align-items:center;justify-content:center}
+.mg-status{padding:0 16px 10px;min-height:0}
 .mg-back{display:none}
+@media(max-width:760px){.jfn-help{display:none!important}}
 @media(max-width:760px){.mg-back{display:inline-flex}}
 </style>
 </head>
@@ -81,18 +95,30 @@
       L.appendChild(b);
     });
   }
-  function frame(title, sub, links) {
+  // The conversation: who it is with, the piece it is about (photo and name), the messages, and a reply bar.
+  function frame(title, sub, links, pid) {
     var T = $('thread'); T.textContent = ''; $('mg').classList.add('open');
-    var hd = el('div', null, 'mg-head'), l = el('div'); l.style.cssText = 'display:flex;flex-direction:column;gap:2px';
-    var back = el('button', '‹ All messages', 'ghost mg-back'); back.type = 'button'; back.style.cssText = 'padding:6px 10px;min-height:0'; back.addEventListener('click', function () { $('mg').classList.remove('open'); cur = null; stop(); history.replaceState(null, '', '/messages.html'); drawList(); });
-    l.appendChild(back); l.appendChild(el('b', title)); if (sub) l.appendChild(el('span', sub, 'small dim'));
-    hd.appendChild(l);
-    var r = el('div'); r.style.cssText = 'display:flex;gap:10px;flex-wrap:wrap'; (links || []).forEach(function (x) { var a = el('a', x[0]); a.href = x[1]; r.appendChild(a); }); hd.appendChild(r);
+    var hd = el('div', null, 'mg-head'), who = el('div', null, 'mg-who');
+    var back = el('button', '‹', 'ghost mg-back'); back.type = 'button'; back.title = 'All messages'; back.style.cssText = 'padding:4px 12px;min-height:0;font-size:20px'; back.addEventListener('click', function () { $('mg').classList.remove('open'); cur = null; stop(); history.replaceState(null, '', '/messages.html'); drawList(); });
+    who.appendChild(back); who.appendChild(el('div', (title || '?').trim().charAt(0).toUpperCase(), 'mg-av'));
+    var nm = el('div'); nm.style.minWidth = '0'; nm.appendChild(el('div', title, 'nm')); if (sub) nm.appendChild(el('div', sub, 'small dim')); who.appendChild(nm);
+    hd.appendChild(who);
+    var r = el('div', null, 'mg-links'); (links || []).forEach(function (x) { var a = el('a', x[0]); a.href = x[1]; r.appendChild(a); }); hd.appendChild(r);
     T.appendChild(hd);
+    if (pid) {
+      var pc = el('a', null, 'mg-piece'); pc.href = '/order.html?product=' + encodeURIComponent(pid); pc.hidden = true; T.appendChild(pc);
+      fetch('/api/market?do=item&id=' + encodeURIComponent(pid), { cache: 'no-store' }).then(function (x) { return x.ok ? x.json() : null; }).then(function (p) {
+        if (!p) return; pc.hidden = false;
+        if (p.photo) { var im = el('img'); im.src = p.photo; im.alt = ''; pc.appendChild(im); } else pc.appendChild(el('div', null, 'ph'));
+        var tx = el('div', null, 'tx'); tx.appendChild(el('b', p.name)); tx.appendChild(el('span', '$' + p.price + (p.left > 0 ? ' · ' + p.left + ' available' : ' · sold out'), 'small dim')); pc.appendChild(tx);
+      }).catch(function () {});
+    }
     var box = el('div', null, 'mg-msgs'); T.appendChild(box);
-    var f = el('form', null, 'mg-say'), ta = el('textarea'), go = el('button', 'Send', 'solid'); go.type = 'submit'; ta.maxLength = 1500; ta.rows = 2;
+    var f = el('form', null, 'mg-say'), ta = el('textarea'), go = el('button', '➤', 'solid'); go.type = 'submit'; go.title = 'Send'; go.setAttribute('aria-label', 'Send'); ta.maxLength = 1500; ta.rows = 1; ta.placeholder = 'Write a message…';
+    var grow = function () { ta.style.height = '46px'; ta.style.height = Math.min(140, ta.scrollHeight + 2) + 'px'; };
+    ta.addEventListener('input', grow);
     f.appendChild(ta); f.appendChild(go); T.appendChild(f);
-    var m = el('div', '', 'small'); m.setAttribute('role', 'status'); T.appendChild(m);
+    var m = el('div', '', 'small mg-status'); m.setAttribute('role', 'status'); T.appendChild(m);
     ta.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' && !ev.shiftKey && window.innerWidth > 760) { ev.preventDefault(); f.requestSubmit ? f.requestSubmit() : go.click(); } });
     return { box: box, form: f, ta: ta, go: go, msg: m };
   }
@@ -108,8 +134,8 @@
     JF.api('/api/market?do=msg-open&t=' + encodeURIComponent(tok) + '&id=' + encodeURIComponent(id)).then(function (r) {
       if (r.error) { $('thread').textContent = r.error; return; }
       var t = r.thread; cur = t; history.replaceState(null, '', '/messages.html?t=' + encodeURIComponent(t.id));
-      var links = t.side === 'b' ? [['Visit shop', '/shop.html?s=' + encodeURIComponent(t.seller)]].concat(t.pid ? [['See the piece', '/order.html?product=' + encodeURIComponent(t.pid)]] : []) : (t.pid ? [['Your piece', '/order.html?product=' + encodeURIComponent(t.pid)]] : []);
-      var F = frame(t.side === 'b' ? t.sellerName : t.buyerName + ' (buyer)', t.product ? 'About: ' + t.product : '', links);
+      var links = t.side === 'b' ? [['Visit shop', '/shop.html?s=' + encodeURIComponent(t.seller)]] : [];
+      var F = frame(t.side === 'b' ? t.sellerName : t.buyerName, t.side === 'b' ? 'Seller' : 'Buyer asking about your piece', links, t.pid);
       drawMsgs(F.box, t);
       F.form.addEventListener('submit', function (ev) { ev.preventDefault(); send(F, { id: t.id }); });
       threads.forEach(function (x) { if (x.id === t.id) x.unread = 0; }); drawList();
@@ -123,8 +149,8 @@
     JF.api('/api/market?do=shop&seller=' + encodeURIComponent(slug)).then(function (r) {
       var shop = r.seller, p = (r.products || []).filter(function (x) { return x.id === pid; })[0];
       if (!shop) { $('thread').textContent = 'That shop was not found.'; $('mg').classList.add('open'); return; }
-      var F = frame(shop.name, p ? 'About: ' + p.name : 'A question for this shop', [['Visit shop', '/shop.html?s=' + encodeURIComponent(slug)]]);
-      F.box.appendChild(el('div', 'Ask anything: condition, which cover or version it is, more photos, shipping. ' + shop.name + ' gets an email and replies here.', 'small dim'));
+      var F = frame(shop.name, 'Seller', [['Visit shop', '/shop.html?s=' + encodeURIComponent(slug)]], p ? pid : '');
+      F.box.appendChild(el('div', '💬 Ask anything: condition, which cover or version it is, more photos, shipping. ' + shop.name + ' gets an email and replies here.', 'mg-hint'));
       F.ta.placeholder = p ? 'e.g. Is this ' + p.name + ' a cover A or a blind bag?' : 'Write your question…';
       setTimeout(function () { F.ta.focus(); }, 100);
       F.form.addEventListener('submit', function (ev) { ev.preventDefault(); send(F, { seller: slug, pid: p ? pid : '' }); });

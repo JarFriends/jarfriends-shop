@@ -326,6 +326,8 @@ async function ledger(slug) {
   const rows = await Promise.all(sales.map(async (s) => {
     const got = await Promise.all([store.read(s.path), store.read('meta/' + s.n + '.json'), store.read('fees/' + s.n + '.json')]);
     const d = got[0] || {}, m = got[1] || {};
+    // Shipped in the same box as another order from the same cart: it shares that order's tracking.
+    if (m.bundleLead && !m.tracking) { const lm = await store.read('meta/' + m.bundleLead + '.json'); if (lm && lm.tracking) { m.tracking = lm.tracking; m.shippedAt = lm.shippedAt || 0; } }
     let rate = got[2] && got[2].pct;
     if (rate == null) { rate = feePct(); await store.write('fees/' + s.n + '.json', { pct: rate, at: Date.now() }).catch(() => null); }
     const gross = dollars(d.items) + dollars(d.shipping);
@@ -333,7 +335,7 @@ async function ledger(slug) {
     return { n: s.n, pid: s.pid, seller: mine[s.pid].seller, product: d.product || mine[s.pid].name, q: s.q, at: d.at || s.at, buyer: d.buyer || '', email: d.email || '', ship: d.ship || '', pay: d.pay || '',
       gross: gross, items: dollars(d.items), rate: rate, fee: fee, net: gross - fee, paid: paidOf(d, m), tracking: m.tracking || '', shippedAt: m.shippedAt || 0,
       // Paid by card straight to the seller's own Stripe (see _connect.js): Stripe pays the seller, nothing is owed.
-      direct: !!m.direct, issue: m.issue || null,
+      direct: !!m.direct, issue: m.issue || null, bundleLead: m.bundleLead || '', bundleMates: m.bundleMates || [],
       // A shipping label the seller bought through V2V: its cost, and the part taken from money V2V holds for them.
       labelCost: m.labelCost || 0, labelEarn: m.labelFromEarnings || 0, labelCard: m.labelFromCard || 0, labelPdf: m.labelPdf || '' };
   }));

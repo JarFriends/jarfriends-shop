@@ -200,12 +200,33 @@
     if (bar) {
       var slot = document.createElement('span'); slot.style.cssText = 'position:relative;display:inline-flex';
       b.classList.add('in-bar'); p.classList.add('in-bar');
-      slot.appendChild(acct); slot.appendChild(b); slot.appendChild(p); slot.style.gap = '10px'; slot.style.alignItems = 'center';
+      slot.appendChild(cartLink()); slot.appendChild(acct); slot.appendChild(b); slot.appendChild(p); slot.style.gap = '10px'; slot.style.alignItems = 'center';
       var last = bar.lastElementChild;
       (last && last.tagName === 'SPAN' ? last : bar).appendChild(slot);
     } else { document.body.appendChild(p); document.body.appendChild(b); }
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go); else go();
+  // The shopping cart: kept in this browser (localStorage 'v2vCart'), checked out on /cart.html. window.V2VCart
+  // lets any page add a piece; the 🛒 in the header shows how many pieces are in it.
+  function cartRead() { try { var c = JSON.parse(localStorage.getItem('v2vCart') || '[]'); return Array.isArray(c) ? c : []; } catch (e) { return []; } }
+  function cartWrite(c) { try { localStorage.setItem('v2vCart', JSON.stringify(c.slice(0, 25))); } catch (e) {} cartBadge(); }
+  function cartCount() { return cartRead().reduce(function (n, x) { return n + (x.qty || 1); }, 0); }
+  function cartBadge() { var n = cartCount(); Array.prototype.forEach.call(document.querySelectorAll('.jfn-cart b'), function (x) { x.textContent = n; x.hidden = !n; }); }
+  function cartLink() {
+    var a = document.createElement('a'); a.href = '/cart.html'; a.className = 'jfn-cart'; a.setAttribute('aria-label', 'Shopping cart');
+    a.style.cssText = 'position:relative;display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border:1px solid #4E7A63;border-radius:50%;text-decoration:none;font-size:18px';
+    a.textContent = '🛒'; var n = document.createElement('b'); n.style.cssText = 'position:absolute;top:-6px;right:-6px;background:#C9A45C;color:#0B1A13;border-radius:10px;font-size:11px;padding:1px 6px;font-weight:900'; a.appendChild(n);
+    setTimeout(cartBadge, 0); return a;
+  }
+  window.V2VCart = {
+    items: cartRead,
+    add: function (it) { var c = cartRead(), f = c.filter(function (x) { return x.id === it.id; })[0]; var max = Math.max(1, Number(it.left) || 1); if (f) f.qty = Math.min(max, (f.qty || 1) + (it.qty || 1)); else c.push({ id: it.id, name: it.name, price: it.price, ship: it.ship, photo: it.photo || '', seller: it.seller || '', sellerName: it.sellerName || '', left: max, qty: Math.min(max, it.qty || 1), nft: !!it.nft }); cartWrite(c); return cartCount(); },
+    set: function (id, qty) { var c = cartRead().map(function (x) { if (x.id === id) x.qty = Math.max(1, Math.min(x.left || 99, qty)); return x; }); cartWrite(c); },
+    remove: function (id) { cartWrite(cartRead().filter(function (x) { return x.id !== id; })); },
+    clear: function (ids) { cartWrite(ids ? cartRead().filter(function (x) { return ids.indexOf(x.id) < 0; }) : []); },
+    count: cartCount
+  };
+  window.addEventListener('storage', function (e) { if (e.key === 'v2vCart') cartBadge(); });
   // The owner's own wording (back office > Wording): wherever a page says one thing, it says the owner's words instead.
   // It works on the words as they show on screen, including words a page adds later, and on box placeholders.
   (function wording() {

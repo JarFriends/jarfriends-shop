@@ -34,7 +34,10 @@ const changes = [
   ['public/order.html', "var ship = intl ? (iq.cents || 0) : Math.round(Number(p.ship || 0) * 100);", "var ship = (intl || (p.calc && !p.nft)) ? (iq.cents || 0) : Math.round(Number(p.ship || 0) * 100);"],
   ['public/order.html', "$('sShip').textContent = intl ?", "$('sShip').textContent = (intl || (p.calc && !p.nft)) ?"],
   ['public/order.html', "var bad = p.stock < p.min || q > p.stock || (intl && !iq.cents);", "var bad = p.stock < p.min || q > p.stock || ((intl || (p.calc && !p.nft)) && !iq.cents);"],
-  ['public/order.html', "if (cc() !== 'US') { iq.cents = 0; total(); soon(); }", "if (cc() !== 'US' || (cur() && cur().calc)) { iq.cents = 0; total(); soon(); }"]
+  ['public/order.html', "if (cc() !== 'US') { iq.cents = 0; total(); soon(); }", "if (cc() !== 'US' || (cur() && cur().calc)) { iq.cents = 0; total(); soon(); }"],
+  // Shopping cart, combined shipping: a seller's second and later pieces in one cart ship in the same box, so they
+  // carry no shipping of their own (api/market.js cart-place sets req.v2vBundle; a buyer cannot set it).
+  ['api/order.js', '  // Paying by card adds the card fee on top of the order and shipping', "  if (req.v2vBundle && !isNft) ship = 0;\n  // Paying by card adds the card fee on top of the order and shipping"]
 ];
 changes.forEach(([f, find, put]) => {
   const s = fs.readFileSync(f, 'utf8');

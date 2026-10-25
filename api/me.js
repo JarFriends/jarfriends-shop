@@ -138,7 +138,7 @@ module.exports = async (req, res) => {
     if (what === 'card-add') {
       const cus = await customer(me, u);
       const s = await stripe.call('POST', '/checkout/sessions', { mode: 'setup', currency: 'usd', customer: cus, 'payment_method_types[0]': 'card',
-        success_url: host + '/me.html?added={CHECKOUT_SESSION_ID}', cancel_url: host + '/me.html' });
+        success_url: host + (b.back === 'cart' ? '/cart.html' : '/me.html') + '?added={CHECKOUT_SESSION_ID}', cancel_url: host + (b.back === 'cart' ? '/cart.html' : '/me.html') });
       if (!s.ok || !s.body.url) { console.error('CARD_ADD_FAIL', s.status, JSON.stringify(s.body && s.body.error || {}).slice(0, 200)); return res.status(502).json({ error: 'Could not open the card page just now. Try again.' }); }
       return res.json({ url: s.body.url });
     }

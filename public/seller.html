@@ -1084,7 +1084,10 @@
           c.appendChild(el('div', 'Tracking: ' + o.tracking + ' · the buyer was emailed.', 'small'));
           if (o.labelPdf) labelLinks(c, o.n, false);
           if (o.labelCost) c.appendChild(el('div', 'Label: ' + JF.cents(o.labelCost) + (o.labelEarn ? ' · ' + JF.cents(o.labelEarn) + ' from your earnings' : '') + (o.labelCard ? ' · ' + JF.cents(o.labelCard) + ' on your card' : ''), 'small dim'));
+        } else if (o.bundleLead) {
+          c.appendChild(el('div', '📦 Same cart as order ' + o.bundleLead + ': ship this piece in that box. The buyer paid shipping once, on order ' + o.bundleLead + '. When order ' + o.bundleLead + ' is shipped, this one is marked shipped with the same tracking.', 'alert small'));
         } else {
+          if (o.bundleMates && o.bundleMates.length) c.appendChild(el('div', '📦 Combined shipping: also put ' + o.bundleMates.map(function (n) { var x = D.orders.filter(function (y) { return y.n === n; })[0]; return 'order ' + n + (x ? ' (' + x.product + ')' : ''); }).join(', ') + ' in this box. One label covers them all; pick a package size that fits.', 'alert small'));
           c.appendChild(labelBox(o));
           var f = el('form'); f.style.cssText = 'flex-direction:row;flex-wrap:wrap;align-items:flex-end;gap:10px;max-width:none';
           var tr = input('text', '', { placeholder: 'Tracking number', required: '', autocomplete: 'off' }); var l = field('Or shipped it your own way? Add the tracking number', tr); l.style.flex = '1 1 260px';
@@ -1093,7 +1096,7 @@
           f.addEventListener('submit', function (ev) { ev.preventDefault(); go.disabled = true; JF.api('/api/market', { do: 'ship', t: tok, as: AS, ak: AK, n: o.n, tracking: tr.value }).then(function (r) { go.disabled = false; if (r.error) { m.textContent = r.error; return; } load(); }); });
         }
       } else c.appendChild(el('div', (/zelle|venmo|cash ?app/i.test(o.pay || '') ? 'The buyer is paying by ' + o.pay + '. That money goes to VeeFam, and VeeFam marks the order paid once it arrives. ' : '') + 'You get a "Paid, ship it" email, and the address and the Buy label button show here, once it is paid. Do not ship before then.', 'small dim'));
-      if (!o.tracking && !o.shippedAt && !o.labelPdf) c.appendChild(cancelBox(o));
+      if (!o.tracking && !o.shippedAt && !o.labelPdf && !o.bundleLead) c.appendChild(cancelBox(o));
       pane.appendChild(c);
     });
   }

@@ -110,7 +110,7 @@ module.exports = async (req, res) => {
       const p = (await shopItems()).filter((x) => x.id === String(q.id || ''))[0];
       if (!p) return res.status(404).json({ error: 'Not found.' });
       const s = p.seller ? await M.bySlug(p.seller) : null, st = s ? await M.stats(s) : null;
-      return res.json({ id: p.id, name: p.name, price: p.price, ship: p.ship, left: p.left, photo: p.photo, desc: p.desc || '', auction: p.auction, nft: p.nft, section: p.section || '', seller: p.seller, sellerName: p.sellerName, rating: st ? st.rating : 0, reviews: st ? st.reviews : 0, verified: st ? st.verified : false });
+      return res.json({ party: !!p.party, id: p.id, name: p.name, price: p.price, ship: p.ship, left: p.left, photo: p.photo, desc: p.desc || '', auction: p.auction, nft: p.nft, section: p.section || '', seller: p.seller, sellerName: p.sellerName, rating: st ? st.rating : 0, reviews: st ? st.reviews : 0, verified: st ? st.verified : false });
     }
     // A shop's rating, checkmark and reviews (newest first). Reviewers show as first name and initial.
     if (req.method === 'GET' && what === 'reviews') {
@@ -411,6 +411,44 @@ module.exports = async (req, res) => {
     if (as && gate.isAdmin(req.method === 'POST' ? b.ak : q.ak)) { const who = await M.bySlug(as); if (who) { me = who.email; actAs = true; } }
     if (!me) me = await signedIn(req.method === 'POST' ? b.t : q.t);
     if (!me) return res.status(401).json({ error: 'Sign in first.' });
+    // ---------- Shopping cart: place one order per piece in a single step ----------
+    // Each piece goes through the normal checkout (api/order.js: stock, shipping, card fee, tax, emails), so every
+    // order is the same as one placed on its own. Card orders are then paid one by one with the buyer's saved card
+    // (api/me.js quickpay); Zelle, Venmo and Cash App orders are paid in one go and the owner marks them paid.
+    if (what === 'cart-place' && req.method === 'POST' && !actAs) {
+      const items = (Array.isArray(b.items) ? b.items : []).slice(0, 25);
+      if (!items.length) return res.status(400).json({ error: 'Your cart is empty.' });
+      const method = ['card', 'zelle', 'venmo', 'cashapp'].indexOf(b.method) >= 0 ? b.method : '';
+      if (!method) return res.status(400).json({ error: 'Pick a way to pay.' });
+      const a = b.ship || {}, place = require('./order'), out = [];
+      // Combined shipping: pieces are grouped by shop; in each group the piece with the highest shipping pays it,
+      // and the shop's other pieces ship in the same box for free (see patchmarket.js, req.v2vBundle).
+      const known = {}; (await shopItems()).forEach((p) => { known[p.id] = p; });
+      const shipOf = (it) => Number((known[String(it.id)] || {}).ship) || 0, shopOf = (it) => (known[String(it.id)] || {}).seller || '_house';
+      items.sort((x, y) => (shopOf(x) < shopOf(y) ? -1 : shopOf(x) > shopOf(y) ? 1 : shipOf(y) - shipOf(x)));
+      const leadOf = {};
+      for (const it of items) {
+        const body = { t: b.t, product: String(it.id || '').slice(0, 20), qty: Math.max(1, Math.floor(Number(it.qty) || 1)), method: method, name: a.name, street: a.street, line2: a.line2, city: a.city, state: a.state, zip: a.zip, wallet: a.wallet };
+        const got = await new Promise((done) => {
+          const fake = { _c: 200, setHeader() {}, status(c) { this._c = c; return this; }, json(j) { done({ code: this._c, body: j }); return this; }, send(x) { done({ code: this._c, body: { error: String(x) } }); return this; }, end() { done({ code: this._c, body: {} }); return this; } };
+          const shop = shopOf(it), mate = !!leadOf[shop];
+          Promise.resolve(place({ method: 'POST', body: body, query: {}, headers: req.headers, v2vBundle: mate }, fake)).catch((e) => done({ code: 500, body: { error: String(e && e.message || e) } }));
+        });
+        const link = got.body && got.body.link || '', tok = (/[?&]inv=([^&]+)/.exec(link) || [])[1] || '';
+        const inv = tok ? require('./_lib').verify(decodeURIComponent(tok)) : null, shop = shopOf(it);
+        if (inv && inv.n) {
+          // Same box: the shop's first order leads; the others are marked to ship with it (and share its tracking).
+          if (!leadOf[shop]) leadOf[shop] = inv.n;
+          else {
+            const lead = leadOf[shop], mm = (await store.read('meta/' + inv.n + '.json')) || {}, lm = (await store.read('meta/' + lead + '.json')) || {};
+            await store.write('meta/' + inv.n + '.json', Object.assign(mm, { bundleLead: lead }));
+            await store.write('meta/' + lead + '.json', Object.assign(lm, { bundleMates: (lm.bundleMates || []).concat([inv.n]) }));
+          }
+        }
+        out.push({ id: body.product, n: inv ? inv.n : '', bundled: !!(inv && leadOf[shop] && leadOf[shop] !== inv.n), ok: got.code === 200 && !!link, error: got.code === 200 ? '' : (got.body && got.body.error) || 'This piece could not be ordered.', inv: tok ? decodeURIComponent(tok) : '', link: link });
+      }
+      return res.json({ orders: out });
+    }
     // Messages between buyers and sellers (see _msgs.js).
     if (what === 'msg-send' && req.method === 'POST' && !actAs) { const r = await require('./_msgs').send(me, b, 'https://' + req.headers.host); return res.status(r.error ? 400 : 200).json(r); }
     if (what === 'msg-open' && !actAs) { const r = await require('./_msgs').open(me, String((req.method === 'POST' ? b.id : q.id) || '')); return res.status(r.error ? 404 : 200).json(r); }
