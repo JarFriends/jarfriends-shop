@@ -28,6 +28,19 @@
       var added = false; ca.addEventListener('click', function () { if (added) { location.href = '/cart.html'; return; } added = true; var qn = document.getElementById('qty'); window.V2VCart.add({ id: p.id, name: p.name, price: p.price, ship: p.ship, photo: p.photo, seller: p.seller, sellerName: p.sellerName, left: p.left, nft: p.nft, qty: Math.max(1, Number(qn && qn.value) || 1) }); ca.textContent = '✓ In your cart · View cart ›'; });
       d.appendChild(ca);
     }
+    // Make an offer: opens the offer form on this page (checkout.js keeps it behind a small link).
+    if (!p.auction && !p.party && p.left > 0) {
+      var mo = document.createElement('button'); mo.type = 'button'; mo.textContent = '💸 Make an offer';
+      mo.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border:1px solid #C9A45C;border-radius:999px;background:none;color:#E8C77A;font-weight:700;font-size:14px;cursor:pointer;min-height:0;margin-left:4px';
+      mo.addEventListener('click', function () {
+        var ob = document.getElementById('offerBox');
+        if (!ob || ob.hidden) { mo.textContent = 'Offers are not open on this piece'; mo.disabled = true; return; }
+        var link = Array.prototype.filter.call(document.querySelectorAll('button'), function (x) { return /make an offer instead/i.test(x.textContent); })[0];
+        if (link) link.click(); else ob.style.display = '';
+        ob.scrollIntoView({ behavior: 'smooth', block: 'start' }); var inp = document.getElementById('oPrice'); if (inp) setTimeout(function () { inp.focus(); }, 400);
+      });
+      d.appendChild(mo);
+    }
     var h = document.querySelector('main h1');
     if (h && h.parentNode) h.parentNode.insertBefore(d, h.nextSibling); else { var m = document.querySelector('main'); if (m) m.insertBefore(d, m.firstChild); }
   }).catch(function () {});

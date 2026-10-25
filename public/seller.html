@@ -970,7 +970,7 @@
     }).catch(function () { list.textContent = 'Could not load trades. Try again.'; });
   }
   function offers(pane) {
-    pane.appendChild(el('div', 'Buyers can offer less than your price on buy-now pieces. Accepting holds the piece for them for 3 hours while they pay.', 'small dim'));
+    pane.appendChild(el('div', 'Buyers can offer less than your price on Buy now pieces. Accept, decline, or counter with your own price. Offers never hold a piece: anyone can still buy it at your price while an offer is out, and the first to pay gets it. An accepted or countered price is good for 3 hours.', 'small dim'));
     var box = el('div'); box.style.cssText = 'display:flex;flex-direction:column;gap:14px'; box.textContent = 'Loading offers…'; pane.appendChild(box);
     JF.api('/api/market?do=offers&t=' + encodeURIComponent(tok) + (AS ? '&as=' + encodeURIComponent(AS) + '&ak=' + encodeURIComponent(AK) : '')).then(function (r) {
       box.textContent = '';

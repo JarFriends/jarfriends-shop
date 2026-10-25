@@ -37,7 +37,12 @@ const changes = [
   ['public/order.html', "if (cc() !== 'US') { iq.cents = 0; total(); soon(); }", "if (cc() !== 'US' || (cur() && cur().calc)) { iq.cents = 0; total(); soon(); }"],
   // Shopping cart, combined shipping: a seller's second and later pieces in one cart ship in the same box, so they
   // carry no shipping of their own (api/market.js cart-place sets req.v2vBundle; a buyer cannot set it).
-  ['api/order.js', '  // Paying by card adds the card fee on top of the order and shipping', "  if (req.v2vBundle && !isNft) ship = 0;\n  // Paying by card adds the card fee on top of the order and shipping"]
+  ['api/order.js', '  // Paying by card adds the card fee on top of the order and shipping', "  if (req.v2vBundle && !isNft) ship = 0;\n  // Paying by card adds the card fee on top of the order and shipping"],
+  // Offers never hold a piece: while an offer is waiting, accepted or countered, anyone can still buy it, and the
+  // first to pay gets it. (Set OFFER_HOLDS=on to hold pieces for offers again.)
+  ['api/_holds.js', 'async function add(pid, n, q, until) {\n  await release(n);', "async function add(pid, n, q, until) {\n  await release(n);\n  if (!/^on$/i.test((process.env.OFFER_HOLDS || '').trim())) { memo = null; return; }"],
+  ['api/offer.js', "'It is held for you until the link runs out.'", "'It is not held for you: others can still buy it, so pay soon to make sure it is yours.'"],
+  ['api/offer.js', "'It is held for you until the link runs out. If the price does not work, you are welcome to send another offer.'", "'It is not held for you: others can still buy it, so pay soon to make sure it is yours. If the price does not work, you are welcome to send another offer.'"]
 ];
 changes.forEach(([f, find, put]) => {
   const s = fs.readFileSync(f, 'utf8');
