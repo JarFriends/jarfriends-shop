@@ -666,7 +666,7 @@ module.exports = async (req, res) => {
         views.days[day] = Object.keys(v).reduce((t, k2) => t + (Number(v[k2]) || 0), 0);
         if (i < 30) Object.keys(v).forEach((k2) => { views.byPid[k2] = (views.byPid[k2] || 0) + (Number(v[k2]) || 0); });
       }));
-      return res.json({ email: me, seller: M.safe(seller), fee: M.feePct(), sections: M.SECTIONS, listings: listings, orders: orders, profit: prof, views: views, payouts: outs, totals: M.totals(rows, outs), posts: feed, stripe: st, stats: myStats, reviews: myReviews, presets: require('./_ship').PRESETS, labelsOn: require('./_ship').ready(), zelleTo: (process.env.ZELLE_TO || '').trim(), cleanOn: !!((process.env.PHOTOROOM_API_KEY || '').trim() || (process.env.REMOVEBG_API_KEY || '').trim()) });
+      return res.json({ email: me, seller: M.safe(seller), fee: M.feePct(), sections: M.SECTIONS, listings: listings, orders: orders, profit: prof, views: views, payouts: outs, totals: M.totals(rows, outs), posts: feed, stripe: st, stats: myStats, reviews: myReviews, presets: require('./_ship').PRESETS, labelsOn: require('./_ship').ready(), zelleTo: (process.env.ZELLE_TO || '').trim(), venmoTo: (process.env.VENMO_TO || '').trim(), cashappTo: (process.env.CASHAPP_TO || '').trim(), cleanOn: !!((process.env.PHOTOROOM_API_KEY || '').trim() || (process.env.REMOVEBG_API_KEY || '').trim()) });
     }
     // Offers on my pieces. A pending one carries its answer key (t) for /api/offer: accept, counter or decline.
     // A shipping label the seller bought, ready to print: on a half sheet (the default) or as a 4 x 6 label,

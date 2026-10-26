@@ -451,7 +451,10 @@
       pane.appendChild(ci); }
     if (t.feeOwed > 0) { var fb = el('section', null, 'card'); fb.style.cssText = 'gap:8px;border-color:#C9A45C';
       fb.appendChild(el('b', 'You owe VeeFam ' + JF.cents(t.feeOwed) + ' in fees'));
-      fb.appendChild(el('div', 'Buyers paid you directly on these sales, so VeeFam\u2019s ' + D.fee + '% fee comes from you. Pay it in crypto below (it marks itself paid), or send it by Zelle to ' + (D.zelleTo || 'VeeFam') + ' and VeeFam marks it paid.', 'small dim'));
+      fb.appendChild(el('div', 'Buyers paid you directly on these sales, so VeeFam\u2019s ' + D.fee + '% fee comes from you.', 'small dim'));
+      fb.appendChild(el('div', '⭐ We prefer crypto: it marks itself paid automatically as soon as it arrives. Keep the payment page open until it confirms.', 'small'));
+      var alt = [['Zelle', D.zelleTo], ['Venmo', D.venmoTo], ['Cash App', D.cashappTo]].filter(function (x) { return x[1]; }).map(function (x) { return x[0] + ': ' + x[1]; });
+      if (alt.length) fb.appendChild(el('div', 'Other ways to pay: ' + alt.join(' · ') + '. Put \u201cVeeFam fees, ' + D.seller.name + '\u201d in the note; VeeFam marks it paid once it arrives.', 'small dim'));
       var fpb = el('button', 'Pay ' + JF.cents(t.feeOwed) + ' in crypto', 'solid'); fpb.type = 'button'; fpb.style.alignSelf = 'flex-start'; var fpm = el('div', '', 'small');
       fpb.addEventListener('click', function () { fpb.disabled = true; fpm.textContent = 'Opening…'; JF.api('/api/market', { do: 'fee-pay', t: tok, as: AS, ak: AK }).then(function (x) { fpb.disabled = false; if (x.link) location.href = x.link; else fpm.textContent = x.error || 'Could not open it.'; }); });
       fb.appendChild(fpb); fb.appendChild(fpm); pane.appendChild(fb); }
