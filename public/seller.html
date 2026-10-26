@@ -437,7 +437,8 @@
     // Payments
     var c6 = card('Payments', 'payouts'); grid.appendChild(c6);
     row(c6, 'You earned (after the ' + D.fee + '% fee)', JF.cents(t.net), 'payouts');
-    row(c6, 'V2V still owes you', JF.cents(t.owed), 'payouts', true);
+    row(c6, 'V2V still owes you', JF.cents(Math.max(0, t.payNow != null ? t.payNow : t.owed)), 'payouts', true);
+    if (t.shipHeld) row(c6, 'Shipping paid to you once it ships', JF.cents(t.shipHeld), 'orders');
     row(c6, 'Paid to your bank by Stripe', JF.cents(t.byStripe || 0), 'payouts');
     row(c6, 'Sent to you by V2V', JF.cents(t.paidOut), 'payouts');
     row(c6, 'Waiting for buyers to pay', JF.cents(t.unpaidGross || 0), 'orders');
