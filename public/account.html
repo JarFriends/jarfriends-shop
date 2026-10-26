@@ -57,11 +57,25 @@
   var gReady = false;
   function googleButton() {
     if (gReady) return; gReady = true;
+    // Inside another app's browser (Instagram, Discord, Facebook...), Google blocks its sign-in and the screen goes
+    // blank. Say so, and offer the way out (same check as jf.js).
+    var ua = navigator.userAgent || '';
+    if (/FBAN|FBAV|FB_IAB|Instagram|Line\/|Twitter|TikTok|musical_ly|Bytedance|Snapchat|Discord|LinkedInApp|Pinterest|GSA\/|; wv\)/i.test(ua) || (/(iPhone|iPad|iPod)/.test(ua) && /AppleWebKit/.test(ua) && !/Safari\//.test(ua))) {
+      var gb = $('gbtn'); gb.textContent = '';
+      var nb = document.createElement('div'); nb.className = 'small'; nb.style.cssText = 'border:1px solid #C9A45C;border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:8px;max-width:420px';
+      var t1 = document.createElement('b'); t1.textContent = 'Google sign-in does not work inside this app'; nb.appendChild(t1);
+      var t2 = document.createElement('span'); t2.textContent = 'You opened VeeFam inside another app (like Instagram, Discord or Facebook). Sign in with your email instead, or open this page in Safari or Chrome to use Google.'; nb.appendChild(t2);
+      var cp = document.createElement('button'); cp.type = 'button'; cp.className = 'ghost'; cp.style.cssText = 'min-height:0;padding:8px 12px'; cp.textContent = 'Copy the link to open in Safari or Chrome';
+      cp.addEventListener('click', function () { var u = location.href; try { navigator.clipboard.writeText(u).then(function () { cp.textContent = 'Copied! Paste it in Safari or Chrome.'; }, function () { prompt('Copy this link:', u); }); } catch (e) { prompt('Copy this link:', u); } });
+      nb.appendChild(cp);
+      if (/Android/i.test(ua)) { var oc = document.createElement('a'); oc.textContent = 'Open in Chrome'; oc.href = 'intent://' + location.host + location.pathname + location.search + '#Intent;scheme=https;package=com.android.chrome;end'; nb.appendChild(oc); }
+      gb.appendChild(nb); return;
+    }
     fetch('/api/google', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (c) {
       if (!c.clientId) return;
       var sc = document.createElement('script'); sc.src = 'https://accounts.google.com/gsi/client'; sc.async = true;
       sc.onload = function () {
-        window.google.accounts.id.initialize({ client_id: c.clientId, callback: function (resp) {
+        window.google.accounts.id.initialize({ client_id: c.clientId, use_fedcm_for_button: true, callback: function (resp) {
           $('msg').textContent = 'Signing you in...';
           fetch('/api/google', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ credential: resp.credential }) })
             .then(function (r) { return r.json(); })

@@ -84,18 +84,21 @@
   // Apps' built-in browsers (Instagram, Facebook, TikTok, Discord, X, Snapchat…) block Google sign-in: its window opens
   // blank. There, say so, offer to open the page in the phone's real browser, and keep email sign-in.
   function inApp() { var u = navigator.userAgent || ''; return /FBAN|FBAV|FB_IAB|Instagram|Line\/|Twitter|TikTok|musical_ly|Bytedance|Snapchat|Discord|LinkedInApp|Pinterest|GSA\/|; wv\)/i.test(u) || (/(iPhone|iPad|iPod)/.test(u) && /AppleWebKit/.test(u) && !/Safari\//.test(u)); }
-  function google(host, msg, done, or) {
-    if (inApp()) {
+  // Inside another app's browser (Instagram, Discord, Facebook...), Google blocks its sign-in and the screen goes
+  // blank. Show what to do instead.
+  function inAppNote(host) {
       host.textContent = '';
       var n = el('div', null, 'small'); n.style.cssText = 'border:1px solid #C9A45C;border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:8px;max-width:420px';
       n.appendChild(el('b', 'Google sign-in does not work inside this app'));
-      n.appendChild(el('span', 'You opened VeeFam inside another app (like Instagram, Discord or Facebook). Use your email below, or open this page in Safari or Chrome to use Google.'));
+      n.appendChild(el('span', 'You opened VeeFam inside another app (like Instagram, Discord or Facebook). Sign in with your email instead, or open this page in Safari or Chrome to use Google.'));
       var cp = el('button', 'Copy the link to open in Safari or Chrome', 'ghost'); cp.type = 'button'; cp.style.cssText = 'min-height:0;padding:8px 12px';
       cp.addEventListener('click', function () { var u = location.href; try { navigator.clipboard.writeText(u).then(function () { cp.textContent = 'Copied! Paste it in Safari or Chrome.'; }, function () { prompt('Copy this link:', u); }); } catch (e) { prompt('Copy this link:', u); } });
       n.appendChild(cp);
       if (/Android/i.test(navigator.userAgent || '')) { var oc = el('a', 'Open in Chrome'); oc.href = 'intent://' + location.host + location.pathname + location.search + '#Intent;scheme=https;package=com.android.chrome;end'; n.appendChild(oc); }
-      host.appendChild(n); return;
-    }
+      host.appendChild(n);
+  }
+  function google(host, msg, done, or) {
+    if (inApp()) { inAppNote(host); return; }
     if (!host.dataset.armed) {
       host.dataset.armed = '1';
       var gb = el('button', 'Continue with Google', 'ghost'); gb.type = 'button'; gb.style.cssText = 'width:100%;max-width:300px;min-height:44px';
@@ -112,7 +115,7 @@
     }).catch(function () { return null; });
     gLoad.then(function (cid) {
       if (!cid || !window.google) { host.hidden = true; host.dataset.off = '1'; if (or) { or.hidden = true; or.dataset.off = '1'; } return; }
-      window.google.accounts.id.initialize({ client_id: cid, callback: function (resp) {
+      window.google.accounts.id.initialize({ client_id: cid, use_fedcm_for_button: true, callback: function (resp) {
         msg.textContent = 'Signing you in…';
         api('/api/google', { credential: resp.credential }).then(function (r) { if (!r.token) { msg.textContent = r.error || 'Could not sign in with Google.'; return; } keep(r.token); afterSignIn(r, function () { done(r.token); }); });
       } });
@@ -332,5 +335,5 @@
     var hay = ' ' + words([p.name, p.desc, p.sellerName, p.section, p.id].join(' ')).join(' ') + ' ';
     return ws.every(function (w) { var stem = w.length > 3 ? w.replace(/(es|s)$/, '') : w; return hay.indexOf(w) >= 0 || hay.indexOf(stem) >= 0; });
   }
-  window.JF = { cartPlus: cartPlus, toast: toast, matches: matches, cardActions: cardActions, quickOffer: quickOffer, offerChip: offerChip, offerHistory: offerHistory, stars: stars, check: check, modeBar: modeBar, token: token, emailOf: emailOf, signOut: signOut, el: el, usd: usd, cents: cents, api: api, signInBox: signInBox, picture: picture };
+  window.JF = { inApp: inApp, inAppNote: inAppNote, cartPlus: cartPlus, toast: toast, matches: matches, cardActions: cardActions, quickOffer: quickOffer, offerChip: offerChip, offerHistory: offerHistory, stars: stars, check: check, modeBar: modeBar, token: token, emailOf: emailOf, signOut: signOut, el: el, usd: usd, cents: cents, api: api, signInBox: signInBox, picture: picture };
 })();
