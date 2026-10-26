@@ -709,6 +709,31 @@
     });
   }
 
+  // ✨ Clean up photo: send it off, show the original and the clean one side by side, and let the seller choose.
+  function cleanPhoto(dataUrl, use) {
+    var bg = el('div'); bg.style.cssText = 'position:fixed;inset:0;z-index:2147483600;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;padding:14px';
+    var box = el('div', null, 'card'); box.style.cssText = 'max-width:720px;width:100%;gap:12px;display:flex;flex-direction:column;max-height:92vh;overflow:auto';
+    box.appendChild(el('h2', '✨ Clean up photo'));
+    var row = el('div'); row.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:10px';
+    var pane = function (t, src) { var w = el('div'); w.style.cssText = 'display:flex;flex-direction:column;gap:6px'; w.appendChild(el('b', t)); var im = el('img'); im.alt = t; im.style.cssText = 'width:100%;aspect-ratio:1;object-fit:contain;border-radius:8px;background:#fff'; if (src) im.src = src; w.appendChild(im); row.appendChild(w); return im; };
+    pane('Your photo', dataUrl); var after = pane('Clean (white background)', '');
+    box.appendChild(row);
+    var m = el('div', 'Cleaning it up… this takes a few seconds.', 'small'); box.appendChild(m);
+    var bar = el('div'); bar.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px';
+    var yes = el('button', 'Use the clean one', 'solid'), no = el('button', 'Keep my original', 'ghost'); yes.type = no.type = 'button'; yes.disabled = true;
+    bar.appendChild(yes); bar.appendChild(no); box.appendChild(bar);
+    box.appendChild(el('div', 'Only the background changes: the piece itself is never redrawn, so condition and details stay exactly as they are.', 'small dim'));
+    bg.appendChild(box); document.body.appendChild(bg);
+    var clean = '';
+    no.addEventListener('click', function () { bg.remove(); });
+    // Re-saved as a normal-size JPEG so it fits the photo limit.
+    yes.addEventListener('click', function () { bg.remove(); var img = new Image(); img.onload = function () { var k = Math.min(1, 1200 / Math.max(img.width, img.height)), cv = document.createElement('canvas'); cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k); var x = cv.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, cv.width, cv.height); x.drawImage(img, 0, 0, cv.width, cv.height); use(cv.toDataURL('image/jpeg', 0.88)); }; img.onerror = function () { use(clean); }; img.src = clean; });
+    JF.api('/api/market', { do: 'photo-clean', t: tok, as: AS, ak: AK, data: dataUrl }).then(function (r) {
+      if (r.error || !r.data) { m.textContent = r.error || 'The clean-up did not work.'; return; }
+      clean = r.data; after.src = clean; yes.disabled = false; m.textContent = 'Looks good? Pick which one to use.' + (r.left != null && r.left < 10 ? ' (' + r.left + ' clean-ups left today)' : '');
+    });
+  }
+  function dataToFile(d) { var b = atob(d.split(',')[1]), a = new Uint8Array(b.length); for (var i = 0; i < b.length; i++) a[i] = b.charCodeAt(i); return new File([a], 'piece-clean.jpg', { type: 'image/jpeg' }); }
   // ---- Bulk listing: pick many photos (one piece per photo). AI writes each listing (title, description, category,
   // a price guess) and it is saved as a hidden draft with its photo. The seller checks each one, then presses
   // Go live, or keeps it as a draft for later. Nothing is shown to buyers until they say so.
@@ -735,6 +760,11 @@
     var card = function (it) {
       var w = el('div'); w.style.cssText = 'display:flex;flex-direction:column;gap:8px;border:1px solid ' + (it.status === 'done' ? (it.live ? '#3E8E5E' : '#4E7A63') : it.status === 'error' ? '#E07A6B' : '#2E4A3B') + ';border-radius:12px;padding:10px;background:#11261C';
       var im = el('img'); im.alt = ''; im.src = it.preview; im.style.cssText = 'width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;background:#0B1712'; w.appendChild(im);
+      if (it.status === 'ready' && D.cleanOn && !it.cleaned) {
+        var cb = el('button', '✨ Clean up photo', 'ghost'); cb.type = 'button'; cb.style.cssText = 'padding:6px 12px;min-height:0;font-size:13px';
+        cb.addEventListener('click', function () { cleanPhoto(it.data, function (c) { JF.api('/api/market', { do: 'photo', t: tok, as: AS, ak: AK, id: it.id, data: c }).then(function (x) { if (x.error) return; it.data = c; it.preview = c; it.cleaned = true; im.src = c; cb.remove(); }); }); });
+        w.appendChild(cb);
+      }
       if (it.status === 'waiting' || it.status === 'thinking' || it.status === 'saving') { w.appendChild(el('div', it.status === 'waiting' ? '⏳ Waiting…' : it.status === 'thinking' ? '🤖 AI is writing the listing…' : '💾 Saving the draft…', 'small')); return w; }
       if (it.status === 'error') {
         w.appendChild(el('div', '⚠ ' + it.err, 'small'));
@@ -905,6 +935,11 @@
       photoPrev.textContent = ''; var fl = photo.files && photo.files[0]; if (!fl) return;
       var im = el('img'); im.alt = ''; im.src = URL.createObjectURL(fl); im.style.cssText = 'width:64px;height:64px;object-fit:cover;border-radius:6px';
       photoPrev.appendChild(im); photoPrev.appendChild(el('span', '✓ This photo will be saved with the piece.'));
+      if (D.cleanOn && fl.name !== 'piece-clean.jpg') {
+        var cb = el('button', '✨ Clean up photo', 'ghost'); cb.type = 'button'; cb.style.cssText = 'padding:6px 12px;min-height:0;font-size:13px';
+        cb.addEventListener('click', function () { shrink(fl).then(function (d) { cleanPhoto(d, function (c) { setPhoto(dataToFile(c)); }); }); });
+        photoPrev.appendChild(cb);
+      }
     });
     var go = el('button', p ? 'Save changes' : 'Add to my shop', 'solid'); go.type = 'submit';
     var m = status();

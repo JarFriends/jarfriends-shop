@@ -603,7 +603,7 @@ module.exports = async (req, res) => {
         views.days[day] = Object.keys(v).reduce((t, k2) => t + (Number(v[k2]) || 0), 0);
         if (i < 30) Object.keys(v).forEach((k2) => { views.byPid[k2] = (views.byPid[k2] || 0) + (Number(v[k2]) || 0); });
       }));
-      return res.json({ email: me, seller: M.safe(seller), fee: M.feePct(), sections: M.SECTIONS, listings: listings, orders: orders, profit: prof, views: views, payouts: outs, totals: M.totals(rows, outs), posts: feed, stripe: st, stats: myStats, reviews: myReviews, presets: require('./_ship').PRESETS, labelsOn: require('./_ship').ready() });
+      return res.json({ email: me, seller: M.safe(seller), fee: M.feePct(), sections: M.SECTIONS, listings: listings, orders: orders, profit: prof, views: views, payouts: outs, totals: M.totals(rows, outs), posts: feed, stripe: st, stats: myStats, reviews: myReviews, presets: require('./_ship').PRESETS, labelsOn: require('./_ship').ready(), cleanOn: !!((process.env.PHOTOROOM_API_KEY || '').trim() || (process.env.REMOVEBG_API_KEY || '').trim()) });
     }
     // Offers on my pieces. A pending one carries its answer key (t) for /api/offer: accept, counter or decline.
     // A shipping label the seller bought, ready to print: on a half sheet (the default) or as a 4 x 6 label,
@@ -743,6 +743,32 @@ module.exports = async (req, res) => {
       return res.json({ ok: await M.removeListing(seller, id) });
     }
     // Bring an eBay listing over from its link, or check the seller's eBay-linked pieces right now (see _ebay.js).
+    // ✨ Clean up photo: the piece cut out and put on a plain white background by a background-removal service
+    // (Photoroom with PHOTOROOM_API_KEY, or remove.bg with REMOVEBG_API_KEY). The piece itself is never redrawn.
+    // The seller sees before and after and chooses; nothing is saved here. At most PHOTO_CLEAN_DAILY (40) a day each.
+    if (what === 'photo-clean' && req.method === 'POST') {
+      const pr = (process.env.PHOTOROOM_API_KEY || '').trim(), rb = (process.env.REMOVEBG_API_KEY || '').trim();
+      if (!pr && !rb) return res.status(503).json({ error: 'Photo clean-up is not switched on yet.' });
+      const raw = String(b.data || '').replace(/^data:image\/jpeg;base64,/, ''), buf = Buffer.from(raw, 'base64');
+      if (buf.length < 1000 || buf.length > 3000000 || buf[0] !== 0xFF || buf[1] !== 0xD8) return res.status(400).json({ error: 'That photo could not be used. Try another one.' });
+      const day = new Date().toISOString().slice(0, 10), ck = 'clean/' + seller.slug + '/' + day + '.json', used = (await store.read(ck)) || { n: 0 };
+      const cap = Math.max(1, Number(process.env.PHOTO_CLEAN_DAILY) || 40);
+      if (used.n >= cap) return res.status(429).json({ error: 'That is ' + cap + ' clean-ups today, the daily limit. More tomorrow.' });
+      let out = null, why = '';
+      try {
+        if (pr) {
+          const fd = new FormData(); fd.append('image_file', new Blob([buf], { type: 'image/jpeg' }), 'piece.jpg'); fd.append('bg_color', 'FFFFFF'); fd.append('format', 'jpg'); fd.append('size', 'full');
+          const r = await fetch('https://sdk.photoroom.com/v1/segment', { method: 'POST', headers: { 'x-api-key': pr }, body: fd, signal: AbortSignal.timeout(40000) });
+          if (r.ok) out = Buffer.from(await r.arrayBuffer()); else why = 'Photoroom ' + r.status + ' ' + (await r.text()).slice(0, 200);
+        } else {
+          const r = await fetch('https://api.remove.bg/v1.0/removebg', { method: 'POST', headers: { 'x-api-key': rb, 'content-type': 'application/json' }, body: JSON.stringify({ image_file_b64: raw, size: 'auto', bg_color: 'ffffff', format: 'jpg' }), signal: AbortSignal.timeout(40000) });
+          if (r.ok) out = Buffer.from(await r.arrayBuffer()); else why = 'remove.bg ' + r.status + ' ' + (await r.text()).slice(0, 200);
+        }
+      } catch (e) { why = String(e && e.message || e); }
+      if (!out || out.length < 1000) { console.error('PHOTO_CLEAN_FAIL', seller.slug, why); return res.status(502).json({ error: 'The clean-up did not work on that photo. Try a photo with the piece clearly in view, or keep your original.' }); }
+      await store.write(ck, { n: used.n + 1 });
+      return res.json({ data: 'data:image/jpeg;base64,' + out.toString('base64'), left: cap - used.n - 1 });
+    }
     // AI suggests a title, description and category from a photo of the piece (see _ai.js).
     if (what === 'listing-ai') {
       if (!require('./_ai').on()) return res.status(503).json({ error: 'AI suggestions are not switched on yet. Type the title yourself for now.' });
