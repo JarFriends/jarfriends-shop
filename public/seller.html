@@ -1251,15 +1251,16 @@
     box.appendChild(el('b', 'Buy a shipping label'));
     if (!D.labelsOn) { box.appendChild(el('div', 'Labels are not switched on for V2V yet. Ship it your own way and add the tracking number below.', 'small dim')); return box; }
     // No ship-from address yet: add it right here, then the label part opens. It is saved for every label after.
-    if (!D.seller.shipFrom) {
-      box.appendChild(el('div', 'Where are you shipping it from? This goes on the label as the return address, and is saved for next time.', 'small dim'));
+    if (!D.seller.shipFrom || !String(D.seller.shipFrom.phone || '').replace(/\D/g, '')) {
+      var sf0 = D.seller.shipFrom || {};
+      box.appendChild(el('div', sf0.street1 ? 'Add a phone number for your ship-from address: the label cannot be made without it. It is saved for next time.' : 'Where are you shipping it from? This goes on the label as the return address, and is saved for next time.', 'small dim'));
       var af = el('form'); af.style.cssText = 'display:flex;flex-direction:column;gap:8px;max-width:none';
-      var an = input('text', D.seller.name || '', { maxlength: '60', autocomplete: 'name' }), as1 = input('text', '', { maxlength: '120', autocomplete: 'address-line1', placeholder: '123 Main St' }), as2 = input('text', '', { maxlength: '60', autocomplete: 'address-line2' });
-      var ac = input('text', '', { maxlength: '60', autocomplete: 'address-level2' }), ast = input('text', '', { maxlength: '30', autocomplete: 'address-level1', placeholder: 'IL' }), az = input('text', '', { maxlength: '10', inputmode: 'numeric', autocomplete: 'postal-code' }), aph = input('tel', '', { maxlength: '20', autocomplete: 'tel' });
+      var an = input('text', sf0.name || D.seller.name || '', { maxlength: '60', autocomplete: 'name' }), as1 = input('text', sf0.street1 || '', { maxlength: '120', autocomplete: 'address-line1', placeholder: '123 Main St' }), as2 = input('text', sf0.street2 || '', { maxlength: '60', autocomplete: 'address-line2' });
+      var ac = input('text', sf0.city || '', { maxlength: '60', autocomplete: 'address-level2' }), ast = input('text', sf0.state || '', { maxlength: '30', autocomplete: 'address-level1', placeholder: 'IL' }), az = input('text', sf0.zip || '', { maxlength: '10', inputmode: 'numeric', autocomplete: 'postal-code' }), aph = input('tel', '', { maxlength: '20', autocomplete: 'tel' });
       af.appendChild(field('Name on the label', an));
       var b2 = el('div', null, 'two'); b2.appendChild(field('Street address', as1)); b2.appendChild(field('Apt or unit', as2, 'Optional.')); af.appendChild(b2);
       var b3 = el('div', null, 'two'); b3.appendChild(field('City', ac)); b3.appendChild(field('State', ast)); b3.appendChild(field('ZIP code', az)); af.appendChild(b3);
-      af.appendChild(field('Phone', aph, 'Optional. Some carriers ask for it.'));
+      af.appendChild(field('Phone', aph, 'Required: USPS and Shippo need it to make the label.'));
       var ago = el('button', 'Save and continue', 'solid'); ago.type = 'submit'; ago.style.alignSelf = 'flex-start'; var am = el('div', '', 'small');
       af.appendChild(ago); af.appendChild(am); box.appendChild(af);
       af.addEventListener('submit', function (ev) {
@@ -1578,7 +1579,7 @@
     f.appendChild(field('Name on the label', fn));
     var a2 = el('div', null, 'two'); a2.appendChild(field('Street address', fs1)); a2.appendChild(field('Apt or unit', fs2, 'Optional.')); f.appendChild(a2);
     var a3 = el('div', null, 'two'); a3.appendChild(field('City', fc)); a3.appendChild(field('State', fst)); a3.appendChild(field('ZIP code', fz)); f.appendChild(a3);
-    f.appendChild(field('Phone', fp, 'Optional. Some carriers ask for it.'));
+    f.appendChild(field('Phone', fp, 'Required: USPS and Shippo need it to make the label.'));
     f.appendChild(go); f.appendChild(m);
     c.appendChild(f);
     c.appendChild(el('div', 'Shop name: ' + s.name + ' · Signed in as ' + D.email + ' · JarFriends fee: ' + D.fee + '% of each sale. To rename your shop, contact JarFriends.', 'small dim'));
