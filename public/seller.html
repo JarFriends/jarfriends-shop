@@ -1316,11 +1316,20 @@
     var rateId = '';
     box.appendChild(price); box.appendChild(info); box.appendChild(buy);
     price.addEventListener('click', function () {
-      price.disabled = true; buy.hidden = true; info.textContent = 'Getting the USPS price…';
+      price.disabled = true; buy.hidden = true; info.textContent = 'Getting prices…';
       JF.api('/api/market', { do: 'label-quote', t: tok, as: AS, ak: AK, n: o.n, preset: lp.read().preset, oz: lp.read().oz, l: lp.read().l, w: lp.read().w, h: lp.read().h }).then(function (r) {
         price.disabled = false;
         if (r.error) { info.textContent = r.error; return; }
         rateId = r.rate.id; var pl = r.plan, lines = [];
+        // Every carrier choice (cheapest first; the fastest is marked). Picking one updates the price and the button.
+        var opts = r.rate.options || [], fast = opts.filter(function (x) { return x.days; }).sort(function (a, b) { return a.days - b.days; })[0];
+        var ob = box.querySelector('.lbl-opts'); if (ob) ob.remove();
+        if (opts.length > 1) { ob = el('div', null, 'lbl-opts'); ob.style.cssText = 'display:flex;flex-direction:column;gap:6px';
+          opts.forEach(function (x, i) { var lb = el('label', null, 'jf-check'), rd = el('input'); rd.type = 'radio'; rd.name = 'lbl-' + o.n; rd.checked = x.id === r.rate.id; lb.appendChild(rd);
+            lb.appendChild(el('span', x.service + ' · ' + JF.cents(x.cents) + (x.days ? ' · about ' + x.days + ' day' + (x.days > 1 ? 's' : '') : '') + (i === 0 ? ' · cheapest' : '') + (fast && fast.id === x.id && i !== 0 ? ' · fastest' : '')));
+            rd.addEventListener('change', function () { rateId = x.id; buy.textContent = 'Buy label for ' + JF.cents(x.cents); var held = pl.held || 0, fe = Math.min(held, x.cents); info.textContent = x.service + ': ' + JF.cents(x.cents) + '. The buyer paid ' + JF.cents(r.buyerPaidShipping) + ' for shipping.' + (x.cents > r.buyerPaidShipping ? ' This label costs ' + JF.cents(x.cents - r.buyerPaidShipping) + ' more than the buyer paid. That is your cost.' : '') + ' How it is paid: ' + (fe ? JF.cents(fe) + ' from the money V2V is holding for you' : '') + (fe && x.cents - fe ? ', plus ' : '') + (x.cents - fe ? JF.cents(x.cents - fe) + ' on your card' : '') + '.'; });
+            lb.appendChild(document.createTextNode('')); ob.appendChild(lb); });
+          info.parentNode.insertBefore(ob, info); }
         lines.push(r.rate.service + ': ' + JF.cents(r.rate.cents) + (r.rate.days ? ' (about ' + r.rate.days + ' days)' : '') + '. The buyer paid ' + JF.cents(r.buyerPaidShipping) + ' for shipping.');
         if (r.rate.cents > r.buyerPaidShipping) lines.push('This label costs ' + JF.cents(r.rate.cents - r.buyerPaidShipping) + ' more than the buyer paid. That is your cost.');
         lines.push('How it is paid: ' + (pl.fromEarnings ? JF.cents(pl.fromEarnings) + ' from the money V2V is holding for you' : '') + (pl.fromEarnings && pl.fromCard ? ', plus ' : '') + (pl.fromCard ? JF.cents(pl.fromCard) + (pl.card ? ' on your ' + pl.card.brand + ' ending ' + pl.card.last4 : ' on a card (add one in My account first)') : '') + '.');

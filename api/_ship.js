@@ -74,9 +74,13 @@ async function cheapest(from, to, parcel) {
   const usps = rates.filter((r) => String(r.provider || '').toUpperCase() === 'USPS');
   const pick = (usps.length ? usps : rates).sort((a, c) => Number(a.amount) - Number(c.amount))[0];
   if (!pick) throw new Error('no USPS price for this address');
-  return { id: pick.object_id, cents: Math.round(Number(pick.amount) * 100), service: ((pick.provider || '') + ' ' + ((pick.servicelevel && pick.servicelevel.name) || '')).trim(), days: pick.estimated_days || null };
+  return { id: pick.object_id, cents: Math.round(Number(pick.amount) * 100), service: ((pick.provider || '') + ' ' + ((pick.servicelevel && pick.servicelevel.name) || '')).trim(), days: pick.estimated_days || null, options: choices(rates) };
 }
 
+
+// Every carrier choice for a label, cheapest first, one per carrier and service (up to 6), so the seller can pick.
+const choices = (rates) => { const seen = {}; return rates.slice().sort((a, c) => Number(a.amount) - Number(c.amount)).filter((r) => { const k = (r.provider || '') + '|' + ((r.servicelevel && r.servicelevel.name) || ''); if (seen[k]) return false; seen[k] = 1; return true; }).slice(0, 6)
+  .map((r) => ({ id: r.object_id, cents: Math.round(Number(r.amount) * 100), service: ((r.provider || '') + ' ' + ((r.servicelevel && r.servicelevel.name) || '')).trim(), days: r.estimated_days || null })); };
 // ---- Outside the USA (sellers who tick "Ship internationally" in Shop settings) ----
 // A Shippo customs declaration is made for the package (what is inside, its value, weight; certified by the seller),
 // so the label comes with its customs form. USPS first, any carrier if USPS has no price.
@@ -96,7 +100,7 @@ async function intlRate(seller, listing, to, qty, value, item, quoteOnly) {
   const usps = rates.filter((r) => String(r.provider || '').toUpperCase() === 'USPS');
   const pick = (usps.length ? usps : rates).sort((a, c) => Number(a.amount) - Number(c.amount))[0];
   if (!pick) throw new Error('no price to that address');
-  return { id: pick.object_id, cents: Math.round(Number(pick.amount) * 100), service: ((pick.provider || '') + ' ' + ((pick.servicelevel && pick.servicelevel.name) || '')).trim(), days: pick.estimated_days || null, parcel: parcel };
+  return { options: choices(rates), id: pick.object_id, cents: Math.round(Number(pick.amount) * 100), service: ((pick.provider || '') + ' ' + ((pick.servicelevel && pick.servicelevel.name) || '')).trim(), days: pick.estimated_days || null, parcel: parcel };
 }
 // Checkout: what an international buyer pays to ship a seller's piece: the real postage plus 10% (prices can move
 // a little before the seller buys the label). Customs duties are the buyer's (DDU).
