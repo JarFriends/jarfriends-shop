@@ -328,8 +328,17 @@ const money = (cents) => '$' + (cents / 100).toLocaleString('en-US', { minimumFr
 const day = (t) => new Date(t * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' });
 
 // The money lines under the item row: [label, amount, bold]. paid = the online amount has been received.
-function totals(inv, paid) {
+function totals(inv, paid, shown) {
   const pl = PLANS[inv.p];
+  // A shop order: the full breakdown, so the buyer sees where every dollar goes (unless the email already lists it).
+  if (!pl && inv.L != null && !shown) {
+    const b = [['Piece' + (inv.q > 1 ? 's' : ''), money(Math.max(0, inv.L - (inv.pd || 0))), false], ['Shipping', inv.wa ? 'None (NFT)' : inv.sh ? money(inv.sh) : 'Free', false]];
+    if (inv.tx) b.push(['Sales tax' + (inv.tp ? ' (' + inv.tp + '%)' : ''), money(inv.tx), false]);
+    if (inv.cf) b.push(['Card fee', money(inv.cf), false]);
+    if (/^S[0-9A-Z]{5,19}$/.test(String(inv.pid || ''))) { const fp = require('./_sellers').feePct(); b.push(['Includes VeeFam site fee (' + fp + '% of the piece, not added)', money(Math.round(Math.max(0, inv.L - (inv.pd || 0)) * fp / 100)), false]); }
+    b.push([paid ? 'Total paid' : 'Total due', money(inv.u) + ' USD', true]);
+    return b;
+  }
   if (!pl) return [[paid ? 'Total paid' : 'Total due', money(inv.u) + ' USD', true]];
   const adj = inv.T - inv.L;
   const rows = [
@@ -361,7 +370,7 @@ function invoiceHtml(inv, o) {
     : '<span style="' + sans + 'display:inline-block;border:2px solid #101726;color:#101726;font-size:12px;font-weight:bold;letter-spacing:1.5px;padding:4px 10px;">' + o.badge + '</span>';
   const details = o.details.map((d) => '<tr><td style="' + lab + 'padding:8px 12px 8px 0;vertical-align:top;white-space:nowrap;">' + d[0] + '</td><td style="' + sans + 'font-size:14px;color:#101726;padding:8px 0;word-break:break-all;">' + d[1] + '</td></tr>').join('');
   const cta = o.cta ? '<tr><td style="padding:8px 32px 28px;"><a href="' + esc(o.cta.url) + '" style="' + sans + 'display:inline-block;background:#101726;color:#F7F2E6;font-size:15px;font-weight:bold;text-decoration:none;padding:14px 24px;">' + o.cta.label + '</a></td></tr>' : '';
-  const sums = totals(inv, o.paid).map((r, i) => '<tr><td colspan="3" align="right" style="' + sans + 'font-size:' + (r[2] ? '16px;font-weight:bold' : '14px') + ';color:#101726;padding:' + (i ? '4px' : '14px') + ' 0 4px;">' + r[0] + '</td><td align="right" style="' + sans + 'font-size:' + (r[2] ? '16px;font-weight:bold' : '14px') + ';color:#101726;padding:' + (i ? '4px' : '14px') + ' 0 4px 12px;white-space:nowrap;">' + r[1] + '</td></tr>').join('');
+  const sums = totals(inv, o.paid, (o.details || []).some((d) => d && d[0] === 'Shipping')).map((r, i) => '<tr><td colspan="3" align="right" style="' + sans + 'font-size:' + (r[2] ? '16px;font-weight:bold' : '14px') + ';color:#101726;padding:' + (i ? '4px' : '14px') + ' 0 4px;">' + r[0] + '</td><td align="right" style="' + sans + 'font-size:' + (r[2] ? '16px;font-weight:bold' : '14px') + ';color:#101726;padding:' + (i ? '4px' : '14px') + ' 0 4px 12px;white-space:nowrap;">' + r[1] + '</td></tr>').join('');
   return '<!doctype html><html><body style="margin:0;padding:0;background:#F7F2E6;">'
     + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F7F2E6;"><tr><td align="center" style="padding:24px 12px;">'
     + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#FFFFFF;border:1px solid #E3DDCD;">'
