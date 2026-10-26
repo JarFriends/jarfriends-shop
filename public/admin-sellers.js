@@ -147,7 +147,21 @@
         c.appendChild(info);
         var go = el('button', 'Record a payout ›', 'ghost'); go.type = 'button'; go.style.cssText = 'padding:6px 10px;min-height:0';
         go.addEventListener('click', function () { var t2 = box.querySelector('[data-seller="' + s.slug + '"]'); if (t2) { var hid = t2.closest('[hidden]'); if (hid) hid.hidden = false; t2.scrollIntoView({ behavior: 'smooth', block: 'center' }); if (t2.click) t2.click(); } });
-        c.appendChild(go); wrap.appendChild(c);
+        c.appendChild(go);
+        // Sellers with Stripe payouts on: one tap sends it from your Stripe balance to theirs.
+        if (s.stripe && s.stripeOn) {
+          var sp = el('button', '⚡ Pay ' + money(s.totals.payNow) + ' through Stripe', 'solid'); sp.type = 'button'; sp.style.cssText = 'padding:6px 12px;min-height:0'; var spm = el('div', '', 'small'); spm.style.flexBasis = '100%'; var armed = false;
+          sp.addEventListener('click', function () {
+            if (!armed) { armed = true; sp.textContent = 'Tap again to send ' + money(s.totals.payNow) + ' now'; setTimeout(function () { if (armed) { armed = false; sp.textContent = '⚡ Pay ' + money(s.totals.payNow) + ' through Stripe'; } }, 6000); return; }
+            armed = false; sp.disabled = true; spm.textContent = 'Sending through Stripe…';
+            post({ do: 'stripe-transfer', slug: s.slug }).then(function (x) {
+              if (x.error) { sp.disabled = false; sp.textContent = '⚡ Pay ' + money(s.totals.payNow) + ' through Stripe'; spm.textContent = x.error; return; }
+              sp.textContent = '✓ Sent ' + money(x.payout.cents); spm.textContent = 'Sent to their Stripe and recorded as a payout. Stripe pays their bank on their schedule. ' + s.name + ' got an email.';
+            });
+          });
+          c.appendChild(sp); c.appendChild(spm);
+        }
+        wrap.appendChild(c);
       });
       wrap.appendChild(el('b', 'Stripe pays these automatically'));
       if (!auto.length) wrap.appendChild(el('div', 'No card sales in the last 2 weeks went straight to a seller\u2019s Stripe.', 'small dim'));

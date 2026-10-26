@@ -226,7 +226,7 @@ module.exports = async (req, res) => {
     // The owner's own wording for the site's pages (see _wording.js); nav.js swaps the words on every page.
     if (what === 'wording' && req.method === 'GET') { res.setHeader('cache-control', 'public, max-age=0, s-maxage=20'); return res.json({ rules: (await require('./_wording').get()).rules }); }
     // ---------- The owner ----------
-    if (what === 'tax-get' || what === 'tax-save' || what === 'discord-test' || what === 'subs-import' || what === 'pages' || what === 'page-save' || what === 'page-delete' || what === 'page-off' || what === 'wording-save' || what === 'site-photo' || what === 'broadcast' || what === 'broadcast-count' || what === 'broadcasts' || what === 'admin' || what === 'status' || what === 'payout' || what === 'issue' || what === 'review-remove' || what === 'verify' || what === 'charge' || what === 'import' || what === 'emails' || what === 'email-save' || what === 'email-ai' || what === 'email-test' || what === 'giveaway-round' || what === 'bank' || what === 'ebay-ok') {
+    if (what === 'tax-get' || what === 'tax-save' || what === 'discord-test' || what === 'subs-import' || what === 'pages' || what === 'page-save' || what === 'page-delete' || what === 'page-off' || what === 'wording-save' || what === 'site-photo' || what === 'broadcast' || what === 'broadcast-count' || what === 'broadcasts' || what === 'admin' || what === 'status' || what === 'payout' || what === 'issue' || what === 'review-remove' || what === 'verify' || what === 'charge' || what === 'stripe-transfer' || what === 'import' || what === 'emails' || what === 'email-save' || what === 'email-ai' || what === 'email-test' || what === 'giveaway-round' || what === 'bank' || what === 'ebay-ok') {
       if (!gate.isAdmin(req.method === 'POST' ? b.ak : q.ak)) return res.status(401).json({ error: 'Sign in to the back office again.' });
       // Confirm (or un-confirm) that a seller's eBay user name is really theirs, so they can bring all their listings over.
       if (what === 'ebay-ok' && req.method === 'POST') { const s2 = await M.bySlug(String(b.slug || '')); if (!s2) return res.status(404).json({ error: 'That seller was not found.' }); s2.ebayOk = !!b.on; await M.save(s2); return res.json({ ok: true }); }
@@ -330,6 +330,25 @@ module.exports = async (req, res) => {
         if (plan.fromEarnings > 0) await M.addPayout(s.slug, plan.fromEarnings, 'Taken from earnings', note, 'deduct');
         await mail(s.email, 'V2V charge: $' + usd(cents), ['V2V charged you $' + usd(cents) + ' for: ' + note + '.', plan.fromEarnings ? '$' + usd(plan.fromEarnings) + ' came out of the money V2V was holding for you.' : '', card ? '$' + usd(card) + ' was charged to your ' + plan.card.brand + ' ending ' + plan.card.last4 + '.' : '', '', 'See it in your seller portal: https://' + req.headers.host + '/seller.html'], 'charge-' + s.slug + '-' + cents + '-' + Math.floor(Date.now() / 60000)).catch(() => null);
         return res.json({ ok: true, fromEarnings: plan.fromEarnings, fromCard: card });
+      }
+      // Pay a seller what is ready for them (sales paid to you by Zelle, crypto and so on) straight into their
+      // Stripe, from your own Stripe balance: a Stripe transfer, then Stripe pays their bank on their schedule.
+      // Recorded as a payout like one sent by hand. Needs that much available in your Stripe balance.
+      if (what === 'stripe-transfer') {
+        if (!stripeBase.ready()) return res.status(503).json({ error: 'Stripe is not connected.' });
+        if (!s.stripe || !s.stripeOn) return res.status(400).json({ error: s.name + ' has not finished setting up Stripe payouts, so pay them by hand.' });
+        const t = M.totals(await M.ledger(s.slug), await M.payouts(s.slug));
+        const want = Math.round(Number(String(b.amount || '').replace(/[^0-9.]/g, '')) * 100) || t.payNow;
+        const cents = Math.min(want, t.payNow);
+        if (!(cents >= 50)) return res.status(400).json({ error: 'Nothing is ready to pay ' + s.name + ' right now.' });
+        const bal = await connect.call('GET', '/balance');
+        const avail = bal.ok ? ((bal.body.available || []).filter((x) => x.currency === 'usd')[0] || {}).amount || 0 : 0;
+        if (avail < cents) return res.status(400).json({ error: 'Your Stripe balance has ' + usd(avail) + ' available, and this payout is ' + usd(cents) + '. Card fees you earn land there over time; or add funds to your Stripe balance (Stripe Dashboard, Balances, Add funds), then try again.' });
+        const tr = await connect.call('POST', '/transfers', { amount: cents, currency: 'usd', destination: s.stripe, description: 'V2V payout to ' + s.name, 'metadata[v2v_payout]': s.slug }, 'v2v-po-' + s.slug + '-' + cents + '-' + Math.floor(Date.now() / 600000));
+        if (!tr.ok) { const msg = (tr.body && tr.body.error && tr.body.error.message) || ''; console.error('STRIPE_TRANSFER_FAIL', s.slug, tr.status, msg.slice(0, 200)); return res.status(400).json({ error: 'Stripe did not send it: ' + (msg || 'try again in a minute.') }); }
+        const p = await M.addPayout(s.slug, cents, 'Stripe', 'Stripe transfer ' + tr.body.id);
+        await mail(s.email, 'VeeFam sent you $' + usd(cents), ['We just sent $' + usd(cents) + ' to your Stripe account for your sales on VeeFam.', 'Stripe pays it to your bank on your usual payout schedule.', '', 'See every sale and payout in Seller Hub:', 'https://' + req.headers.host + '/seller.html'], 'po-stripe-' + tr.body.id).catch(() => null);
+        return res.json({ ok: true, payout: p, transfer: tr.body.id });
       }
       if (what === 'verify') {
         s.verify = b.mode === 'on' || b.mode === 'off' ? b.mode : '';
