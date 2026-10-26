@@ -113,7 +113,15 @@ async function all() {
   return v;
 }
 const forget = () => { sMemo = null; lMemo = null; };
-const modeFix = (s) => require('./_stripe').forMode(s, ['stripe', 'stripeOn']);
+// One-time owner request (Oct 2026): the owner's own shop ships from 833 Central Ave, not 2480 Saint Johns Ave.
+// Swapped when read and saved once; any later change in Settings stands.
+function shipFix(s) {
+  if (!s || !s.shipFrom || !/^\s*2480\b/.test(String(s.shipFrom.street1 || '')) || String(s.email || '').toLowerCase() !== String(process.env.OWNER_EMAIL || '').trim().toLowerCase()) return s;
+  s.shipFrom = Object.assign({}, s.shipFrom, { street1: '833 Central Ave', street2: 'Unit 102', city: 'Highland Park', state: 'IL', zip: '60035' });
+  store.write('sellers/s/' + s.slug + '.json', s).catch(() => null);
+  return s;
+}
+const modeFix = (s) => shipFix(require('./_stripe').forMode(s, ['stripe', 'stripeOn']));
 async function bySlug(slug) { return /^[a-z0-9-]{2,30}$/.test(String(slug || '')) ? modeFix(await store.read('sellers/s/' + slug + '.json')) : null; }
 async function byEmail(email) {
   if (!email) return null;
