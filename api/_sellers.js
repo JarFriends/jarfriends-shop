@@ -230,14 +230,7 @@ async function products() {
   const sellers = {};
   (await all()).forEach((s) => { sellers[s.slug] = s; });
   return (await listings()).filter((p) => sellers[p.seller] && sellers[p.seller].status === 'approved' && !p.hidden)
-    .map((p) => {
-      const o = Object.assign({}, p, { section: sectionOf(p), sellerName: sellers[p.seller].name, shelf: false }); delete o.cost; // cost is private to the seller
-      // Ways to pay for a seller's piece: card, plus only the ways the seller takes directly (Zelle, Venmo, Cash App,
-      // crypto), so those payments always go to the seller, never to VeeFam. The owner's own shop takes every way.
-      const s = sellers[p.seller], dp = s.directPay || {}, owner = String(s.email || '').toLowerCase() === String(process.env.OWNER_EMAIL || '').trim().toLowerCase();
-      if (!owner) o.pay = ['card'].concat(['zelle', 'venmo', 'cashapp', 'crypto'].filter((w) => String(dp[w] || '').trim()));
-      return o;
-    });
+    .map((p) => { const o = Object.assign({}, p, { section: sectionOf(p), sellerName: sellers[p.seller].name, shelf: false }); delete o.cost; return o; }); // cost is private to the seller
 }
 const isSellerPid = (id) => /^S[0-9A-Z]{5,19}$/.test(String(id || ''));
 // One listing saved by its seller. New listings get an id starting with S.
