@@ -226,7 +226,7 @@ module.exports = async (req, res) => {
     // The owner's own wording for the site's pages (see _wording.js); nav.js swaps the words on every page.
     if (what === 'wording' && req.method === 'GET') { res.setHeader('cache-control', 'public, max-age=0, s-maxage=20'); return res.json({ rules: (await require('./_wording').get()).rules }); }
     // ---------- The owner ----------
-    if (what === 'tax-get' || what === 'tax-save' || what === 'discord-test' || what === 'subs-import' || what === 'pages' || what === 'page-save' || what === 'page-delete' || what === 'page-off' || what === 'wording-save' || what === 'site-photo' || what === 'broadcast' || what === 'broadcast-count' || what === 'broadcasts' || what === 'admin' || what === 'status' || what === 'payout' || what === 'issue' || what === 'review-remove' || what === 'verify' || what === 'charge' || what === 'stripe-transfer' || what === 'import' || what === 'emails' || what === 'email-save' || what === 'email-ai' || what === 'email-test' || what === 'giveaway-round' || what === 'bank' || what === 'ebay-ok') {
+    if (what === 'tax-get' || what === 'tax-save' || what === 'discord-test' || what === 'subs-import' || what === 'pages' || what === 'page-save' || what === 'page-delete' || what === 'page-off' || what === 'wording-save' || what === 'site-photo' || what === 'broadcast' || what === 'broadcast-count' || what === 'broadcasts' || what === 'admin' || what === 'status' || what === 'payout' || what === 'issue' || what === 'review-remove' || what === 'verify' || what === 'charge' || what === 'stripe-transfer' || what === 'fee-paid' || what === 'import' || what === 'emails' || what === 'email-save' || what === 'email-ai' || what === 'email-test' || what === 'giveaway-round' || what === 'bank' || what === 'ebay-ok') {
       if (!gate.isAdmin(req.method === 'POST' ? b.ak : q.ak)) return res.status(401).json({ error: 'Sign in to the back office again.' });
       // Confirm (or un-confirm) that a seller's eBay user name is really theirs, so they can bring all their listings over.
       if (what === 'ebay-ok' && req.method === 'POST') { const s2 = await M.bySlug(String(b.slug || '')); if (!s2) return res.status(404).json({ error: 'That seller was not found.' }); s2.ebayOk = !!b.on; await M.save(s2); return res.json({ ok: true }); }
@@ -334,6 +334,12 @@ module.exports = async (req, res) => {
       // Pay a seller what is ready for them (sales paid to you by Zelle, crypto and so on) straight into their
       // Stripe, from your own Stripe balance: a Stripe transfer, then Stripe pays their bank on their schedule.
       // Recorded as a payout like one sent by hand. Needs that much available in your Stripe balance.
+      // The seller paid you the fees on their direct sales (Zelle and so on): record it.
+      if (what === 'fee-paid') {
+        const cents = Math.round(Number(String(b.amount || '').replace(/[^0-9.]/g, '')) * 100);
+        if (!(cents > 0 && cents < 10000000)) return res.status(400).json({ error: 'Enter the amount they paid.' });
+        return res.json({ ok: true, payout: await M.addPayout(s.slug, cents, String(b.how || 'By hand').slice(0, 30), 'Fees paid to VeeFam', 'fee') });
+      }
       if (what === 'stripe-transfer') {
         if (!stripeBase.ready()) return res.status(503).json({ error: 'Stripe is not connected.' });
         if (!s.stripe || !s.stripeOn) return res.status(400).json({ error: s.name + ' has not finished setting up Stripe payouts, so pay them by hand.' });
@@ -643,7 +649,7 @@ module.exports = async (req, res) => {
         views.days[day] = Object.keys(v).reduce((t, k2) => t + (Number(v[k2]) || 0), 0);
         if (i < 30) Object.keys(v).forEach((k2) => { views.byPid[k2] = (views.byPid[k2] || 0) + (Number(v[k2]) || 0); });
       }));
-      return res.json({ email: me, seller: M.safe(seller), fee: M.feePct(), sections: M.SECTIONS, listings: listings, orders: orders, profit: prof, views: views, payouts: outs, totals: M.totals(rows, outs), posts: feed, stripe: st, stats: myStats, reviews: myReviews, presets: require('./_ship').PRESETS, labelsOn: require('./_ship').ready(), cleanOn: !!((process.env.PHOTOROOM_API_KEY || '').trim() || (process.env.REMOVEBG_API_KEY || '').trim()) });
+      return res.json({ email: me, seller: M.safe(seller), fee: M.feePct(), sections: M.SECTIONS, listings: listings, orders: orders, profit: prof, views: views, payouts: outs, totals: M.totals(rows, outs), posts: feed, stripe: st, stats: myStats, reviews: myReviews, presets: require('./_ship').PRESETS, labelsOn: require('./_ship').ready(), zelleTo: (process.env.ZELLE_TO || '').trim(), cleanOn: !!((process.env.PHOTOROOM_API_KEY || '').trim() || (process.env.REMOVEBG_API_KEY || '').trim()) });
     }
     // Offers on my pieces. A pending one carries its answer key (t) for /api/offer: accept, counter or decline.
     // A shipping label the seller bought, ready to print: on a half sheet (the default) or as a 4 x 6 label,
@@ -780,6 +786,12 @@ module.exports = async (req, res) => {
       // Their eBay user name: eBay listings they bring over must be theirs (see _ebay.js).
       if (b.ebayUser != null) { const u = tidy(b.ebayUser, 64).replace(/^@/, ''); if (u.toLowerCase() !== String(seller.ebayUser || '').toLowerCase()) seller.ebayOk = false; seller.ebayUser = u; }
       // Where packages ship from: needed for calculated shipping and labels.
+      // Get paid directly: where buyers send Zelle, Venmo, Cash App or crypto for this seller's pieces.
+      if (b.directPay && typeof b.directPay === 'object') {
+        const d = b.directPay, dp = { zelle: tidy(d.zelle, 80), venmo: tidy(d.venmo, 40), cashapp: tidy(d.cashapp, 40), crypto: tidy(d.crypto, 42) };
+        if (dp.crypto && !/^0x[0-9a-fA-F]{40}$/.test(dp.crypto)) return res.status(400).json({ error: 'Crypto wallet: paste your 0x address (42 characters). It is used on Ethereum and Base.' });
+        seller.directPay = dp;
+      }
       if (b.shipFrom && typeof b.shipFrom === 'object') {
         const a = b.shipFrom, f = { name: tidy(a.name, 60), street1: tidy(a.street1, 120), street2: tidy(a.street2, 60), city: tidy(a.city, 60), state: tidy(a.state, 30), zip: tidy(a.zip, 10), phone: tidy(a.phone, 20) };
         if (f.street1 || f.city || f.zip) {
@@ -925,6 +937,22 @@ module.exports = async (req, res) => {
     // The seller cancels one of their orders (before it ships). The order moves from sold/ to cancelled/, so the piece
     // goes back on sale and the order leaves the sales totals and the giveaway wallet. A card payment is refunded in
     // full through Stripe; money paid by Zelle, Venmo, Cash App or cash is with V2V, so the owner is emailed to send it back.
+    // A buyer paid this seller directly by Zelle, Venmo or Cash App: the seller confirms the money arrived.
+    if (what === 'direct-received' && req.method === 'POST') {
+      const n = String(b.n || ''), row = (await M.ledger(seller.slug)).filter((r) => r.n === n)[0];
+      if (!row || !row.directPay) return res.status(404).json({ error: 'That order was not found.' });
+      const mk = 'meta/' + n + '.json', m = (await store.read(mk)) || {};
+      if (!m.paidAt) { m.paidAt = Date.now(); m.paidBy = 'seller'; await store.write(mk, m); }
+      return res.json({ ok: true });
+    }
+    // Pay VeeFam the fees owed on direct sales, in crypto: a payment link with an exact amount that marks itself paid.
+    if (what === 'fee-pay' && req.method === 'POST') {
+      const t = M.totals(await M.ledger(seller.slug), await M.payouts(seller.slug));
+      if (!(t.feeOwed >= 100)) return res.status(400).json({ error: 'You owe VeeFam less than $1 in fees right now.' });
+      const r = await require('./_lib').createInvoice({ no: 'FEE' + Date.now().toString(36).toUpperCase(), item: 'VeeFam fees for ' + seller.name, qty: '1', buyer: seller.name, terms: '', email: seller.email, cents: t.feeOwed, hours: 24, extra: { fee: seller.slug } });
+      if (r.error) return res.status(503).json({ error: 'Crypto payments are not available right now. Send it by Zelle instead.' });
+      return res.json({ link: 'https://' + req.headers.host + '/pay.html?inv=' + r.token, cents: t.feeOwed });
+    }
     if (what === 'order-cancel' && req.method === 'POST') {
       const n = String(b.n || ''), why = String(b.reason || '').replace(/\s+/g, ' ').trim().slice(0, 300);
       const s = (await store.sales()).filter((x) => x.n === n)[0];

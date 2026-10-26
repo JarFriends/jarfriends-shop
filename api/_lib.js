@@ -273,14 +273,16 @@ async function createInvoice(f) {
   const k = {}, skipped = [];
   if (!f.noCoins) {
     for (const coin of Object.keys(COINS)) {
-      const addr = (process.env[COINS[coin].env] || process.env[COINS[coin].env2 || ''] || '').trim();
+      let addr = (process.env[COINS[coin].env] || process.env[COINS[coin].env2 || ''] || '').trim();
+      // Paid straight to the seller: their 0x wallet, on the Ethereum and Base coins only.
+      if (f.direct && f.direct.way === 'crypto') { if (!/^0x/i.test(addr)) { skipped.push(coin); continue; } addr = f.direct.to; }
       if (!addr) { skipped.push(coin); continue; }
       try { k[coin] = [await amountFor(coin, f.cents), addr]; } catch (e) { skipped.push(coin); }
     }
     if (!Object.keys(k).length) return { error: 'No wallet addresses are set yet. Add WALLET_BTC, WALLET_ETH or WALLET_SOL in the Vercel environment variables, then redeploy.' };
   }
   const now = Math.floor(Date.now() / 1000);
-  const inv = Object.assign({ n: f.no || String(now), i: f.item, q: f.qty, b: f.buyer, t: f.terms, e: f.email, u: f.cents, c: now, d: now + Math.round(f.hours * 3600), k: k }, f.extra || {});
+  const inv = Object.assign({ n: f.no || String(now), i: f.item, q: f.qty, b: f.buyer, t: f.terms, e: f.email, u: f.cents, c: now, d: now + Math.round(f.hours * 3600), k: k }, f.extra || {}, f.direct ? { dt: f.direct } : {});
   return { inv: inv, token: sign(inv), skipped: skipped };
 }
 

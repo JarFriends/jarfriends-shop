@@ -74,6 +74,10 @@ const changes = [
   // from the account), not only on typing, so the Place order button turns on. And the piece picker never makes
   // the page wider than the phone (a long name zoomed the whole page out and buttons stopped taking taps).
   ['public/order.html', "['street', 'line2', 'city', 'state', 'zip'].forEach(function (k) { $('f').elements[k].addEventListener('input', function () { if (cc() !== 'US' || (cur() && cur().calc)) { iq.cents = 0; total(); soon(); } }); });", "['street', 'line2', 'city', 'state', 'zip'].forEach(function (k) { ['input', 'change', 'blur'].forEach(function (ev) { $('f').elements[k].addEventListener(ev, function () { if (cc() !== 'US' || (cur() && cur().calc)) { if (ev === 'input') { iq.cents = 0; total(); } soon(); } }); }); });\n  [800, 2500, 5000].forEach(function (ms) { setTimeout(function () { var p0 = cur(); if (p0 && (p0.calc || cc() !== 'US') && !iq.cents && !iq.busy) quote(); }, ms); });\n  (function () { var st = document.createElement('style'); st.textContent = '#product,select{max-width:100%}#f label{min-width:0}'; document.head.appendChild(st); })();"],
+  // Buyers pay the seller directly when the seller takes that way (Zelle, Venmo, Cash App, crypto); the order is
+  // marked so the seller owes VeeFam its fee instead of VeeFam owing the seller (see _sellers.js totals).
+  ['api/order.js', 'cents: total, hours: ORDER_HOURS, noCoins: cash || card,', "cents: total, hours: ORDER_HOURS, noCoins: cash || card, direct: card || isNft ? null : await require('./_sellers').directFor(p.id, cash ? way : 'crypto').catch(() => null),"],
+  ['api/order.js', "  if (r.error) return res.status(503).json({ error: 'Online payment is not available right now. Please contact us.' });", "  if (r.error) return res.status(503).json({ error: 'Online payment is not available right now. Please contact us.' });\n  if (r.inv.dt) { const ST = require('./_store'), mk = 'meta/' + r.inv.n + '.json'; await ST.write(mk, Object.assign((await ST.read(mk).catch(() => null)) || {}, { directPay: r.inv.dt })).catch(() => null); }"],
 ];
 changes.forEach(([f, find, put]) => {
   const s = fs.readFileSync(f, 'utf8');

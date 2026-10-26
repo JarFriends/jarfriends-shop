@@ -39,5 +39,10 @@ module.exports = async (req, res) => {
   const email = status === 'confirmed' ? await sendPaidEmail(inv, coin, found) : null;
   // A shop order paid in crypto goes on the sheet now, with its proof and the link that prints the shipping label.
   if (status === 'confirmed' && inv.pid) await offline.record(inv, 'Paid in full', { paid: true, proof: found.explorer, label: offline.labelLink('https://' + req.headers.host, String(req.query.inv), inv) });
+  // A seller paying VeeFam its fees on their direct sales (see market.js fee-pay): recorded once, when confirmed.
+  if (status === 'confirmed' && inv.fee) {
+    const ST = require('./_store'), mk = 'feepaid/' + inv.n + '.json';
+    if (!(await ST.read(mk).catch(() => null))) { await ST.write(mk, { at: Date.now(), tx: found.explorer || '' }); await require('./_sellers').addPayout(String(inv.fee), inv.u, 'Crypto', 'Fees paid to VeeFam ' + inv.n, 'fee'); }
+  }
   res.json({ invoice: invoice, now: now, coin: coin, status: status, tx: found, email: email });
 };

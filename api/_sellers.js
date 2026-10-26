@@ -339,7 +339,7 @@ async function ledger(slug) {
     return { n: s.n, pid: s.pid, seller: mine[s.pid].seller, product: d.product || mine[s.pid].name, q: s.q, at: d.at || s.at, buyer: d.buyer || '', email: d.email || '', ship: d.ship || '', pay: d.pay || '',
       gross: gross, items: dollars(d.items), rate: rate, fee: fee, net: gross - fee, paid: paidOf(d, m), tracking: m.tracking || '', shippedAt: m.shippedAt || 0,
       // Paid by card straight to the seller's own Stripe (see _connect.js): Stripe pays the seller, nothing is owed.
-      direct: !!m.direct, issue: m.issue || null, bundleLead: m.bundleLead || '', bundleMates: m.bundleMates || [],
+      direct: !!m.direct, directPay: !!m.directPay, issue: m.issue || null, bundleLead: m.bundleLead || '', bundleMates: m.bundleMates || [],
       // A shipping label the seller bought through V2V: its cost, and the part taken from money V2V holds for them.
       customsPdf: m.customsPdf || '', labelCost: m.labelCost || 0, labelEarn: m.labelFromEarnings || 0, labelCard: m.labelFromCard || 0, labelPdf: m.labelPdf || '' };
   }));
@@ -378,7 +378,7 @@ async function payouts(slug) {
 }
 // kind 'deduct': money taken from what V2V holds for the seller (a USPS charge after the fact, say), not money sent.
 async function addPayout(slug, cents, how, note, kind) {
-  const p = { cents: cents, how: String(how || '').slice(0, 30), note: String(note || '').slice(0, 200), at: Date.now(), kind: kind === 'deduct' ? 'deduct' : 'sent' };
+  const p = { cents: cents, how: String(how || '').slice(0, 30), note: String(note || '').slice(0, 200), at: Date.now(), kind: kind === 'deduct' || kind === 'fee' ? kind : 'sent' };
   await store.write('payouts/' + slug + '/' + p.at + '.json', p);
   return p;
 }
@@ -387,14 +387,18 @@ function totals(rows, outs) {
   // byStripe: the seller's share of card sales Stripe paid to them directly. Only the rest is owed by hand.
   // labels: label costs taken from held money. deducted: other charges taken from held money (see addPayout).
   const t = { sales: 0, gross: 0, fee: 0, net: 0, unpaidGross: 0, paidOut: 0, byStripe: 0, labels: 0, labelsCard: 0, deducted: 0 };
-  rows.forEach((r) => { if (r.paid) { t.sales++; t.gross += r.gross; t.fee += r.fee; t.net += r.net; if (r.direct) t.byStripe += r.net; } else t.unpaidGross += r.gross; t.labels += r.labelEarn || 0; t.labelsCard += r.labelCard || 0; });
-  outs.forEach((p) => { if (p.kind === 'deduct') t.deducted += p.cents; else t.paidOut += p.cents; });
-  t.owed = t.net - t.byStripe - t.paidOut - t.labels - t.deducted;
+  // byDirect: sales the buyer paid straight to the seller (their Zelle, Venmo, Cash App or crypto wallet). The seller
+  // has that money, so nothing is owed to them for it; they owe VeeFam its fee instead (feeDue, less fees paid).
+  t.byDirect = 0; t.feeDue = 0; t.feePaid = 0;
+  rows.forEach((r) => { if (r.paid) { t.sales++; t.gross += r.gross; t.fee += r.fee; t.net += r.net; if (r.direct) t.byStripe += r.net; if (r.directPay) { t.byDirect += r.net; t.feeDue += r.fee; } } else t.unpaidGross += r.gross; t.labels += r.labelEarn || 0; t.labelsCard += r.labelCard || 0; });
+  outs.forEach((p) => { if (p.kind === 'deduct') t.deducted += p.cents; else if (p.kind === 'fee') t.feePaid += p.cents; else t.paidOut += p.cents; });
+  t.owed = t.net - t.byStripe - t.byDirect - t.paidOut - t.labels - t.deducted;
+  t.feeOwed = Math.max(0, t.feeDue - t.feePaid);
   // Shipping the buyer paid on an order that has not shipped yet stays with VeeFam: it pays for the label. So what
   // is ready to send the seller now is what they are owed less that shipping. Once it ships, the shipping counts
   // (less the label if it was bought through VeeFam; all of it if they shipped their own way).
   t.shipHeld = 0;
-  rows.forEach((r) => { if (r.paid && !r.direct && !(r.tracking || r.shippedAt)) t.shipHeld += Math.max(0, r.gross - (r.items || 0)); });
+  rows.forEach((r) => { if (r.paid && !r.direct && !r.directPay && !(r.tracking || r.shippedAt)) t.shipHeld += Math.max(0, r.gross - (r.items || 0)); });
   t.payNow = t.owed - t.shipHeld;
   return t;
 }
@@ -504,4 +508,13 @@ async function notifySale(n, kind) {
   return mail(seller.email, (paid ? 'Paid, ship it: ' : 'New order (not paid yet): ') + (d.product || 'your piece'), lines, 'seller-sale-' + n + '-' + (paid ? 'paid' : 'placed')).catch((e) => { console.error('SELLER_NOTIFY_FAIL', n, String(e && e.message || e)); return 'failed'; });
 }
 
-module.exports = { removeShop, bankFrom, bankOf, safe, routingOk, profit, setCost, giveawayPct, sellerOf, offerTo, notifySale, reviews, saveReview, removeReview, stats, statsAll, statsFrom, shortName, completed, VERIFY_AFTER, posts, addPost, removePost, feePct, autoApprove, all, bySlug, byEmail, save, apply, pub, listings, products, isSellerPid, saveListing, setListing, removeListing, ledger, payouts, addPayout, totals, hashOf, SECTIONS, sectionOf, forget };
+// Buyers pay this seller directly by the way they picked, when the seller has added where they take it
+// (Shop settings, Get paid directly): { slug, name, way, to }. way: zelle, venmo, cashapp or crypto (an 0x wallet,
+// used on Ethereum and Base).
+async function directFor(pid, way) {
+  if (!way || !isSellerPid(pid)) return null;
+  const p = (await listings()).filter((x) => x.id === pid)[0], s = p && (await bySlug(p.seller));
+  const to = s && s.directPay && String(s.directPay[way] || '').trim();
+  return to ? { slug: s.slug, name: s.name, way: way, to: to } : null;
+}
+module.exports = { directFor, removeShop, bankFrom, bankOf, safe, routingOk, profit, setCost, giveawayPct, sellerOf, offerTo, notifySale, reviews, saveReview, removeReview, stats, statsAll, statsFrom, shortName, completed, VERIFY_AFTER, posts, addPost, removePost, feePct, autoApprove, all, bySlug, byEmail, save, apply, pub, listings, products, isSellerPid, saveListing, setListing, removeListing, ledger, payouts, addPayout, totals, hashOf, SECTIONS, sectionOf, forget };

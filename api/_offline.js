@@ -20,6 +20,8 @@ const label = (w) => (WAYS[w] ? WAYS[w].label : WAYS.cash.label);
 function howTo(inv) {
   const w = wayOf(inv);
   if (w === 'cash') return payNote();
+  // Paid straight to the seller (see _sellers.js directFor).
+  if (inv.dt && inv.dt.way === w && inv.dt.to) return 'Send your ' + label(w) + ' payment straight to the seller, ' + inv.dt.name + ': ' + inv.dt.to + '.';
   return sendTo(w) ? 'Send your ' + label(w) + ' payment to ' + sendTo(w) + '.' : '';
 }
 // How an order is being paid, in words.

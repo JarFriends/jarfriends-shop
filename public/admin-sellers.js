@@ -174,6 +174,27 @@
       });
       if (auto.length) wrap.appendChild(el('div', 'Dates are rough: Stripe usually pays 2 business days after a sale (daily payouts). A brand-new Stripe account, or a seller on weekly payouts, can take up to about 7 days.', 'small dim'));
     })();
+    // Sellers owe you: fees on sales the buyer paid straight to the seller (their Zelle, Venmo, Cash App or crypto).
+    (function () {
+      var owe = r.sellers.filter(function (s) { return s.totals && s.totals.feeOwed > 0; }).sort(function (a, b) { return b.totals.feeOwed - a.totals.feeOwed; });
+      var sb = el('details', null, 'card'); sb.style.gap = '10px'; box.appendChild(sb);
+      var sm = el('summary'); sm.style.cssText = 'cursor:pointer;font-weight:800;font-size:17px'; sm.textContent = '🧾 Sellers owe you' + (owe.length ? ' · ' + owe.length + ' seller' + (owe.length > 1 ? 's' : '') + ', ' + money(owe.reduce(function (t, s) { return t + s.totals.feeOwed; }, 0)) : ' · nothing due'); sb.appendChild(sm);
+      var wrap = el('div'); wrap.style.cssText = 'display:flex;flex-direction:column;gap:10px;margin-top:12px'; sb.appendChild(wrap);
+      wrap.appendChild(el('div', 'Buyers paid these sellers directly, so the seller owes you your ' + r.fee + '% fee. Crypto fee payments mark themselves paid; press Seller paid when one comes in by Zelle or another way.', 'small dim'));
+      if (!owe.length) wrap.appendChild(el('div', 'No seller owes you fees right now.', 'small'));
+      owe.forEach(function (s) {
+        var c = el('div'); c.style.cssText = 'display:flex;flex-direction:column;gap:6px;border:1px solid #2E4A3B;border-radius:10px;padding:10px 12px';
+        var hd = el('div'); hd.style.cssText = 'display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px'; hd.appendChild(el('b', s.name + ' · ' + s.email)); hd.appendChild(el('b', 'Owes you ' + money(s.totals.feeOwed))); c.appendChild(hd);
+        (r.sales || []).filter(function (x) { return x.seller === s.slug && x.paid && x.directPay; }).forEach(function (x) { c.appendChild(el('div', 'Order ' + x.n + ' · ' + x.product + ' · ' + new Date(x.at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' · buyer paid the seller ' + money(x.gross) + ' by ' + (x.pay || '?') + ' · your fee ' + money(x.fee), 'small')); });
+        if (s.totals.feePaid) c.appendChild(el('div', 'Already paid you: ' + money(s.totals.feePaid), 'small dim'));
+        var row = el('div'); row.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;align-items:center';
+        var amt = el('input'); amt.type = 'number'; amt.step = '0.01'; amt.min = '0.01'; amt.value = (s.totals.feeOwed / 100).toFixed(2); amt.style.width = '110px';
+        var how = el('select'); how.className = 'jf-sel'; ['Zelle', 'Venmo', 'Cash App', 'Crypto', 'Other'].forEach(function (h) { var o = el('option', h); o.value = h; how.appendChild(o); });
+        var go = el('button', 'Seller paid', 'solid'); go.type = 'button'; go.style.cssText = 'padding:6px 12px;min-height:0'; var gm = el('span', '', 'small');
+        go.addEventListener('click', function () { go.disabled = true; post({ do: 'fee-paid', slug: s.slug, amount: amt.value, how: how.value }).then(function (x) { go.disabled = false; gm.textContent = x.error || '✓ Recorded. Refresh to update.'; }); });
+        row.appendChild(amt); row.appendChild(how); row.appendChild(go); row.appendChild(gm); c.appendChild(row); wrap.appendChild(c);
+      });
+    })();
     // What you owe, seller by seller: every sale that paid you (not their Stripe), minus labels, charges and payouts.
     var oweBox = el('section', null, 'card'); oweBox.hidden = true; oweBox.style.gap = '14px'; box.appendChild(oweBox);
     (function () {
@@ -188,7 +209,7 @@
         w.appendChild(hd);
         if (st.shipHeld) w.appendChild(el('div', '+ ' + money(st.shipHeld) + ' shipping held until it ships. It pays for the label; if they ship their own way, it goes to them once tracking is added.', 'small dim'));
         w.appendChild(el('div', 'Send to: ' + (s.payTo ? (s.payHow === 'bank' || s.payHow === 'wire' ? 'bank account (Show bank details on their card below)' : (s.payHow || '') + ' ' + s.payTo) : 'no payout details yet. Ask them to add them in Seller Hub.') + ' · ' + s.email, 'small'));
-        var rows = (r.sales || []).filter(function (x) { return x.seller === s.slug && x.paid && !x.direct; });
+        var rows = (r.sales || []).filter(function (x) { return x.seller === s.slug && x.paid && !x.direct && !x.directPay; });
         var tb = el('div'); tb.style.cssText = 'display:flex;flex-direction:column;gap:4px;font-size:14px';
         var line = function (a, b, dim) { var l = el('div'); l.style.cssText = 'display:flex;justify-content:space-between;gap:10px' + (dim ? ';opacity:.75' : ''); l.appendChild(el('span', a)); l.appendChild(el('span', b)); tb.appendChild(l); };
         rows.forEach(function (x) {
