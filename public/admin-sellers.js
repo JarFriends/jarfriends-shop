@@ -11,6 +11,9 @@
   var btn = el('button', 'Sellers', 'ghost'); btn.type = 'button'; btn.setAttribute('aria-pressed', 'false');
   tabs.insertBefore(btn, $('out'));
   // Fees to collect: its own tab button. It opens Sellers at the fee section (who owes you, and who is paid up).
+  // Sellers to pay: its own tab button too. It opens Sellers at "Needs to be paid" (who you pay by hand, and Stripe's).
+  var payBtn = el('button', '💵 Sellers to pay', 'ghost'); payBtn.type = 'button'; tabs.insertBefore(payBtn, $('out'));
+  payBtn.addEventListener('click', function () { btn.click(); var tries = 0; (function go() { var f = document.getElementById('payBox'); if (f) { f.open = true; setTimeout(function () { f.open = true; f.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 250); } else if (tries++ < 40) setTimeout(go, 150); })(); });
   var feeBtn = el('button', '💸 Fees to collect', 'ghost'); feeBtn.type = 'button'; tabs.insertBefore(feeBtn, $('out'));
   feeBtn.addEventListener('click', function () { btn.click(); var tries = 0; (function go() { var f = document.getElementById('feeBox'); if (f) { f.open = true; setTimeout(function () { f.open = true; f.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 250); } else if (tries++ < 40) setTimeout(go, 150); })(); });
   var box = el('div'); box.dataset.extraTab = 'sellers'; box.hidden = true; box.style.cssText = 'display:flex;flex-direction:column;gap:18px';
@@ -136,7 +139,7 @@
     })();
     // Needs to be paid: who you pay by hand now, and the card sales Stripe pays sellers by itself, with a rough date.
     (function () {
-      var nb = el('details', null, 'card'); nb.style.gap = '10px'; box.appendChild(nb);
+      var nb = el('details', null, 'card'); nb.id = 'payBox'; nb.style.gap = '10px'; box.appendChild(nb);
       var manual = r.sellers.filter(function (s) { return s.totals && s.totals.payNow > 0; }).sort(function (a, b) { return b.totals.payNow - a.totals.payNow; });
       var addBiz = function (t, n) { var d = new Date(t); while (n > 0) { d.setDate(d.getDate() + 1); if (d.getDay() !== 0 && d.getDay() !== 6) n--; } return d; };
       var auto = (r.sales || []).filter(function (x) { return x.paid && x.direct && Date.now() - x.at < 14 * 864e5; }).sort(function (a, b) { return b.at - a.at; });
