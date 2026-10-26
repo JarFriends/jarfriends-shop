@@ -1,6 +1,6 @@
 // The marketplace: other people sell on JarFriends from their own seller portal (seller.html).
 // The buyer pays JarFriends as usual. JarFriends keeps PLATFORM_FEE_PERCENT (5.55 unless set) of each paid seller sale
-// (pieces plus shipping; sales tax and the card fee are not the seller's money, so no fee is taken on them),
+// (the listing price only: never shipping, sales tax or the card fee),
 // and owes the seller the rest. The owner pays sellers out and records each payout in the back office.
 //
 // Storage (the site's private Blob store):
@@ -331,10 +331,11 @@ async function ledger(slug) {
     const d = got[0] || {}, m = got[1] || {};
     // Shipped in the same box as another order from the same cart: it shares that order's tracking.
     if (m.bundleLead && !m.tracking) { const lm = await store.read('meta/' + m.bundleLead + '.json'); if (lm && lm.tracking) { m.tracking = lm.tracking; m.shippedAt = lm.shippedAt || 0; } }
-    let rate = got[2] && got[2].pct;
-    if (rate == null) { rate = feePct(); await store.write('fees/' + s.n + '.json', { pct: rate, at: Date.now() }).catch(() => null); }
+    let rate = got[2] && got[2].pct, onShip = !!(got[2] && got[2].pct != null && !got[2].base);
+    // The fee is on the listing price only (base 'items'). Sales booked before that rule took it on shipping too.
+    if (rate == null) { rate = feePct(); onShip = false; await store.write('fees/' + s.n + '.json', { pct: rate, base: 'items', at: Date.now() }).catch(() => null); }
     const gross = dollars(d.items) + dollars(d.shipping);
-    const fee = Math.round(gross * rate / 100);
+    const fee = Math.round((onShip ? gross : dollars(d.items)) * rate / 100);
     return { n: s.n, pid: s.pid, seller: mine[s.pid].seller, product: d.product || mine[s.pid].name, q: s.q, at: d.at || s.at, buyer: d.buyer || '', email: d.email || '', ship: d.ship || '', pay: d.pay || '',
       gross: gross, items: dollars(d.items), rate: rate, fee: fee, net: gross - fee, paid: paidOf(d, m), tracking: m.tracking || '', shippedAt: m.shippedAt || 0,
       // Paid by card straight to the seller's own Stripe (see _connect.js): Stripe pays the seller, nothing is owed.

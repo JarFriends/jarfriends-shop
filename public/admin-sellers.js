@@ -59,7 +59,9 @@
       var wrap = el('div'); wrap.style.cssText = 'display:flex;flex-direction:column;gap:10px;margin-top:12px'; tb.appendChild(wrap);
       wrap.appendChild(el('div', 'As the marketplace, VeeFam collects sales tax for every seller on orders shipping to a state where you are registered to collect (where VeeFam has passed that state\u2019s marketplace threshold, or has a presence). It is charged on the pieces, by the buyer\u2019s ship-to state, whoever the seller is, and comes to you to file and pay. Add a state once you register there.', 'small dim'));
       var rows = el('div'); rows.style.cssText = 'display:flex;flex-direction:column;gap:6px'; wrap.appendChild(rows);
-      var ST = {}, add = el('div'); add.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;align-items:center'; wrap.appendChild(add);
+      // Where VeeFam stands in each state: sales shipped there this year and last against the state's marketplace threshold.
+      var track = el('div'); track.style.cssText = 'display:flex;flex-direction:column;gap:6px'; wrap.insertBefore(track, rows);
+      var AVG = {}, ST = {}, add = el('div'); add.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;align-items:center'; wrap.appendChild(add);
       var m = el('div', '', 'small'); var save = el('button', 'Save sales tax', 'solid'); save.type = 'button';
       var line = function (c, r) {
         var d = el('div'); d.style.cssText = 'display:flex;gap:8px;align-items:center';
@@ -69,10 +71,28 @@
         d.appendChild(nm); d.appendChild(inp); d.appendChild(el('span', '%', 'small')); d.appendChild(x); rows.appendChild(d);
       };
       fetch('/api/market?do=tax-get&ak=' + encodeURIComponent(key()), { cache: 'no-store' }).then(function (x) { return x.json(); }).then(function (t) {
-        ST = t.states || {}; Object.keys(t.rates || {}).sort().forEach(function (c) { line(c, t.rates[c]); });
+        ST = t.states || {}; AVG = t.avg || {}; Object.keys(t.rates || {}).sort().forEach(function (c) { line(c, t.rates[c]); });
+        var tr = t.track || [], over = tr.filter(function (x) { return x.status === 'over'; });
+        var usd0 = function (c) { return '$' + Math.round(c / 100).toLocaleString(); };
+        var badge = { over: ['Over the line: register and collect', '#E5484D'], near: ['Getting close (80%+)', '#F5A524'], collecting: ['Collecting', '#3FB950'], under: ['Under the line', '#8FA79A'], none: ['No sales tax in this state', '#8FA79A'] };
+        track.appendChild(el('b', 'Where you stand, by state' + (over.length ? '  ·  ⚠️ ' + over.length + ' to register' : '')));
+        if (!tr.length) track.appendChild(el('div', 'No orders shipped to any state yet this year or last.', 'small dim'));
+        tr.forEach(function (x) {
+          var d = el('div'); d.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;align-items:center;border:1px solid #2E4A3B;border-radius:10px;padding:8px 10px';
+          var b = badge[x.status] || badge.under, tag = el('span', b[0], 'small'); tag.style.cssText = 'border:1px solid ' + b[1] + ';color:' + b[1] + ';border-radius:999px;padding:2px 9px;font-weight:700';
+          var nm = el('b', x.code + ' · ' + String(x.name).replace(/\b\w/g, function (y) { return y.toUpperCase(); })); nm.style.minWidth = '150px';
+          var line2 = 'This year ' + usd0(x.cur) + ' (' + x.curN + ' orders) · last year ' + usd0(x.prev) + ' (' + x.prevN + ')';
+          if (x.threshold != null && x.status !== 'none') line2 += ' · line: ' + (x.threshold ? usd0(x.threshold * 100) : 'any sale') + (x.orders ? (x.rule === 'and' ? ' and ' : ' or ') + x.orders + ' orders' : '') + (x.status !== 'collecting' ? ' (' + x.pct + '%)' : '');
+          d.appendChild(nm); d.appendChild(tag); d.appendChild(el('span', line2, 'small dim'));
+          if (x.status === 'over' || x.status === 'near') { var go = el('button', 'Collect here (' + x.avg + '%)', 'ghost'); go.type = 'button'; go.style.cssText = 'padding:6px 10px;min-height:0';
+            go.addEventListener('click', function () { if (!rows.querySelector('input[data-c="' + x.code + '"]')) line(x.code, x.avg); go.remove(); m.textContent = 'Added ' + x.code + ' at its usual rate. Register with the state first, check the rate, then Save.'; }); d.appendChild(go); }
+          track.appendChild(d);
+        });
+        track.appendChild(el('div', 'Each state requires a marketplace to collect once its sales into that state pass a line (most: $100,000 a year; CA, TX, NY: $500,000; AL, CT, MS: $250,000; OK: $10,000; some also count 200 orders). Illinois is your home state, so it is always collected. Rates added here start at the state’s usual combined rate (state plus average local, 2026); check them with your accountant.', 'small dim'));
+        track.appendChild(el('b', 'Collecting now'));
         var sel = el('select'); sel.className = 'jf-sel'; var o0 = el('option', 'Add a state…'); o0.value = ''; sel.appendChild(o0);
         Object.keys(ST).sort().forEach(function (c) { var o = el('option', c + ' · ' + ST[c]); o.value = c; sel.appendChild(o); });
-        sel.addEventListener('change', function () { var c = sel.value; sel.value = ''; if (!c || rows.querySelector('input[data-c="' + c + '"]')) return; line(c, ''); var i = rows.querySelector('input[data-c="' + c + '"]'); if (i) i.focus(); });
+        sel.addEventListener('change', function () { var c = sel.value; sel.value = ''; if (!c || rows.querySelector('input[data-c="' + c + '"]')) return; line(c, AVG[c] || ''); var i = rows.querySelector('input[data-c="' + c + '"]'); if (i) i.focus(); });
         add.appendChild(sel); add.appendChild(save); add.appendChild(m);
         sm.textContent = '🧾 Sales tax (' + (Object.keys(t.rates || {}).join(', ') || 'none') + ')';
       });
@@ -142,7 +162,7 @@
       });
       gv.appendChild(row);
     }).catch(function () { gv.textContent = 'The giveaway vote did not load.'; });
-    box.appendChild(el('div', 'Buyers pay JarFriends for seller pieces like any other order. You keep ' + r.fee + '% of the pieces plus shipping. Card sales of sellers with Stripe payouts on go straight to them (your cut arrives in your Stripe automatically); for everything else you owe the seller the rest. Sellers ship their own orders and add tracking in their portal, so do not buy a label for a seller order from the Orders tab. The fee rate is set by PLATFORM_FEE_PERCENT in the site settings.', 'small dim'));
+    box.appendChild(el('div', 'Buyers pay JarFriends for seller pieces like any other order. You keep ' + r.fee + '% of the listing price only: never of shipping or sales tax. Card sales of sellers with Stripe payouts on go straight to them (your cut arrives in your Stripe automatically); for everything else you owe the seller the rest. Sellers ship their own orders and add tracking in their portal, so do not buy a label for a seller order from the Orders tab. The fee rate is set by PLATFORM_FEE_PERCENT in the site settings.', 'small dim'));
     if (!r.sellers.length) { box.appendChild(el('div', 'No sellers yet. Send people to /seller.html to open a shop. Sellers listed in SEED_SELLERS open by themselves the first time the site is visited.', 'card small')); return; }
     // One card per seller; the cards are shown in groups below.
     var cardOf = function (s, into) {

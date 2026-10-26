@@ -265,7 +265,7 @@ module.exports = async (req, res) => {
         return res.json({ orders: o, sellers: s2 });
       }
       // Sales tax: the states where VeeFam collects, and the rate for each (see _tax.js).
-      if (what === 'tax-get') return res.json(Object.assign({ states: require('./_tax').STATES }, await require('./_tax').get()));
+      if (what === 'tax-get') { const T = require('./_tax'); return res.json(Object.assign({ states: T.STATES, avg: T.AVG, track: await T.tracker().catch((e) => { console.error('TAX_TRACK_FAIL', String(e && e.message || e)); return []; }) }, await T.get())); }
       if (what === 'tax-save' && req.method === 'POST') { const r = await require('./_tax').save(b.rates); return res.status(r.error ? 400 : 200).json(r); }
       if (what === 'giveaway-round') { const r = await require('./_giveaway').setRound(String(b.action || '')); return res.status(r.error ? 400 : 200).json(r); }
       // The Emails tab: every automatic email, which are off, and the owner's own words in them (see _emails.js).

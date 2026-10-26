@@ -4,7 +4,7 @@
 // with Stripe, never on V2V). After that, a card sale of one of their pieces is charged on the seller's own Stripe
 // account: Stripe pays the seller out to their bank and bills the seller its own card fees, and V2V's cut arrives
 // in V2V's Stripe as the "application fee":
-//   PLATFORM_FEE_PERCENT (5.55) of the pieces plus shipping, plus any Illinois sales tax (V2V files that tax as the
+//   PLATFORM_FEE_PERCENT (5.55) of the pieces only (not shipping), plus any Illinois sales tax (V2V files that tax as the
 //   marketplace, so it comes to V2V). The buyer's card fee stays with the seller, to cover what Stripe charges them.
 // Sales paid another way (Zelle, Venmo, Cash App, cash, crypto) still come to the owner, who pays the seller by hand.
 //
@@ -78,9 +78,10 @@ async function status(seller) {
   return { state: on ? 'on' : 'started', due: due, schedule: sch ? (sch.interval === 'weekly' ? 'weekly on ' + (sch.weekly_anchor || '') : sch.interval) : '' };
 }
 
-// V2V's cut of one sale, in cents: the fee on pieces plus shipping, plus Illinois sales tax.
+// V2V's cut of one sale, in cents: the fee on the pieces only (the listing price after any discount; never shipping,
+// sales tax or the card fee), plus the sales tax, which VeeFam passes on to the state.
 function platformFee(inv) {
-  const gross = Math.max(0, (Number(inv.L) || 0) - (Number(inv.pd) || 0) + (Number(inv.sh) || 0));
+  const gross = Math.max(0, (Number(inv.L) || 0) - (Number(inv.pd) || 0));
   return Math.round(gross * M.feePct() / 100) + (Number(inv.tx) || 0);
 }
 // The seller whose piece an invoice is for, if they take card payments on their own Stripe account.

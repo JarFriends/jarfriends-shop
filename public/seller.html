@@ -1002,7 +1002,7 @@
     f.appendChild(photoPrev);
     f.appendChild(hl);
     var price2 = el('div', '', 'small dim');
-    var calc = function () { var v = Number(price.value) || 0; price2.textContent = v ? 'At ' + JF.usd(v) + ' you get ' + JF.usd(v * (1 - D.fee / 100)) + ' after the ' + D.fee + '% JarFriends fee (plus shipping, less its fee).' : ''; };
+    var calc = function () { var v = Number(price.value) || 0; price2.textContent = v ? 'At ' + JF.usd(v) + ' you get ' + JF.usd(v * (1 - D.fee / 100)) + ' after the ' + D.fee + '% fee (shipping is all yours: no fee is taken on it).' : ''; };
     price.addEventListener('input', calc); calc(); f.appendChild(price2);
     var row = el('div'); row.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px'; row.appendChild(go);
     var cancel = el('button', 'Cancel', 'ghost'); cancel.type = 'button'; cancel.addEventListener('click', function () { editing = null; adding = false; dash(); }); row.appendChild(cancel);
