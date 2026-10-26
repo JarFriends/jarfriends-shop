@@ -81,7 +81,21 @@
   var gLoad = null;
   // Google's sign-in script is only loaded once someone taps "Continue with Google": loaded up front, it hooks into the
   // email box's autofill in some browsers, which has made a browser close when typing an email.
+  // Apps' built-in browsers (Instagram, Facebook, TikTok, Discord, X, Snapchat…) block Google sign-in: its window opens
+  // blank. There, say so, offer to open the page in the phone's real browser, and keep email sign-in.
+  function inApp() { var u = navigator.userAgent || ''; return /FBAN|FBAV|FB_IAB|Instagram|Line\/|Twitter|TikTok|musical_ly|Bytedance|Snapchat|Discord|LinkedInApp|Pinterest|GSA\/|; wv\)/i.test(u) || (/(iPhone|iPad|iPod)/.test(u) && /AppleWebKit/.test(u) && !/Safari\//.test(u)); }
   function google(host, msg, done, or) {
+    if (inApp()) {
+      host.textContent = '';
+      var n = el('div', null, 'small'); n.style.cssText = 'border:1px solid #C9A45C;border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:8px;max-width:420px';
+      n.appendChild(el('b', 'Google sign-in does not work inside this app'));
+      n.appendChild(el('span', 'You opened VeeFam inside another app (like Instagram, Discord or Facebook). Use your email below, or open this page in Safari or Chrome to use Google.'));
+      var cp = el('button', 'Copy the link to open in Safari or Chrome', 'ghost'); cp.type = 'button'; cp.style.cssText = 'min-height:0;padding:8px 12px';
+      cp.addEventListener('click', function () { var u = location.href; try { navigator.clipboard.writeText(u).then(function () { cp.textContent = 'Copied! Paste it in Safari or Chrome.'; }, function () { prompt('Copy this link:', u); }); } catch (e) { prompt('Copy this link:', u); } });
+      n.appendChild(cp);
+      if (/Android/i.test(navigator.userAgent || '')) { var oc = el('a', 'Open in Chrome'); oc.href = 'intent://' + location.host + location.pathname + location.search + '#Intent;scheme=https;package=com.android.chrome;end'; n.appendChild(oc); }
+      host.appendChild(n); return;
+    }
     if (!host.dataset.armed) {
       host.dataset.armed = '1';
       var gb = el('button', 'Continue with Google', 'ghost'); gb.type = 'button'; gb.style.cssText = 'width:100%;max-width:300px;min-height:44px';
@@ -285,13 +299,31 @@
     else w.style.gridTemplateColumns = '1fr 1fr';
     return w;
   }
+  // The round + on a product card: puts the piece straight in the cart (it turns into a ✓ for a moment).
+  function cartPlus(p) {
+    var b = el('button', '+', 'jf-plus'); b.type = 'button'; b.title = 'Add to cart'; b.setAttribute('aria-label', 'Add ' + p.name + ' to cart');
+    b.addEventListener('click', function (ev) {
+      ev.preventDefault(); ev.stopPropagation();
+      if (!window.V2VCart) return;
+      window.V2VCart.add({ id: p.id, name: p.name, price: p.price, ship: p.ship, photo: p.photo, seller: p.seller, sellerName: p.sellerName, left: p.left, nft: p.nft, qty: 1 });
+      b.textContent = '✓'; b.classList.add('on'); toast('Added to your cart', '/cart.html', 'View cart');
+      setTimeout(function () { b.textContent = '+'; b.classList.remove('on'); }, 1600);
+    });
+    return b;
+  }
+  function toast(text, href, link) {
+    var old = document.getElementById('jfToast'); if (old) old.remove();
+    var t = el('div'); t.id = 'jfToast'; t.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:2147483500;background:#C9A45C;color:#0B1A13;font-weight:800;font-size:14px;white-space:nowrap;padding:11px 16px;border-radius:999px;box-shadow:0 6px 24px rgba(0,0,0,.4);display:flex;gap:12px;align-items:center';
+    t.appendChild(el('span', '🛒 ' + text)); if (href) { var a = el('a', link + ' ›'); a.href = href; a.style.cssText = 'color:#0B1A13;text-decoration:underline'; t.appendChild(a); }
+    document.body.appendChild(t); setTimeout(function () { t.remove(); }, 2600);
+  }
   // The "Offer" button on a product card. It opens quickOffer without following the card's link.
   function offerChip(p) {
     var b = el('button', '💸 Make an offer', 'jf-offer'); b.type = 'button'; b.setAttribute('aria-label', 'Make an offer on ' + p.name);
     b.addEventListener('click', function (ev) { ev.preventDefault(); ev.stopPropagation(); quickOffer(p); });
     return b;
   }
-  if (!document.getElementById('jfOfferCss')) { var oc = document.createElement('style'); oc.id = 'jfOfferCss'; oc.textContent = '.jf-acts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:10px}.jf-act{min-height:0;padding:9px 4px;border-radius:999px;border:1px solid #C9A45C;background:transparent;color:#F3DC9A;font-weight:800;font-size:13px;letter-spacing:.02em;cursor:pointer;line-height:1;transition:background .15s,color .15s}.jf-act:hover{background:#2A2414}.jf-act.buy{background:#C9A45C;color:#0B1A13}.jf-act.buy:hover{background:#E0BE73}@media(max-width:520px){.jf-act{font-size:12px;padding:8px 2px}}.jf-offer{display:block;width:100%;margin-top:10px;padding:9px 10px;min-height:0;border-radius:999px;border:1px solid #C9A45C;background:#2A2414;color:#F3DC9A;font-weight:800;font-size:14px;cursor:pointer}'; (document.head || document.documentElement).appendChild(oc); }
+  if (!document.getElementById('jfOfferCss')) { var oc = document.createElement('style'); oc.id = 'jfOfferCss'; oc.textContent = '.jf-plus{position:absolute;top:60px;right:14px;z-index:2;width:38px;height:38px;border-radius:999px;border:0;background:#C9A45C;color:#0B1A13;font-size:24px;font-weight:900;line-height:1;cursor:pointer;min-height:0;padding:0;box-shadow:0 2px 8px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center}.jf-plus.on{background:#3E8E5E;color:#fff}@media(max-width:520px){.jf-plus{width:34px;height:34px;top:52px;right:12px;font-size:22px}}.jf-acts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:10px}.jf-act{min-height:0;padding:9px 4px;border-radius:999px;border:1px solid #C9A45C;background:transparent;color:#F3DC9A;font-weight:800;font-size:13px;letter-spacing:.02em;cursor:pointer;line-height:1;transition:background .15s,color .15s}.jf-act:hover{background:#2A2414}.jf-act.buy{background:#C9A45C;color:#0B1A13}.jf-act.buy:hover{background:#E0BE73}@media(max-width:520px){.jf-act{font-size:12px;padding:8px 2px}}.jf-offer{display:block;width:100%;margin-top:10px;padding:9px 10px;min-height:0;border-radius:999px;border:1px solid #C9A45C;background:#2A2414;color:#F3DC9A;font-weight:800;font-size:14px;cursor:pointer}'; (document.head || document.documentElement).appendChild(oc); }
   // Search: every word typed is looked for anywhere in the listing (name, description, shop, category), in any
   // order, ignoring case, punctuation and a plural "s". "gary pin" finds "VeeFriends Gary Vee enamel PIN".
   function words(s) { return String(s || '').toLowerCase().replace(/[^a-z0-9#.]+/g, ' ').trim().split(/\s+/).filter(Boolean); }
@@ -300,5 +332,5 @@
     var hay = ' ' + words([p.name, p.desc, p.sellerName, p.section, p.id].join(' ')).join(' ') + ' ';
     return ws.every(function (w) { var stem = w.length > 3 ? w.replace(/(es|s)$/, '') : w; return hay.indexOf(w) >= 0 || hay.indexOf(stem) >= 0; });
   }
-  window.JF = { matches: matches, cardActions: cardActions, quickOffer: quickOffer, offerChip: offerChip, offerHistory: offerHistory, stars: stars, check: check, modeBar: modeBar, token: token, emailOf: emailOf, signOut: signOut, el: el, usd: usd, cents: cents, api: api, signInBox: signInBox, picture: picture };
+  window.JF = { cartPlus: cartPlus, toast: toast, matches: matches, cardActions: cardActions, quickOffer: quickOffer, offerChip: offerChip, offerHistory: offerHistory, stars: stars, check: check, modeBar: modeBar, token: token, emailOf: emailOf, signOut: signOut, el: el, usd: usd, cents: cents, api: api, signInBox: signInBox, picture: picture };
 })();

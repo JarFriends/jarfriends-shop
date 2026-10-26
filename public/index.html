@@ -198,6 +198,7 @@
       });
       a.appendChild(h);
       if (!p.auction && !p.party && p.left > 0 && JF.cardActions) a.appendChild(JF.cardActions(p));
+      if (!p.auction && !p.party && p.left > 0 && JF.cartPlus) a.appendChild(JF.cartPlus(p));
       g.appendChild(a);
     });
   }
