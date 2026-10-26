@@ -307,6 +307,45 @@
     count: cartCount
   };
   window.addEventListener('storage', function (e) { if (e.key === 'v2vCart') cartBadge(); });
+  // Buzz: tell the shop (anonymously, by a random device id) which pieces sit in this cart, so other shoppers see
+  // "In 2 carts" or "1 offer out" on those pieces, softly, under the price.
+  function buzzDev() { var d = ''; try { d = localStorage.getItem('v2vDev') || ''; if (!/^[a-z0-9]{16}$/.test(d)) { d = Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 10); d = (d + '0000000000000000').slice(0, 16); localStorage.setItem('v2vDev', d); } } catch (e) { d = ''; } return d; }
+  function buzzSync() {
+    var dev = buzzDev(); if (!dev) return;
+    var now = cartRead().map(function (x) { return x.id; }), was = [];
+    try { was = JSON.parse(localStorage.getItem('v2vBuzzIds') || '[]'); } catch (e) { was = []; }
+    var send = function (id, on) { try { fetch('/api/market', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ do: 'cart-ping', id: id, dev: dev, on: on }), keepalive: true }); } catch (e) {} };
+    now.forEach(function (id) { if (was.indexOf(id) < 0) send(id, true); });
+    was.forEach(function (id) { if (now.indexOf(id) < 0) send(id, false); });
+    try { localStorage.setItem('v2vBuzzIds', JSON.stringify(now)); } catch (e) {}
+  }
+  ['add', 'remove', 'clear'].forEach(function (k) { var f = window.V2VCart[k]; window.V2VCart[k] = function () { var r = f.apply(this, arguments); setTimeout(buzzSync, 0); return r; }; });
+  setTimeout(buzzSync, 1500);
+  var BUZZ = null;
+  function buzzLine(id) {
+    var x = BUZZ && BUZZ[id]; if (!x) return '';
+    var mine = cartRead().some(function (c) { return c.id === id; }), carts = Math.max(0, (x.carts || 0) - (mine ? 1 : 0)), parts = [];
+    if (carts) parts.push('In ' + carts + (mine ? ' other' : '') + (carts === 1 ? ' cart' : ' carts'));
+    if (x.offers) parts.push(x.offers + (x.offers === 1 ? ' offer out' : ' offers out'));
+    return parts.join(' · ');
+  }
+  window.V2VBuzz = buzzLine;
+  function buzzPaint() {
+    if (!BUZZ) return;
+    Array.prototype.forEach.call(document.querySelectorAll('a.jf-item[href*="id="]'), function (a) {
+      var m = /[?&]id=([^&#]+)/.exec(a.getAttribute('href') || ''); if (!m) return;
+      var id = decodeURIComponent(m[1]), t = buzzLine(id), el = a.querySelector('.jf-buzz');
+      if (!t) { if (el) el.remove(); return; }
+      if (!el) { el = document.createElement('div'); el.className = 'jf-buzz'; var meta = a.querySelector('.jf-meta'); if (meta && meta.nextSibling) a.insertBefore(el, meta.nextSibling); else a.appendChild(el); }
+      if (el.textContent !== '👀 ' + t) el.textContent = '👀 ' + t;
+    });
+    var pc = document.getElementById('pcBuzz'); if (pc) { var pid = new URLSearchParams(location.search).get('id') || '', t2 = buzzLine(pid); pc.textContent = t2 ? '👀 ' + t2 : ''; pc.hidden = !t2; }
+  }
+  if (!document.getElementById('jfBuzzCss')) { var bz = document.createElement('style'); bz.id = 'jfBuzzCss'; bz.textContent = '.jf-buzz{font-size:12px;color:#E8B86B;opacity:.9;letter-spacing:.01em;line-height:1.3}'; (document.head || document.documentElement).appendChild(bz); }
+  if (/^\/(|index\.html|market\.html|shop\.html|wishlist\.html|piece\.html|s\/.*)$/.test(location.pathname)) {
+    fetch('/api/market?do=buzz').then(function (r) { return r.json(); }).then(function (j) { BUZZ = (j && j.buzz) || {}; buzzPaint(); }).catch(function () {});
+    var bzt = null; new MutationObserver(function () { if (!BUZZ) return; clearTimeout(bzt); bzt = setTimeout(buzzPaint, 120); }).observe(document.documentElement, { childList: true, subtree: true });
+  }
   // The owner's own wording (back office > Wording): wherever a page says one thing, it says the owner's words instead.
   // It works on the words as they show on screen, including words a page adds later, and on box placeholders.
   (function wording() {

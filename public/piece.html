@@ -65,6 +65,8 @@
     meta.appendChild(el('span', Number(p.ship) > 0 ? '+ $' + Number(p.ship).toFixed(2) + ' shipping' : 'Free shipping', 'pc-chip'));
     if (p.party) meta.appendChild(el('span', '🎉 Party pricing: the price drops as more sell', 'pc-chip'));
     info.appendChild(meta);
+    // Other shoppers who want it (filled in by nav.js): 'In 2 carts · 1 offer out'.
+    var bz = el('div', '', 'jf-buzz'); bz.id = 'pcBuzz'; bz.hidden = true; bz.style.fontSize = '14px'; info.appendChild(bz);
     // Buy now, Add to cart, Offer, Trade, Ask.
     var acts = el('div', null, 'pc-acts');
     if (p.left > 0) {
