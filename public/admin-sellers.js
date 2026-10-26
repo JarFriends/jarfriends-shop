@@ -39,7 +39,7 @@
   main.insertBefore(box, $('wOrders'));
   var css = el('style'); css.textContent = '.sx-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}.sx-tile{background:#11261C;border:1px solid #244536;padding:14px 16px;display:flex;flex-direction:column;gap:4px}.sx-tile b{font-family:"IBM Plex Mono",monospace;font-size:22px;font-weight:500}.sx-tile.gold{border-color:#C9A45C}.sx-tile.gold b{color:#C9A45C}.sx-b{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.1em;padding:3px 8px;border:1px solid #4E7A63}.sx-b.ok{border-color:#8FD3AE;color:#8FD3AE}.sx-b.wait{border-color:#C9A45C;color:#C9A45C}.sx-b.off{border-color:#E86A6A;color:#E86A6A}.sx-pay{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-top:8px}.sx-pay input,.sx-pay select{min-height:40px;font-size:15px;padding:6px 10px;background:#0B1A13;border:1px solid #4E7A63;color:#F7F2E6;border-radius:2px;font-family:inherit}';
   document.head.appendChild(css);
-  var pvCss = el('style'); pvCss.textContent = '.pv-list{display:flex;flex-direction:column;gap:8px}.pv-grid .pv-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}.pv-grid .pv-list>div{flex-direction:column;align-items:flex-start!important}.focus-pay>:not(#payBox){display:none!important}.pv-all{display:none}.focus-pay .pv-all{display:inline-flex}.pv-wrap button[aria-pressed="true"]{background:#C9A45C;color:#0B1A13;border-color:#C9A45C}'; document.head.appendChild(pvCss);
+  var pvCss = el('style'); pvCss.textContent = '.pv-list{display:flex;flex-direction:column;gap:10px}.pv-list>div{align-items:flex-start!important}.pv-wrap:not(.pv-grid) .pv-list>div{flex-direction:row}.pv-wrap:not(.pv-grid) .pv-list>div>div:first-child{flex:1 1 420px}.pv-grid .pv-list{grid-template-columns:repeat(auto-fill,minmax(320px,1fr))!important}.pv-grid .pv-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}.pv-grid .pv-list>div{flex-direction:column;align-items:flex-start!important}.focus-pay>:not(#payBox){display:none!important}.pv-all{display:none}.focus-pay .pv-all{display:inline-flex}.pv-wrap button[aria-pressed="true"]{background:#C9A45C;color:#0B1A13;border-color:#C9A45C}'; document.head.appendChild(pvCss);
   // Your own shops (SEED_SELLERS) get their own back office: a button at the top of this page opens it.
   var mine = $('myShops'), shown = false;
   function myShops() {
@@ -180,13 +180,33 @@
       if (!manual.length) wrap.appendChild(el('div', 'Nobody is waiting on a payout from you.', 'small dim'));
       manual.forEach(function (s) {
         var c = el('div'); c.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;border:1px solid #2E4A3B;border-radius:10px;padding:10px 12px';
-        var info = el('div'); info.style.cssText = 'display:flex;flex-direction:column;gap:2px;min-width:0';
-        info.appendChild(el('b', s.name + ' · ' + money(s.totals.payNow)));
-        info.appendChild(el('span', 'Send to: ' + (s.payTo ? (s.payHow === 'bank' || s.payHow === 'wire' ? 'bank account (on their card)' : (s.payHow || '') + ' ' + s.payTo) : 'no payout details yet, ask them to add them in Seller Hub') + (s.totals.shipHeld ? ' · ' + money(s.totals.shipHeld) + ' shipping held until it ships' : ''), 'small dim'));
+        var info = el('div'); info.style.cssText = 'display:flex;flex-direction:column;gap:6px;min-width:0;flex:1 1 220px';
+        var hd = el('div'); hd.style.cssText = 'display:flex;gap:10px;align-items:baseline;flex-wrap:wrap'; hd.appendChild(el('b', s.name)); var big = el('b', money(s.totals.payNow)); big.style.cssText = 'color:#C9A45C;font-size:20px'; hd.appendChild(big);
+        if (s.based === 'intl') hd.appendChild(el('span', '🌎 ' + (s.country || 'outside the US'), 'small dim')); info.appendChild(hd);
+        // Every way they can be paid: their payout choice, then the handles they gave for direct pay (PayPal, Zelle, Venmo, Cash App, crypto).
+        var amt0 = (s.totals.payNow / 100).toFixed(2), ways = [], seen = {}, dp = s.directPay || {};
+        var NAMES = { zelle: 'Zelle', venmo: 'Venmo', cashapp: 'Cash App', paypal: 'PayPal', crypto: 'Crypto', bank: 'Bank', wire: 'Wire' };
+        var linkFor = function (k, v) { var h = String(v).trim().replace(/^[@$]/, ''); if (k === 'paypal') return /@.+\./.test(v) ? 'https://www.paypal.com/myaccount/transfer/homepage/pay' : 'https://paypal.me/' + encodeURIComponent(h) + '/' + amt0; if (k === 'venmo') return 'https://venmo.com/u/' + encodeURIComponent(h); if (k === 'cashapp') return 'https://cash.app/$' + encodeURIComponent(h) + '/' + amt0; return ''; };
+        if (s.payTo) { var k0 = s.payHow || ''; ways.push([NAMES[k0] || k0 || 'Payout', s.payHow === 'bank' || s.payHow === 'wire' ? s.payTo + ' (full details on their card in the Sellers tab)' : (s.cryptoPay ? s.cryptoPay.wallet + ' (' + s.payTo.split(' to ')[0] + ')' : s.payTo), linkFor(k0, s.payTo), s.payHow === 'bank' || s.payHow === 'wire' ? '' : (s.cryptoPay ? s.cryptoPay.wallet : s.payTo), 'their payout choice']); seen[k0 + String(s.payTo).toLowerCase()] = 1; }
+        ['paypal', 'zelle', 'venmo', 'cashapp', 'crypto'].forEach(function (k) { var v = String(dp[k] || '').trim(); if (v && !seen[k + v.toLowerCase()]) ways.push([NAMES[k], v + (k === 'crypto' ? ' (USDC on Ethereum or Base)' : ''), linkFor(k, v), v, '']); });
+        if (!ways.length) info.appendChild(el('div', '⚠️ No payout details yet. Ask them to add them in Seller Hub, Payouts.', 'small'));
+        ways.forEach(function (w) {
+          var row = el('div'); row.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#0F2A1E;border-radius:8px;padding:6px 10px';
+          var lb = el('b', w[0]); lb.style.minWidth = '64px'; row.appendChild(lb); var hv = el('span', w[1]); hv.style.cssText = 'word-break:break-all;flex:1 1 140px'; row.appendChild(hv);
+          if (w[4]) row.appendChild(el('span', w[4], 'small dim'));
+          if (w[3]) { var cp = el('button', 'Copy', 'ghost'); cp.type = 'button'; cp.style.cssText = 'padding:3px 10px;min-height:0'; cp.addEventListener('click', function () { try { navigator.clipboard.writeText(w[3]); cp.textContent = '✓ Copied'; setTimeout(function () { cp.textContent = 'Copy'; }, 1500); } catch (e) {} }); row.appendChild(cp); }
+          if (w[2]) { var op = el('a', 'Open ' + w[0] + ' ↗'); op.href = w[2]; op.target = '_blank'; op.rel = 'noopener'; op.className = 'small'; row.appendChild(op); }
+          info.appendChild(row);
+        });
+        if (s.totals.shipHeld) info.appendChild(el('div', money(s.totals.shipHeld) + ' shipping held until it ships (not in this amount)', 'small dim'));
         c.appendChild(info);
-        var go = el('button', 'Record a payout ›', 'ghost'); go.type = 'button'; go.style.cssText = 'padding:6px 10px;min-height:0';
-        go.addEventListener('click', function () { var t2 = box.querySelector('[data-seller="' + s.slug + '"]'); if (t2) { var hid = t2.closest('[hidden]'); if (hid) hid.hidden = false; t2.scrollIntoView({ behavior: 'smooth', block: 'center' }); if (t2.click) t2.click(); } });
-        c.appendChild(go);
+        // Mark as paid right here: amount and how, one tap.
+        var mk = el('div'); mk.style.cssText = 'display:flex;gap:6px;align-items:center;flex-wrap:wrap';
+        var ma = el('input'); ma.type = 'number'; ma.step = '0.01'; ma.min = '0.01'; ma.value = amt0; ma.style.cssText = 'width:96px';
+        var mh = el('select'); (ways.map(function (w) { return w[0]; }).concat(['Other'])).forEach(function (n) { var o = el('option', n); o.value = n; mh.appendChild(o); });
+        var go = el('button', '✓ Mark as paid', 'solid'); go.type = 'button'; go.style.cssText = 'padding:6px 12px;min-height:0'; var gm = el('span', '', 'small');
+        go.addEventListener('click', function () { if (!confirm('Record ' + money(Math.round(Number(ma.value) * 100)) + ' sent to ' + s.name + ' by ' + mh.value + '? They get an email.')) return; go.disabled = true; post({ do: 'payout', slug: s.slug, amount: ma.value, how: mh.value, note: '' }).then(function (x) { if (x.error) { go.disabled = false; gm.textContent = x.error; return; } go.textContent = '✓ Recorded'; gm.textContent = 'Saved. ' + s.name + ' got an email.'; c.style.opacity = '.6'; }); });
+        mk.appendChild(ma); mk.appendChild(mh); mk.appendChild(go); mk.appendChild(gm); c.appendChild(mk);
         // Sellers with Stripe payouts on: one tap sends it from your Stripe balance to theirs.
         if (s.stripe && s.stripeOn) {
           var sp = el('button', '⚡ Pay ' + money(s.totals.payNow) + ' through Stripe', 'solid'); sp.type = 'button'; sp.style.cssText = 'padding:6px 12px;min-height:0'; var spm = el('div', '', 'small'); spm.style.flexBasis = '100%'; var armed = false;
@@ -203,7 +223,7 @@
         mList.appendChild(c);
       });
       wrap.appendChild(mList);
-      wrap.appendChild(el('b', 'Stripe pays these automatically'));
+      var autoD = el('details'); var autoS = el('summary', 'Stripe pays these automatically (' + auto.length + ') · nothing for you to do'); autoS.style.cssText = 'cursor:pointer;font-weight:700'; autoD.appendChild(autoS); wrap.appendChild(autoD); var wrap0 = wrap; wrap = autoD;
       if (!auto.length) wrap.appendChild(el('div', 'No card sales in the last 2 weeks went straight to a seller\u2019s Stripe.', 'small dim'));
       auto.forEach(function (x) {
         var sn = (r.sellers.filter(function (s) { return s.slug === x.seller; })[0] || {}).name || x.seller, when = addBiz(x.at, 2), past = when.getTime() < Date.now();
