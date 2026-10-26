@@ -572,7 +572,16 @@ module.exports = async (req, res) => {
       const r = await ls({ prefix: 'offers/', limit: 1000 });
       const all = (await Promise.all((r.blobs || []).map((x) => store.read(x.pathname)))).filter((o) => o && String(o.email || '').trim().toLowerCase() === me);
       all.sort((a, b2) => (b2.at || 0) - (a.at || 0));
-      return res.json({ offers: all.slice(0, 200).map((o) => ({ n: o.n, pid: o.pid, item: o.item, q: o.q, offer: o.offer, list: o.list, status: o.status, counter: o.counter || 0, until: o.until || 0, at: o.at, events: offerEvents(o) })) });
+      // An accepted (or countered) offer still in time gets its checkout link here too, not only in the email.
+      const PAYS = { 'Zelle': 'zelle', 'Venmo': 'venmo', 'Cash App': 'cashapp', 'Cash or ACH': 'cash', 'Ethereum': 'crypto', 'USDC': 'crypto', 'USDT': 'crypto', 'Crypto': 'crypto', 'Card': 'card' };
+      const host = 'https://' + req.headers.host, nowS = Math.floor(Date.now() / 1000);
+      const payLink = (o) => {
+        if (!(o.status === 'accepted' || o.status === 'countered') || !o.until || o.until <= Date.now()) return '';
+        const c = o.status === 'countered' && o.counter ? o.counter : o.offer;
+        const m = PAYS[o.pay] || (/eth|usd|crypto/i.test(String(o.pay || '')) ? 'crypto' : '');
+        return host + '/order.html?offer=' + require('./_lib').sign({ oa: 1, n: o.n, pid: o.pid, q: o.q || 1, c: c, x: Math.max(nowS + 60, Math.floor(o.until / 1000)) }) + (m ? '&method=' + m : '') + '&email=' + encodeURIComponent(me);
+      };
+      return res.json({ offers: all.slice(0, 200).map((o) => ({ n: o.n, pid: o.pid, item: o.item, q: o.q, offer: o.offer, list: o.list, status: o.status, counter: o.counter || 0, until: o.until || 0, at: o.at, pay: o.pay || '', payLink: payLink(o), events: offerEvents(o) })) });
     }
     // ---------- Trades, as a buyer (see _trades.js) ----------
     if (what === 'mytrades') return res.json({ trades: await require('./_trades').forBuyer(me) });
