@@ -48,22 +48,51 @@ async function tracker() {
       status = hit ? 'over' : pct >= 0.8 ? 'near' : 'under';
     }
     if (rates[c]) status = 'collecting';
-    out.push({ code: c, name: STATES[c], cur: k.cur, curN: k.curN, prev: k.prev, prevN: k.prevN, threshold: t ? t[0] : null, orders: t && t[1] ? t[1] : null, rule: t && t[2] ? t[2] : '', pct: Math.round(pct * 100), status: status, avg: AVG[c] || 0, rate: rates[c] || 0 });
+    const own = !rates[c] && c === HOME();
+    out.push({ code: c, name: STATES[c], cur: k.cur, curN: k.curN, prev: k.prev, prevN: k.prevN, threshold: t ? t[0] : null, orders: t && t[1] ? t[1] : null, rule: t && t[2] ? t[2] : '', pct: Math.round(pct * 100), status: status, avg: AVG[c] || 0, rate: rates[c] || 0, own: own });
   });
   const rank = { over: 0, near: 1, collecting: 2, under: 3, none: 4 };
   return out.sort((a, b) => rank[a.status] - rank[b.status] || b.cur + b.prev - (a.cur + a.prev));
 }
 let memo = null;
+// Two kinds of collecting:
+//   rates: states where VeeFam is registered as the marketplace (past that state's line): tax on every seller's pieces.
+//   home:  VeeFam's home state (Illinois). Below Illinois' $100,000 marketplace line, Illinois only taxes the
+//          marketplace's OWN sales (the owner's own shop, or pieces that are not a seller's), not other sellers'.
+//          (35 ILCS 105/2d; Illinois bulletin FY 2026-13.) Once Illinois is added to rates, it covers everyone.
+const HOME = () => code(process.env.TAX_HOME_STATE || 'IL') || 'IL';
+const homeRate = () => { const r = Number((process.env.SALES_TAX_IL_PERCENT || '').trim() || 8.25); return r > 0 && r <= 15 ? r : 8.25; };
 async function get() {
   if (memo && Date.now() - memo.at < 60000) return memo.v;
   let v = null;
   try { v = store.on() ? await store.read('settings/salestax.json') : null; } catch (e) { v = null; }
-  if (!v || !v.rates) { const il = Number((process.env.SALES_TAX_IL_PERCENT || '').trim() || 8.25); v = { rates: il > 0 && il <= 15 ? { IL: il } : {}, at: 0 }; }
+  if (!v || !v.rates) v = { rates: {}, at: 0 };
+  v = Object.assign({}, v, { rates: Object.assign({}, v.rates) });
+  // Saved before the home-state rule: Illinois was charged on everyone's pieces. Move it to home-only.
+  if (!v.mig) { const h = HOME(); if (v.rates[h]) { v.home = { [h]: v.rates[h] }; delete v.rates[h]; } v.mig = 2; }
+  if (!v.home) v.home = { [HOME()]: homeRate() };
   memo = { at: Date.now(), v: v };
   return v;
 }
-// The rate (percent) for a ship-to state, or 0 where VeeFam does not collect.
-async function rateFor(state) { const c = code(state); return c ? Number((await get()).rates[c]) || 0 : 0; }
+// Is this piece VeeFam's own sale: not a seller's listing, or a listing in the owner's own shop?
+let ownMemo = null;
+async function ownShops() {
+  if (ownMemo && Date.now() - ownMemo.at < 60000) return ownMemo.v;
+  const M = require('./_sellers'), owner = (process.env.OWNER_EMAIL || '').trim().toLowerCase();
+  const slugs = owner ? (await M.all()).filter((s) => String(s.email || '').toLowerCase() === owner).map((s) => s.slug) : [];
+  const ids = {}; (await M.listings()).forEach((p) => { if (slugs.indexOf(p.seller) >= 0) ids[p.id] = true; });
+  ownMemo = { at: Date.now(), v: { slugs: slugs, ids: ids } };
+  return ownMemo.v;
+}
+async function isOwn(pid) { if (!require('./_sellers').isSellerPid(pid)) return true; return !!(await ownShops()).ids[pid]; }
+// The rate (percent) for a ship-to state and piece, or 0 where VeeFam does not collect.
+async function rateFor(state, pid) {
+  const c = code(state); if (!c) return 0;
+  const v = await get();
+  if (Number(v.rates[c])) return Number(v.rates[c]);
+  if (Number(v.home[c]) && pid && (await isOwn(pid))) return Number(v.home[c]);
+  return 0;
+}
 // The owner saves the list: { TX: 8.25, ... }. Rates from 0.01% to 15%.
 async function save(rates) {
   const out = {};
@@ -73,7 +102,7 @@ async function save(rates) {
     if (!(r > 0 && r <= 15)) return { error: c + ': the rate must be between 0.01% and 15%.' };
     out[c] = r;
   }
-  const v = { rates: out, at: Date.now() };
+  const v = { rates: out, home: (await get()).home, mig: 2, at: Date.now() };
   await store.write('settings/salestax.json', v);
   memo = { at: Date.now(), v: v };
   return { ok: true, rates: out };
@@ -96,4 +125,4 @@ async function watch() {
   await require('./_discord')('🧾 Sales tax\n' + lines.join('\n')).catch(() => null);
   return { told: news.length };
 }
-module.exports = { watch, STATES, AVG, THRESH, NO_TAX, tracker, code, get, rateFor, save };
+module.exports = { ownShops, HOME, watch, STATES, AVG, THRESH, NO_TAX, tracker, code, get, rateFor, save };

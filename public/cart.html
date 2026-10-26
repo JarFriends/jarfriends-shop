@@ -140,11 +140,14 @@
     var st = ($('a_state') ? $('a_state').value : A.state || '').trim().toLowerCase().replace(/\.$/, '');
     var TS = CFG.taxStates || {}, TR = CFG.taxRates || (CFG.taxIL ? { IL: CFG.taxIL } : {});
     var tc = TS[st.toUpperCase()] ? st.toUpperCase() : st === 'ill' ? 'IL' : (Object.keys(TS).filter(function (k) { return TS[k] === st; })[0] || '');
-    var tax = TR[tc] ? Math.round(C().items().filter(function (x) { return !x.nft; }).reduce(function (n, x) { return n + cents(x.price) * x.qty; }, 0) * Number(TR[tc]) / 100) : 0;
+    // Registered states tax every piece; the home state (Illinois), until VeeFam passes its line, only VeeFam's own pieces.
+    var TH = CFG.taxHome || {}, TO = CFG.taxOwn || [], trc = Number(TR[tc]) || Number(TH[tc]) || 0;
+    var taxable = function (x) { return !x.nft && (Number(TR[tc]) || (Number(TH[tc]) && (!/^S[0-9A-Z]{5,19}$/.test(x.id) || TO.indexOf(x.id) >= 0))); };
+    var tax = trc ? Math.round(C().items().filter(taxable).reduce(function (n, x) { return n + cents(x.price) * x.qty; }, 0) * trc / 100) : 0;
     var fee = method === 'card' && CFG.cardFee != null ? Math.round((sub + ship + tax) * Number(CFG.cardFee) / 100) + Math.round(Number(CFG.cardFeeFixed || 0)) * orders : 0;
     var row = function (a, b, c) { var r = el('div', null, 'ct-row' + (c ? ' ' + c : '')); r.appendChild(el('span', a)); r.appendChild(el('span', b)); s.appendChild(r); };
     row('Pieces', usd(sub)); row('Shipping' + (G.length > 1 ? ' (' + G.length + ' shops)' : ''), ship ? usd(ship) : 'Free');
-    if (tax) row('Sales tax (' + tc + ' ' + TR[tc] + '%)', usd(tax));
+    if (tax) row('Sales tax (' + tc + ' ' + trc + '%)', usd(tax));
     if (fee) row('Card fee', usd(fee));
     row('Total', usd(sub + ship + tax + fee), 'tot');
     s.appendChild(el('div', 'Each piece becomes its own order (same as buying it on its own), with one shipping fee per shop. ' + (method === 'card' ? 'Your card is charged once per order. A debit card gets the card fee back.' : 'You get where to send the payment on the next screen.') + ' Shipping can change a little once your address is checked.', 'small dim'));
