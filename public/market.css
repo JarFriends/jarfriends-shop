@@ -61,3 +61,7 @@ textarea.jf-ta{min-height:96px;resize:vertical}
 .jf-starpick button{background:none;border:0;font-size:30px;line-height:1;color:#4E7A63;padding:2px;cursor:pointer}
 .jf-starpick button[aria-pressed="true"]{color:#C9A45C}
 .jf-starpick button:focus-visible{outline:2px solid #C9A45C;outline-offset:2px}
+
+/* The party label: a small pill under the photo, never over it. */
+.jf-pty{align-self:flex-start;display:inline-flex;align-items:center;gap:4px;margin-top:2px;padding:3px 10px;border:1px solid #E5484D;border-radius:999px;background:rgba(229,72,77,.12);color:#FF8A8E;font-size:12px;font-weight:800;line-height:1.3;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:520px){.jf-pty{font-size:11px;padding:2px 8px}}

@@ -78,6 +78,12 @@ module.exports = async (req, res) => {
     // ---------- Anyone ----------
     // A seller's short link, veefam.io/s/<shop>: a small page with the shop's name, blurb and a photo for social
     // previews (Facebook, X, iMessage and the rest read these tags), which then opens the shop page.
+    // Public: the exact sales tax for a ship-to address at checkout (only where VeeFam collects; see _tax.js quote).
+    if (req.method === 'GET' && what === 'tax-quote') {
+      const q = req.query || {}, T = require('./_tax');
+      const r = await T.quote({ state: String(q.st || '').slice(0, 30), zip: String(q.zip || '').slice(0, 10), city: String(q.city || '').slice(0, 60), street: String(q.street || '').slice(0, 120), pid: String(q.pid || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 20), base: Math.min(Number(q.base) || 0, 10000000), ship: Math.min(Number(q.ship) || 0, 1000000) }).catch(() => ({ rate: 0, tax: 0 }));
+      return res.json(r);
+    }
     if (req.method === 'GET' && what === 'share') {
       const sl = String(q.s || '').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 30);
       const s = sl && (await M.bySlug(sl));

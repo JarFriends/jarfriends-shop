@@ -181,7 +181,7 @@
     list.forEach(function (p) {
       var a = el('a', null, 'jf-item'); a.href = p.auction ? '/auction.html?id=' + encodeURIComponent(p.id) : '/piece.html?id=' + encodeURIComponent(p.id);
       a.appendChild(JF.picture(p));
-      if (p.auction) a.appendChild(el('span', 'AUCTION', 'jf-tag')); else if (p.party) { var pt = el('span', '🎉 PARTY · UP TO ' + p.party.top + '% OFF', 'jf-tag'); pt.style.background = '#E5484D'; pt.style.color = '#fff'; a.appendChild(pt); } else if (p.left === 1) a.appendChild(el('span', 'LAST ONE', 'jf-tag'));
+      if (p.auction) a.appendChild(el('span', 'AUCTION', 'jf-tag')); else if (p.party) a.appendChild(el('span', '🎉 Party · up to ' + p.party.top + '% off', 'jf-pty')); else if (p.left === 1) a.appendChild(el('span', 'LAST ONE', 'jf-tag'));
       a.appendChild(el('div', p.name, 'jf-name'));
       var m = el('div', null, 'jf-meta');
       m.appendChild(el('span', (p.auction ? 'Bid ' : '') + JF.usd(p.price), 'jf-price'));
@@ -292,7 +292,7 @@ fetch('/api/market?do=live', { cache: 'no-store' }).then(function (r) { return r
 </script>
 <script>
 // Party pieces count down on their cards.
-setInterval(function () { Array.prototype.forEach.call(document.querySelectorAll('[data-ends]'), function (n) { var l = Math.max(0, Number(n.dataset.ends) - Date.now()), d = Math.floor(l / 864e5), h = Math.floor(l / 36e5) % 24, m = Math.floor(l / 6e4) % 60, sc = Math.floor(l / 1e3) % 60; n.textContent = l ? '⏳ Party ends in ' + (d ? d + 'd ' : '') + h + 'h ' + m + 'm ' + sc + 's' : 'Party ended'; }); }, 1000);
+setInterval(function () { Array.prototype.forEach.call(document.querySelectorAll('[data-ends]'), function (n) { var l = Math.max(0, Number(n.dataset.ends) - Date.now()), d = Math.floor(l / 864e5), h = Math.floor(l / 36e5) % 24, m = Math.floor(l / 6e4) % 60, sc = Math.floor(l / 1e3) % 60; n.textContent = l ? '⏳ Ends in ' + (d ? d + 'd ' + h + 'h' : h + 'h ' + m + 'm ' + sc + 's') : 'Party ended'; }); }, 1000);
 </script>
 </body>
 </html>
