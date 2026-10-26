@@ -695,6 +695,25 @@ module.exports = async (req, res) => {
       try { return res.json({ url: await connect.onboardingLink(seller, 'https://' + req.headers.host, actAs ? seller.slug : '') }); }
       catch (e) { console.error('STRIPE_RESET_FAIL', seller.slug, String(e && e.message || e)); return res.status(502).json({ error: 'Your old payout setup was cleared, but Stripe could not open the new one just now. Press Set up payouts with Stripe in a minute.' }); }
     }
+    // Get paid now: an instant payout from the seller's own Stripe balance to their debit card or eligible bank, on
+    // top of Stripe's automatic schedule. Stripe charges the seller its instant fee (1.5%, at least 50 cents); V2V
+    // takes nothing. 'instant-info' shows what can go out now; 'instant-payout' sends it.
+    if (what === 'instant-info' || what === 'instant-payout') {
+      if (!stripeBase.ready()) return res.status(503).json({ error: 'Automatic payouts are not switched on for V2V yet.' });
+      if (!seller.stripe || !seller.stripeOn) return res.status(400).json({ error: 'Set up payouts with Stripe first.' });
+      const bal = await connect.call('GET', '/balance', null, null, seller.stripe);
+      if (!bal.ok) return res.status(502).json({ error: 'Stripe could not show your balance just now. Try again in a minute.' });
+      const pick = (arr) => ((arr || []).filter((x) => x.currency === 'usd')[0] || {}).amount || 0;
+      const instant = Math.max(0, pick(bal.body.instant_available)), pending = pick(bal.body.pending), avail = pick(bal.body.available);
+      // Leave room for Stripe's fee so the payout always goes through.
+      const fee = (c) => Math.max(50, Math.ceil(c * 0.015)), send = Math.max(0, Math.min(instant - 50, Math.floor(instant / 1.015)));
+      if (what === 'instant-info') return res.json({ instant: instant, send: send, fee: send ? fee(send) : 0, available: avail, pending: pending });
+      if (send < 100) return res.status(400).json({ error: instant ? 'Less than $1 can be sent right now. It goes out with your next automatic payout.' : 'Nothing can be sent instantly right now. Money from new sales becomes available after Stripe\u2019s holding period, then goes out automatically.' });
+      const want = Math.round(Number(b.amount) || 0), amt = want > 0 ? Math.min(want, send) : send;
+      const p = await connect.call('POST', '/payouts', { amount: amt, currency: 'usd', method: 'instant', description: 'V2V instant payout', 'metadata[v2v]': '1' }, 'v2v-instant-' + seller.slug + '-' + amt + '-' + Math.floor(Date.now() / 60000), seller.stripe);
+      if (!p.ok) { const msg = (p.body && p.body.error && p.body.error.message) || ''; console.error('INSTANT_PAYOUT_FAIL', seller.slug, p.status, msg.slice(0, 200)); return res.status(400).json({ error: /instant/i.test(msg) && /(support|eligible|debit)/i.test(msg) ? 'Your bank account cannot take instant payouts. Add a debit card in Stripe (See my balance and payouts, then Payouts) and try again.' : 'Stripe did not send it: ' + (msg || 'try again in a minute.') }); }
+      return res.json({ ok: true, amount: amt, fee: fee(amt), arrival: p.body.arrival_date || 0 });
+    }
     // The seller's own Stripe page: balance, payouts and bank.
     if (what === 'stripe-dashboard') {
       if (!stripeBase.ready()) return res.status(503).json({ error: 'Automatic payouts are not switched on for V2V yet.' });

@@ -1333,7 +1333,32 @@
     }
     if (st.state === 'on') { var a = el('button', 'See my balance and payouts', 'solid'); a.type = 'button'; a.style.alignSelf = 'flex-start';
       a.addEventListener('click', function () { a.disabled = true; m.textContent = 'Opening Stripe\u2026'; var w = window.open('', '_blank'); JF.api('/api/market', { do: 'stripe-dashboard', t: tok, as: AS, ak: AK }).then(function (r) { a.disabled = false; if (r.url) { m.textContent = ''; if (w) w.location = r.url; else location.href = r.url; } else { if (w) w.close(); m.textContent = r.error || 'Could not open Stripe.'; } }); });
-      c.appendChild(a); }
+      c.appendChild(a);
+      // Get paid now: an instant payout on top of the automatic schedule, for Stripe's small instant fee.
+      var ip = el('div'); ip.style.cssText = 'display:flex;flex-direction:column;gap:8px;border:1px solid #2E4A3B;border-radius:12px;padding:12px';
+      ip.appendChild(el('b', '⚡ Get paid now'));
+      ip.appendChild(el('div', 'Don\u2019t want to wait for the automatic payout? Send what\u2019s ready to your debit card in about 30 minutes. Stripe charges a 1.5% instant fee (at least 50\u00a2); V2V takes nothing extra. Your automatic payouts keep going as usual.', 'small dim'));
+      var ib = el('button', 'Check what I can get now', 'ghost'); ib.type = 'button'; ib.style.alignSelf = 'flex-start';
+      var im = el('div', '', 'small'), go = null;
+      ib.addEventListener('click', function () {
+        ib.disabled = true; im.textContent = 'Checking Stripe\u2026'; if (go) { go.remove(); go = null; }
+        JF.api('/api/market', { do: 'instant-info', t: tok, as: AS, ak: AK }).then(function (r) {
+          ib.disabled = false;
+          if (r.error) { im.textContent = r.error; return; }
+          if (!r.send || r.send < 100) { im.textContent = 'Nothing is ready to send instantly right now' + (r.pending ? ' (' + JF.cents(r.pending) + ' is still on its way from recent sales)' : '') + '. It goes out with your next automatic payout.'; return; }
+          im.textContent = 'Ready now: ' + JF.cents(r.send) + '. Stripe\u2019s instant fee: about ' + JF.cents(r.fee) + '.';
+          go = el('button', 'Send ' + JF.cents(r.send) + ' to me now', 'solid'); go.type = 'button'; go.style.alignSelf = 'flex-start';
+          go.addEventListener('click', function () {
+            go.disabled = true; im.textContent = 'Sending\u2026';
+            JF.api('/api/market', { do: 'instant-payout', t: tok, as: AS, ak: AK, amount: r.send }).then(function (x) {
+              if (x.error) { go.disabled = false; im.textContent = x.error; return; }
+              im.textContent = '✓ ' + JF.cents(x.amount) + ' is on its way. It usually arrives within 30 minutes.'; go.remove(); go = null;
+            });
+          });
+          ip.insertBefore(go, im);
+        });
+      });
+      ip.appendChild(ib); ip.appendChild(im); c.appendChild(ip); }
     else {
       var b = el('button', st.state === 'started' ? 'Finish setting up payouts' : 'Set up payouts with Stripe', 'solid'); b.type = 'button';
       b.addEventListener('click', function () { b.disabled = true; m.textContent = 'Opening Stripe\u2026'; JF.api('/api/market', { do: 'stripe-setup', t: tok, as: AS, ak: AK }).then(function (r) { if (r.url) location.href = r.url; else { b.disabled = false; m.textContent = r.error || 'Could not open Stripe.'; } }); });
