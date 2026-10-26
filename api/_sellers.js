@@ -334,6 +334,7 @@ async function ledger(slug) {
   const mine = {};
   (await listings()).forEach((p) => { if (!slug || p.seller === slug) mine[p.id] = p; });
   const sales = (await store.sales()).filter((s) => mine[s.pid]);
+  const abroad = {}; (await all()).forEach((x) => { if (x.based === 'intl') abroad[x.slug] = 1; });
   const rows = await Promise.all(sales.map(async (s) => {
     const got = await Promise.all([store.read(s.path), store.read('meta/' + s.n + '.json'), store.read('fees/' + s.n + '.json')]);
     const d = got[0] || {}, m = got[1] || {};
@@ -350,7 +351,7 @@ async function ledger(slug) {
     return { n: s.n, pid: s.pid, seller: mine[s.pid].seller, product: d.product || mine[s.pid].name, q: s.q, at: d.at || s.at, buyer: d.buyer || '', email: d.email || '', ship: d.ship || '', pay: d.pay || '',
       gross: gross, items: dollars(d.items), rate: rate, fee: fee, net: gross - fee, paid: paidOf(d, m), tracking: m.tracking || '', shippedAt: m.shippedAt || 0,
       // Paid by card straight to the seller's own Stripe (see _connect.js): Stripe pays the seller, nothing is owed.
-      direct: !!m.direct, directPay: !!m.directPay, returnReq: m.returnReq || null, issue: m.issue || null, bundleLead: m.bundleLead || '', bundleMates: m.bundleMates || [],
+      abroad: !!abroad[mine[s.pid].seller], direct: !!m.direct, directPay: !!m.directPay, returnReq: m.returnReq || null, issue: m.issue || null, bundleLead: m.bundleLead || '', bundleMates: m.bundleMates || [],
       // A shipping label the seller bought through V2V: its cost, and the part taken from money V2V holds for them.
       customsPdf: m.customsPdf || '', labelCost: m.labelCost || 0, labelEarn: m.labelFromEarnings || 0, labelCard: m.labelFromCard || 0, labelPdf: m.labelPdf || '' };
   }));
@@ -409,7 +410,7 @@ function totals(rows, outs) {
   // is ready to send the seller now is what they are owed less that shipping. Once it ships, the shipping counts
   // (less the label if it was bought through VeeFam; all of it if they shipped their own way).
   t.shipHeld = 0;
-  rows.forEach((r) => { if (r.paid && !r.direct && !r.directPay && !(r.tracking || r.shippedAt)) t.shipHeld += Math.max(0, r.gross - (r.items || 0)); });
+  rows.forEach((r) => { if (r.paid && !r.direct && !r.directPay && !r.abroad && !(r.tracking || r.shippedAt)) t.shipHeld += Math.max(0, r.gross - (r.items || 0)); });
   t.payNow = t.owed - t.shipHeld;
   return t;
 }
