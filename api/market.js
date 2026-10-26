@@ -851,7 +851,7 @@ module.exports = async (req, res) => {
         if (f.street1 || f.city || f.zip) {
           if (!/[0-9]/.test(f.street1) || !/[A-Za-z]/.test(f.street1)) return res.status(400).json({ error: 'Ship from: enter the street address with its number.' });
           if (f.city.length < 2 || f.state.length < 2) return res.status(400).json({ error: 'Ship from: enter the city and state.' });
-          if (!/^[0-9]{5}(-[0-9]{4})?$/.test(f.zip)) return res.status(400).json({ error: 'Ship from: enter a 5-digit ZIP code.' });
+          if (!/^[0-9]{5}(-[0-9]{4})?$/.test(f.zip) && !(seller.based === 'intl' && /^[A-Za-z0-9][A-Za-z0-9 -]{1,9}$/.test(f.zip))) return res.status(400).json({ error: seller.based === 'intl' ? 'Ship from: enter your postal code.' : 'Ship from: enter a 5-digit ZIP code.' });
           if (f.phone.replace(/\D/g, '').length < 10) return res.status(400).json({ error: 'Ship from: enter your phone number. USPS and Shippo need it to make the label.' });
           seller.shipFrom = f;
         } else seller.shipFrom = null;

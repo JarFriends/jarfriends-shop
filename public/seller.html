@@ -1292,7 +1292,7 @@
       var ac = input('text', sf0.city || '', { maxlength: '60', autocomplete: 'address-level2' }), ast = input('text', sf0.state || '', { maxlength: '30', autocomplete: 'address-level1', placeholder: 'IL' }), az = input('text', sf0.zip || '', { maxlength: '10', inputmode: 'numeric', autocomplete: 'postal-code' }), aph = input('tel', '', { maxlength: '20', autocomplete: 'tel' });
       af.appendChild(field('Name on the label', an));
       var b2 = el('div', null, 'two'); b2.appendChild(field('Street address', as1)); b2.appendChild(field('Apt or unit', as2, 'Optional.')); af.appendChild(b2);
-      var b3 = el('div', null, 'two'); b3.appendChild(field('City', ac)); b3.appendChild(field('State', ast)); b3.appendChild(field('ZIP code', az)); af.appendChild(b3);
+      var b3 = el('div', null, 'two'); b3.appendChild(field('City', ac)); b3.appendChild(field('State', ast)); b3.appendChild(field('ZIP or postal code', az)); af.appendChild(b3);
       af.appendChild(field('Phone', aph, 'Required: USPS and Shippo need it to make the label.'));
       var ago = el('button', 'Save and continue', 'solid'); ago.type = 'submit'; ago.style.alignSelf = 'flex-start'; var am = el('div', '', 'small');
       af.appendChild(ago); af.appendChild(am); box.appendChild(af);
@@ -1611,7 +1611,7 @@
     var fc = input('text', sf.city, { maxlength: '60', autocomplete: 'address-level2' }), fst = input('text', sf.state, { maxlength: '30', autocomplete: 'address-level1' }), fz = input('text', sf.zip, { maxlength: '10', inputmode: 'numeric', autocomplete: 'postal-code' }), fp = input('tel', sf.phone, { maxlength: '20', autocomplete: 'tel' });
     f.appendChild(field('Name on the label', fn));
     var a2 = el('div', null, 'two'); a2.appendChild(field('Street address', fs1)); a2.appendChild(field('Apt or unit', fs2, 'Optional.')); f.appendChild(a2);
-    var a3 = el('div', null, 'two'); a3.appendChild(field('City', fc)); a3.appendChild(field('State', fst)); a3.appendChild(field('ZIP code', fz)); f.appendChild(a3);
+    var a3 = el('div', null, 'two'); a3.appendChild(field('City', fc)); a3.appendChild(field('State', fst)); a3.appendChild(field('ZIP or postal code', fz)); f.appendChild(a3);
     f.appendChild(field('Phone', fp, 'Required: USPS and Shippo need it to make the label.'));
     f.appendChild(go); f.appendChild(m);
     c.appendChild(f);

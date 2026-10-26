@@ -128,7 +128,8 @@ module.exports = async (req, res) => {
       if (!a.street && !a.city && !a.zip) { await U.put(me, { address: null }); return res.json({ ok: true, address: null }); }
       if (!/[0-9]/.test(a.street) || !/[A-Za-z]/.test(a.street)) return res.status(400).json({ error: 'Enter the street address with its number, for example 120 Main St.' });
       if (a.city.length < 2 || a.state.length < 2) return res.status(400).json({ error: 'Enter the city and state.' });
-      if (!/^[0-9]{5}(-[0-9]{4})?$/.test(a.zip)) return res.status(400).json({ error: 'Enter a 5-digit ZIP code.' });
+      // US ZIP codes, or a postal code with letters from outside the US (Canada, the UK and so on).
+      if (!/^[0-9]{5}(-[0-9]{4})?$/.test(a.zip) && !/^[A-Za-z0-9][A-Za-z0-9 -]{1,9}$/.test(a.zip)) return res.status(400).json({ error: 'Enter your ZIP or postal code.' });
       u = await U.put(me, { address: a });
       return res.json({ ok: true, address: u.address });
     }
