@@ -46,7 +46,7 @@
   var usd = function (c) { return '$' + (c / 100).toFixed(2); };
   var cents = function (v) { return Math.round(Number(String(v || 0).replace(/[^0-9.]/g, '')) * 100) || 0; };
   var C = function () { return window.V2VCart; };
-  var tok = JF.token(), ME = null, CFG = {}, method = '', pm = '', busy = false, done = null;
+  var lastWallet = '', tok = JF.token(), ME = null, CFG = {}, method = '', pm = '', busy = false, done = null;
   var qs = new URLSearchParams(location.search);
   function ready(f) { if (window.V2VCart) f(); else setTimeout(function () { ready(f); }, 50); }
   ready(function () {
@@ -116,6 +116,13 @@
     var fld = function (k, ph, v, w) { var i = el('input'); i.placeholder = ph; i.value = v || ''; i.id = 'a_' + k; i.autocomplete = { name: 'name', street: 'address-line1', line2: 'address-line2', city: 'address-level2', state: 'address-level1', zip: 'postal-code' }[k] || 'off'; if (w) i.className = 'w'; f.appendChild(i); return i; };
     fld('name', 'Full name', A.name || ME.name, true); fld('street', 'Street address', A.street, true); fld('line2', 'Apt, suite (optional)', A.line2, true); fld('city', 'City', A.city); fld('state', 'State', A.state); fld('zip', 'ZIP code', A.zip);
     s.appendChild(f);
+    // NFTs in the cart are sent to the buyer's wallet, so it is asked for here.
+    if (C().items().some(function (x) { return x.nft; })) {
+      s.appendChild(el('b', 'Wallet for your NFT' + (C().items().filter(function (x) { return x.nft; }).length > 1 ? 's' : '')));
+      var wi = el('input'); wi.id = 'a_wallet'; wi.placeholder = '0x… or name.eth'; wi.autocomplete = 'off'; wi.spellcheck = false; wi.style.cssText = 'width:100%;box-sizing:border-box'; wi.value = lastWallet;
+      wi.addEventListener('input', function () { lastWallet = wi.value; }); s.appendChild(wi);
+      s.appendChild(el('div', 'The seller sends the NFT here. Double-check it: an NFT sent to a wrong address cannot be got back.', 'small dim'));
+    }
     s.appendChild(el('b', 'Pay with'));
     var P = el('div', null, 'ct-pay'); s.appendChild(P);
     var opt = function (val, label, sub2) { var l = el('label'), r = el('input'); r.type = 'radio'; r.name = 'm'; r.value = val; r.checked = method === val; r.addEventListener('change', function () { method = val; draw(); }); l.appendChild(r); var t = el('span'); t.appendChild(el('b', label)); if (sub2) { t.appendChild(el('br')); t.appendChild(el('span', sub2, 'small dim')); } l.appendChild(t); P.appendChild(l); };
@@ -148,6 +155,7 @@
   }
   function place(go, msg) {
     var a = {}; ['name', 'street', 'line2', 'city', 'state', 'zip'].forEach(function (k) { a[k] = ($('a_' + k).value || '').trim(); });
+    if ($('a_wallet')) { a.wallet = $('a_wallet').value.trim(); if (!/^0x[0-9a-fA-F]{40}$/.test(a.wallet) && !/^[a-z0-9-]+(\.[a-z0-9-]+)*\.eth$/i.test(a.wallet)) { msg.textContent = 'Enter the wallet address for your NFT (starts with 0x, or a .eth name).'; return; } }
     if (!a.name || !a.street || !a.city || !a.state || !a.zip) { msg.textContent = 'Fill in where it ships.'; return; }
     busy = true; go.disabled = true; msg.textContent = 'Placing your orders…';
     var items = C().items().map(function (x) { return { id: x.id, qty: x.qty }; });

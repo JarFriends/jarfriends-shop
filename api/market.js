@@ -706,7 +706,16 @@ module.exports = async (req, res) => {
       if (b.labelFormat === 'half' || b.labelFormat === '4x6') seller.labelFormat = b.labelFormat;
       if (b.shipIntl != null) seller.shipIntl = !!b.shipIntl;
       // A new bank account for payouts (routing and account number), kept encrypted.
-      if (b.routing != null || b.account != null || b.iban != null || b.swift != null) { const k = M.bankFrom(b); if (k.error) return res.status(400).json(k); Object.assign(seller, k.fields); }
+      // Paid in crypto (sellers outside the US): USDC or ETH, on Base or Ethereum mainnet, to their own wallet.
+      if (b.region === 'crypto') {
+        const w = String(b.wallet || '').trim(), w2 = String(b.wallet2 == null ? w : b.wallet2).trim();
+        if (seller.based !== 'intl') return res.status(400).json({ error: 'Crypto payouts are for sellers based outside the US.' });
+        if (!/^0x[0-9a-fA-F]{40}$/.test(w)) return res.status(400).json({ error: 'Payouts: enter your wallet address. It starts with 0x and has 42 characters.' });
+        if (w.toLowerCase() !== w2.toLowerCase()) return res.status(400).json({ error: 'Payouts: the two wallet addresses do not match.' });
+        const coin = b.coin === 'ETH' ? 'ETH' : 'USDC', net = b.net === 'eth' ? 'eth' : 'base', netName = net === 'eth' ? 'Ethereum mainnet' : 'Base';
+        Object.assign(seller, { payHow: 'crypto', payTo: coin + ' on ' + netName + ' to ' + w, cryptoPay: { coin: coin, net: net, wallet: w, at: Date.now() }, bankHint: { type: 'crypto', last4: w.slice(-4), holder: coin + ' on ' + netName } });
+      }
+      else if (b.routing != null || b.account != null || b.iban != null || b.swift != null) { const k = M.bankFrom(b); if (k.error) return res.status(400).json(k); Object.assign(seller, k.fields); delete seller.cryptoPay; }
       if (['zelle', 'venmo', 'cashapp', 'paypal'].indexOf(b.payHow) >= 0 && !seller.bank) seller.payHow = b.payHow;
       if (b.payTo != null && tidy(b.payTo, 80).length >= 3 && !seller.bank) seller.payTo = tidy(b.payTo, 80);
       // Their eBay user name: eBay listings they bring over must be theirs (see _ebay.js).
@@ -887,8 +896,9 @@ module.exports = async (req, res) => {
       return res.json({ ok: true, paid: paid, refund: refund });
     }
     if (what === 'ship') {
-      const n = String(b.n || ''), tracking = String(b.tracking || '').replace(/\s+/g, '').slice(0, 40);
-      if (!/^[A-Za-z0-9]{8,40}$/.test(tracking)) return res.status(400).json({ error: 'Enter the tracking number.' });
+      const n = String(b.n || ''), tracking = String(b.tracking || '').replace(/\s+/g, '').slice(0, 70);
+      // A tracking number, or for an NFT the transaction hash (0x and 64 characters).
+      if (!/^[A-Za-z0-9]{8,40}$/.test(tracking) && !/^0x[0-9a-fA-F]{64}$/.test(tracking)) return res.status(400).json({ error: 'Enter the tracking number (or, for an NFT, the transaction hash).' });
       const row = (await M.ledger(seller.slug)).filter((r) => r.n === n)[0];
       if (!row) return res.status(404).json({ error: 'That order was not found.' });
       if (!row.paid) return res.status(400).json({ error: 'Wait until this order is paid before you ship it.' });

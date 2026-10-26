@@ -29,7 +29,7 @@
   if (AS) { try { AK = localStorage.getItem('adminKey') || ''; } catch (e) { AK = ''; } }
   var PAY = [['zelle', 'Zelle'], ['venmo', 'Venmo'], ['cashapp', 'Cash App'], ['paypal', 'PayPal'], ['bank', 'bank transfer']];
   // How V2V pays this seller, in words: "bank transfer to Checking ••1234".
-  var payWords = function (sl) { return sl.payHow === 'bank' ? 'bank transfer to ' + sl.payTo : ((PAY.filter(function (x) { return x[0] === sl.payHow; })[0] || ['', sl.payHow || 'not set'])[1] + (sl.payTo ? ' (' + sl.payTo + ')' : '')); };
+  var payWords = function (sl) { if (sl.payHow === 'crypto') return 'crypto (' + sl.payTo + ')'; return sl.payHow === 'bank' ? 'bank transfer to ' + sl.payTo : ((PAY.filter(function (x) { return x[0] === sl.payHow; })[0] || ['', sl.payHow || 'not set'])[1] + (sl.payTo ? ' (' + sl.payTo + ')' : '')); };
   // The bank account for payouts: name on the account, routing number, account number twice, checking or savings.
   // Where earnings are sent. US sellers: routing and account number. International sellers: an international wire
   // (SWIFT/BIC plus IBAN or account number), which needs the bank's name and country and the holder's address.
@@ -37,9 +37,18 @@
     var w = el('div'); w.style.cssText = 'display:flex;flex-direction:column;gap:12px';
     var region = based === 'intl' ? 'intl' : 'us';
     var pick = el('div', null, 'jf-filters'); pick.setAttribute('role', 'group'); pick.setAttribute('aria-label', 'Where your bank is');
-    var bUS = el('button', 'Bank in the United States', 'pill'), bIn = el('button', 'Bank outside the US', 'pill'); bUS.type = bIn.type = 'button';
-    pick.appendChild(bUS); pick.appendChild(bIn);
-    w.appendChild(field('Where is your bank?', pick));
+    var bUS = el('button', 'Bank in the United States', 'pill'), bIn = el('button', 'Bank outside the US', 'pill'), bCr = el('button', '🪙 Crypto', 'pill'); bUS.type = bIn.type = bCr.type = 'button';
+    pick.appendChild(bUS); pick.appendChild(bIn); if (based === 'intl') pick.appendChild(bCr);
+    w.appendChild(field(based === 'intl' ? 'How do you want to be paid?' : 'Where is your bank?', pick));
+    // Crypto (sellers outside the US): USDC or ETH, on Base (low fees) or Ethereum mainnet, to the seller's own wallet.
+    var cr = el('div'); cr.style.cssText = 'display:flex;flex-direction:column;gap:12px';
+    var cCoin = select([['USDC', 'USDC (a US dollar stablecoin)'], ['ETH', 'ETH']], 'USDC'), cNet = select([['base', 'Base (low fees, recommended)'], ['eth', 'Ethereum mainnet']], 'base');
+    var cW = input('text', '', { maxlength: '42', autocomplete: 'off', placeholder: '0x…', spellcheck: 'false' }), cW2 = input('text', '', { maxlength: '42', autocomplete: 'off', placeholder: 'Paste it again', spellcheck: 'false' });
+    var c1 = el('div', null, 'two'); c1.appendChild(field('Coin', cCoin)); c1.appendChild(field('Network', cNet)); cr.appendChild(c1);
+    cr.appendChild(field('Your wallet address', cW, 'Make sure this wallet can receive on the network you picked. Crypto sent to a wrong address cannot be got back.'));
+    cr.appendChild(field('Confirm the wallet address', cW2));
+    cr.appendChild(el('div', '🪙 Your earnings are sent in the coin and network you pick, at the US dollar value owed. No bank fees.', 'small'));
+    w.appendChild(cr);
     var holder = input('text', '', { maxlength: '80', autocomplete: 'name', placeholder: 'Name on the bank account' });
     w.appendChild(field('Name on the account', holder));
     // US
@@ -65,13 +74,13 @@
     intl.appendChild(el('div', '🌍 International payouts are sent by international wire (SWIFT) in US dollars. Banks along the way may charge a fee, and it usually takes 3 to 5 business days.', 'small'));
     w.appendChild(intl);
     w.appendChild(el('div', '🔒 Encrypted and used only to send you your earnings. Only the last 4 digits are ever shown.', 'small dim'));
-    var show = function () { us.hidden = region !== 'us'; intl.hidden = region !== 'intl'; bUS.setAttribute('aria-pressed', region === 'us' ? 'true' : 'false'); bIn.setAttribute('aria-pressed', region === 'intl' ? 'true' : 'false'); };
-    bUS.addEventListener('click', function () { region = 'us'; show(); }); bIn.addEventListener('click', function () { region = 'intl'; show(); });
+    var show = function () { us.hidden = region !== 'us'; intl.hidden = region !== 'intl'; cr.hidden = region !== 'crypto'; holder.parentNode.hidden = region === 'crypto'; bUS.setAttribute('aria-pressed', region === 'us' ? 'true' : 'false'); bIn.setAttribute('aria-pressed', region === 'intl' ? 'true' : 'false'); bCr.setAttribute('aria-pressed', region === 'crypto' ? 'true' : 'false'); };
+    bUS.addEventListener('click', function () { region = 'us'; show(); }); bIn.addEventListener('click', function () { region = 'intl'; show(); }); bCr.addEventListener('click', function () { region = 'crypto'; show(); });
     show();
-    return { node: w, values: function () { return region === 'intl' ? { region: 'intl', bankName: holder.value, bankInst: inst.value, country: ctry.value, swift: swift.value, iban: iban.value, iban2: iban2.value, holderAddr: addr.value } : { region: 'us', bankName: holder.value, routing: routing.value, account: acct.value, account2: acct2.value, accType: type.value }; } };
+    return { node: w, values: function () { if (region === 'crypto') return { region: 'crypto', coin: cCoin.value, net: cNet.value, wallet: cW.value.trim(), wallet2: cW2.value.trim() }; return region === 'intl' ? { region: 'intl', bankName: holder.value, bankInst: inst.value, country: ctry.value, swift: swift.value, iban: iban.value, iban2: iban2.value, holderAddr: addr.value } : { region: 'us', bankName: holder.value, routing: routing.value, account: acct.value, account2: acct2.value, accType: type.value }; } };
   }
   // How a seller's payout details read: "Checking account ending 1234" or "SWIFT wire to Barclays ending 1234".
-  var bankLine = function (s) { var h = s.bankHint; if (!h) return ''; return h.type === 'intl' ? 'International wire to ' + (s.payTo || 'your bank').replace(/^SWIFT wire to /, '') + ' · ' + h.holder : (h.type === 'savings' ? 'Savings' : 'Checking') + ' account ending ' + h.last4 + ' · ' + h.holder; };
+  var bankLine = function (s) { var h = s.bankHint; if (!h) return ''; if (h.type === 'crypto') return '🪙 Crypto: ' + h.holder + ' to wallet …' + h.last4; return h.type === 'intl' ? 'International wire to ' + (s.payTo || 'your bank').replace(/^SWIFT wire to /, '') + ' · ' + h.holder : (h.type === 'savings' ? 'Savings' : 'Checking') + ' account ending ' + h.last4 + ' · ' + h.holder; };
   // The payout details card (Payments tab, and Settings): shows what is on file, or the form to add or change it.
   function payoutCard(pane) {
     var s = D.seller;
@@ -1244,6 +1253,16 @@
           if (o.labelPdf) labelLinks(c, o.n, false);
           if (o.customsPdf) { var cu = el('a', '🌍 Print the customs form'); cu.href = o.customsPdf; cu.target = '_blank'; cu.rel = 'noopener'; c.appendChild(cu); }
           if (o.labelCost) c.appendChild(el('div', 'Label: ' + JF.cents(o.labelCost) + (o.labelEarn ? ' · ' + JF.cents(o.labelEarn) + ' from your earnings' : '') + (o.labelCard ? ' · ' + JF.cents(o.labelCard) + ' on your card' : ''), 'small dim'));
+        } else if (/^NFT to wallet /.test(o.ship || '')) {
+          // An NFT: the buyer gave their wallet at checkout. The seller sends it, then adds the transaction hash.
+          var wa = (o.ship || '').replace(/^NFT to wallet /, '');
+          var nb = el('div', null, 'addr'); nb.textContent = '🖼 Send the NFT to this wallet: ' + wa; c.appendChild(nb);
+          var cpw = el('button', 'Copy wallet address', 'ghost'); cpw.type = 'button'; cpw.style.alignSelf = 'flex-start'; cpw.addEventListener('click', function () { try { navigator.clipboard.writeText(wa); cpw.textContent = 'Copied!'; } catch (e) { prompt('Copy this wallet address:', wa); } }); c.appendChild(cpw);
+          var nf = el('form'); nf.style.cssText = 'flex-direction:row;flex-wrap:wrap;align-items:flex-end;gap:10px;max-width:none';
+          var tx = input('text', '', { placeholder: '0x… transaction hash', required: '', autocomplete: 'off' }); var tl = field('Sent it? Paste the transaction hash', tx); tl.style.flex = '1 1 260px';
+          var ng = el('button', 'Mark sent', 'solid'); ng.type = 'submit'; var nm2 = status();
+          nf.appendChild(tl); nf.appendChild(ng); c.appendChild(nf); c.appendChild(nm2);
+          nf.addEventListener('submit', function (ev) { ev.preventDefault(); ng.disabled = true; JF.api('/api/market', { do: 'ship', t: tok, as: AS, ak: AK, n: o.n, tracking: tx.value.trim() }).then(function (r) { ng.disabled = false; if (r.error) { nm2.textContent = r.error; return; } nm2.textContent = 'Marked sent. The buyer was emailed.'; setTimeout(load, 1200); }); });
         } else if (o.bundleLead) {
           c.appendChild(el('div', '📦 Same cart as order ' + o.bundleLead + ': ship this piece in that box. The buyer paid shipping once, on order ' + o.bundleLead + '. When order ' + o.bundleLead + ' is shipped, this one is marked shipped with the same tracking.', 'alert small'));
         } else {
