@@ -70,6 +70,10 @@ const changes = [
   ['api/order.js', 'tax ? { tx: tax, tp: taxPct() }', 'tax ? { tx: tax, tp: taxRate }'],
   ['api/_offline.js', "inv.tx ? [['Illinois sales tax', esc(money(inv.tx) + ' (' + inv.tp + '%)')]] : []", "inv.tx ? [['Sales tax', esc(money(inv.tx) + ' (' + inv.tp + '%)')]] : []"],
   ['api/_offline.js', "inv.tx ? ['Illinois sales tax: ' + money(inv.tx) + ' (' + inv.tp + '%)'] : []", "inv.tx ? ['Sales tax: ' + money(inv.tx) + ' (' + inv.tp + '%)'] : []"],
+  // Checkout on phones: shipping is priced when the address changes in any way (typed, autofilled, or filled in
+  // from the account), not only on typing, so the Place order button turns on. And the piece picker never makes
+  // the page wider than the phone (a long name zoomed the whole page out and buttons stopped taking taps).
+  ['public/order.html', "['street', 'line2', 'city', 'state', 'zip'].forEach(function (k) { $('f').elements[k].addEventListener('input', function () { if (cc() !== 'US' || (cur() && cur().calc)) { iq.cents = 0; total(); soon(); } }); });", "['street', 'line2', 'city', 'state', 'zip'].forEach(function (k) { ['input', 'change', 'blur'].forEach(function (ev) { $('f').elements[k].addEventListener(ev, function () { if (cc() !== 'US' || (cur() && cur().calc)) { if (ev === 'input') { iq.cents = 0; total(); } soon(); } }); }); });\n  [800, 2500, 5000].forEach(function (ms) { setTimeout(function () { var p0 = cur(); if (p0 && (p0.calc || cc() !== 'US') && !iq.cents && !iq.busy) quote(); }, ms); });\n  (function () { var st = document.createElement('style'); st.textContent = '#product,select{max-width:100%}#f label{min-width:0}'; document.head.appendChild(st); })();"],
 ];
 changes.forEach(([f, find, put]) => {
   const s = fs.readFileSync(f, 'utf8');
