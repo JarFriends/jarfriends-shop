@@ -704,6 +704,7 @@ module.exports = async (req, res) => {
       const tidy = (v, n) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n);
       if (b.about != null) seller.about = tidy(b.about, 400);
       if (b.labelFormat === 'half' || b.labelFormat === '4x6') seller.labelFormat = b.labelFormat;
+      if (b.shipIntl != null) seller.shipIntl = !!b.shipIntl;
       // A new bank account for payouts (routing and account number), kept encrypted.
       if (b.routing != null || b.account != null || b.iban != null || b.swift != null) { const k = M.bankFrom(b); if (k.error) return res.status(400).json(k); Object.assign(seller, k.fields); }
       if (['zelle', 'venmo', 'cashapp', 'paypal'].indexOf(b.payHow) >= 0 && !seller.bank) seller.payHow = b.payHow;

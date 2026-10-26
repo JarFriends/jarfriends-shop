@@ -47,6 +47,9 @@ const changes = [
   ['api/offer.js', "'Wants to pay with: ' + pay, '',", "'Wants to pay with: ' + pay, o.m ? 'Their message: ' + o.m : '', '',"],
   ['api/offer.js', "' · would pay with ' + pay + ' · answer it: '", "' · would pay with ' + pay + (o.m ? '\\nMessage: ' + o.m : '') + ' · answer it: '"],
   ['api/offer.js', "buyer: o.b, email: o.e, pay: o.w || '' });", "buyer: o.b, email: o.e, pay: o.w || '', note: o.m || '' });"],
+  // International shipping for sellers who switch it on (Shop settings): their own postage with a customs form.
+  ['api/label.js', 'module.exports.quoteIntl = async (o) => {\n', "module.exports.quoteIntl = async (o) => {\n  if (/^S[0-9A-Z]{5,19}$/.test(String(o.pid || ''))) return require('./_ship').quoteIntl(o);\n"],
+  ['api/order.js', "  if (/^S[0-9A-Z]{5,19}$/.test(p.id) && intl) return res.status(400).json({ error: 'This seller ships inside the USA only.' });", "  if (/^S[0-9A-Z]{5,19}$/.test(p.id) && intl) { const li0 = (await require('./_sellers').listings()).filter((x) => x.id === p.id)[0], sl0 = li0 && (await require('./_sellers').bySlug(li0.seller)); if (!sl0 || !sl0.shipIntl) return res.status(400).json({ error: 'This seller ships inside the USA only.' }); }"],
   ['api/offer.js', "'It is held for you until the link runs out.'", "'It is not held for you: others can still buy it, so pay soon to make sure it is yours.'"],
   ['api/offer.js', "'It is held for you until the link runs out. If the price does not work, you are welcome to send another offer.'", "'It is not held for you: others can still buy it, so pay soon to make sure it is yours. If the price does not work, you are welcome to send another offer.'"]
 ];

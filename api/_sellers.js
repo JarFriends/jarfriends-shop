@@ -340,7 +340,7 @@ async function ledger(slug) {
       // Paid by card straight to the seller's own Stripe (see _connect.js): Stripe pays the seller, nothing is owed.
       direct: !!m.direct, issue: m.issue || null, bundleLead: m.bundleLead || '', bundleMates: m.bundleMates || [],
       // A shipping label the seller bought through V2V: its cost, and the part taken from money V2V holds for them.
-      labelCost: m.labelCost || 0, labelEarn: m.labelFromEarnings || 0, labelCard: m.labelFromCard || 0, labelPdf: m.labelPdf || '' };
+      customsPdf: m.customsPdf || '', labelCost: m.labelCost || 0, labelEarn: m.labelFromEarnings || 0, labelCard: m.labelFromCard || 0, labelPdf: m.labelPdf || '' };
   }));
   return rows.sort((a, b) => b.at - a.at);
 }

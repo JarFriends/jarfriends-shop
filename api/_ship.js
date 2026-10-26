@@ -62,6 +62,39 @@ async function cheapest(from, to, parcel) {
   return { id: pick.object_id, cents: Math.round(Number(pick.amount) * 100), service: ((pick.provider || '') + ' ' + ((pick.servicelevel && pick.servicelevel.name) || '')).trim(), days: pick.estimated_days || null };
 }
 
+// ---- Outside the USA (sellers who tick "Ship internationally" in Shop settings) ----
+// A Shippo customs declaration is made for the package (what is inside, its value, weight; certified by the seller),
+// so the label comes with its customs form. USPS first, any carrier if USPS has no price.
+async function intlRate(seller, listing, to, qty, value, item) {
+  const from = fromOf(seller);
+  if (!from) throw new Error('no ship-from address');
+  const parcel = packageOf(listing, qty);
+  const cd = await shippo('/customs/declarations/', {
+    contents_type: 'MERCHANDISE', non_delivery_option: 'RETURN', certify: true, certify_signer: from.name, incoterm: 'DDU', eel_pfc: 'NOEEI_30_37_a',
+    items: [{ description: ('Collectible ' + String(item || 'collectible')).slice(0, 45), quantity: Math.max(1, Number(qty) || 1), net_weight: String(parcel.weight), mass_unit: 'oz',
+      value_amount: (Math.max(100, Number(value) || 0) / 100).toFixed(2), value_currency: 'USD', origin_country: 'US' }]
+  });
+  const s = await shippo('/shipments/', { address_from: from, address_to: to, parcels: [parcel], customs_declaration: cd.object_id, async: false });
+  const rates = (Array.isArray(s.rates) ? s.rates : []).filter((r) => r && r.object_id && Number(r.amount) > 0);
+  const usps = rates.filter((r) => String(r.provider || '').toUpperCase() === 'USPS');
+  const pick = (usps.length ? usps : rates).sort((a, c) => Number(a.amount) - Number(c.amount))[0];
+  if (!pick) throw new Error('no price to that address');
+  return { id: pick.object_id, cents: Math.round(Number(pick.amount) * 100), service: ((pick.provider || '') + ' ' + ((pick.servicelevel && pick.servicelevel.name) || '')).trim(), days: pick.estimated_days || null, parcel: parcel };
+}
+// Checkout: what an international buyer pays to ship a seller's piece: the real postage plus 10% (prices can move
+// a little before the seller buys the label). Customs duties are the buyer's (DDU).
+async function quoteIntl(o) {
+  if (!ready()) return { error: 'Shipping outside the USA is not available right now.' };
+  const listing = (await M.listings()).filter((x) => x.id === o.pid)[0];
+  const seller = listing && (await M.bySlug(listing.seller));
+  if (!seller || !seller.shipIntl) return { error: 'This seller ships inside the USA only.' };
+  if (!fromOf(seller)) return { error: 'This seller has not finished setting up shipping yet.' };
+  try {
+    const r = await intlRate(seller, listing, o.to, o.qty, o.value, o.item);
+    return { cents: Math.ceil(r.cents * 1.10), base: r.cents / 100, service: r.service };
+  } catch (e) { console.error('SELLER_INTL_QUOTE_FAIL', o.pid, String(e && e.message || e)); return { error: 'We could not get a shipping price to that address. Check the address and try again.' }; }
+}
+
 // Checkout: the calculated shipping for a seller's piece, or null when the piece has a set price (free or flat).
 // to: { name, street1, street2, city, state, zip }. Prices are remembered for 10 minutes per address and package.
 const memo = new Map();
@@ -103,8 +136,8 @@ async function orderFor(seller, n) {
   let a = Array.isArray(meta.addr) && meta.addr[2] ? meta.addr : null;
   if (!a) { try { const inv = require('./_lib').verify(new URL(String(d.label || '')).searchParams.get('inv')); if (inv && Array.isArray(inv.a)) a = inv.a; } catch (e) { a = null; } }
   if (!a || !a[2]) return { error: 'This order has no shipping address on it. Contact V2V.' };
-  if (a[7] && a[7] !== 'US') return { error: 'This order ships outside the USA. Contact V2V to ship it.' };
-  return { row: row, data: d, to: { name: a[0] || row.buyer || 'Buyer', company: a[1] || '', street1: a[2], street2: a[3] || '', city: a[4], state: a[5], zip: a[6], country: 'US', email: row.email || '' } };
+  const cc = a[7] && a[7] !== 'US' ? String(a[7]).toUpperCase() : 'US';
+  return { row: row, data: d, intl: cc !== 'US', to: { name: a[0] || row.buyer || 'Buyer', company: a[1] || '', street1: a[2], street2: a[3] || '', city: a[4], state: a[5] || '', zip: a[6] || '', country: cc, email: row.email || '' } };
 }
 // How a label would be paid: from what V2V holds for the seller first, the rest on their card.
 async function payPlan(seller, cents) {
@@ -135,10 +168,11 @@ async function quoteLabel(seller, n, q) {
   // A weight the seller typed is for the whole box already, so it is not multiplied again by the number of pieces.
   const parcel = packageOf(own, own === listing ? o.row.q : 1);
   try {
-    const r = await cheapest(from, o.to, parcel);
+    // Outside the USA: the label comes with its customs form, valued at what the buyer paid for the pieces.
+    const r = o.intl ? await intlRate(seller, own, o.to, own === listing ? o.row.q : 1, o.row.items || o.row.gross, o.row.product) : await cheapest(from, o.to, parcel);
     const plan = await payPlan(seller, r.cents);
     const paidShip = Math.round(Number(String(o.data.shipping || '0').replace(/[^0-9.]/g, '')) * 100) || 0;
-    return { rate: r, parcel: parcel, plan: plan, buyerPaidShipping: paidShip, to: o.to, test: isTest() };
+    return { rate: r, parcel: r.parcel || parcel, plan: plan, buyerPaidShipping: paidShip, to: o.to, intl: !!o.intl, test: isTest() };
   } catch (e) {
     console.error('LABEL_QUOTE_FAIL', n, String(e && e.message || e));
     return { error: 'Could not price the label. Check the package size and weight, or try again.' };
@@ -178,13 +212,13 @@ async function buyLabel(seller, n, rateId, host) {
   const tracking = t.tracking_number || '';
   const meta = (await store.read('meta/' + n + '.json')) || {};
   await store.write('meta/' + n + '.json', Object.assign(meta, { tracking: tracking, labelPdf: t.label_url, labelTx: t.object_id || '', testLabel: isTest(), shippedAt: Date.now(), shippedBy: seller.slug,
-    labelCost: cents, labelFromEarnings: plan.fromEarnings, labelFromCard: plan.fromCard, labelCardPi: pi || '' }));
+    labelCost: cents, labelFromEarnings: plan.fromEarnings, labelFromCard: plan.fromCard, labelCardPi: pi || '', customsPdf: t.commercial_invoice_url || '' }));
   if (!isTest() && o.row.email && tracking) {
     const { mail } = require('./_lib');
     await mail(o.row.email, 'Your order ' + n + ' has shipped', ['Your ' + o.row.product + ' (order ' + n + ') is on its way from ' + seller.name + ' by USPS.', '', 'Tracking number: ' + tracking].concat(t.tracking_url_provider ? ['Track it here:', t.tracking_url_provider] : []).concat(['', 'Once it arrives, rate ' + seller.name + ' in My account: ' + host + '/me.html']), 'seller-label-' + n).catch(() => null);
   }
-  return { ok: true, label: t.label_url, tracking: tracking, track: t.tracking_url_provider || '', cents: cents, fromEarnings: plan.fromEarnings, fromCard: plan.fromCard, test: isTest() };
+  return { ok: true, customs: t.commercial_invoice_url || '', label: t.label_url, tracking: tracking, track: t.tracking_url_provider || '', cents: cents, fromEarnings: plan.fromEarnings, fromCard: plan.fromCard, test: isTest() };
 }
 const money = (c) => '$' + (c / 100).toFixed(2);
 
-module.exports = { PRESETS, packageOf, fromOf, calcFor, quoteLabel, buyLabel, payPlan, ready, isTest };
+module.exports = { quoteIntl, intlRate, PRESETS, packageOf, fromOf, calcFor, quoteLabel, buyLabel, payPlan, ready, isTest };
