@@ -803,6 +803,19 @@ module.exports = async (req, res) => {
       // Their eBay user name: eBay listings they bring over must be theirs (see _ebay.js).
       if (b.ebayUser != null) { const u = tidy(b.ebayUser, 64).replace(/^@/, ''); if (u.toLowerCase() !== String(seller.ebayUser || '').toLowerCase()) seller.ebayOk = false; seller.ebayUser = u; }
       // Where packages ship from: needed for calculated shipping and labels.
+      // Promo codes for this seller's pieces: percent off, dollars off, or free shipping.
+      if (Array.isArray(b.promos)) {
+        const out = [], seen = {};
+        for (const x of b.promos.slice(0, 30)) {
+          const code = String(x.code || '').trim().toUpperCase(), kind = ['pct', 'off', 'ship'].indexOf(x.kind) >= 0 ? x.kind : '', v = Number(x.value) || 0;
+          if (!/^[A-Z0-9_-]{3,20}$/.test(code)) return res.status(400).json({ error: 'Promo code "' + (x.code || '') + '": use 3 to 20 letters or numbers.' });
+          if (seen[code]) return res.status(400).json({ error: 'You have the code ' + code + ' twice.' });
+          if (!kind || (kind === 'pct' && !(v > 0 && v <= 90)) || (kind === 'off' && !(v > 0 && v <= 5000))) return res.status(400).json({ error: code + ': pick percent off (1 to 90), dollars off, or free shipping.' });
+          const was = (seller.promos || []).filter((y) => y.code === code)[0];
+          seen[code] = 1; out.push({ code: code, kind: kind, value: kind === 'ship' ? 0 : v, max: Math.max(0, Math.floor(Number(x.max) || 0)), ends: Number(x.ends) || 0, on: x.on !== false, used: was ? was.used || 0 : 0 });
+        }
+        seller.promos = out;
+      }
       // Get paid directly: where buyers send Zelle, Venmo, Cash App or crypto for this seller's pieces.
       if (b.directPay && typeof b.directPay === 'object') {
         const d = b.directPay, dp = { zelle: tidy(d.zelle, 80), venmo: tidy(d.venmo, 40), cashapp: tidy(d.cashapp, 40), crypto: tidy(d.crypto, 42) };

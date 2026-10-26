@@ -7,7 +7,7 @@ const changes = [
   ['api/_edits.js', 'const full = list.concat(d.added).map(',
     "let sellerItems = [];\n  try { sellerItems = await require('./_sellers').products(); } catch (err) { console.error('SELLERS_READ_FAIL', String(err && err.message || err)); }\n  const full = list.concat(d.added, sellerItems).map("],
   ['api/order.js', '  const promo = code ? offline.promo(code, p.id, await offline.promoGroup(p.id)) : null;',
-    "  if (code && /^S[0-9A-Z]{5,19}$/.test(p.id)) return res.status(400).json({ error: 'Promo codes work on JarFriends pieces only, not on pieces from other sellers. Remove the code to continue.' });\n  const promo = code ? offline.promo(code, p.id, await offline.promoGroup(p.id)) : null;"],
+    "  // A seller's piece takes only that seller's own promo codes (Seller Hub, Marketing); VeeFam's codes are for its own.\n  const sp = code && /^S[0-9A-Z]{5,19}$/.test(p.id) ? await require('./_sellers').promoFor(p.id, code) : null;\n  if (code && /^S[0-9A-Z]{5,19}$/.test(p.id) && !sp) return res.status(400).json({ error: 'That promo code does not work on this piece. Remove it to continue.' });\n  const promo = sp || (code ? offline.promo(code, p.id, await offline.promoGroup(p.id)) : null);"],
   // 3. Card payments for a seller who set up payouts go straight to the seller's Stripe, with V2V's cut as the
   //    application fee (see api/_connect.js). Everything else about the card page stays the same.
   ['api/stripe.js', "  if (!inv || !isCard(inv) || !(inv.u > 0)) return stop(res, 400, 'This payment link is not valid. Place the order again.');\n",
@@ -81,6 +81,12 @@ const changes = [
   // The buyer sees what is inside the price: the seller's share and VeeFam's fee (taken from the price, never added).
   ['public/order.html', "    $('sList').textContent = usd(list);", "    $('sList').textContent = usd(list);\n    var sfp = Number(window.V2VSiteFee) || 0, sfc = sfp && /^S[0-9A-Z]{5,19}$/.test(p.id) ? Math.round((list - cut) * sfp / 100) : 0;\n    if (!$('rSiteFee')) { var rf = document.createElement('div'); rf.id = 'rSiteFee'; rf.className = 'small dim'; rf.style.cssText = 'margin:-4px 0 6px'; $('sList').parentNode.parentNode.insertBefore(rf, $('sList').parentNode.nextSibling); }\n    $('rSiteFee').hidden = !sfc; $('rSiteFee').textContent = sfc ? 'Includes the VeeFam site fee (' + sfp + '%): ' + usd(sfc) + '. The seller gets ' + usd(list - cut - sfc) + '. Nothing extra is added for it.' : '';"],
   ['public/order.html', "    taxPct = Number(r.taxIL) || 0;", "    window.V2VSiteFee = Number(r.siteFee) || 0; taxPct = Number(r.taxIL) || 0;"],
+  // Seller promo codes: checked on the order page, free shipping takes the shipping off, and each use is counted.
+  ['api/order.js', '      const found = offline.promo(req.query.promo, req.query.product, await offline.promoGroup(req.query.product));', "      if (/^S[0-9A-Z]{5,19}$/.test(String(req.query.product || ''))) { const sp0 = await require('./_sellers').promoFor(req.query.product, req.query.promo); return sp0 ? res.json({ promo: sp0 }) : res.status(404).json({ error: 'That promo code does not work on this piece.' }); }\n      const found = offline.promo(req.query.promo, req.query.product, await offline.promoGroup(req.query.product));"],
+  ['api/order.js', '  if (req.v2vBundle && !isNft) ship = 0;', "  if (req.v2vBundle && !isNft) ship = 0;\n  if (promo && promo.ship && !isNft) ship = 0;"],
+  ['api/order.js', "  if (r.inv.dt) { const ST = require('./_store')", "  if (promo && promo.seller) await require('./_sellers').promoUsed(promo.seller, promo.code).catch(() => null);\n  if (r.inv.dt) { const ST = require('./_store')"],
+  ['public/order.html', '    var ship = (intl || (p.calc && !p.nft)) ? (iq.cents || 0) : Math.round(Number(p.ship || 0) * 100);', '    var ship = (intl || (p.calc && !p.nft)) ? (iq.cents || 0) : Math.round(Number(p.ship || 0) * 100);\n    if (promo && promo.ship && !deal && !p.nft) ship = 0;'],
+  ['public/order.html', "$('sAdjL').textContent = promo ? 'Promo code ' + promo.code : '';", "$('sAdjL').textContent = promo ? 'Promo code ' + promo.code + (promo.ship ? ' (free shipping)' : '') : '';"],
 ];
 changes.forEach(([f, find, put]) => {
   const s = fs.readFileSync(f, 'utf8');

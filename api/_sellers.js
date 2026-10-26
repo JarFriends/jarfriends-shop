@@ -522,10 +522,21 @@ async function notifySale(n, kind) {
 // Buyers pay this seller directly by the way they picked, when the seller has added where they take it
 // (Shop settings, Get paid directly): { slug, name, way, to }. way: zelle, venmo, cashapp or crypto (an 0x wallet,
 // used on Ethereum and Base).
+// Seller promo codes (Seller Hub, Marketing): seller.promos = [{ code, kind: 'pct'|'off'|'ship', value, max, ends, used, on }].
+// promoFor: the code for a piece of that seller, if it is on, not ended and not used up, shaped like VeeFam's own
+// codes ({ code, pct } or { code, off } in cents, or { code, ship: true, off: 0 }) so checkout works the same.
+async function promoFor(pid, code) {
+  const c = String(code || '').trim().toUpperCase(); if (!c || !isSellerPid(pid)) return null;
+  const p = (await listings()).filter((x) => x.id === pid)[0], s = p && (await bySlug(p.seller));
+  const x = s && (s.promos || []).filter((y) => y.code === c)[0];
+  if (!x || x.on === false || (x.ends && Date.now() > x.ends) || (x.max && (x.used || 0) >= x.max)) return null;
+  return x.kind === 'pct' ? { code: c, pct: x.value, seller: s.slug } : x.kind === 'off' ? { code: c, off: Math.round(x.value * 100), seller: s.slug } : { code: c, ship: true, off: 0, seller: s.slug };
+}
+async function promoUsed(slug, code) { const s = await bySlug(slug); const x = s && (s.promos || []).filter((y) => y.code === code)[0]; if (!x) return; x.used = (x.used || 0) + 1; await save(s); }
 async function directFor(pid, way) {
   if (!way || !isSellerPid(pid)) return null;
   const p = (await listings()).filter((x) => x.id === pid)[0], s = p && (await bySlug(p.seller));
   const to = s && s.directPay && String(s.directPay[way] || '').trim();
   return to ? { slug: s.slug, name: s.name, way: way, to: to } : null;
 }
-module.exports = { directFor, removeShop, bankFrom, bankOf, safe, routingOk, profit, setCost, giveawayPct, sellerOf, offerTo, notifySale, reviews, saveReview, removeReview, stats, statsAll, statsFrom, shortName, completed, VERIFY_AFTER, posts, addPost, removePost, feePct, autoApprove, all, bySlug, byEmail, save, apply, pub, listings, products, isSellerPid, saveListing, setListing, removeListing, ledger, payouts, addPayout, totals, hashOf, SECTIONS, sectionOf, forget };
+module.exports = { promoFor, promoUsed, directFor, removeShop, bankFrom, bankOf, safe, routingOk, profit, setCost, giveawayPct, sellerOf, offerTo, notifySale, reviews, saveReview, removeReview, stats, statsAll, statsFrom, shortName, completed, VERIFY_AFTER, posts, addPost, removePost, feePct, autoApprove, all, bySlug, byEmail, save, apply, pub, listings, products, isSellerPid, saveListing, setListing, removeListing, ledger, payouts, addPayout, totals, hashOf, SECTIONS, sectionOf, forget };
