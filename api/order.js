@@ -52,6 +52,9 @@ module.exports = async (req, res) => {
   // An NFT is sent to a wallet, so it needs a wallet address (0x... or a .eth name) in place of a mailing address.
   const isNft = !!nftBy[clip(b.product, 20)], wallet = clip(b.wallet, 64);
   if (isNft) {
+    // Typed twice and the risk accepted: a wrong address is the buyer's responsibility (the NFT cannot be got back).
+    if (clip(b.wallet2, 64) !== wallet) return res.status(400).json({ error: 'The two wallet addresses do not match. Paste the same address in both boxes.' });
+    if (!b.walletRisk) return res.status(400).json({ error: 'Tick the box to accept that a wrong wallet address is your responsibility.' });
     if (!/^0x[0-9a-fA-F]{40}$/.test(wallet) && !/^[a-z0-9-]+(\.[a-z0-9-]+)*\.eth$/i.test(wallet)) return res.status(400).json({ error: 'Enter the wallet address to send the NFT to. It starts with 0x, or is a .eth name.' });
   } else {
     if (!/[0-9]/.test(street) || !/[A-Za-z]/.test(street)) return res.status(400).json({ error: 'Enter the street address with its number, for example 120 Main St.' });

@@ -79,6 +79,9 @@ fieldset[hidden]{display:none}
       <fieldset id="nftBox" hidden>
         <legend>Where should we send the NFT?</legend>
         <label>Your wallet address<input name="wallet" id="wallet" maxlength="64" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="0x..."></label>
+        <label>Paste the same wallet address again<input name="wallet2" id="wallet2" maxlength="64" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="0x..."></label>
+        <div class="small" style="border:1px solid #E5484D;color:#FFB4B6;padding:10px 12px;border-radius:8px">⚠️ If this wallet address is wrong, you accept all liability: an NFT the seller sends to the address you typed cannot be got back. Double-check it.</div>
+        <label class="jf-check"><input type="checkbox" name="walletRisk" id="walletRisk" value="yes"><span>OK, I accept the risk. The wallet address above is correct.</span></label>
         <div class="small">This piece is an NFT. You need your own wallet that works with OpenSea. We send the NFT to this address once your payment is confirmed.</div>
       </fieldset>
       <label class="hp" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off"></label>
@@ -121,7 +124,7 @@ fieldset[hidden]{display:none}
     var nft = !!p.nft, fe = $('f').elements;
     $('shipBox').hidden = nft; $('nftBox').hidden = !nft; $('rShip').hidden = nft;
     ['street', 'city', 'state', 'zip'].forEach(function (k) { fe[k].required = !nft; });
-    $('wallet').required = nft;
+    $('wallet').required = nft; $('wallet2').required = nft; $('walletRisk').required = nft;
     $('qty').min = p.min; $('qty').max = p.stock;
     $('unit').textContent = '$' + p.price + ' per unit. ' + (p.stock > 0 ? p.stock + (p.stock === 1 ? ' unit' : ' units') + ' in stock' : 'Sold out') + '. Minimum order ' + p.min + '.';
     var m = method();

@@ -459,7 +459,7 @@ module.exports = async (req, res) => {
       items.sort((x, y) => (shopOf(x) < shopOf(y) ? -1 : shopOf(x) > shopOf(y) ? 1 : shipOf(y) - shipOf(x)));
       const leadOf = {};
       for (const it of items) {
-        const body = { t: b.t, product: String(it.id || '').slice(0, 20), qty: Math.max(1, Math.floor(Number(it.qty) || 1)), method: method, name: a.name, street: a.street, line2: a.line2, city: a.city, state: a.state, zip: a.zip, wallet: a.wallet };
+        const body = { t: b.t, product: String(it.id || '').slice(0, 20), qty: Math.max(1, Math.floor(Number(it.qty) || 1)), method: method, name: a.name, street: a.street, line2: a.line2, city: a.city, state: a.state, zip: a.zip, wallet: a.wallet, wallet2: a.wallet2, walletRisk: a.walletRisk };
         const got = await new Promise((done) => {
           const fake = { _c: 200, setHeader() {}, status(c) { this._c = c; return this; }, json(j) { done({ code: this._c, body: j }); return this; }, send(x) { done({ code: this._c, body: { error: String(x) } }); return this; }, end() { done({ code: this._c, body: {} }); return this; } };
           const shop = shopOf(it), mate = !!leadOf[shop];
