@@ -78,4 +78,22 @@ async function save(rates) {
   memo = { at: Date.now(), v: v };
   return { ok: true, rates: out };
 }
-module.exports = { STATES, AVG, THRESH, NO_TAX, tracker, code, get, rateFor, save };
+// Once a day (the daily job): email the owner and post in the orders Discord when a state first gets close to its
+// marketplace line (80%) or passes it, so registering is never missed. Each state and level is told once.
+async function watch() {
+  if (!store.on()) return { skipped: true };
+  const seen = (await store.read('settings/taxalerts.json').catch(() => null)) || {};
+  if (seen.day === new Date().toISOString().slice(0, 10)) return { skipped: true };
+  const news = (await tracker()).filter((x) => (x.status === 'over' || x.status === 'near') && seen[x.code] !== x.status && !(x.status === 'near' && seen[x.code] === 'over'));
+  news.forEach((x) => { seen[x.code] = x.status; });
+  seen.day = new Date().toISOString().slice(0, 10);
+  await store.write('settings/taxalerts.json', seen);
+  if (!news.length) return { told: 0 };
+  const name = (c) => String(STATES[c]).replace(/\b\w/g, (y) => y.toUpperCase());
+  const lines = news.map((x) => (x.status === 'over' ? '🔴 ' + name(x.code) + ': over the line. Register with the state, then turn it on in the back office (Sellers, Sales tax).' : '🟠 ' + name(x.code) + ': ' + x.pct + '% of the way to the line. Get ready to register.') + ' Sales this year $' + Math.round(x.cur / 100).toLocaleString() + ' (' + x.curN + ' orders).');
+  const owner = (process.env.OWNER_EMAIL || '').trim();
+  if (owner) await require('./_lib').mail(owner, 'Sales tax: ' + news.length + ' state' + (news.length > 1 ? 's' : '') + ' need' + (news.length > 1 ? '' : 's') + ' attention', ['As the marketplace, VeeFam must collect sales tax in a state once its sales there pass that state\'s line.', ''].concat(lines), 'tax-watch-' + seen.day).catch(() => null);
+  await require('./_discord')('🧾 Sales tax\n' + lines.join('\n')).catch(() => null);
+  return { told: news.length };
+}
+module.exports = { watch, STATES, AVG, THRESH, NO_TAX, tracker, code, get, rateFor, save };
