@@ -1282,6 +1282,19 @@
   function labelBox(o) {
     var box = el('div'); box.style.cssText = 'display:flex;flex-direction:column;gap:10px;border:1px solid #4E7A63;padding:14px';
     box.appendChild(el('b', 'Buy a shipping label'));
+    // Sellers outside the USA: the cheap cross-border ways to ship, and the customs details ready to copy.
+    if (D.seller.based === 'intl') {
+      var cb = el('div'); cb.style.cssText = 'display:flex;flex-direction:column;gap:8px;border:1px solid #C9A45C;border-radius:10px;padding:12px';
+      cb.appendChild(el('b', '🌎 Shipping from ' + (D.seller.country || 'outside the USA') + '? The cheapest way'));
+      cb.appendChild(el('div', 'Buy the label on a cross-border service, print it at home, drop the package off, then paste its tracking number below. The shipping the buyer paid comes back to you once tracking is added.', 'small dim'));
+      [['Stallion Express', 'https://stallionexpress.ca', 'Canada to the US, delivered by USPS. Usually the cheapest.'], ['Chit Chats', 'https://chitchats.com', 'Canada to the US, drop-off locations across Canada.'], ['Canada Post', 'https://www.canadapost-postescanada.ca/cpc/en/personal/sending/parcels/compare-services-us.page', 'Small Packet USA for light items (little tracking).']].forEach(function (x) { var r0 = el('div', null, 'small'); var a = el('a', x[0] + ' ›'); a.href = x[1]; a.target = '_blank'; a.rel = 'noopener'; a.style.fontWeight = '700'; r0.appendChild(a); r0.appendChild(document.createTextNode(' ' + x[2])); cb.appendChild(r0); });
+      var cust = 'Ship to: ' + (o.buyer || '') + ', ' + (o.ship || '') + '\nContents: Collectible ' + (o.product || '') + ' (merchandise, used/collectible)\nQuantity: ' + (o.q || 1) + '\nValue: ' + JF.cents(o.items || o.gross) + ' USD\nCountry of origin: ' + (D.seller.country || '');
+      var pre = el('div', cust, 'small'); pre.style.cssText = 'white-space:pre-wrap;background:rgba(0,0,0,.25);padding:8px 10px;border-radius:8px'; cb.appendChild(pre);
+      var cp = el('button', 'Copy the address and customs details', 'ghost'); cp.type = 'button'; cp.style.cssText = 'align-self:flex-start;padding:6px 10px;min-height:0';
+      cp.addEventListener('click', function () { try { navigator.clipboard.writeText(cust).then(function () { cp.textContent = '✓ Copied'; }); } catch (e) { cp.textContent = 'Select the text above to copy it'; } });
+      cb.appendChild(cp); box.appendChild(cb);
+      box.appendChild(el('div', 'Or try a label through VeeFam below (UPS or FedEx, usually more expensive from outside the USA):', 'small dim'));
+    }
     if (!D.labelsOn) { box.appendChild(el('div', 'Labels are not switched on for V2V yet. Ship it your own way and add the tracking number below.', 'small dim')); return box; }
     // No ship-from address yet: add it right here, then the label part opens. It is saved for every label after.
     if (!D.seller.shipFrom || !String(D.seller.shipFrom.phone || '').replace(/\D/g, '') || (D.seller.based === 'intl' && !D.seller.shipFrom.country)) {
