@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VeeFam</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..900&family=IBM+Plex+Mono:wght@400;500&family=Playfair+Display:wght@600;700;800&display=swap">
+<link rel="stylesheet" href="/site.css">
+<link rel="stylesheet" href="/market.css">
+<style>
+.pc{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:28px;align-items:start}
+@media(max-width:820px){.pc{grid-template-columns:1fr;gap:18px}}
+.pc-ph{position:relative;background:#0B1712;border:1px solid #2E4A3B;border-radius:16px;overflow:hidden;aspect-ratio:1;display:flex;align-items:center;justify-content:center;cursor:zoom-in}
+.pc-ph img{width:100%;height:100%;object-fit:contain}
+.pc-ph .ph{font-size:64px;color:#4E7A63;font-weight:800}
+.pc-ph .zoom{position:absolute;right:10px;bottom:10px;background:rgba(0,0,0,.6);color:#fff;border-radius:999px;padding:6px 10px;font-size:12px;font-weight:700}
+.pc-info{display:flex;flex-direction:column;gap:14px}
+.pc-info h1{text-transform:none;font-size:clamp(24px,4vw,34px);line-height:1.15;margin:0}
+.pc-price{font-family:'Playfair Display',serif;font-size:34px;font-weight:800;color:#F3DC9A}
+.pc-meta{display:flex;flex-wrap:wrap;gap:8px}
+.pc-chip{border:1px solid #2E4A3B;border-radius:999px;padding:5px 11px;font-size:13px;color:#C9D6CE}
+.pc-chip.low{border-color:#E5484D;color:#FF8A8E}
+.pc-acts{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pc-acts .wide{grid-column:1/-1}
+.pc-acts a,.pc-acts button{display:flex;align-items:center;justify-content:center;gap:6px;text-decoration:none;min-height:50px;border-radius:999px;font-weight:800;font-size:16px;padding:10px 14px;cursor:pointer}
+.pc-acts .buy{background:#C9A45C;color:#0B1A13;border:1px solid #C9A45C;font-size:18px}
+.pc-acts .alt{background:transparent;color:#F3DC9A;border:1px solid #C9A45C}
+.pc-seller{display:flex;gap:12px;align-items:center;border:1px solid #2E4A3B;border-radius:14px;padding:12px;background:#11261C;text-decoration:none;color:inherit}
+.pc-av{width:44px;height:44px;border-radius:50%;background:#C9A45C;color:#0B1A13;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:18px;flex:none}
+.pc-desc{white-space:pre-line;line-height:1.6;color:#D6E2DA}
+.pc-zoom{position:fixed;inset:0;z-index:2147483600;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center;cursor:zoom-out;padding:12px}
+.pc-zoom img{max-width:100%;max-height:100%;object-fit:contain}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap bar"><a class="brand" href="/" style="text-decoration:none">VeeFam</a><span style="display:flex;align-items:center;gap:20px"><a class="home" href="/market.html">Shop</a></span></div></header>
+<main class="wrap page" style="gap:22px">
+  <a href="/market.html" id="back" class="small" style="text-decoration:none">‹ Back to the market</a>
+  <div class="pc" id="pc"><div class="small dim">Loading…</div></div>
+</main>
+<script src="/jf.js"></script>
+<script>
+// A piece's own page: the big photo (tap to zoom), the details, and Buy now, Add to cart, Offer, Trade and Ask the seller.
+(function () {
+  var el = JF.el, id = new URLSearchParams(location.search).get('id') || '';
+  var box = document.getElementById('pc');
+  if (document.referrer && /\/(shop|market|index|live|wishlist)?(\.html)?/.test(new URL(document.referrer, location.href).pathname) && new URL(document.referrer).host === location.host) { var bk = document.getElementById('back'); bk.href = 'javascript:history.back()'; bk.textContent = '‹ Back'; }
+  fetch('/api/market?do=item&id=' + encodeURIComponent(id), { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (p) {
+    box.textContent = '';
+    if (!p) { box.appendChild(el('div', 'This piece is no longer for sale.', 'small')); var a0 = el('a', 'Browse the market', 'solid'); a0.href = '/market.html'; box.appendChild(a0); return; }
+    if (p.auction) { location.replace('/auction.html?id=' + encodeURIComponent(p.id)); return; }
+    document.title = p.name + ' · VeeFam';
+    // The photo, large. Tap it to see it full screen.
+    var ph = el('div', null, 'pc-ph');
+    if (p.photo) { var im = el('img'); im.src = p.photo; im.alt = p.name; ph.appendChild(im); ph.appendChild(el('span', '🔍 Tap to zoom', 'zoom'));
+      ph.addEventListener('click', function () { var z = el('div', null, 'pc-zoom'), zi = el('img'); zi.src = p.photo; zi.alt = p.name; z.appendChild(zi); z.addEventListener('click', function () { z.remove(); }); document.body.appendChild(z); }); }
+    else ph.appendChild(el('span', p.name.split(/\s+/).slice(0, 2).map(function (w) { return w.charAt(0); }).join('').toUpperCase(), 'ph'));
+    box.appendChild(ph);
+    var info = el('div', null, 'pc-info'); box.appendChild(info);
+    if (p.section) info.appendChild(el('div', p.section.toUpperCase(), 'mono gold'));
+    info.appendChild(el('h1', p.name));
+    info.appendChild(el('div', '$' + Number(p.price).toFixed(2), 'pc-price'));
+    var meta = el('div', null, 'pc-meta');
+    meta.appendChild(el('span', p.left > 1 ? p.left + ' available' : p.left === 1 ? 'Only 1 left' : 'Sold out', 'pc-chip' + (p.left <= 1 ? ' low' : '')));
+    meta.appendChild(el('span', Number(p.ship) > 0 ? '+ $' + Number(p.ship).toFixed(2) + ' shipping' : 'Free shipping', 'pc-chip'));
+    if (p.party) meta.appendChild(el('span', '🎉 Party pricing: the price drops as more sell', 'pc-chip'));
+    info.appendChild(meta);
+    // Buy now, Add to cart, Offer, Trade, Ask.
+    var acts = el('div', null, 'pc-acts');
+    if (p.left > 0) {
+      var buy = el('a', p.party ? '🎉 Buy at the party price' : 'Buy now', 'buy wide'); buy.href = '/order.html?product=' + encodeURIComponent(p.id); acts.appendChild(buy);
+      if (!p.party) {
+        var cart = el('button', '🛒 Add to cart', 'alt'), inCart = false; cart.type = 'button';
+        cart.addEventListener('click', function () { if (inCart) { location.href = '/cart.html'; return; } if (!window.V2VCart) return; window.V2VCart.add({ id: p.id, name: p.name, price: p.price, ship: p.ship, photo: p.photo, seller: p.seller, sellerName: p.sellerName, left: p.left, nft: p.nft, qty: 1 }); inCart = true; cart.textContent = '✓ In cart · View ›'; });
+        acts.appendChild(cart);
+        var off = el('button', '💸 Make an offer', 'alt'); off.type = 'button'; off.addEventListener('click', function () { JF.quickOffer({ id: p.id, name: p.name, price: p.price, photo: p.photo, sellerName: p.sellerName }); });
+        acts.appendChild(off);
+        if (p.seller) { var tr = el('a', '🔁 Trade', 'alt'); tr.href = '/order.html?product=' + encodeURIComponent(p.id) + '&trade=1'; acts.appendChild(tr); }
+      }
+    }
+    if (p.seller) { var ask = el('a', '💬 Ask the seller', 'alt'); ask.href = '/messages.html?to=' + encodeURIComponent(p.seller) + '&pid=' + encodeURIComponent(p.id); acts.appendChild(ask); }
+    // An odd one out at the end spans the full width, so the buttons stay tidy.
+    if ((acts.children.length - 1) % 2 === 1) acts.lastChild.classList.add('wide');
+    info.appendChild(acts);
+    if (p.desc) { info.appendChild(el('h3', 'About this piece')); info.appendChild(el('div', p.desc, 'pc-desc')); }
+    // The shop it comes from.
+    if (p.sellerName) {
+      var sl = el(p.seller ? 'a' : 'div', null, 'pc-seller'); if (p.seller) sl.href = '/shop.html?s=' + encodeURIComponent(p.seller);
+      sl.appendChild(el('div', p.sellerName.charAt(0).toUpperCase(), 'pc-av'));
+      var st = el('div'); st.style.cssText = 'display:flex;flex-direction:column;gap:2px;min-width:0';
+      st.appendChild(el('b', 'Sold by ' + p.sellerName + (p.verified ? '  ✓' : '')));
+      st.appendChild(el('span', (p.reviews ? '★ ' + Number(p.rating).toFixed(1) + ' (' + p.reviews + ' reviews) · ' : '') + (p.seller ? 'Visit the shop ›' : ''), 'small dim'));
+      sl.appendChild(st); info.appendChild(sl);
+    }
+  }).catch(function () { box.textContent = 'This piece did not load. Refresh to try again.'; });
+})();
+</script>
+</body>
+</html>

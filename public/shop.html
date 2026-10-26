@@ -71,7 +71,7 @@
     $('count').textContent = items.length ? items.length + (items.length === 1 ? ' piece' : ' pieces') : '';
     if (!items.length) { var e = el('div', 'No pieces listed right now. Check the community posts for what is coming.', 'jf-empty'); e.style.gridColumn = '1/-1'; g.appendChild(e); return; }
     items.forEach(function (p) {
-      var a = el('a', null, 'jf-item'); a.href = (p.auction ? '/auction.html?id=' : '/order.html?product=') + encodeURIComponent(p.id);
+      var a = el('a', null, 'jf-item'); a.href = (p.auction ? '/auction.html?id=' : '/piece.html?id=') + encodeURIComponent(p.id);
       a.appendChild(JF.picture(p));
       if (p.left <= 0 && !p.auction) a.appendChild(el('span', 'SOLD OUT', 'jf-tag out')); else if (p.left === 1) a.appendChild(el('span', 'LAST ONE', 'jf-tag'));
       a.appendChild(el('div', p.name, 'jf-name'));
@@ -133,7 +133,7 @@
       if (x.photo) { var i = el('img'); i.src = x.photo; i.alt = ''; i.loading = 'lazy'; c.appendChild(i); }
       if (x.text) c.appendChild(el('p', x.text));
       if (x.piece) {
-        var a = el('a', null, 's-piece'); a.href = '/order.html?product=' + encodeURIComponent(x.piece.id);
+        var a = el('a', null, 's-piece'); a.href = '/piece.html?id=' + encodeURIComponent(x.piece.id);
         a.appendChild(JF.picture(x.piece));
         var t = el('div'); t.appendChild(el('b', x.piece.name)); t.appendChild(el('div', JF.usd(x.piece.price) + (x.piece.left > 0 ? '' : ' · sold out'), 'jf-price')); a.appendChild(t);
         c.appendChild(a);

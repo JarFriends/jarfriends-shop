@@ -179,7 +179,7 @@
       g.appendChild(e); return;
     }
     list.forEach(function (p) {
-      var a = el('a', null, 'jf-item'); a.href = p.auction ? '/auction.html?id=' + encodeURIComponent(p.id) : '/order.html?product=' + encodeURIComponent(p.id);
+      var a = el('a', null, 'jf-item'); a.href = p.auction ? '/auction.html?id=' + encodeURIComponent(p.id) : '/piece.html?id=' + encodeURIComponent(p.id);
       a.appendChild(JF.picture(p));
       if (p.auction) a.appendChild(el('span', 'AUCTION', 'jf-tag')); else if (p.party) { var pt = el('span', '🎉 PARTY · UP TO ' + p.party.top + '% OFF', 'jf-tag'); pt.style.background = '#E5484D'; pt.style.color = '#fff'; a.appendChild(pt); } else if (p.left === 1) a.appendChild(el('span', 'LAST ONE', 'jf-tag'));
       a.appendChild(el('div', p.name, 'jf-name'));

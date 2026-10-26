@@ -91,7 +91,7 @@
     if (!list.length) { var e = el('div', view === 'auctions' ? 'No auctions running right now. Check back soon.' : 'Nothing matches. Try another filter.', 'jf-empty'); e.style.gridColumn = '1/-1'; g.appendChild(e); return; }
     list.forEach(function (p) {
       var live = p.auction && p.auction.ends > now;
-      var a = el('a', null, 'jf-item'); a.href = p.auction ? '/auction.html?id=' + encodeURIComponent(p.id) : '/order.html?product=' + encodeURIComponent(p.id);
+      var a = el('a', null, 'jf-item'); a.href = p.auction ? '/auction.html?id=' + encodeURIComponent(p.id) : '/piece.html?id=' + encodeURIComponent(p.id);
       a.appendChild(JF.picture(p));
       if (p.left <= 0 && !p.auction) a.appendChild(el('span', 'SOLD OUT', 'jf-tag out'));
       else if (p.auction) a.appendChild(el('span', live ? 'LIVE AUCTION' : 'AUCTION ENDED', 'jf-tag' + (live ? '' : ' out')));

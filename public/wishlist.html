@@ -31,7 +31,7 @@
     $('who').textContent = (JF.emailOf(tok) || 'YOUR ACCOUNT').toUpperCase();
     if (!r.items.length) { var e = el('div', 'Nothing saved yet. Tap ♡ on a piece in the market to keep it here.', 'jf-empty'); e.style.gridColumn = '1/-1'; g.appendChild(e); return; }
     r.items.forEach(function (p) {
-      var a = el('a', null, 'jf-item'); a.href = p.gone ? '/sold.html' : (p.auction ? '/auction.html?id=' : '/order.html?product=') + encodeURIComponent(p.id);
+      var a = el('a', null, 'jf-item'); a.href = p.gone ? '/sold.html' : (p.auction ? '/auction.html?id=' : '/piece.html?id=') + encodeURIComponent(p.id);
       a.appendChild(JF.picture(p));
       if (p.gone || p.left <= 0) a.appendChild(el('span', p.gone ? 'NO LONGER LISTED' : 'SOLD OUT', 'jf-tag out'));
       a.appendChild(el('div', p.name, 'jf-name'));
