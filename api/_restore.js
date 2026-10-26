@@ -47,7 +47,8 @@ async function run(host) {
   for (const x of L) {
     const [id, name, price, left, ship, section, desc, photo, auc] = x;
     const path = 'market/' + slug + '/' + id + '.json';
-    if (await store.read(path)) continue;
+    const exists = await store.read(path);
+    if (exists) { if (!(await store.read('photos/' + id + '.jpg').catch(() => null)) && !(await (async () => { try { const { head } = await import('@vercel/blob'); return await head('photos/' + id + '.jpg'); } catch (e) { return null; } })())) out.photosMissing.push(id); continue; }
     const shipMode = ship === 'calc' ? 'calc' : ship > 0 ? 'flat' : 'free';
     const p = { id: id, seller: slug, name: name, desc: desc, price: price, min: 1, stock: auc ? 1 : left + (sold[id] || 0), shipping: shipMode === 'flat' ? ship : 'free', section: section, sectionSet: !!section, cost: null, hidden: false, minOffer: 0,
       auction: auc ? { start: auc.start, ends: new Date(auc.ends).toISOString() } : null, party: null, shipMode: shipMode, returns: 'no', photo: photo, created: photo, updated: Date.now(), restored: true };
@@ -61,6 +62,26 @@ async function run(host) {
         else out.photosMissing.push(id);
       } catch (e) { out.photosMissing.push(id); }
     }
+  }
+  // Photos still missing: the same pieces on jarfriends.com (matched by name) still have theirs.
+  if (out.photosMissing.length) {
+    try {
+      const SRC = String(process.env.JARFRIENDS_URL || 'https://jar' + 'friends.com').replace(/\/+$/, '');
+      const r = await fetch(SRC + '/api/order', { signal: AbortSignal.timeout(20000), headers: { accept: 'application/json' } });
+      const src = r.ok ? ((await r.json()).products || []) : [];
+      const norm = (t) => String(t || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+      const still = [];
+      for (const id of out.photosMissing) {
+        const mine = L.filter((x) => x[0] === id)[0], hit = src.filter((x) => norm(x.name) === norm(mine[1]))[0];
+        let buf = null;
+        if (hit) for (const u of [hit.photo ? SRC + '/api/photo?id=' + encodeURIComponent(hit.id) + '&v=' + hit.photo : '', hit.pic ? SRC + '/photos/' + hit.pic + '.jpg' : '', SRC + '/photos/home-' + hit.id + '.jpg', SRC + '/photos/' + hit.id + '.jpg'].filter(Boolean)) {
+          try { const g = await fetch(u, { signal: AbortSignal.timeout(15000) }); if (!g.ok) continue; const b2 = Buffer.from(await g.arrayBuffer()); if (b2.length > 1000 && b2[0] === 0xFF && b2[1] === 0xD8) { buf = b2; break; } } catch (e) { /* next */ }
+        }
+        if (buf) { const { put } = await import('@vercel/blob'); await put('photos/' + id + '.jpg', buf, { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'image/jpeg' }); out.photos++; }
+        else still.push(id);
+      }
+      out.photosMissing = still; out.jfProducts = src.length;
+    } catch (e) { out.jfErr = String(e && e.message || e).slice(0, 150); }
   }
   M.forget();
   return out;
