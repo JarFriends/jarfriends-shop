@@ -1345,7 +1345,11 @@
         JF.api('/api/market', { do: 'instant-info', t: tok, as: AS, ak: AK }).then(function (r) {
           ib.disabled = false;
           if (r.error) { im.textContent = r.error; return; }
-          if (!r.send || r.send < 100) { im.textContent = 'Nothing is ready to send instantly right now' + (r.pending ? ' (' + JF.cents(r.pending) + ' is still on its way from recent sales)' : '') + '. It goes out with your next automatic payout.'; return; }
+          if (!r.send || r.send < 100) {
+            // Money is ready but none of it can go instantly: the payout account is a bank that cannot take instant payouts.
+            if (r.available >= 100) { im.textContent = JF.cents(r.available) + ' is ready, but your payout account cannot take instant payouts. Add a debit card in Stripe (See my balance and payouts, then Payouts), then check again.'; return; }
+            im.textContent = 'Your Stripe balance is ' + JF.cents((r.available || 0) + (r.pending || 0)) + (r.pending ? ', and ' + JF.cents(r.pending) + ' of it is still on its way from recent sales (Stripe holds new sales for a few days)' : '') + '. Nothing is ready to send instantly yet.'; return;
+          }
           im.textContent = 'Ready now: ' + JF.cents(r.send) + '. Stripe\u2019s instant fee: about ' + JF.cents(r.fee) + '.';
           go = el('button', 'Send ' + JF.cents(r.send) + ' to me now', 'solid'); go.type = 'button'; go.style.alignSelf = 'flex-start';
           go.addEventListener('click', function () {
