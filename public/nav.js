@@ -200,7 +200,7 @@
     if (bar) {
       var slot = document.createElement('span'); slot.style.cssText = 'position:relative;display:inline-flex';
       b.classList.add('in-bar'); p.classList.add('in-bar');
-      slot.appendChild(cartLink()); slot.appendChild(acct); slot.appendChild(b); slot.appendChild(p); slot.style.gap = '10px'; slot.style.alignItems = 'center';
+      slot.appendChild(bellLink()); slot.appendChild(cartLink()); slot.appendChild(acct); slot.appendChild(b); slot.appendChild(p); slot.style.gap = '10px'; slot.style.alignItems = 'center';
       var last = bar.lastElementChild;
       (last && last.tagName === 'SPAN' ? last : bar).appendChild(slot);
     } else { document.body.appendChild(p); document.body.appendChild(b); }
@@ -292,6 +292,29 @@
   function cartWrite(c) { try { localStorage.setItem('v2vCart', JSON.stringify(c.slice(0, 25))); } catch (e) {} cartBadge(); }
   function cartCount() { return cartRead().reduce(function (n, x) { return n + (x.qty || 1); }, 0); }
   function cartBadge() { var n = cartCount(); Array.prototype.forEach.call(document.querySelectorAll('.jfn-cart b'), function (x) { x.textContent = n; x.hidden = !n; }); }
+  // 🔔 Things to do now (answer an offer, ship an order, pay for an accepted offer…), for anyone signed in.
+  function bellLink() {
+    var w = document.createElement('span'); w.style.cssText = 'position:relative;display:none';
+    var a = document.createElement('button'); a.type = 'button'; a.className = 'jfn-bell'; a.setAttribute('aria-label', 'Notifications'); a.textContent = '🔔';
+    a.style.cssText = 'position:relative;display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;min-height:0;padding:0;border:1px solid #4E7A63;border-radius:50%;background:transparent;font-size:17px;cursor:pointer';
+    var n = document.createElement('b'); n.style.cssText = 'position:absolute;top:-6px;right:-6px;background:#E5484D;color:#fff;border-radius:10px;font-size:11px;padding:1px 6px;font-weight:900'; n.hidden = true; a.appendChild(n);
+    var pop = document.createElement('div'); pop.hidden = true; pop.style.cssText = 'position:fixed;right:16px;top:104px;z-index:2147483000;width:min(340px,calc(100vw - 32px));background:#0B1712;border:1px solid #2E4A3B;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.5);padding:8px;display:flex;flex-direction:column;gap:4px';
+    w.appendChild(a); w.appendChild(pop);
+    var tok = ''; try { tok = localStorage.getItem('acct_token') || ''; } catch (e) {}
+    var show = function (j) {
+      w.style.display = 'inline-flex'; pop.textContent = ''; n.hidden = !j.total; n.textContent = j.total > 99 ? '99+' : j.total;
+      if (!j.items.length) { var e0 = document.createElement('div'); e0.style.cssText = 'padding:10px;font-size:14px;opacity:.8'; e0.textContent = 'You are all caught up.'; pop.appendChild(e0); }
+      j.items.forEach(function (x) { var l = document.createElement('a'); l.href = x.link; l.style.cssText = 'display:flex;justify-content:space-between;gap:10px;padding:10px;border-radius:8px;text-decoration:none;color:#F7F2E6;font-size:14px;background:#11261C'; var t = document.createElement('span'); t.textContent = x.text; var c = document.createElement('b'); c.textContent = x.n; c.style.cssText = 'background:#C9A45C;color:#0B1A13;border-radius:10px;padding:0 8px;align-self:center'; l.appendChild(t); l.appendChild(c); pop.appendChild(l); });
+    };
+    if (tok) {
+      var cached = null; try { cached = JSON.parse(sessionStorage.getItem('v2vBell') || 'null'); } catch (e) {}
+      if (cached && Date.now() - cached.at < 90000) show(cached.j);
+      else fetch('/api/market?do=notify&t=' + encodeURIComponent(tok), { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { if (!j || !j.items) return; show(j); try { sessionStorage.setItem('v2vBell', JSON.stringify({ at: Date.now(), j: j })); } catch (e) {} }).catch(function () {});
+    }
+    a.addEventListener('click', function (ev) { ev.stopPropagation(); pop.hidden = !pop.hidden; });
+    document.addEventListener('click', function (ev) { if (!w.contains(ev.target)) pop.hidden = true; });
+    return w;
+  }
   function cartLink() {
     var a = document.createElement('a'); a.href = '/cart.html'; a.className = 'jfn-cart'; a.setAttribute('aria-label', 'Shopping cart');
     a.style.cssText = 'position:relative;display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border:1px solid #4E7A63;border-radius:50%;text-decoration:none;font-size:18px';

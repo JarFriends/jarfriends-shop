@@ -609,6 +609,30 @@ module.exports = async (req, res) => {
     // A vote in the giveaway: one per account, two for people who have traded on V2V (see _giveaway.js).
     if (what === 'vote' && req.method === 'POST') { const r = await require('./_giveaway').vote(me, String(b.choice || ''), b.text); return res.status(r.error ? 400 : 200).json(r); }
     // ---------- Offers, as a buyer: every offer they made, with its history ----------
+    // The 🔔 bell: what this person should do now, as a buyer and (with a shop) as a seller. Counts and links only.
+    if (what === 'notify') {
+      const items = [], add = (n, text, link) => { if (n > 0) items.push({ n: n, text: text, link: link }); };
+      const shop = await M.byEmail(me);
+      const { list: ls } = await import('@vercel/blob');
+      const [box, offs, rows, outs, trades] = await Promise.all([
+        require('./_msgs').inbox(me).catch(() => ({ unread: 0 })),
+        ls({ prefix: 'offers/', limit: 1000 }).then((r) => Promise.all((r.blobs || []).filter((x) => Date.now() - new Date(x.uploadedAt).getTime() < 14 * 864e5).map((x) => store.read(x.pathname).catch(() => null)))).catch(() => []),
+        shop ? M.ledger(shop.slug).catch(() => []) : [], shop ? M.payouts(shop.slug).catch(() => []) : [],
+        shop ? require('./_trades').forSeller(shop.slug).catch(() => []) : []]);
+      add(box.unread, 'Unread message' + (box.unread > 1 ? 's' : ''), '/messages.html');
+      const live = (o) => o && (!o.until || o.until > Date.now());
+      add(offs.filter((o) => live(o) && String(o.email || '').toLowerCase() === me && (o.status === 'accepted' || o.status === 'countered')).length, 'Offer accepted or countered: pay for it before it runs out', '/me.html#offers');
+      if (shop) {
+        const mine = {}; (await M.listings()).forEach((p) => { if (p.seller === shop.slug) mine[p.id] = 1; });
+        add(offs.filter((o) => o && mine[o.pid] && o.status === 'pending').length, 'Offer waiting for your answer', '/seller.html#offers');
+        add(rows.filter((r) => r.paid && !r.tracking && !r.shippedAt).length, 'Paid order to ship', '/seller.html#orders');
+        add(rows.filter((r) => r.returnReq && r.returnReq.status === 'requested').length, 'Return request to answer', '/seller.html#orders');
+        add(rows.filter((r) => r.directPay && !r.paid && !/crypto/i.test(r.pay || '')).length, 'Buyer paid you directly: confirm it arrived', '/seller.html#payouts');
+        add(trades.filter((t) => t.status === 'pending').length, 'Trade offer to answer', '/seller.html#trades');
+        const t = M.totals(rows, outs); if (t.feeOwed > 0) items.push({ n: 1, text: 'You owe VeeFam ' + '$' + usd(t.feeOwed) + ' in fees', link: '/seller.html#owe' });
+      }
+      return res.json({ items: items, total: items.reduce((a, x) => a + x.n, 0) });
+    }
     if (what === 'myoffers') {
       const { list: ls } = await import('@vercel/blob');
       const r = await ls({ prefix: 'offers/', limit: 1000 });

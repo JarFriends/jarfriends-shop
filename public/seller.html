@@ -23,7 +23,7 @@
 <script>
 (function () {
   var $ = function (id) { return document.getElementById(id); }, el = JF.el;
-  var tok = JF.token(), D = null, tab = 'overview', editing = null, adding = false, bulkOn = false, BULK = [], openEbay = false, pendingEdit = '';
+  var tok = JF.token(), D = null, tab = (/^#(owe|orders|offers|payouts|trades|messages|listings)$/.test(location.hash) ? location.hash.slice(1) : 'overview'), editing = null, adding = false, bulkOn = false, BULK = [], openEbay = false, pendingEdit = '';
   // The owner can open any seller's portal from the back office: seller.html?as=<shop>. Uses the back-office key.
   var AS = new URLSearchParams(location.search).get('as') || '', AK = '';
   if (AS) { try { AK = localStorage.getItem('adminKey') || ''; } catch (e) { AK = ''; } }
