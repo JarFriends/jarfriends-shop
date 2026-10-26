@@ -1014,6 +1014,8 @@
     var showMode = function () { var a = mode.value === 'auction'; hoursL.hidden = !a; minL.hidden = a; stockL.hidden = a; partyBox.hidden = a; priceL.firstChild.textContent = a ? 'Starting bid (USD)' : 'Price (USD)'; };
     mode.addEventListener('change', showMode); showMode();
     f.appendChild(field('Shipping', shipMode));
+    var returns = select([['no', 'No returns (buyers can still ask, you decide)'], ['14', 'Returns accepted within 14 days'], ['30', 'Returns accepted within 30 days']], (p && p.returns) || 'no');
+    f.appendChild(field('Returns', returns, 'Shown on the listing. Buyers ask for a return from their orders; you accept or decline it in Orders.'));
     var shipL = field('Flat shipping price (USD, once per order)', ship);
     f.appendChild(shipL);
     f.appendChild(pf.node);
@@ -1038,7 +1040,7 @@
     c.appendChild(f);
     f.addEventListener('submit', function (ev) {
       ev.preventDefault(); go.disabled = true; m.textContent = 'Saving…';
-      JF.api('/api/market', { do: 'listing', t: tok, as: AS, ak: AK, id: p ? p.id : '', cost: cost.value, name: name.value, desc: desc.value, price: price.value, stock: mode.value === 'auction' ? 1 : stock.value, shipping: ship.value, shipMode: shipMode.value, pkgPreset: pf.read().preset, pkgOz: pf.read().oz, pkgL: pf.read().l, pkgW: pf.read().w, pkgH: pf.read().h, section: sec.value, hidden: hidden.checked, mode: mode.value, hours: hoursOut(), minOffer: mode.value === 'auction' ? '' : minOffer.value, party: partyVal() }).then(function (r) {
+      JF.api('/api/market', { do: 'listing', t: tok, as: AS, ak: AK, id: p ? p.id : '', cost: cost.value, name: name.value, desc: desc.value, price: price.value, stock: mode.value === 'auction' ? 1 : stock.value, shipping: ship.value, shipMode: shipMode.value, returns: returns.value, pkgPreset: pf.read().preset, pkgOz: pf.read().oz, pkgL: pf.read().l, pkgW: pf.read().w, pkgH: pf.read().h, section: sec.value, hidden: hidden.checked, mode: mode.value, hours: hoursOut(), minOffer: mode.value === 'auction' ? '' : minOffer.value, party: partyVal() }).then(function (r) {
         if (r.error) { go.disabled = false; m.textContent = r.error; return; }
         var file = photo.files && photo.files[0];
         if (!file) return finish();
@@ -1291,6 +1293,16 @@
       top.appendChild(el('span', !o.paid ? 'WAITING FOR PAYMENT' : o.tracking ? 'SHIPPED' : 'PAID · SHIP IT', 'jf-badge ' + (!o.paid ? '' : o.tracking ? 'ok' : 'wait')));
       if (o.direct) top.appendChild(el('span', 'PAID TO YOUR STRIPE', 'jf-badge ok'));
       c.appendChild(top);
+      // A return the buyer asked for: accept or decline. Accepted and not shipped yet: cancel it below (refunds them).
+      // Accepted and shipped: they send it back to you, then press It came back to refund them.
+      if (o.returnReq) { var rq = o.returnReq, rb = el('div'); rb.style.cssText = 'display:flex;flex-direction:column;gap:8px;border:1px solid #E8B86B;border-radius:10px;padding:10px 12px';
+        rb.appendChild(el('b', rq.status === 'requested' ? '↩️ The buyer asked to return this' : rq.status === 'accepted' ? '↩️ Return accepted' : '↩️ Return declined'));
+        rb.appendChild(el('div', 'Reason: ' + (rq.reason || '(none given)') + (rq.reply ? ' · Your answer: ' + rq.reply : ''), 'small'));
+        var rmsg = el('div', '', 'small');
+        var ans = function (yes) { return function () { var note = rb.querySelector('input') ? rb.querySelector('input').value : ''; JF.api('/api/market', { do: 'return-answer', t: tok, as: AS, ak: AK, n: o.n, accept: yes, note: note }).then(function (x) { rmsg.textContent = x.error || (yes ? 'Accepted. ' + (o.tracking ? 'The buyer was told to send it back to you. Press It came back once you have it.' : 'Now cancel the order below to refund them.') : 'Declined. The buyer was told.'); }); }; };
+        if (rq.status === 'requested') { var rn = el('input'); rn.placeholder = 'Note to the buyer (optional)'; rn.maxLength = 300; rb.appendChild(rn); var rr = el('div'); rr.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap'; var ry = el('button', 'Accept return', 'solid'), rnb = el('button', 'Decline', 'ghost'); ry.type = rnb.type = 'button'; ry.addEventListener('click', ans(true)); rnb.addEventListener('click', ans(false)); rr.appendChild(ry); rr.appendChild(rnb); rb.appendChild(rr); }
+        if (rq.status === 'accepted' && o.tracking && !rq.refunded) { var back = el('button', 'It came back: refund the buyer', 'solid'); back.type = 'button'; back.style.alignSelf = 'flex-start'; back.addEventListener('click', function () { back.disabled = true; JF.api('/api/market', { do: 'order-cancel', t: tok, as: AS, ak: AK, n: o.n, reason: 'Returned' }).then(function (x) { back.disabled = false; rmsg.textContent = x.error || 'Done. The order is cancelled and ' + (x.refund === 'refunded' ? 'the card was refunded.' : 'VeeFam will send the refund.'); }); }); rb.appendChild(back); }
+        rb.appendChild(rmsg); c.appendChild(rb); }
       c.appendChild(el('div', 'Order ' + o.n + ' · ' + new Date(o.at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) + (o.pay ? ' · paid with ' + o.pay : ''), 'small dim'));
       var rows = el('div', null, 'rows');
       [['Sold for (pieces + shipping)', JF.cents(o.gross)], ['JarFriends fee (' + o.rate + '%)', '−' + JF.cents(o.fee)], ['You get', JF.cents(o.net)]].forEach(function (x, i) { var r = el('div', null, 'row' + (i === 2 ? ' total' : '')); r.appendChild(el('span', x[0])); r.appendChild(el('span', x[1])); rows.appendChild(r); });

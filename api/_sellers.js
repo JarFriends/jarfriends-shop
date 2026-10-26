@@ -294,7 +294,7 @@ async function saveListing(seller, f) {
     const wasP = was && was.party && was.party.ends > Date.now() ? was.party : null;
     party = { start: wasP ? wasP.start : Date.now(), ends: ends, tiers: tiers };
   }
-  const p = Object.assign({}, was || {}, { id: id, seller: seller.slug, name: name, desc: tidy(f.desc, 1200), price: price, min: 1, stock: auction ? 1 : stock, shipping: ship, section: section, sectionSet: !!section, cost: cost, hidden: !!f.hidden, minOffer: auction ? 0 : minOffer, auction: auction, party: party, shipMode: shipMode, pkg: pkg, updated: Date.now() }, was ? {} : { created: Date.now() });
+  const p = Object.assign({}, was || {}, { id: id, seller: seller.slug, name: name, desc: tidy(f.desc, 1200), price: price, min: 1, stock: auction ? 1 : stock, shipping: ship, section: section, sectionSet: !!section, cost: cost, hidden: !!f.hidden, minOffer: auction ? 0 : minOffer, auction: auction, party: party, shipMode: shipMode, returns: ['no', '14', '30'].indexOf(String(f.returns)) >= 0 ? String(f.returns) : ((was && was.returns) || 'no'), pkg: pkg, updated: Date.now() }, was ? {} : { created: Date.now() });
   await store.write('market/' + seller.slug + '/' + id + '.json', p);
   forget();
   return { listing: p };
@@ -339,7 +339,7 @@ async function ledger(slug) {
     return { n: s.n, pid: s.pid, seller: mine[s.pid].seller, product: d.product || mine[s.pid].name, q: s.q, at: d.at || s.at, buyer: d.buyer || '', email: d.email || '', ship: d.ship || '', pay: d.pay || '',
       gross: gross, items: dollars(d.items), rate: rate, fee: fee, net: gross - fee, paid: paidOf(d, m), tracking: m.tracking || '', shippedAt: m.shippedAt || 0,
       // Paid by card straight to the seller's own Stripe (see _connect.js): Stripe pays the seller, nothing is owed.
-      direct: !!m.direct, directPay: !!m.directPay, issue: m.issue || null, bundleLead: m.bundleLead || '', bundleMates: m.bundleMates || [],
+      direct: !!m.direct, directPay: !!m.directPay, returnReq: m.returnReq || null, issue: m.issue || null, bundleLead: m.bundleLead || '', bundleMates: m.bundleMates || [],
       // A shipping label the seller bought through V2V: its cost, and the part taken from money V2V holds for them.
       customsPdf: m.customsPdf || '', labelCost: m.labelCost || 0, labelEarn: m.labelFromEarnings || 0, labelCard: m.labelFromCard || 0, labelPdf: m.labelPdf || '' };
   }));

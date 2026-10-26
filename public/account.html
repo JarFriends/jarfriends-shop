@@ -138,6 +138,12 @@
       if (o.ship) rows.appendChild(row('Ships to', o.ship));
       card.appendChild(rows);
       if (o.edit) card.appendChild(addrForm(o));
+      // Ask the seller to return (or cancel) this order: placed by accident, changed your mind, or a problem.
+      if (o.invoice && /^W/.test(String(o.invoice))) { var rb = document.createElement('button'); rb.type = 'button'; rb.className = 'ghost'; rb.textContent = '↩️ Request a return'; rb.style.alignSelf = 'flex-start';
+        rb.addEventListener('click', function () { if (rb.dataset.open) return; rb.dataset.open = '1'; var w = el('div'); w.style.cssText = 'display:flex;flex-direction:column;gap:8px'; var ta = document.createElement('textarea'); ta.rows = 2; ta.maxLength = 500; ta.placeholder = 'Why? (ordered by accident, changed my mind, it arrived damaged…)'; var sb = document.createElement('button'); sb.type = 'button'; sb.className = 'solid'; sb.textContent = 'Send the request to the seller'; sb.style.alignSelf = 'flex-start'; var rm = el('div', 'small', '');
+          sb.addEventListener('click', function () { sb.disabled = true; fetch('/api/market', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ do: 'return-request', t: token, n: o.invoice, reason: ta.value }) }).then(function (r) { return r.json(); }).then(function (x) { sb.disabled = false; rm.textContent = x.error || 'Sent. The seller answers by email; returns go by the seller\u2019s policy on the listing.'; if (!x.error) { ta.remove(); sb.remove(); } }).catch(function () { sb.disabled = false; rm.textContent = 'Could not send it. Try again.'; }); });
+          w.appendChild(ta); w.appendChild(sb); w.appendChild(rm); card.appendChild(w); });
+        card.appendChild(rb); }
       if (o.proof) { var a = el('a', null, 'View proof of payment'); a.href = o.proof; a.target = '_blank'; a.rel = 'noopener'; card.appendChild(a); }
       list.appendChild(card);
     });

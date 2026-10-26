@@ -50,7 +50,7 @@ async function shopItems() {
   return all.filter((p) => !p.draft && !(Number(p.deal) > 0) && !/^MPARTY/.test(p.id) && !p.buyers).map((p) => {
     const left = Math.max(0, Number(p.stock || 0) - (sold[p.id] || 0) - (held[p.id] || 0));
     const free = p.shipping === 'free' || !Number(p.shipping);
-    return { id: p.id, name: p.name, price: Number(p.price).toFixed(2), left: left, ship: free ? '0.00' : Number(p.shipping).toFixed(2), calc: p.shipMode === 'calc', section: p.section || '', desc: p.desc || '',
+    return { id: p.id, name: p.name, price: Number(p.price).toFixed(2), left: left, ship: free ? '0.00' : Number(p.shipping).toFixed(2), calc: p.shipMode === 'calc', returns: p.returns || 'no', section: p.section || '', desc: p.desc || '',
       photo: photoOf(p), seller: p.seller || '', sellerName: p.sellerName || 'JarFriends', auction: p.auction && p.auction.ends ? { ends: Date.parse(p.auction.ends) || 0, start: Number(p.auction.start) || 0 } : null, nft: !!(p.nft && p.nft !== 'no') || !!(p.seller && M.sectionOf(p) === 'NFTs'), added: p.created || p.updated || 0, party: p.party && p.party.ends > Date.now() ? { ends: p.party.ends, top: Math.max.apply(null, p.party.tiers.map((t) => t[1])) } : null };
   });
 }
@@ -119,7 +119,7 @@ module.exports = async (req, res) => {
       const p = (await shopItems()).filter((x) => x.id === String(q.id || ''))[0];
       if (!p) return res.status(404).json({ error: 'Not found.' });
       const s = p.seller ? await M.bySlug(p.seller) : null, st = s ? await M.stats(s) : null;
-      return res.json({ party: !!p.party, id: p.id, name: p.name, price: p.price, ship: p.ship, calc: !!p.calc, left: p.left, photo: p.photo, desc: p.desc || '', auction: p.auction, nft: p.nft, section: p.section || '', seller: p.seller, sellerName: p.sellerName, rating: st ? st.rating : 0, reviews: st ? st.reviews : 0, verified: st ? st.verified : false });
+      return res.json({ party: !!p.party, id: p.id, name: p.name, price: p.price, ship: p.ship, calc: !!p.calc, returns: p.returns || 'no', left: p.left, photo: p.photo, desc: p.desc || '', auction: p.auction, nft: p.nft, section: p.section || '', seller: p.seller, sellerName: p.sellerName, rating: st ? st.rating : 0, reviews: st ? st.reviews : 0, verified: st ? st.verified : false });
     }
     // A shop's rating, checkmark and reviews (newest first). Reviewers show as first name and initial.
     if (req.method === 'GET' && what === 'reviews') {
@@ -501,6 +501,23 @@ module.exports = async (req, res) => {
       } catch (e) { console.error('JF_ORDERS_FAIL', String(e && e.message || e)); return res.json({ orders: was ? was.orders : [], error: was ? '' : 'Your jarfriends.com orders did not load just now. Try again in a minute.' }); }
     }
     // Messages between buyers and sellers (see _msgs.js).
+    // A buyer asks the seller to return (or cancel) an order: placed by accident, changed their mind, a problem.
+    if (what === 'return-request' && req.method === 'POST' && !actAs) {
+      const n = String(b.n || ''), why = String(b.reason || '').replace(/\s+/g, ' ').trim().slice(0, 500);
+      if (why.length < 3) return res.status(400).json({ error: 'Say why you want to return it.' });
+      const s0 = (await store.sales()).filter((x) => x.n === n)[0], d0 = s0 && (await store.read(s0.path));
+      if (!d0 || String(d0.email || '').trim().toLowerCase() !== me) return res.status(404).json({ error: 'That order was not found.' });
+      const li = (await M.listings()).filter((x) => x.id === s0.pid)[0], sh = li && (await M.bySlug(li.seller));
+      if (!sh) return res.status(400).json({ error: 'Returns are for pieces from VeeFam sellers. Use the Help button for this order.' });
+      const mk = 'meta/' + n + '.json', m0 = (await store.read(mk)) || {};
+      if (m0.returnReq && m0.returnReq.status !== 'declined') return res.status(400).json({ error: 'You already asked to return this order.' });
+      m0.returnReq = { at: Date.now(), reason: why, status: 'requested', policy: li.returns || 'no' };
+      await store.write(mk, m0);
+      const pol = li.returns && li.returns !== 'no' ? 'Your listing accepts returns within ' + li.returns + ' days.' : 'Your listing says no returns, so it is up to you.';
+      await mail(sh.email, 'Return request: ' + (d0.product || 'order ' + n), [(d0.buyer || 'A buyer') + ' asked to return order ' + n + ' (' + (d0.product || '') + ').', 'Reason: ' + why, pol, '', 'Accept or decline it in Seller Hub, Orders:', 'https://' + req.headers.host + '/seller.html'], 'return-' + n).catch(() => null);
+      await require('./_discord')('↩️ **RETURN REQUEST** order ' + n + ' · ' + (d0.product || '') + ' · seller ' + sh.name + '\nReason: ' + why).catch(() => null);
+      return res.json({ ok: true });
+    }
     if (what === 'msg-send' && req.method === 'POST' && !actAs) { const r = await require('./_msgs').send(me, b, 'https://' + req.headers.host); return res.status(r.error ? 400 : 200).json(r); }
     if (what === 'msg-open' && !actAs) { const r = await require('./_msgs').open(me, String((req.method === 'POST' ? b.id : q.id) || '')); return res.status(r.error ? 404 : 200).json(r); }
     if (what === 'msg-inbox' && !actAs) return res.json(await require('./_msgs').inbox(me));
@@ -953,6 +970,20 @@ module.exports = async (req, res) => {
       if (r.error) return res.status(503).json({ error: 'Crypto payments are not available right now. Send it by Zelle instead.' });
       return res.json({ link: 'https://' + req.headers.host + '/pay.html?inv=' + r.token, cents: t.feeOwed });
     }
+    // The seller accepts or declines a buyer's return request.
+    if (what === 'return-answer' && req.method === 'POST') {
+      const n = String(b.n || ''), row = (await M.ledger(seller.slug)).filter((r) => r.n === n)[0];
+      const mk = 'meta/' + n + '.json', m0 = (await store.read(mk)) || {};
+      if (!row || !m0.returnReq) return res.status(404).json({ error: 'That return request was not found.' });
+      m0.returnReq.status = b.accept ? 'accepted' : 'declined'; m0.returnReq.reply = String(b.note || '').trim().slice(0, 300); m0.returnReq.answeredAt = Date.now();
+      await store.write(mk, m0);
+      const sf = seller.shipFrom, back = sf && sf.street1 ? [sf.name || seller.name, sf.street1 + (sf.street2 ? ' ' + sf.street2 : ''), sf.city + ', ' + sf.state + ' ' + sf.zip].join('\n') : '';
+      const lines = b.accept ? (row.tracking ? ['Your return for order ' + n + ' (' + row.product + ') was accepted.', 'Send it back to:', back || '(the seller will send you their address)', 'You are refunded once it arrives.'] : ['Your return for order ' + n + ' (' + row.product + ') was accepted. It had not shipped yet, so the order is being cancelled and you will be refunded.'])
+        : ['Your return request for order ' + n + ' (' + row.product + ') was declined by the seller.'];
+      if (m0.returnReq.reply) lines.push('', 'Note from the seller: ' + m0.returnReq.reply);
+      if (row.email) await mail(row.email, 'Your return request for order ' + n, lines, 'return-ans-' + n + '-' + m0.returnReq.status).catch(() => null);
+      return res.json({ ok: true });
+    }
     if (what === 'order-cancel' && req.method === 'POST') {
       const n = String(b.n || ''), why = String(b.reason || '').replace(/\s+/g, ' ').trim().slice(0, 300);
       const s = (await store.sales()).filter((x) => x.n === n)[0];
@@ -960,15 +991,16 @@ module.exports = async (req, res) => {
       if (!s || !row) return res.status(404).json({ error: 'That order was not found, or it is already cancelled.' });
       const d = await store.read(s.path), was = (await store.read('meta/' + n + '.json')) || {};
       if (!d) return res.status(503).json({ error: 'Could not read that order just now. Try again.' });
-      if ((was.tracking && !was.testLabel) || was.shippedAt) return res.status(400).json({ error: 'This order has already shipped, so it cannot be cancelled. Use the Help button if there is a problem.' });
-      if (was.labelPdf && !was.testLabel) return res.status(400).json({ error: 'A shipping label was already bought for this order. Use the Help button and VeeFam will cancel the label and the order.' });
+      const retOk = was.returnReq && was.returnReq.status === 'accepted';
+      if (!retOk && ((was.tracking && !was.testLabel) || was.shippedAt)) return res.status(400).json({ error: 'This order has already shipped, so it cannot be cancelled. Use the Help button if there is a problem.' });
+      if (!retOk && was.labelPdf && !was.testLabel) return res.status(400).json({ error: 'A shipping label was already bought for this order. Use the Help button and VeeFam will cancel the label and the order.' });
       const paid = row.paid, card = /card/i.test(d.pay || '');
       let refund = 'none';
       if (paid && card) refund = await connect.refundOrder(n, was);
       await store.write('cancelled/' + s.pid + '/' + n + '~' + s.q + '.json', Object.assign({}, d, { at: d.at || s.at }));
       const { del } = await import('@vercel/blob');
       await del(s.path);
-      await store.write('meta/' + n + '.json', Object.assign(was, { cancelledAt: Date.now(), wasPaid: paid, cancelledBy: seller.slug, cancelReason: why, refund: refund }));
+      await store.write('meta/' + n + '.json', Object.assign(was, retOk ? { returnReq: Object.assign(was.returnReq, { refunded: Date.now() }) } : {}, { cancelledAt: Date.now(), wasPaid: paid, cancelledBy: seller.slug, cancelReason: why, refund: refund }));
       walletMemo = null; M.forget();
       const total = '$' + (d.total || '');
       const buyerLine = !paid ? 'Nothing is due, and you were not charged.'
