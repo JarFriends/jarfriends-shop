@@ -217,7 +217,7 @@ module.exports = async (req, res) => {
     // The owner's own wording for the site's pages (see _wording.js); nav.js swaps the words on every page.
     if (what === 'wording' && req.method === 'GET') { res.setHeader('cache-control', 'public, max-age=0, s-maxage=20'); return res.json({ rules: (await require('./_wording').get()).rules }); }
     // ---------- The owner ----------
-    if (what === 'discord-test' || what === 'subs-import' || what === 'pages' || what === 'page-save' || what === 'page-delete' || what === 'page-off' || what === 'wording-save' || what === 'site-photo' || what === 'broadcast' || what === 'broadcast-count' || what === 'broadcasts' || what === 'admin' || what === 'status' || what === 'payout' || what === 'issue' || what === 'review-remove' || what === 'verify' || what === 'charge' || what === 'import' || what === 'emails' || what === 'email-save' || what === 'email-ai' || what === 'email-test' || what === 'giveaway-round' || what === 'bank' || what === 'ebay-ok') {
+    if (what === 'tax-get' || what === 'tax-save' || what === 'discord-test' || what === 'subs-import' || what === 'pages' || what === 'page-save' || what === 'page-delete' || what === 'page-off' || what === 'wording-save' || what === 'site-photo' || what === 'broadcast' || what === 'broadcast-count' || what === 'broadcasts' || what === 'admin' || what === 'status' || what === 'payout' || what === 'issue' || what === 'review-remove' || what === 'verify' || what === 'charge' || what === 'import' || what === 'emails' || what === 'email-save' || what === 'email-ai' || what === 'email-test' || what === 'giveaway-round' || what === 'bank' || what === 'ebay-ok') {
       if (!gate.isAdmin(req.method === 'POST' ? b.ak : q.ak)) return res.status(401).json({ error: 'Sign in to the back office again.' });
       // Confirm (or un-confirm) that a seller's eBay user name is really theirs, so they can bring all their listings over.
       if (what === 'ebay-ok' && req.method === 'POST') { const s2 = await M.bySlug(String(b.slug || '')); if (!s2) return res.status(404).json({ error: 'That seller was not found.' }); s2.ebayOk = !!b.on; await M.save(s2); return res.json({ ok: true }); }
@@ -264,6 +264,9 @@ module.exports = async (req, res) => {
         const s2 = await D('**NEW SELLER** Test Shop (open)\ntest@example.com\n(This is a test message from the VeeFam back office.)\n' + host + '/s/test-shop', 'sellers');
         return res.json({ orders: o, sellers: s2 });
       }
+      // Sales tax: the states where VeeFam collects, and the rate for each (see _tax.js).
+      if (what === 'tax-get') return res.json(Object.assign({ states: require('./_tax').STATES }, await require('./_tax').get()));
+      if (what === 'tax-save' && req.method === 'POST') { const r = await require('./_tax').save(b.rates); return res.status(r.error ? 400 : 200).json(r); }
       if (what === 'giveaway-round') { const r = await require('./_giveaway').setRound(String(b.action || '')); return res.status(r.error ? 400 : 200).json(r); }
       // The Emails tab: every automatic email, which are off, and the owner's own words in them (see _emails.js).
       if (what === 'emails' || what === 'email-save' || what === 'email-ai' || what === 'email-test') {

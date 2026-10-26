@@ -52,6 +52,36 @@
       if (owe) { d.type = 'button'; d.style.cssText = 'cursor:pointer;text-align:left;font:inherit;color:inherit;border-color:#C9A45C'; d.appendChild(el('span', 'See who and why ›', 'label')).style.color = '#E8C77A'; d.addEventListener('click', function () { oweBox.hidden = !oweBox.hidden; if (!oweBox.hidden) oweBox.scrollIntoView({ behavior: 'smooth', block: 'start' }); }); }
     });
     box.appendChild(tiles);
+    // Sales tax: the states where VeeFam collects sales tax as the marketplace, with each state's rate.
+    (function () {
+      var tb = el('details', null, 'card'); tb.style.gap = '10px'; box.appendChild(tb);
+      var sm = el('summary'); sm.style.cssText = 'cursor:pointer;font-weight:800;font-size:17px'; sm.textContent = '🧾 Sales tax'; tb.appendChild(sm);
+      var wrap = el('div'); wrap.style.cssText = 'display:flex;flex-direction:column;gap:10px;margin-top:12px'; tb.appendChild(wrap);
+      wrap.appendChild(el('div', 'As the marketplace, VeeFam collects sales tax for every seller on orders shipping to a state where you are registered to collect (where VeeFam has passed that state\u2019s marketplace threshold, or has a presence). It is charged on the pieces, by the buyer\u2019s ship-to state, whoever the seller is, and comes to you to file and pay. Add a state once you register there.', 'small dim'));
+      var rows = el('div'); rows.style.cssText = 'display:flex;flex-direction:column;gap:6px'; wrap.appendChild(rows);
+      var ST = {}, add = el('div'); add.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;align-items:center'; wrap.appendChild(add);
+      var m = el('div', '', 'small'); var save = el('button', 'Save sales tax', 'solid'); save.type = 'button';
+      var line = function (c, r) {
+        var d = el('div'); d.style.cssText = 'display:flex;gap:8px;align-items:center';
+        var nm = el('b', c + ' · ' + (ST[c] || '').replace(/\b\w/g, function (x) { return x.toUpperCase(); })); nm.style.minWidth = '160px';
+        var inp = el('input'); inp.type = 'number'; inp.step = '0.001'; inp.min = '0.01'; inp.max = '15'; inp.value = r; inp.style.width = '100px'; inp.dataset.c = c;
+        var x = el('button', 'Remove', 'ghost'); x.type = 'button'; x.style.cssText = 'padding:6px 10px;min-height:0'; x.addEventListener('click', function () { d.remove(); });
+        d.appendChild(nm); d.appendChild(inp); d.appendChild(el('span', '%', 'small')); d.appendChild(x); rows.appendChild(d);
+      };
+      fetch('/api/market?do=tax-get&ak=' + encodeURIComponent(key()), { cache: 'no-store' }).then(function (x) { return x.json(); }).then(function (t) {
+        ST = t.states || {}; Object.keys(t.rates || {}).sort().forEach(function (c) { line(c, t.rates[c]); });
+        var sel = el('select'); sel.className = 'jf-sel'; var o0 = el('option', 'Add a state…'); o0.value = ''; sel.appendChild(o0);
+        Object.keys(ST).sort().forEach(function (c) { var o = el('option', c + ' · ' + ST[c]); o.value = c; sel.appendChild(o); });
+        sel.addEventListener('change', function () { var c = sel.value; sel.value = ''; if (!c || rows.querySelector('input[data-c="' + c + '"]')) return; line(c, ''); var i = rows.querySelector('input[data-c="' + c + '"]'); if (i) i.focus(); });
+        add.appendChild(sel); add.appendChild(save); add.appendChild(m);
+        sm.textContent = '🧾 Sales tax (' + (Object.keys(t.rates || {}).join(', ') || 'none') + ')';
+      });
+      save.addEventListener('click', function () {
+        var rates = {}; Array.prototype.forEach.call(rows.querySelectorAll('input[data-c]'), function (i) { rates[i.dataset.c] = i.value; });
+        save.disabled = true; m.textContent = 'Saving…';
+        post({ do: 'tax-save', rates: rates }).then(function (r) { save.disabled = false; m.textContent = r.error || 'Saved. Checkout now adds sales tax for ' + (Object.keys(r.rates).join(', ') || 'no states') + '.'; if (!r.error) sm.textContent = '🧾 Sales tax (' + (Object.keys(r.rates).join(', ') || 'none') + ')'; });
+      });
+    })();
     // Vouches: every seller's answer to "Who can vouch for you?", newest first.
     (function () {
       var vs = r.sellers.slice().sort(function (a, b) { return (b.at || 0) - (a.at || 0); });
