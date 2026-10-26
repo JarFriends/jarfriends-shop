@@ -928,7 +928,12 @@
     // How it sells: buy now (with an optional lowest offer) or a timed auction.
     var live = !!(p && p.auction && Date.parse(p.auction.ends) > Date.now());
     var mode = select([['buy', 'Buy now (buyers can also make offers)'], ['auction', 'Auction (highest bid wins)']], p && p.auction ? 'auction' : 'buy');
-    var hours = select((live ? [['', 'Keep the current end time']] : []).concat([['24', '1 day'], ['72', '3 days'], ['120', '5 days'], ['168', '7 days'], ['240', '10 days'], ['336', '14 days'], ['1', '1 hour'], ['6', '6 hours']]), live ? '' : '168');
+    var hours = select((live ? [['', 'Keep the current end time']] : []).concat([['1', '1 hour'], ['3', '3 hours'], ['6', '6 hours'], ['12', '12 hours'], ['24', '1 day'], ['48', '2 days'], ['72', '3 days'], ['96', '4 days'], ['120', '5 days'], ['144', '6 days'], ['168', '7 days'], ['240', '10 days'], ['336', '14 days'], ['pick', 'Pick the exact end date and time\u2026']]), live ? '' : '168');
+    // Pick your own end: any date and time from 1 hour to 14 days away.
+    var endAt = input('datetime-local', ''); endAt.hidden = true; endAt.style.marginTop = '8px';
+    var pad2 = function (n) { return (n < 10 ? '0' : '') + n; }, localStr = function (d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) + 'T' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()); };
+    hours.addEventListener('change', function () { endAt.hidden = hours.value !== 'pick'; if (!endAt.hidden) { endAt.min = localStr(new Date(Date.now() + 3600000)); endAt.max = localStr(new Date(Date.now() + 336 * 3600000)); if (!endAt.value) endAt.value = localStr(new Date(Date.now() + 7 * 864e5)); endAt.focus(); } });
+    var hoursOut = function () { if (hours.value !== 'pick') return hours.value; var t = Date.parse(endAt.value); return t ? String(Math.max(1, Math.min(336, Math.round((t - Date.now()) / 36e5 * 100) / 100))) : ''; };
     var minOffer = input('number', p && p.minOffer ? p.minOffer : '', { min: '0', step: '0.01', inputmode: 'decimal', placeholder: 'Optional' });
     var hidden = input('checkbox'); hidden.checked = !!(p && p.hidden);
     var hl = el('label', null, 'jf-check'); hl.appendChild(hidden); hl.appendChild(el('span', 'Hide it from the market for now'));
@@ -958,7 +963,7 @@
     var two = el('div', null, 'two'); two.appendChild(priceL); two.appendChild(stockL); f.appendChild(two);
     var hoursL = field('Auction length', hours, live ? 'Ends ' + new Date(p.auction.ends).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) + '. Last-minute bids add 2 minutes.' : 'Last-minute bids add 2 minutes, so nobody wins by sniping.');
     var minL = field('Lowest offer you will look at (USD)', minOffer, 'Offers under this are declined for you automatically. You answer the rest in the Offers tab.');
-    f.appendChild(hoursL); f.appendChild(minL);
+    hoursL.appendChild(endAt); f.appendChild(hoursL); f.appendChild(minL);
     var cost = input('number', p && p.cost != null ? p.cost : '', { min: '0', step: '0.01', inputmode: 'decimal', placeholder: 'Optional' });
     f.appendChild(field('What you paid for it (USD, each)', cost, 'Private: only you see this. When it sells, the Profit tab shows what you made.'));
     // Party pricing: the more that sell before the countdown ends, the lower the price for everyone (api/_partyS.js).
@@ -1010,7 +1015,7 @@
     c.appendChild(f);
     f.addEventListener('submit', function (ev) {
       ev.preventDefault(); go.disabled = true; m.textContent = 'Saving…';
-      JF.api('/api/market', { do: 'listing', t: tok, as: AS, ak: AK, id: p ? p.id : '', cost: cost.value, name: name.value, desc: desc.value, price: price.value, stock: mode.value === 'auction' ? 1 : stock.value, shipping: ship.value, shipMode: shipMode.value, pkgPreset: pf.read().preset, pkgOz: pf.read().oz, pkgL: pf.read().l, pkgW: pf.read().w, pkgH: pf.read().h, section: sec.value, hidden: hidden.checked, mode: mode.value, hours: hours.value, minOffer: mode.value === 'auction' ? '' : minOffer.value, party: partyVal() }).then(function (r) {
+      JF.api('/api/market', { do: 'listing', t: tok, as: AS, ak: AK, id: p ? p.id : '', cost: cost.value, name: name.value, desc: desc.value, price: price.value, stock: mode.value === 'auction' ? 1 : stock.value, shipping: ship.value, shipMode: shipMode.value, pkgPreset: pf.read().preset, pkgOz: pf.read().oz, pkgL: pf.read().l, pkgW: pf.read().w, pkgH: pf.read().h, section: sec.value, hidden: hidden.checked, mode: mode.value, hours: hoursOut(), minOffer: mode.value === 'auction' ? '' : minOffer.value, party: partyVal() }).then(function (r) {
         if (r.error) { go.disabled = false; m.textContent = r.error; return; }
         var file = photo.files && photo.files[0];
         if (!file) return finish();
