@@ -34,7 +34,7 @@ const photoHits = new Map();
 let walletMemo = null;
 async function walletCents() {
   if (walletMemo && Date.now() - walletMemo.at < 60000) return walletMemo.v;
-  const v = Math.round((await M.ledger(null)).filter((r) => r.paid).reduce((t, r) => t + r.gross, 0) * M.giveawayPct() / 100);
+  const v = Math.round((await M.ledger(null)).filter((r) => r.paid).reduce((t, r) => t + (r.items || 0), 0) * M.giveawayPct() / 100);
   walletMemo = { at: Date.now(), v: v };
   return v;
 }
@@ -300,7 +300,7 @@ module.exports = async (req, res) => {
         const all = M.totals(rows, outs);
         const st = await M.statsAll(sellers);
         await Promise.all(list.map(async (x) => { x.stats = st[x.slug]; x.reviewList = (await M.reviews(x.slug)).map((r) => ({ n: r.n, stars: r.stars, text: r.text || '', name: r.name, product: r.product || '', at: r.at })); }));
-        all.wallet = Math.round(rows.filter((r) => r.paid).reduce((t, r) => t + r.gross, 0) * M.giveawayPct() / 100);
+        all.wallet = Math.round(rows.filter((r) => r.paid).reduce((t, r) => t + (r.items || 0), 0) * M.giveawayPct() / 100);
         return res.json({ fee: M.feePct(), giveaway: M.giveawayPct(), sellers: list, sales: rows, totals: all });
       }
       // Flag an order as a problem (or clear it). A flagged order counts as an issue against the seller's checkmark.
