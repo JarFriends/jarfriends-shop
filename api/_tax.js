@@ -38,7 +38,7 @@ async function tracker() {
   const rates = (await get()).rates, out = [];
   Object.keys(STATES).forEach((c) => {
     const t = THRESH[c], k = per[c] || { cur: 0, curN: 0, prev: 0, prevN: 0 };
-    if (NO_TAX.indexOf(c) >= 0) { if (k.cur || k.prev) out.push({ code: c, name: STATES[c], cur: k.cur, curN: k.curN, prev: k.prev, prevN: k.prevN, status: 'none', avg: 0 }); return; }
+    if (NO_TAX.indexOf(c) >= 0) { out.push({ code: c, name: STATES[c], cur: k.cur, curN: k.curN, prev: k.prev, prevN: k.prevN, status: 'none', avg: 0 }); return; }
     const best = Math.max(k.cur, k.prev), bestN = Math.max(k.curN, k.prevN);
     let status = 'under', pct = 0;
     if (t) {
@@ -48,7 +48,7 @@ async function tracker() {
       status = hit ? 'over' : pct >= 0.8 ? 'near' : 'under';
     }
     if (rates[c]) status = 'collecting';
-    if (status !== 'under' || k.cur || k.prev) out.push({ code: c, name: STATES[c], cur: k.cur, curN: k.curN, prev: k.prev, prevN: k.prevN, threshold: t ? t[0] : null, orders: t && t[1] ? t[1] : null, rule: t && t[2] ? t[2] : '', pct: Math.round(pct * 100), status: status, avg: AVG[c] || 0, rate: rates[c] || 0 });
+    out.push({ code: c, name: STATES[c], cur: k.cur, curN: k.curN, prev: k.prev, prevN: k.prevN, threshold: t ? t[0] : null, orders: t && t[1] ? t[1] : null, rule: t && t[2] ? t[2] : '', pct: Math.round(pct * 100), status: status, avg: AVG[c] || 0, rate: rates[c] || 0 });
   });
   const rank = { over: 0, near: 1, collecting: 2, under: 3, none: 4 };
   return out.sort((a, b) => rank[a.status] - rank[b.status] || b.cur + b.prev - (a.cur + a.prev));
@@ -84,7 +84,7 @@ async function watch() {
   if (!store.on()) return { skipped: true };
   const seen = (await store.read('settings/taxalerts.json').catch(() => null)) || {};
   if (seen.day === new Date().toISOString().slice(0, 10)) return { skipped: true };
-  const news = (await tracker()).filter((x) => (x.status === 'over' || x.status === 'near') && seen[x.code] !== x.status && !(x.status === 'near' && seen[x.code] === 'over'));
+  const news = (await tracker()).filter((x) => (x.status === 'over' || x.status === 'near') && (x.cur || x.prev || x.curN || x.prevN) && seen[x.code] !== x.status && !(x.status === 'near' && seen[x.code] === 'over'));
   news.forEach((x) => { seen[x.code] = x.status; });
   seen.day = new Date().toISOString().slice(0, 10);
   await store.write('settings/taxalerts.json', seen);

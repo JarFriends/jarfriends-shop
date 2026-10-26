@@ -76,8 +76,12 @@
         var usd0 = function (c) { return '$' + Math.round(c / 100).toLocaleString(); };
         var badge = { over: ['Over the line: register and collect', '#E5484D'], near: ['Getting close (80%+)', '#F5A524'], collecting: ['Collecting', '#3FB950'], under: ['Under the line', '#8FA79A'], none: ['No sales tax in this state', '#8FA79A'] };
         track.appendChild(el('b', 'Where you stand, by state' + (over.length ? '  ·  ⚠️ ' + over.length + ' to register' : '')));
-        if (!tr.length) track.appendChild(el('div', 'No orders shipped to any state yet this year or last.', 'small dim'));
-        tr.forEach(function (x) {
+        var quiet = tr.filter(function (x) { return !(x.cur || x.prev) && x.status !== 'collecting'; }), busy = tr.filter(function (x) { return quiet.indexOf(x) < 0; });
+        if (!busy.length) track.appendChild(el('div', 'No orders shipped to any state yet this year or last.', 'small dim'));
+        var allBox = el('details'); var allSm = el('summary', 'See every state’s limit (' + quiet.length + ' more, no sales yet)', 'small'); allSm.style.cssText = 'cursor:pointer;font-weight:700'; allBox.appendChild(allSm);
+        var allList = el('div'); allList.style.cssText = 'display:flex;flex-direction:column;gap:6px;margin-top:8px'; allBox.appendChild(allList);
+        busy.concat(quiet).forEach(function (x) {
+          var target = quiet.indexOf(x) >= 0 ? allList : track;
           var d = el('div'); d.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;align-items:center;border:1px solid #2E4A3B;border-radius:10px;padding:8px 10px';
           var b = badge[x.status] || badge.under, tag = el('span', b[0], 'small'); tag.style.cssText = 'border:1px solid ' + b[1] + ';color:' + b[1] + ';border-radius:999px;padding:2px 9px;font-weight:700';
           var nm = el('b', x.code + ' · ' + String(x.name).replace(/\b\w/g, function (y) { return y.toUpperCase(); })); nm.style.minWidth = '150px';
@@ -86,8 +90,9 @@
           d.appendChild(nm); d.appendChild(tag); d.appendChild(el('span', line2, 'small dim'));
           if (x.status === 'over' || x.status === 'near') { var go = el('button', 'Collect here (' + x.avg + '%)', 'ghost'); go.type = 'button'; go.style.cssText = 'padding:6px 10px;min-height:0';
             go.addEventListener('click', function () { if (!rows.querySelector('input[data-c="' + x.code + '"]')) line(x.code, x.avg); go.remove(); m.textContent = 'Added ' + x.code + ' at its usual rate. Register with the state first, check the rate, then Save.'; }); d.appendChild(go); }
-          track.appendChild(d);
+          target.appendChild(d);
         });
+        if (quiet.length) track.appendChild(allBox);
         track.appendChild(el('div', 'Each state requires a marketplace to collect once its sales into that state pass a line (most: $100,000 a year; CA, TX, NY: $500,000; AL, CT, MS: $250,000; OK: $10,000; some also count 200 orders). Illinois is your home state, so it is always collected. Rates added here start at the state’s usual combined rate (state plus average local, 2026); check them with your accountant.', 'small dim'));
         track.appendChild(el('b', 'Collecting now'));
         var sel = el('select'); sel.className = 'jf-sel'; var o0 = el('option', 'Add a state…'); o0.value = ''; sel.appendChild(o0);
