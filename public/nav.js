@@ -304,7 +304,7 @@
     var show = function (j) {
       w.style.display = 'inline-flex'; pop.textContent = ''; n.hidden = !j.total; n.textContent = j.total > 99 ? '99+' : j.total;
       if (!j.items.length) { var e0 = document.createElement('div'); e0.style.cssText = 'padding:10px;font-size:14px;opacity:.8'; e0.textContent = 'You are all caught up.'; pop.appendChild(e0); }
-      j.items.forEach(function (x) { var l = document.createElement('a'); l.href = x.link; l.style.cssText = 'display:flex;justify-content:space-between;gap:10px;padding:10px;border-radius:8px;text-decoration:none;color:#F7F2E6;font-size:14px;background:#11261C'; var t = document.createElement('span'); t.textContent = x.text; var c = document.createElement('b'); c.textContent = x.n; c.style.cssText = 'background:#C9A45C;color:#0B1A13;border-radius:10px;padding:0 8px;align-self:center'; l.appendChild(t); l.appendChild(c); pop.appendChild(l); });
+      j.items.forEach(function (x) { var l = document.createElement('a'); l.href = x.link; l.addEventListener('click', function () { pop.hidden = true; try { sessionStorage.removeItem('v2vBell'); } catch (e) {} }); l.style.cssText = 'display:flex;justify-content:space-between;gap:10px;padding:10px;border-radius:8px;text-decoration:none;color:#F7F2E6;font-size:14px;background:#11261C'; var t = document.createElement('span'); t.textContent = x.text; var c = document.createElement('b'); c.textContent = x.n; c.style.cssText = 'background:#C9A45C;color:#0B1A13;border-radius:10px;padding:0 8px;align-self:center'; l.appendChild(t); l.appendChild(c); pop.appendChild(l); });
     };
     if (tok) {
       var cached = null; try { cached = JSON.parse(sessionStorage.getItem('v2vBell') || 'null'); } catch (e) {}

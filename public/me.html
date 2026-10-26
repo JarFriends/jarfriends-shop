@@ -123,6 +123,7 @@
         row.appendChild(hb); row.appendChild(hist);
         c.appendChild(row);
       });
+      window.addEventListener('hashchange', function () { if (location.hash === '#offers') c.scrollIntoView({ behavior: 'smooth' }); });
       if (location.hash === '#offers') setTimeout(function () { c.scrollIntoView({ behavior: 'smooth' }); }, 300);
     }).catch(function () {});
     return c;
