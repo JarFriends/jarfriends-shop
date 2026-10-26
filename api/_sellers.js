@@ -239,6 +239,8 @@ async function saveListing(seller, f) {
   const shipMode = ['free', 'flat', 'calc'].indexOf(f.shipMode) >= 0 ? f.shipMode : (shipRaw === '' || shipRaw === 'free' || Number(shipRaw) === 0 ? 'free' : 'flat');
   const ship = shipMode !== 'flat' ? 'free' : Math.round(Number(shipRaw.replace(/[^0-9.]/g, '')) * 100) / 100;
   if (shipMode === 'flat' && !(ship > 0 && ship <= 200)) return { error: 'Flat shipping: enter a price up to $200, or pick free or calculated shipping.' };
+  const sf = seller && seller.shipFrom;
+  if (shipMode === 'calc' && seller.based !== 'intl' && !(sf && sf.street1 && sf.city && sf.state && sf.zip)) return { error: 'Calculated shipping needs the address you ship from. Add it in Settings (Where you ship from), or pick free or flat shipping.' };
   const PRE = require('./_ship').PRESETS;
   const pkgOz = Number(f.pkgOz);
   const pkg = { preset: PRE[f.pkgPreset] || f.pkgPreset === 'custom' ? f.pkgPreset : 'mailer', oz: pkgOz > 0 && pkgOz <= 1120 ? Math.round(pkgOz * 10) / 10 : 0 };

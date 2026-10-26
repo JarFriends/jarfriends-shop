@@ -107,7 +107,18 @@ async function calcFor(pid, to, qty) {
   const listing = (await M.listings()).filter((x) => x.id === pid)[0];
   if (!listing || listing.shipMode !== 'calc') return null;
   if (!ready()) return { error: 'Shipping cannot be priced right now. Try again later.' };
-  const seller = await M.bySlug(listing.seller), from = fromOf(seller);
+  const seller = await M.bySlug(listing.seller);
+  let from = fromOf(seller);
+  // The seller picked calculated shipping but never saved where they ship from: price it from VeeFam's own
+  // ship-from address (close enough for USPS inside the USA) so the buyer is never stuck, and remind the
+  // seller once a day to add their address (they need it to buy the label anyway).
+  if (!from) {
+    try { const d = JSON.parse(process.env.SHIP_FROM || '{}'); if (d.street1 && d.city && d.state && d.zip) from = { name: d.name || 'VeeFam', street1: d.street1, street2: d.street2 || '', city: d.city, state: d.state, zip: d.zip, country: 'US', phone: d.phone || '', email: '' }; } catch (e) { from = null; }
+    if (seller && seller.email) {
+      const day = new Date().toISOString().slice(0, 10), mk = 'ship/remind-' + seller.slug + '-' + day + '.json';
+      require('./_store').read(mk).then((x) => { if (x) return; return require('./_store').write(mk, { at: Date.now() }).then(() => require('./_lib').mail(seller.email, 'Add your ship-from address on VeeFam', ['A buyer is checking out ' + listing.name + ', which you set to calculated shipping.', '', 'You have not added the address you ship from, so the shipping price was estimated. Add it in Seller Hub (Settings, Where you ship from) so prices are exact and you can buy labels.'], 'shipfrom-' + seller.slug + '-' + day)); }).catch(() => null);
+    }
+  }
   if (!from) return { error: 'This seller has not finished setting up shipping yet.' };
   if (!/^[0-9]{5}(-[0-9]{4})?$/.test(String(to.zip || '')) || String(to.street1 || '').length < 4) return { error: 'Enter your full address to see the shipping price.' };
   const parcel = packageOf(listing, qty);
