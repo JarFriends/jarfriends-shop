@@ -850,7 +850,8 @@ module.exports = async (req, res) => {
         const a = b.shipFrom, f = { name: tidy(a.name, 60), street1: tidy(a.street1, 120), street2: tidy(a.street2, 60), city: tidy(a.city, 60), state: tidy(a.state, 30), zip: tidy(a.zip, 10), phone: tidy(a.phone, 20) };
         if (f.street1 || f.city || f.zip) {
           if (!/[0-9]/.test(f.street1) || !/[A-Za-z]/.test(f.street1)) return res.status(400).json({ error: 'Ship from: enter the street address with its number.' });
-          if (f.city.length < 2 || f.state.length < 2) return res.status(400).json({ error: 'Ship from: enter the city and state.' });
+          if (f.city.length < 2 || (seller.based !== 'intl' && f.state.length < 2)) return res.status(400).json({ error: 'Ship from: enter the city and state.' });
+          if (seller.based === 'intl') { f.country = require('./_ship').countryCode(a.country || seller.country); if (!f.country) return res.status(400).json({ error: 'Ship from: enter your country (for example Canada or CA).' }); }
           if (!/^[0-9]{5}(-[0-9]{4})?$/.test(f.zip) && !(seller.based === 'intl' && /^[A-Za-z0-9][A-Za-z0-9 -]{1,9}$/.test(f.zip))) return res.status(400).json({ error: seller.based === 'intl' ? 'Ship from: enter your postal code.' : 'Ship from: enter a 5-digit ZIP code.' });
           if (f.phone.replace(/\D/g, '').length < 10) return res.status(400).json({ error: 'Ship from: enter your phone number. USPS and Shippo need it to make the label.' });
           seller.shipFrom = f;

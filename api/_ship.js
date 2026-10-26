@@ -40,10 +40,18 @@ function packageOf(listing, q) {
     weight: String(Math.round(oz * (1 + (q - 1) * 0.8) * 10) / 10), mass_unit: 'oz' };
 }
 // The seller's ship-from address, from their shop settings.
+// A seller based outside the USA ships from their own country: its 2-letter code, from what they typed ("Canada" → CA).
+let CC = null;
+function countryCode(v) {
+  const s = String(v || '').trim(); if (/^[A-Za-z]{2}$/.test(s)) return s.toUpperCase() === 'UK' ? 'GB' : s.toUpperCase();
+  if (!CC) { CC = {}; try { const dn = new Intl.DisplayNames(['en'], { type: 'region' }); for (let a = 65; a < 91; a++) for (let b = 65; b < 91; b++) { const c = String.fromCharCode(a, b); try { const nm = dn.of(c); if (nm && nm !== c && !CC[nm.toLowerCase()]) CC[nm.toLowerCase()] = c; } catch (e) { /* not a code */ } } } catch (e) { /* no Intl */ } CC['uk'] = 'GB'; CC['england'] = 'GB'; CC['usa'] = 'US'; }
+  return CC[s.toLowerCase()] || '';
+}
 function fromOf(seller) {
-  const f = seller && seller.shipFrom;
-  if (!f || !f.street1 || !f.city || !f.state || !f.zip) return null;
-  return { name: f.name || seller.name, street1: f.street1, street2: f.street2 || '', city: f.city, state: f.state, zip: f.zip, country: 'US', phone: f.phone || '', email: seller.email };
+  const f = seller && seller.shipFrom, abroad = seller && seller.based === 'intl';
+  if (!f || !f.street1 || !f.city || !f.zip || (!abroad && !f.state)) return null;
+  const country = abroad ? countryCode(f.country || seller.country) || 'US' : 'US';
+  return { name: f.name || seller.name, street1: f.street1, street2: f.street2 || '', city: f.city, state: f.state || '', zip: f.zip, country: country, phone: f.phone || '', email: seller.email };
 }
 
 // For a checkout price only: the seller's ship-from, or VeeFam's own address (SHIP_FROM) when the seller has not
@@ -81,7 +89,7 @@ async function intlRate(seller, listing, to, qty, value, item, quoteOnly) {
   const cd = await shippo('/customs/declarations/', {
     contents_type: 'MERCHANDISE', non_delivery_option: 'RETURN', certify: true, certify_signer: from.name, incoterm: 'DDU', eel_pfc: 'NOEEI_30_37_a',
     items: [{ description: ('Collectible ' + String(item || 'collectible')).slice(0, 45), quantity: Math.max(1, Number(qty) || 1), net_weight: String(parcel.weight), mass_unit: 'oz',
-      value_amount: (Math.max(100, Number(value) || 0) / 100).toFixed(2), value_currency: 'USD', origin_country: 'US' }]
+      value_amount: (Math.max(100, Number(value) || 0) / 100).toFixed(2), value_currency: 'USD', origin_country: from.country || 'US' }]
   });
   const s = await shippo('/shipments/', { address_from: from, address_to: to, parcels: [parcel], customs_declaration: cd.object_id, async: false });
   const rates = (Array.isArray(s.rates) ? s.rates : []).filter((r) => r && r.object_id && Number(r.amount) > 0);
@@ -183,13 +191,14 @@ async function quoteLabel(seller, n, q) {
   const parcel = packageOf(own, own === listing ? o.row.q : 1);
   try {
     // Outside the USA: the label comes with its customs form, valued at what the buyer paid for the pieces.
-    const r = o.intl ? await intlRate(seller, own, o.to, own === listing ? o.row.q : 1, o.row.items || o.row.gross, o.row.product) : await cheapest(from, o.to, parcel);
+    const cross = o.intl || (from.country && from.country !== ((o.to && o.to.country) || 'US'));
+    const r = cross ? await intlRate(seller, own, o.to, own === listing ? o.row.q : 1, o.row.items || o.row.gross, o.row.product) : await cheapest(from, o.to, parcel);
     const plan = await payPlan(seller, r.cents);
     const paidShip = Math.round(Number(String(o.data.shipping || '0').replace(/[^0-9.]/g, '')) * 100) || 0;
     return { rate: r, parcel: r.parcel || parcel, plan: plan, buyerPaidShipping: paidShip, to: o.to, intl: !!o.intl, test: isTest() };
   } catch (e) {
     console.error('LABEL_QUOTE_FAIL', n, String(e && e.message || e));
-    return { error: 'Could not price the label. Check the package size and weight, or try again.' };
+    return { error: from.country && from.country !== 'US' ? 'No carrier could price a label from ' + from.country + ' for this package. Ship it your own way and add the tracking number below.' : 'Could not price the label. Check the package size and weight, or try again.' };
   }
 }
 // Buy the label: pay for it (earnings first, then card), buy it, save the tracking and email the buyer.
@@ -235,4 +244,4 @@ async function buyLabel(seller, n, rateId, host) {
 }
 const money = (c) => '$' + (c / 100).toFixed(2);
 
-module.exports = { shipsIntl, quoteIntl, intlRate, PRESETS, packageOf, fromOf, calcFor, quoteLabel, buyLabel, payPlan, ready, isTest };
+module.exports = { countryCode, shipsIntl, quoteIntl, intlRate, PRESETS, packageOf, fromOf, calcFor, quoteLabel, buyLabel, payPlan, ready, isTest };

@@ -1284,7 +1284,7 @@
     box.appendChild(el('b', 'Buy a shipping label'));
     if (!D.labelsOn) { box.appendChild(el('div', 'Labels are not switched on for V2V yet. Ship it your own way and add the tracking number below.', 'small dim')); return box; }
     // No ship-from address yet: add it right here, then the label part opens. It is saved for every label after.
-    if (!D.seller.shipFrom || !String(D.seller.shipFrom.phone || '').replace(/\D/g, '')) {
+    if (!D.seller.shipFrom || !String(D.seller.shipFrom.phone || '').replace(/\D/g, '') || (D.seller.based === 'intl' && !D.seller.shipFrom.country)) {
       var sf0 = D.seller.shipFrom || {};
       box.appendChild(el('div', sf0.street1 ? 'Add a phone number for your ship-from address: the label cannot be made without it. It is saved for next time.' : 'Where are you shipping it from? This goes on the label as the return address, and is saved for next time.', 'small dim'));
       var af = el('form'); af.style.cssText = 'display:flex;flex-direction:column;gap:8px;max-width:none';
@@ -1293,12 +1293,13 @@
       af.appendChild(field('Name on the label', an));
       var b2 = el('div', null, 'two'); b2.appendChild(field('Street address', as1)); b2.appendChild(field('Apt or unit', as2, 'Optional.')); af.appendChild(b2);
       var b3 = el('div', null, 'two'); b3.appendChild(field('City', ac)); b3.appendChild(field('State', ast)); b3.appendChild(field('ZIP or postal code', az)); af.appendChild(b3);
+      var aco = input('text', sf0.country || D.seller.country || '', { maxlength: '40', placeholder: 'Canada' }); if (D.seller.based === 'intl') af.appendChild(field('Country', aco, 'The country you ship from.'));
       af.appendChild(field('Phone', aph, 'Required: USPS and Shippo need it to make the label.'));
       var ago = el('button', 'Save and continue', 'solid'); ago.type = 'submit'; ago.style.alignSelf = 'flex-start'; var am = el('div', '', 'small');
       af.appendChild(ago); af.appendChild(am); box.appendChild(af);
       af.addEventListener('submit', function (ev) {
         ev.preventDefault(); ago.disabled = true; am.textContent = 'Saving…';
-        JF.api('/api/market', { do: 'profile', t: tok, as: AS, ak: AK, shipFrom: { name: an.value, street1: as1.value, street2: as2.value, city: ac.value, state: ast.value, zip: az.value, phone: aph.value } }).then(function (r) {
+        JF.api('/api/market', { do: 'profile', t: tok, as: AS, ak: AK, shipFrom: { name: an.value, street1: as1.value, street2: as2.value, city: ac.value, state: ast.value, zip: az.value, phone: aph.value, country: aco.value } }).then(function (r) {
           ago.disabled = false;
           if (r.error) { am.textContent = r.error; return; }
           D.seller = r.seller; var fresh = labelBox(o); box.replaceWith(fresh);
@@ -1612,6 +1613,7 @@
     f.appendChild(field('Name on the label', fn));
     var a2 = el('div', null, 'two'); a2.appendChild(field('Street address', fs1)); a2.appendChild(field('Apt or unit', fs2, 'Optional.')); f.appendChild(a2);
     var a3 = el('div', null, 'two'); a3.appendChild(field('City', fc)); a3.appendChild(field('State', fst)); a3.appendChild(field('ZIP or postal code', fz)); f.appendChild(a3);
+    var fco = input('text', sf.country || s.country || '', { maxlength: '40', placeholder: 'Canada' }); if (s.based === 'intl') f.appendChild(field('Country', fco, 'The country you ship from.'));
     f.appendChild(field('Phone', fp, 'Required: USPS and Shippo need it to make the label.'));
     f.appendChild(go); f.appendChild(m);
     c.appendChild(f);
@@ -1644,7 +1646,7 @@
     danger.appendChild(mk('Close my shop', 'Removes your shop and all its pieces. You keep your account to buy, bid and vote. Ship any paid orders first. Records of past sales are kept.', 'CLOSE', 'Close my shop for good', 'shop-close'));
     danger.appendChild(mk('Delete my account', 'Removes everything: your shop and pieces, profile, password, saved address, wishlist, votes and trades. It cannot be undone. Records of past orders are kept, because sales and tax records have to be.', 'DELETE', 'Delete everything for good', 'delete-account'));
     pane.appendChild(danger);
-    f.addEventListener('submit', function (ev) { ev.preventDefault(); go.disabled = true; JF.api('/api/market', Object.assign({ do: 'profile', t: tok, as: AS, ak: AK, shipFrom: { name: fn.value, street1: fs1.value, street2: fs2.value, city: fc.value, state: fst.value, zip: fz.value, phone: fp.value }, directPay: { zelle: dz.value, venmo: dv.value, cashapp: dc.value, paypal: dpp.value, crypto: dw.value.trim() }, about: about.value, labelFormat: lfmt.value, shipIntl: intl.value === 'yes' })).then(function (r) { go.disabled = false; m.textContent = r.error || 'Saved.'; if (!r.error) D.seller = r.seller; }); });
+    f.addEventListener('submit', function (ev) { ev.preventDefault(); go.disabled = true; JF.api('/api/market', Object.assign({ do: 'profile', t: tok, as: AS, ak: AK, shipFrom: { name: fn.value, street1: fs1.value, street2: fs2.value, city: fc.value, state: fst.value, zip: fz.value, phone: fp.value, country: fco.value }, directPay: { zelle: dz.value, venmo: dv.value, cashapp: dc.value, paypal: dpp.value, crypto: dw.value.trim() }, about: about.value, labelFormat: lfmt.value, shipIntl: intl.value === 'yes' })).then(function (r) { go.disabled = false; m.textContent = r.error || 'Saved.'; if (!r.error) D.seller = r.seller; }); });
   }
   // Back from Stripe's payout setup: show the payouts tab. "again" means the link ran out, so open a fresh one.
   var sq = new URLSearchParams(location.search).get('stripe');
