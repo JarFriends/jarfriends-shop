@@ -42,7 +42,7 @@ async function tracker() {
     const best = Math.max(k.cur, k.prev), bestN = Math.max(k.curN, k.prevN);
     let status = 'under', pct = 0;
     if (t) {
-      const $ok = best >= t[0] * 100, nOk = t[1] ? bestN >= t[1] : false;
+      const $ok = t[0] ? best >= t[0] * 100 : bestN > 0, nOk = t[1] ? bestN >= t[1] : false;
       const hit = t[2] === 'and' ? $ok && nOk : t[2] === 'or' ? $ok || nOk : $ok;
       pct = Math.max(t[0] ? best / (t[0] * 100) : 1, t[1] ? bestN / t[1] : 0);
       status = hit ? 'over' : pct >= 0.8 ? 'near' : 'under';
