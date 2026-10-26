@@ -386,7 +386,8 @@ module.exports = async (req, res) => {
       let n = 0, ok = 0, err = '', sold = 0;
       try { const r = await ls({ prefix: 'market/', limit: 1000 }); n = (r.blobs || []).length; for (const b2 of (r.blobs || []).slice(0, 15)) { try { const g = await get(b2.pathname, { access: 'private', useCache: false }); if (g && g.statusCode === 200) ok++; else err = err || ('status ' + (g && g.statusCode)); } catch (e) { err = err || String(e && e.message || e).slice(0, 200); } } } catch (e) { err = 'LIST: ' + String(e && e.message || e).slice(0, 200); }
       try { sold = (await store.sales()).length; } catch (e) { err += ' SALES: ' + String(e && e.message || e).slice(0, 120); }
-      return res.json({ listings: n, readOk: ok, of: Math.min(15, n), err: err, sales: sold });
+      const lsAll = async (pre) => ((await ls({ prefix: pre, limit: 1000 })).blobs || []).map((x) => x.pathname + ' @' + new Date(x.uploadedAt).toISOString());
+      return res.json({ listings: n, readOk: ok, of: Math.min(15, n), err: err, sales: sold, sellers: await lsAll('sellers/s/'), removed: await lsAll('sellers/removed/'), marketDirs: [...new Set(((await ls({ prefix: 'market/', limit: 1000 })).blobs || []).map((x) => x.pathname.split('/')[1]))] });
     }
     if (req.method === 'GET' && what === 'walletcheck') { const rows = await M.ledger(null); const paid = rows.filter((r) => r.paid); return res.json({ rows: rows.length, paid: paid.length, items: paid.reduce((t, r) => t + (r.items || 0), 0), gross: paid.reduce((t, r) => t + r.gross, 0), unpaidGross: rows.filter((r) => !r.paid).reduce((t, r) => t + r.gross, 0), direct: paid.filter((r) => r.direct).length, directPay: paid.filter((r) => r.directPay).length, noItems: paid.filter((r) => !r.items).length }); }
     if (req.method === 'GET' && what === 'giveaway') {
