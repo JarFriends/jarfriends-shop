@@ -35,8 +35,8 @@ module.exports = async (req, res) => {
   b.email = acct;
   const clip = (v, n) => String(v == null ? '' : v).trim().slice(0, n);
   // Zelle, Venmo or Cash App. Like cash, the owner confirms these by hand.
-  const way = b.method === 'zelle' || b.method === 'venmo' || b.method === 'cashapp' ? b.method : '';
-  if (way && !offline.ready()[way]) return res.status(503).json({ error: offline.label(way) + ' is not set up yet. Choose another way to pay.' });
+  const way = b.method === 'zelle' || b.method === 'venmo' || b.method === 'cashapp' || b.method === 'paypal' ? b.method : '';
+  if (way && !offline.ready()[way] && !(way === 'paypal' && await require('./_sellers').directFor(clip(b.product, 20), 'paypal'))) return res.status(503).json({ error: offline.label(way) + ' is not set up yet. Choose another way to pay.' });
   // Paid by hand, not online.
   const cash = b.method === 'cash' || !!way;
   // Credit card, through Stripe when it is connected, otherwise Square.

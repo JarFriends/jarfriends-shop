@@ -43,6 +43,7 @@ fieldset[hidden]{display:none}
         <label class="plan" data-m="card" id="mCard" hidden><input type="radio" name="method" value="card"><span><strong>Credit or debit card <span id="feeTag" style="font-weight:400;font-size:14px;color:#C9A45C"></span></strong><span>Pay online now. <span id="feeNote"></span>Your card is taken on a secure payment page on the next screen.</span></span></label>
         <label class="plan" data-m="zelle" id="mZelle" hidden><input type="radio" name="method" value="zelle"><span><strong>Zelle</strong><span>Send it from your bank app. We show you where to send it on the next screen.</span></span></label>
         <label class="plan" data-m="venmo" id="mVenmo" hidden><input type="radio" name="method" value="venmo"><span><strong>Venmo</strong><span>Send it from the Venmo app. We show you where to send it on the next screen.</span></span></label>
+        <label class="plan" data-m="paypal" id="mPaypal" hidden><input type="radio" name="method" value="paypal"><span><strong>PayPal</strong><span>Send it with PayPal (friends and family). Works from any country. We show you where to send it on the next screen.</span></span></label>
         <label class="plan" data-m="cashapp" id="mCashapp" hidden><input type="radio" name="method" value="cashapp"><span><strong>Cash App</strong><span>Send it from Cash App. We show you where to send it on the next screen.</span></span></label>
         <label class="plan on" data-m="crypto"><input type="radio" name="method" value="crypto" checked><span><strong>Crypto</strong><span>Pay online now with Ethereum, USDC or USDT.</span></span></label>
         <label class="plan" data-m="cash"><input type="radio" name="method" value="cash"><span><strong>Cash or ACH</strong><span>Nothing is paid online. We confirm your order when your cash or bank transfer arrives.</span></span></label>
@@ -106,8 +107,8 @@ fieldset[hidden]{display:none}
   var $ = function (id) { return document.getElementById(id); };
   var products = [], promo = null, feePct = 0, feeFix = 0, feeRate = '';
   // Ways to pay the amount due now. Paid by hand = nothing is charged online.
-  var HOW = { crypto: 'in crypto', card: 'by card', cash: 'by cash or ACH', zelle: 'by Zelle', venmo: 'by Venmo', cashapp: 'by Cash App' };
-  var BY_HAND = { cash: 1, zelle: 1, venmo: 1, cashapp: 1 };
+  var HOW = { crypto: 'in crypto', card: 'by card', cash: 'by cash or ACH', zelle: 'by Zelle', venmo: 'by Venmo', cashapp: 'by Cash App', paypal: 'by PayPal' };
+  var BY_HAND = { cash: 1, zelle: 1, venmo: 1, cashapp: 1, paypal: 1 };
   var usd = function (cents) { return '$' + (cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
   function cur() { return products.filter(function (p) { return p.id === $('product').value; })[0]; }
   function method() { var r = document.querySelector('input[name="method"]:checked'); return r && HOW[r.value] ? r.value : 'crypto'; }
@@ -171,6 +172,7 @@ fieldset[hidden]{display:none}
     if (r.ways && r.ways.zelle) $('mZelle').hidden = false;
     if (r.ways && r.ways.venmo) $('mVenmo').hidden = false;
     if (r.ways && r.ways.cashapp) $('mCashapp').hidden = false;
+    window.V2VPP = !!(r.ways && r.ways.paypal); if (window.V2VPP) $('mPaypal').hidden = false;
     var dp = d && !d.expired ? products.filter(function (p) { return p.id === d.product; })[0] : null;
     if (dp) { deal = d; dp.price = d.price; }
     if (r.offers && !deal) $('offerBox').hidden = false;

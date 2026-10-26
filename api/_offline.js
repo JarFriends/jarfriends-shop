@@ -10,10 +10,12 @@ const WAYS = {
   cash: { label: 'Cash or ACH' },
   zelle: { label: 'Zelle', env: 'ZELLE_TO' },
   venmo: { label: 'Venmo', env: 'VENMO_TO' },
-  cashapp: { label: 'Cash App', env: 'CASHAPP_TO' }
+  cashapp: { label: 'Cash App', env: 'CASHAPP_TO' },
+  // PayPal: VeeFam's own if PAYPAL_TO is set, or straight to a seller who added theirs (works worldwide).
+  paypal: { label: 'PayPal', env: 'PAYPAL_TO' }
 };
 const sendTo = (w) => (WAYS[w] && WAYS[w].env ? (process.env[WAYS[w].env] || '').trim().slice(0, 120) : '');
-const ready = () => ({ zelle: !!sendTo('zelle'), venmo: !!sendTo('venmo'), cashapp: !!sendTo('cashapp') });
+const ready = () => ({ zelle: !!sendTo('zelle'), venmo: !!sendTo('venmo'), cashapp: !!sendTo('cashapp'), paypal: !!sendTo('paypal') });
 const wayOf = (inv) => (inv && WAYS[inv.w] ? inv.w : 'cash');
 const label = (w) => (WAYS[w] ? WAYS[w].label : WAYS.cash.label);
 // What the buyer is told to do. Cash keeps using PAY_INSTRUCTIONS.

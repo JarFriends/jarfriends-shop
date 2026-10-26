@@ -87,6 +87,10 @@ const changes = [
   ['api/order.js', "  if (r.inv.dt) { const ST = require('./_store')", "  if (promo && promo.seller) await require('./_sellers').promoUsed(promo.seller, promo.code).catch(() => null);\n  if (r.inv.dt) { const ST = require('./_store')"],
   ['public/order.html', '    var ship = (intl || (p.calc && !p.nft)) ? (iq.cents || 0) : Math.round(Number(p.ship || 0) * 100);', '    var ship = (intl || (p.calc && !p.nft)) ? (iq.cents || 0) : Math.round(Number(p.ship || 0) * 100);\n    if (promo && promo.ship && !deal && !p.nft) ship = 0;'],
   ['public/order.html', "$('sAdjL').textContent = promo ? 'Promo code ' + promo.code : '';", "$('sAdjL').textContent = promo ? 'Promo code ' + promo.code + (promo.ship ? ' (free shipping)' : '') : '';"],
+  // PayPal: per piece, shown when VeeFam takes PayPal or the piece's seller does (any country, so not hidden abroad).
+  ['api/order.js', 'pay: (more[p.id] || {}).pay || [],', 'pay: (more[p.id] || {}).pay || [], paypal: !!(more[p.id] || {}).paypal,'],
+  ['api/order.js', '    if (intl && cash) return res.status(400)', '    if (intl && cash && way !== \'paypal\') return res.status(400)'],
+  ['public/order.html', '    var bad = p.stock < p.min', '    $(\'mPaypal\').hidden = !(window.V2VPP || p.paypal); if ($(\'mPaypal\').hidden && method() === \'paypal\') { var cr0 = document.querySelector(\'input[name="method"][value="card"]\') || document.querySelector(\'input[name="method"][value="crypto"]\'); if (cr0) cr0.checked = true; }\n    var bad = p.stock < p.min'],
 ];
 changes.forEach(([f, find, put]) => {
   const s = fs.readFileSync(f, 'utf8');
