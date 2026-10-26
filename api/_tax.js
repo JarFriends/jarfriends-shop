@@ -44,7 +44,7 @@ async function tracker() {
     if (t) {
       const $ok = t[0] ? best >= t[0] * 100 : bestN > 0, nOk = t[1] ? bestN >= t[1] : false;
       const hit = t[2] === 'and' ? $ok && nOk : t[2] === 'or' ? $ok || nOk : $ok;
-      pct = Math.max(t[0] ? best / (t[0] * 100) : 1, t[1] ? bestN / t[1] : 0);
+      pct = Math.max(t[0] ? best / (t[0] * 100) : (bestN > 0 ? 1 : 0), t[1] ? bestN / t[1] : 0);
       status = hit ? 'over' : pct >= 0.8 ? 'near' : 'under';
     }
     if (rates[c]) status = 'collecting';
