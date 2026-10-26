@@ -62,7 +62,7 @@
       got.forEach(function (p, i) {
         var it = list[i]; if (p === undefined) return;
         if (!p || p.auction || p.party || !(p.left > 0)) { C().remove(it.id); return; }
-        C().remove(it.id); C().add({ id: p.id, name: p.name, price: p.price, ship: p.ship, photo: p.photo, seller: p.seller, sellerName: p.sellerName, left: p.left, nft: p.nft, qty: Math.min(p.left, it.qty || 1) });
+        C().remove(it.id); C().add({ id: p.id, name: p.name, price: p.price, ship: p.ship, photo: p.photo, seller: p.seller, sellerName: p.sellerName, left: p.left, nft: p.nft, calc: !!p.calc, qty: Math.min(p.left, it.qty || 1) });
       });
     });
   }
@@ -77,7 +77,7 @@
   function groups() {
     var g = {}, order = [];
     C().items().forEach(function (it) { var k = it.seller || '_house'; if (!g[k]) { g[k] = { name: it.sellerName || 'VeeFam', slug: it.seller, items: [] }; order.push(k); } g[k].items.push(it); });
-    return order.map(function (k) { var x = g[k]; x.ship = x.items.some(function (i) { return !i.nft; }) ? Math.max.apply(null, x.items.map(function (i) { return i.nft ? 0 : cents(i.ship); })) : 0; return x; });
+    return order.map(function (k) { var x = g[k]; x.calc = x.items.some(function (i) { return !i.nft && i.calc; }); x.ship = x.items.some(function (i) { return !i.nft; }) ? Math.max.apply(null, x.items.map(function (i) { return i.nft ? 0 : cents(i.ship); })) : 0; return x; });
   }
   function draw() {
     if (done) return drawDone();
@@ -88,7 +88,7 @@
     G.forEach(function (g) {
       var box = el('div', null, 'ct-shop');
       var hd = el('div'); hd.style.cssText = 'display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap';
-      hd.appendChild(el('b', g.name)); hd.appendChild(el('span', g.items.length > 1 && g.ship ? '📦 Ships together · one shipping fee ' + usd(g.ship) : g.ship ? 'Shipping ' + usd(g.ship) : 'Free shipping', 'small'));
+      hd.appendChild(el('b', g.name)); hd.appendChild(el('span', g.calc ? '📦 Shipping priced for your address when you place the order' + (g.items.length > 1 ? ' · ships together, one fee' : '') : g.items.length > 1 && g.ship ? '📦 Ships together · one shipping fee ' + usd(g.ship) : g.ship ? 'Shipping ' + usd(g.ship) : 'Free shipping', 'small'));
       box.appendChild(hd);
       g.items.forEach(function (it) {
         var r = el('div', null, 'ct-it');
@@ -148,7 +148,7 @@
     if (tax && (CFG.taxShip || []).indexOf(tc) >= 0) tax += Math.round(ship * trc / 100);
     var fee = method === 'card' && CFG.cardFee != null ? Math.round((sub + ship + tax) * Number(CFG.cardFee) / 100) + Math.round(Number(CFG.cardFeeFixed || 0)) * orders : 0;
     var row = function (a, b, c) { var r = el('div', null, 'ct-row' + (c ? ' ' + c : '')); r.appendChild(el('span', a)); r.appendChild(el('span', b)); s.appendChild(r); };
-    row('Pieces', usd(sub)); row('Shipping' + (G.length > 1 ? ' (' + G.length + ' shops)' : ''), ship ? usd(ship) : 'Free');
+    row('Pieces', usd(sub)); row('Shipping' + (G.length > 1 ? ' (' + G.length + ' shops)' : ''), G.some(function (g) { return g.calc; }) ? (ship ? usd(ship) + ' + calculated at checkout' : 'Calculated at checkout') : ship ? usd(ship) : 'Free');
     if (tax) row('Sales tax (' + tc + ' ' + trc + '%' + (CFG.taxExact ? ', estimate' : '') + ')', usd(tax));
     if (fee) row('Card fee', usd(fee));
     row('Total', usd(sub + ship + tax + fee), 'tot');

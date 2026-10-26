@@ -50,7 +50,7 @@ async function shopItems() {
   return all.filter((p) => !p.draft && !(Number(p.deal) > 0) && !/^MPARTY/.test(p.id) && !p.buyers).map((p) => {
     const left = Math.max(0, Number(p.stock || 0) - (sold[p.id] || 0) - (held[p.id] || 0));
     const free = p.shipping === 'free' || !Number(p.shipping);
-    return { id: p.id, name: p.name, price: Number(p.price).toFixed(2), left: left, ship: free ? '0.00' : Number(p.shipping).toFixed(2), section: p.section || '', desc: p.desc || '',
+    return { id: p.id, name: p.name, price: Number(p.price).toFixed(2), left: left, ship: free ? '0.00' : Number(p.shipping).toFixed(2), calc: p.shipMode === 'calc', section: p.section || '', desc: p.desc || '',
       photo: photoOf(p), seller: p.seller || '', sellerName: p.sellerName || 'JarFriends', auction: p.auction && p.auction.ends ? { ends: Date.parse(p.auction.ends) || 0, start: Number(p.auction.start) || 0 } : null, nft: !!(p.nft && p.nft !== 'no') || !!(p.seller && M.sectionOf(p) === 'NFTs'), added: p.created || p.updated || 0, party: p.party && p.party.ends > Date.now() ? { ends: p.party.ends, top: Math.max.apply(null, p.party.tiers.map((t) => t[1])) } : null };
   });
 }
@@ -119,7 +119,7 @@ module.exports = async (req, res) => {
       const p = (await shopItems()).filter((x) => x.id === String(q.id || ''))[0];
       if (!p) return res.status(404).json({ error: 'Not found.' });
       const s = p.seller ? await M.bySlug(p.seller) : null, st = s ? await M.stats(s) : null;
-      return res.json({ party: !!p.party, id: p.id, name: p.name, price: p.price, ship: p.ship, left: p.left, photo: p.photo, desc: p.desc || '', auction: p.auction, nft: p.nft, section: p.section || '', seller: p.seller, sellerName: p.sellerName, rating: st ? st.rating : 0, reviews: st ? st.reviews : 0, verified: st ? st.verified : false });
+      return res.json({ party: !!p.party, id: p.id, name: p.name, price: p.price, ship: p.ship, calc: !!p.calc, left: p.left, photo: p.photo, desc: p.desc || '', auction: p.auction, nft: p.nft, section: p.section || '', seller: p.seller, sellerName: p.sellerName, rating: st ? st.rating : 0, reviews: st ? st.reviews : 0, verified: st ? st.verified : false });
     }
     // A shop's rating, checkmark and reviews (newest first). Reviewers show as first name and initial.
     if (req.method === 'GET' && what === 'reviews') {

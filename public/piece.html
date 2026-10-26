@@ -62,7 +62,7 @@
     info.appendChild(el('div', '$' + Number(p.price).toFixed(2), 'pc-price'));
     var meta = el('div', null, 'pc-meta');
     meta.appendChild(el('span', p.left > 1 ? p.left + ' available' : p.left === 1 ? 'Only 1 left' : 'Sold out', 'pc-chip' + (p.left <= 1 ? ' low' : '')));
-    meta.appendChild(el('span', Number(p.ship) > 0 ? '+ $' + Number(p.ship).toFixed(2) + ' shipping' : 'Free shipping', 'pc-chip'));
+    meta.appendChild(el('span', p.nft ? 'No shipping (NFT)' : p.calc ? '+ shipping, priced at checkout' : Number(p.ship) > 0 ? '+ $' + Number(p.ship).toFixed(2) + ' shipping' : 'Free shipping', 'pc-chip'));
     if (p.party) meta.appendChild(el('span', '🎉 Party pricing: the price drops as more sell', 'pc-chip'));
     info.appendChild(meta);
     // Other shoppers who want it (filled in by nav.js): 'In 2 carts · 1 offer out'.
@@ -73,7 +73,7 @@
       var buy = el('a', p.party ? '🎉 Buy at the party price' : 'Buy now', 'buy wide'); buy.href = '/order.html?product=' + encodeURIComponent(p.id); acts.appendChild(buy);
       if (!p.party) {
         var cart = el('button', '🛒 Add to cart', 'alt'), inCart = false; cart.type = 'button';
-        cart.addEventListener('click', function () { if (inCart) { location.href = '/cart.html'; return; } if (!window.V2VCart) return; window.V2VCart.add({ id: p.id, name: p.name, price: p.price, ship: p.ship, photo: p.photo, seller: p.seller, sellerName: p.sellerName, left: p.left, nft: p.nft, qty: 1 }); inCart = true; cart.textContent = '✓ In cart · View ›'; });
+        cart.addEventListener('click', function () { if (inCart) { location.href = '/cart.html'; return; } if (!window.V2VCart) return; window.V2VCart.add({ id: p.id, name: p.name, price: p.price, ship: p.ship, calc: !!p.calc, photo: p.photo, seller: p.seller, sellerName: p.sellerName, left: p.left, nft: p.nft, qty: 1 }); inCart = true; cart.textContent = '✓ In cart · View ›'; });
         acts.appendChild(cart);
         var off = el('button', '💸 Make an offer', 'alt'); off.type = 'button'; off.addEventListener('click', function () { JF.quickOffer({ id: p.id, name: p.name, price: p.price, photo: p.photo, sellerName: p.sellerName }); });
         acts.appendChild(off);

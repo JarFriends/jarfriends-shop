@@ -308,7 +308,7 @@
     b.addEventListener('click', function (ev) {
       ev.preventDefault(); ev.stopPropagation();
       if (!window.V2VCart) return;
-      window.V2VCart.add({ id: p.id, name: p.name, price: p.price, ship: p.ship, photo: p.photo, seller: p.seller, sellerName: p.sellerName, left: p.left, nft: p.nft, qty: 1 });
+      window.V2VCart.add({ id: p.id, name: p.name, price: p.price, ship: p.ship, calc: !!p.calc, photo: p.photo, seller: p.seller, sellerName: p.sellerName, left: p.left, nft: p.nft, qty: 1 });
       b.textContent = '✓'; b.classList.add('on'); toast('Added to your cart', '/cart.html', 'View cart');
       setTimeout(function () { b.textContent = '+'; b.classList.remove('on'); }, 1600);
     });

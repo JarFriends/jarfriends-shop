@@ -162,7 +162,7 @@
     if (!P) return;
     if (P.photo) { $('pic').src = P.photo; $('pic').alt = P.name; $('pic').hidden = false; }
     $('desc').textContent = P.desc || '';
-    $('ship').textContent = Number(P.ship) > 0 ? 'Shipping $' + P.ship + '.' : 'Free shipping.';
+    $('ship').textContent = P.calc ? 'Shipping is priced for your address when you pay.' : Number(P.ship) > 0 ? 'Shipping $' + P.ship + '.' : 'Free shipping.';
   }).catch(function () {});
   function title(n) {
     n = String(n || '').replace(/^Auction:\s*/, '');
@@ -257,7 +257,7 @@
   function final() {
     $('s3amt').textContent = money(pick);
     $('s3way').textContent = WAYS[way] ? WAYS[way][0] : way;
-    $('s3ship').textContent = P && Number(P.ship) > 0 ? '$' + P.ship : 'Free';
+    $('s3ship').textContent = P && P.calc ? 'Priced for your address' : P && Number(P.ship) > 0 ? '$' + P.ship : 'Free';
     $('s3note').textContent = 'If you win, you agree to pay ' + money(pick) + '. We email you a link to pay within 24 hours.';
     $('s3msg').textContent = ''; $('s3go').disabled = false; $('s3go').textContent = 'Place my bid';
     step(3);

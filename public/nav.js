@@ -300,7 +300,7 @@
   }
   window.V2VCart = {
     items: cartRead,
-    add: function (it) { var c = cartRead(), f = c.filter(function (x) { return x.id === it.id; })[0]; var max = Math.max(1, Number(it.left) || 1); if (f) f.qty = Math.min(max, (f.qty || 1) + (it.qty || 1)); else c.push({ id: it.id, name: it.name, price: it.price, ship: it.ship, photo: it.photo || '', seller: it.seller || '', sellerName: it.sellerName || '', left: max, qty: Math.min(max, it.qty || 1), nft: !!it.nft }); cartWrite(c); return cartCount(); },
+    add: function (it) { var c = cartRead(), f = c.filter(function (x) { return x.id === it.id; })[0]; var max = Math.max(1, Number(it.left) || 1); if (f) f.qty = Math.min(max, (f.qty || 1) + (it.qty || 1)); else c.push({ id: it.id, name: it.name, price: it.price, ship: it.ship, photo: it.photo || '', seller: it.seller || '', sellerName: it.sellerName || '', left: max, qty: Math.min(max, it.qty || 1), nft: !!it.nft, calc: !!it.calc }); cartWrite(c); return cartCount(); },
     set: function (id, qty) { var c = cartRead().map(function (x) { if (x.id === id) x.qty = Math.max(1, Math.min(x.left || 99, qty)); return x; }); cartWrite(c); },
     remove: function (id) { cartWrite(cartRead().filter(function (x) { return x.id !== id; })); },
     clear: function (ids) { cartWrite(ids ? cartRead().filter(function (x) { return ids.indexOf(x.id) < 0; }) : []); },
