@@ -380,6 +380,8 @@ module.exports = async (req, res) => {
     }
 
     // ---------- The community giveaway (public): the wallet, the vote and, when signed in, your own vote ----------
+    // TEMPORARY wallet check (counts only, no names): removed after checking.
+    if (req.method === 'GET' && what === 'walletcheck') { const rows = await M.ledger(null); const paid = rows.filter((r) => r.paid); return res.json({ rows: rows.length, paid: paid.length, items: paid.reduce((t, r) => t + (r.items || 0), 0), gross: paid.reduce((t, r) => t + r.gross, 0), unpaidGross: rows.filter((r) => !r.paid).reduce((t, r) => t + r.gross, 0), direct: paid.filter((r) => r.direct).length, directPay: paid.filter((r) => r.directPay).length, noItems: paid.filter((r) => !r.items).length }); }
     if (req.method === 'GET' && what === 'giveaway') {
       const G = require('./_giveaway');
       const out = Object.assign({ wallet: await walletCents(), pct: M.giveawayPct(), fee: M.feePct() }, await G.results());
