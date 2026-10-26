@@ -100,6 +100,16 @@
       ev.preventDefault(); go.disabled = true; m.textContent = 'Saving…';
       JF.api('/api/market', Object.assign({ do: 'profile', t: tok, as: AS, ak: AK }, f.values())).then(function (r) { go.disabled = false; if (r.error) { m.textContent = r.error; return; } D.seller = r.seller; m.textContent = 'Saved.'; dash(); });
     });
+    // Get paid directly by buyers (same as in Settings): buyers paying that way send it straight to you.
+    var dp = s.directPay || {}, dbox = el('div'); dbox.style.cssText = 'display:flex;flex-direction:column;gap:8px;border-top:1px solid #2E4A3B;padding-top:12px';
+    dbox.appendChild(el('b', 'Get paid directly by buyers'));
+    dbox.appendChild(el('div', 'Optional. Buyers who pay by a way you fill in send the money straight to you, and you owe VeeFam its ' + D.fee + '% fee on those sales. Leave a box empty to keep that way paid to VeeFam.', 'small dim'));
+    var dz = input('text', dp.zelle || '', { maxlength: '80', placeholder: 'Email or phone' }), dv = input('text', dp.venmo || '', { maxlength: '40', placeholder: '@you' }), dc = input('text', dp.cashapp || '', { maxlength: '40', placeholder: '$you' }), dw = input('text', dp.crypto || '', { maxlength: '42', placeholder: '0x… (Ethereum and Base)', autocomplete: 'off', spellcheck: 'false' });
+    var g1 = el('div', null, 'two'); g1.appendChild(field('Zelle', dz)); g1.appendChild(field('Venmo', dv)); dbox.appendChild(g1);
+    var g2 = el('div', null, 'two'); g2.appendChild(field('Cash App', dc)); g2.appendChild(field('Crypto wallet', dw)); dbox.appendChild(g2);
+    var dsv = el('button', 'Save how buyers pay you', 'solid'); dsv.type = 'button'; dsv.style.alignSelf = 'flex-start'; var dm = el('div', '', 'small');
+    dsv.addEventListener('click', function () { dsv.disabled = true; dm.textContent = 'Saving…'; JF.api('/api/market', { do: 'profile', t: tok, as: AS, ak: AK, directPay: { zelle: dz.value, venmo: dv.value, cashapp: dc.value, crypto: dw.value.trim() } }).then(function (r) { dsv.disabled = false; dm.textContent = r.error || 'Saved.'; if (!r.error) D.seller = r.seller; }); });
+    dbox.appendChild(dsv); dbox.appendChild(dm); c.appendChild(dbox);
     pane.appendChild(c);
   }
   // Print a bought label: the seller's chosen layout (half sheet unless set to 4 x 6 in Settings), with the other one too.
