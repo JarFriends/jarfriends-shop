@@ -10,6 +10,9 @@
   var post = function (body) { body.ak = key(); return fetch('/api/market', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).then(function (r) { return r.json(); }); };
   var btn = el('button', 'Sellers', 'ghost'); btn.type = 'button'; btn.setAttribute('aria-pressed', 'false');
   tabs.insertBefore(btn, $('out'));
+  // Fees to collect: its own tab button. It opens Sellers at the fee section (who owes you, and who is paid up).
+  var feeBtn = el('button', '💸 Fees to collect', 'ghost'); feeBtn.type = 'button'; tabs.insertBefore(feeBtn, $('out'));
+  feeBtn.addEventListener('click', function () { btn.click(); var tries = 0; (function go() { var f = document.getElementById('feeBox'); if (f && f.offsetParent !== null) { f.open = true; f.scrollIntoView({ behavior: 'smooth', block: 'start' }); } else if (tries++ < 40) setTimeout(go, 150); })(); });
   var box = el('div'); box.dataset.extraTab = 'sellers'; box.hidden = true; box.style.cssText = 'display:flex;flex-direction:column;gap:18px';
   main.insertBefore(box, $('wOrders'));
   var css = el('style'); css.textContent = '.sx-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}.sx-tile{background:#11261C;border:1px solid #244536;padding:14px 16px;display:flex;flex-direction:column;gap:4px}.sx-tile b{font-family:"IBM Plex Mono",monospace;font-size:22px;font-weight:500}.sx-tile.gold{border-color:#C9A45C}.sx-tile.gold b{color:#C9A45C}.sx-b{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.1em;padding:3px 8px;border:1px solid #4E7A63}.sx-b.ok{border-color:#8FD3AE;color:#8FD3AE}.sx-b.wait{border-color:#C9A45C;color:#C9A45C}.sx-b.off{border-color:#E86A6A;color:#E86A6A}.sx-pay{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-top:8px}.sx-pay input,.sx-pay select{min-height:40px;font-size:15px;padding:6px 10px;background:#0B1A13;border:1px solid #4E7A63;color:#F7F2E6;border-radius:2px;font-family:inherit}';
@@ -185,6 +188,11 @@
       var wrap = el('div'); wrap.style.cssText = 'display:flex;flex-direction:column;gap:10px;margin-top:12px'; sb.appendChild(wrap);
       wrap.appendChild(el('div', 'Buyers paid these sellers directly, so the seller owes you your ' + r.fee + '% fee. Crypto fee payments mark themselves paid; press Seller paid when one comes in by Zelle or another way.', 'small dim'));
       if (!owe.length) wrap.appendChild(el('div', 'No seller owes you fees right now.', 'small'));
+      // Everyone else: no balance (paid up, or no sales paid to them directly).
+      var clear = r.sellers.filter(function (s) { return !(s.totals && s.totals.feeOwed > 0); });
+      if (clear.length) { var cd = el('details'); var cs = el('summary', 'No balance: ' + clear.length + ' seller' + (clear.length > 1 ? 's' : ''), 'small'); cs.style.cssText = 'cursor:pointer;font-weight:700'; cd.appendChild(cs);
+        clear.forEach(function (s) { var t2 = s.totals || {}; cd.appendChild(el('div', s.name + ' · $0 owed' + (t2.feePaid ? ' · paid you ' + money(t2.feePaid) + ' so far' : '') + (t2.feeDue ? '' : ' · no direct sales yet'), 'small dim')); });
+        wrap.appendChild(cd); }
       owe.forEach(function (s) {
         var c = el('div'); c.style.cssText = 'display:flex;flex-direction:column;gap:6px;border:1px solid #2E4A3B;border-radius:10px;padding:10px 12px';
         var hd = el('div'); hd.style.cssText = 'display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px'; hd.appendChild(el('b', s.name + ' · ' + s.email)); hd.appendChild(el('b', 'Owes you ' + money(s.totals.feeOwed))); c.appendChild(hd);
