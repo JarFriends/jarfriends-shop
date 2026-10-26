@@ -204,7 +204,7 @@
       [bG, bL].forEach(function (x) { x.style.cssText = 'border:0;border-radius:999px;padding:7px 14px;min-height:0;font-weight:800;font-size:13px;cursor:pointer'; sw2.appendChild(x); });
       hd.appendChild(sw2); box.appendChild(hd);
       if (!act.length) { sw2.hidden = true; if (empty) box.appendChild(el('div', empty, 'small dim')); return; }
-      var gal = el('div'); gal.style.cssText = 'display:flex;flex-direction:column;gap:14px'; box.appendChild(gal);
+      var gal = el('div'); gal.style.cssText = 'display:flex;flex-direction:column;gap:14px'; gal.setAttribute('data-noview', '1'); box.appendChild(gal);
       act.slice().sort(function (a, b) { return b.at - a.at; }).forEach(function (x) { cardOf(x, gal); });
       var lstBox = el('div'); box.appendChild(lstBox);
       (function (box) {

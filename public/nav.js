@@ -228,7 +228,9 @@
       + 'table.vw-cards td:first-child{font-weight:800;font-size:15px}table.vw-cards td:first-child:before{content:none}'
       + '.vw-gal{display:grid!important;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}'
       + '.vw-gal>.jf-row{display:flex!important;flex-direction:column!important;align-items:stretch!important;border:1px solid #2E4A3B;border-radius:12px;padding:12px!important}'
-      + '.vw-gal>.jf-row>:first-child{width:100%!important;height:auto!important;aspect-ratio:1}';
+      + '.vw-gal>.jf-row>:first-child{width:100%!important;height:auto!important;aspect-ratio:1}'
+      + '.vw-cardgal{display:grid!important;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px!important;align-items:start}'
+      + '.vw-cardgal>:not(.card){grid-column:1/-1}.vw-cardgal>.card{margin:0!important;min-width:0}';
     (document.head || document.documentElement).appendChild(css);
     var n = 0;
     function key(kind, i) { return 'vw:' + location.pathname + ':' + kind + ':' + i; }
@@ -256,6 +258,17 @@
         if (t.dataset.vw) { labels(t); return; }
         if (t.querySelectorAll('tbody tr').length < 2 || !t.querySelector('thead th')) return;
         t.dataset.vw = '1'; labels(t); sw(t, 'table', i, function (v) { labels(t); t.classList.toggle('vw-cards', v === 'gallery'); }, 'list');
+      });
+      // Any stack of cards (orders, offers, trades, sellers, reviews…) in the Seller Hub, the back office and elsewhere.
+      var parents = [];
+      Array.prototype.forEach.call(document.querySelectorAll('main .card'), function (c) { var p = c.parentNode; if (p && parents.indexOf(p) < 0) parents.push(p); });
+      idx.cards = 0;
+      parents.forEach(function (p) {
+        var i = idx.cards++;
+        if (p.dataset.vw || p.closest('[data-noview]') || p.classList.contains('jf-grid') || p.tagName === 'MAIN' || p.closest('.vw-cardgal') && p.closest('.vw-cardgal') !== p) return;
+        var cards = Array.prototype.filter.call(p.children, function (x) { return x.classList && x.classList.contains('card') && !x.classList.contains('jf-item'); });
+        if (cards.length < 3) return;
+        p.dataset.vw = '1'; sw(cards[0], 'cards', i, function (v) { p.classList.toggle('vw-cardgal', v === 'gallery'); }, 'list');
       });
       var seen = [];
       Array.prototype.forEach.call(document.querySelectorAll('.jf-row'), function (r) { var p = r.parentNode; if (p && seen.indexOf(p) < 0) seen.push(p); });
