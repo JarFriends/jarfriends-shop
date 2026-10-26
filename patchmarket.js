@@ -50,6 +50,9 @@ const changes = [
   // International shipping for sellers who switch it on (Shop settings): their own postage with a customs form.
   ['api/label.js', 'module.exports.quoteIntl = async (o) => {\n', "module.exports.quoteIntl = async (o) => {\n  if (/^S[0-9A-Z]{5,19}$/.test(String(o.pid || ''))) return require('./_ship').quoteIntl(o);\n"],
   ['api/order.js', "  if (/^S[0-9A-Z]{5,19}$/.test(p.id) && intl) return res.status(400).json({ error: 'This seller ships inside the USA only.' });", "  if (/^S[0-9A-Z]{5,19}$/.test(p.id) && intl) { const li0 = (await require('./_sellers').listings()).filter((x) => x.id === p.id)[0], sl0 = li0 && (await require('./_sellers').bySlug(li0.seller)); if (!sl0 || !sl0.shipIntl) return res.status(400).json({ error: 'This seller ships inside the USA only.' }); }"],
+  // Crypto: every coin button names its network, Ethereum mainnet or Base, so buyers send on the right one.
+  ['public/pay.html', "b.type = 'button'; b.className = 'pill'; b.dataset.c = c; b.textContent = inv.coins[c].label || c;", "b.type = 'button'; b.className = 'pill'; b.dataset.c = c; b.textContent = /-BASE$/.test(c) ? c.replace(/-BASE$/, '') + ' · Base' : ['ETH', 'USDC', 'USDT'].indexOf(c) >= 0 ? c + ' · Ethereum mainnet' : (inv.coins[c].label || c);"],
+  ['public/order.html', 'Pay online now with Ethereum, USDC or USDT.', 'Pay online now with ETH, USDC or USDT, on Ethereum mainnet or Base.'],
   ['api/offer.js', "'It is held for you until the link runs out.'", "'It is not held for you: others can still buy it, so pay soon to make sure it is yours.'"],
   ['api/offer.js', "'It is held for you until the link runs out. If the price does not work, you are welcome to send another offer.'", "'It is not held for you: others can still buy it, so pay soon to make sure it is yours. If the price does not work, you are welcome to send another offer.'"]
 ];
