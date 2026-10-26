@@ -536,6 +536,7 @@ module.exports = async (req, res) => {
     if (what === 'delete-account' && req.method === 'POST' && !actAs) {
       if (String(b.confirm || '').trim().toUpperCase() !== 'DELETE') return res.status(400).json({ error: 'Type DELETE to confirm.' });
       const shop = await M.byEmail(me);
+      if (M.isProtected(shop && shop.slug, me)) return res.status(400).json({ error: 'This is the site owner\u2019s account. It is protected and can\u2019t be deleted.' });
       if (shop) {
         const open = (await M.ledger(shop.slug)).filter((r) => r.paid && !r.tracking);
         if (open.length) return res.status(400).json({ error: 'You still have ' + open.length + ' paid order' + (open.length === 1 ? '' : 's') + ' to ship. Ship them (add tracking) before deleting your account.' });
@@ -724,6 +725,7 @@ module.exports = async (req, res) => {
     if (what === 'shop-close' && req.method === 'POST') {
       if (!seller) return res.status(403).json({ error: 'You do not have a shop.' });
       if (String(b.confirm || '').trim().toUpperCase() !== 'CLOSE') return res.status(400).json({ error: 'Type CLOSE to confirm.' });
+      if (M.isProtected(seller.slug, seller.email)) return res.status(400).json({ error: 'This is the site owner\u2019s shop. It is protected and can\u2019t be closed.' });
       const open = (await M.ledger(seller.slug)).filter((r) => r.paid && !r.tracking);
       if (open.length) return res.status(400).json({ error: 'You still have ' + open.length + ' paid order' + (open.length === 1 ? '' : 's') + ' to ship. Ship them (add tracking) before closing your shop.' });
       await M.removeShop(seller.slug, true);

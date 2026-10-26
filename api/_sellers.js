@@ -78,9 +78,22 @@ async function seed() {
 // Sales already made stay in the order records. Runs once per shop (sellers/removed/<slug>.json marks it done).
 // Delete one shop for good: its pieces and photos, posts, reviews, trades and the shop itself. keepMoney keeps the
 // payout and cost records (the owner's books); sales already made always stay in the order records.
+// Shops and accounts that can never be deleted by any code path: the owner's JarFriends shop, the owner's email,
+// and anything listed in PROTECT_SHOPS (comma list of shop names). Added after the 2026-10-26 deletion.
+const isProtected = (slug, email) => {
+  const shops = ['jarfriends'].concat(String(process.env.PROTECT_SHOPS || '').split(',')).map((x) => x.trim().toLowerCase()).filter(Boolean);
+  const mails = [process.env.OWNER_EMAIL, 'jarvisfriends@gmail.com'].map((x) => String(x || '').trim().toLowerCase()).filter(Boolean);
+  return shops.indexOf(String(slug || '').toLowerCase()) >= 0 || mails.indexOf(String(email || '').trim().toLowerCase()) >= 0;
+};
 async function removeShop(slug, keepMoney) {
   const { del } = await import('@vercel/blob');
   const s = await store.read('sellers/s/' + slug + '.json');
+  if (isProtected(slug, s && s.email)) { console.error('REMOVE_BLOCKED', slug); return { error: 'This shop is protected and can never be deleted.', blocked: true }; }
+  // Keep a copy of the shop and its pieces before anything goes (backups/shops/), so it can be put back.
+  const keep = await paths('market/' + slug + '/');
+  const copy = { at: Date.now(), seller: s, pieces: [] };
+  for (const k of keep) { const d = await store.read(k.path).catch(() => null); if (d) copy.pieces.push(d); }
+  await store.write('backups/shops/' + slug + '-' + copy.at + '.json', copy);
   const pieces = await paths('market/' + slug + '/');
   const ids = pieces.map((p) => (/\/([^\/]+)\.json$/.exec(p.path) || [])[1]).filter(Boolean);
   const photos = (await paths('photos/')).filter((p) => ids.some((id) => p.path === 'photos/' + id + '.jpg'));
@@ -543,4 +556,4 @@ async function directFor(pid, way) {
   const to = s && s.directPay && String(s.directPay[way] || '').trim();
   return to ? { slug: s.slug, name: s.name, way: way, to: to } : null;
 }
-module.exports = { promoFor, promoUsed, directFor, removeShop, bankFrom, bankOf, safe, routingOk, profit, setCost, giveawayPct, sellerOf, offerTo, notifySale, reviews, saveReview, removeReview, stats, statsAll, statsFrom, shortName, completed, VERIFY_AFTER, posts, addPost, removePost, feePct, autoApprove, all, bySlug, byEmail, save, apply, pub, listings, products, isSellerPid, saveListing, setListing, removeListing, ledger, payouts, addPayout, totals, hashOf, SECTIONS, sectionOf, forget };
+module.exports = { isProtected, promoFor, promoUsed, directFor, removeShop, bankFrom, bankOf, safe, routingOk, profit, setCost, giveawayPct, sellerOf, offerTo, notifySale, reviews, saveReview, removeReview, stats, statsAll, statsFrom, shortName, completed, VERIFY_AFTER, posts, addPost, removePost, feePct, autoApprove, all, bySlug, byEmail, save, apply, pub, listings, products, isSellerPid, saveListing, setListing, removeListing, ledger, payouts, addPayout, totals, hashOf, SECTIONS, sectionOf, forget };
