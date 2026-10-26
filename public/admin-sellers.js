@@ -13,13 +13,14 @@
   // Fees to collect: its own tab button. It opens Sellers at the fee section (who owes you, and who is paid up).
   // Sellers to pay: its own tab button too. It opens Sellers at "Needs to be paid" (who you pay by hand, and Stripe's).
   var payBtn = el('button', '💵 Sellers to pay', 'ghost'); payBtn.type = 'button'; tabs.insertBefore(payBtn, $('out'));
-  payBtn.addEventListener('click', function () { btn.click(); var tries = 0; (function go() { var f = document.getElementById('payBox'); if (f) { f.open = true; setTimeout(function () { f.open = true; f.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 250); } else if (tries++ < 40) setTimeout(go, 150); })(); });
+  payBtn.addEventListener('click', function () { setTimeout(function () { btn.click(); box.classList.add('focus-pay'); payBtn.setAttribute('aria-pressed', 'true'); btn.setAttribute('aria-pressed', 'false'); }, 0); box.classList.add('focus-pay'); var tries = 0; (function go() { var f = document.getElementById('payBox'); if (f) { box.classList.add('focus-pay'); f.open = true; setTimeout(function () { f.open = true; f.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 250); } else if (tries++ < 40) setTimeout(go, 150); })(); });
   var feeBtn = el('button', '💸 Fees to collect', 'ghost'); feeBtn.type = 'button'; tabs.insertBefore(feeBtn, $('out'));
-  feeBtn.addEventListener('click', function () { btn.click(); var tries = 0; (function go() { var f = document.getElementById('feeBox'); if (f) { f.open = true; setTimeout(function () { f.open = true; f.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 250); } else if (tries++ < 40) setTimeout(go, 150); })(); });
+  feeBtn.addEventListener('click', function () { setTimeout(function () { btn.click(); feeBtn.setAttribute('aria-pressed', 'true'); btn.setAttribute('aria-pressed', 'false'); }, 0); var tries = 0; (function go() { var f = document.getElementById('feeBox'); if (f) { f.open = true; setTimeout(function () { f.open = true; f.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 250); } else if (tries++ < 40) setTimeout(go, 150); })(); });
   var box = el('div'); box.dataset.extraTab = 'sellers'; box.hidden = true; box.style.cssText = 'display:flex;flex-direction:column;gap:18px';
   main.insertBefore(box, $('wOrders'));
   var css = el('style'); css.textContent = '.sx-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}.sx-tile{background:#11261C;border:1px solid #244536;padding:14px 16px;display:flex;flex-direction:column;gap:4px}.sx-tile b{font-family:"IBM Plex Mono",monospace;font-size:22px;font-weight:500}.sx-tile.gold{border-color:#C9A45C}.sx-tile.gold b{color:#C9A45C}.sx-b{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.1em;padding:3px 8px;border:1px solid #4E7A63}.sx-b.ok{border-color:#8FD3AE;color:#8FD3AE}.sx-b.wait{border-color:#C9A45C;color:#C9A45C}.sx-b.off{border-color:#E86A6A;color:#E86A6A}.sx-pay{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-top:8px}.sx-pay input,.sx-pay select{min-height:40px;font-size:15px;padding:6px 10px;background:#0B1A13;border:1px solid #4E7A63;color:#F7F2E6;border-radius:2px;font-family:inherit}';
   document.head.appendChild(css);
+  var pvCss = el('style'); pvCss.textContent = '.pv-list{display:flex;flex-direction:column;gap:8px}.pv-grid .pv-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}.pv-grid .pv-list>div{flex-direction:column;align-items:flex-start!important}.focus-pay>:not(#payBox){display:none!important}.pv-all{display:none}.focus-pay .pv-all{display:inline-flex}.pv-wrap button[aria-pressed="true"]{background:#C9A45C;color:#0B1A13;border-color:#C9A45C}'; document.head.appendChild(pvCss);
   // Your own shops (SEED_SELLERS) get their own back office: a button at the top of this page opens it.
   var mine = $('myShops'), shown = false;
   function myShops() {
@@ -37,6 +38,7 @@
   // Any other tab puts this one away.
   tabs.addEventListener('click', function (ev) { var b = ev.target.closest && ev.target.closest('button'); if (b && b !== btn && b.id !== 'out') { box.hidden = true; btn.setAttribute('aria-pressed', 'false'); } });
   btn.addEventListener('click', function () {
+    box.classList.remove('focus-pay');
     Array.prototype.forEach.call(tabs.querySelectorAll('button'), function (b) { if (b.id !== 'out') b.setAttribute('aria-pressed', b === btn ? 'true' : 'false'); });
     ['wOrders', 'wPeople', 'wItems', 'none', 'offerWait'].forEach(function (id) { if ($(id)) $(id).hidden = true; });
     Array.prototype.forEach.call(main.children, function (c) { if (c !== box && c.dataset && c.dataset.extraTab) c.hidden = true; });
@@ -145,7 +147,16 @@
       var auto = (r.sales || []).filter(function (x) { return x.paid && x.direct && Date.now() - x.at < 14 * 864e5; }).sort(function (a, b) { return b.at - a.at; });
       var total = manual.reduce(function (t, s) { return t + s.totals.payNow; }, 0);
       var sm = el('summary'); sm.style.cssText = 'cursor:pointer;font-weight:800;font-size:17px'; sm.textContent = '💸 Needs to be paid' + (manual.length ? ' · ' + manual.length + ' to pay by hand, ' + money(total) : ' · nothing to pay by hand'); nb.appendChild(sm);
-      var wrap = el('div'); wrap.style.cssText = 'display:flex;flex-direction:column;gap:10px;margin-top:12px'; nb.appendChild(wrap);
+      var wrap = el('div'); wrap.dataset.noview = '1'; wrap.className = 'pv-wrap pv-grid'; wrap.style.cssText = 'display:flex;flex-direction:column;gap:10px;margin-top:12px'; nb.appendChild(wrap);
+      // Its own Gallery / List switch (remembered), and a way back to the whole Sellers tab when opened on its own.
+      var vt = el('div'); vt.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;align-items:center';
+      var vg = el('button', '▦ Gallery', 'ghost'), vl = el('button', '☰ List', 'ghost'); vg.type = vl.type = 'button';
+      var setV = function (g) { wrap.classList.toggle('pv-grid', g); vg.setAttribute('aria-pressed', g ? 'true' : 'false'); vl.setAttribute('aria-pressed', g ? 'false' : 'true'); try { localStorage.setItem('pvView', g ? 'g' : 'l'); } catch (e) {} };
+      vg.addEventListener('click', function () { setV(true); }); vl.addEventListener('click', function () { setV(false); });
+      var all = el('button', '‹ Show the whole Sellers tab', 'ghost'); all.type = 'button'; all.className = 'ghost pv-all'; all.addEventListener('click', function () { box.classList.remove('focus-pay'); });
+      vt.appendChild(vg); vt.appendChild(vl); vt.appendChild(all); wrap.appendChild(vt);
+      var pv0 = 'g'; try { pv0 = localStorage.getItem('pvView') || 'g'; } catch (e) {} setV(pv0 === 'g');
+      var mList = el('div', null, 'pv-list'), aList = el('div', null, 'pv-list');
       wrap.appendChild(el('b', 'You pay these by hand'));
       if (!manual.length) wrap.appendChild(el('div', 'Nobody is waiting on a payout from you.', 'small dim'));
       manual.forEach(function (s) {
@@ -170,8 +181,9 @@
           });
           c.appendChild(sp); c.appendChild(spm);
         }
-        wrap.appendChild(c);
+        mList.appendChild(c);
       });
+      wrap.appendChild(mList);
       wrap.appendChild(el('b', 'Stripe pays these automatically'));
       if (!auto.length) wrap.appendChild(el('div', 'No card sales in the last 2 weeks went straight to a seller\u2019s Stripe.', 'small dim'));
       auto.forEach(function (x) {
@@ -179,8 +191,9 @@
         var c = el('div'); c.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;border:1px solid #2E4A3B;border-radius:10px;padding:10px 12px;font-size:14px';
         c.appendChild(el('span', sn + ' · order ' + x.n + ' · ' + x.product + ' · ' + money(x.net)));
         c.appendChild(el('span', (past ? 'Sent by Stripe around ' : 'Stripe sends it around ') + when.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }), 'small dim'));
-        wrap.appendChild(c);
+        aList.appendChild(c);
       });
+      wrap.appendChild(aList);
       if (auto.length) wrap.appendChild(el('div', 'Dates are rough: Stripe usually pays 2 business days after a sale (daily payouts). A brand-new Stripe account, or a seller on weekly payouts, can take up to about 7 days.', 'small dim'));
     })();
     // Sellers owe you: fees on sales the buyer paid straight to the seller (their Zelle, Venmo, Cash App or crypto).
