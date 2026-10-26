@@ -93,6 +93,9 @@ async function removeShop(slug, keepMoney) {
   return { name: s ? s.name : '', pieces: ids.length, files: urls.length };
 }
 async function retire() {
+  // DISABLED for good (Oct 26 2026): a failed read of the 'already removed' marker made this delete the owner's
+  // live JarFriends shop. Shops are only ever removed by hand from the back office now.
+  if (true) return;
   const list = String(process.env.REMOVE_SELLERS || '').split(',').map((x) => x.trim().toLowerCase()).filter((x) => /^[a-z0-9-]{1,30}$/.test(x));
   if (!list.length || !store.on()) return;
   for (const slug of list) {

