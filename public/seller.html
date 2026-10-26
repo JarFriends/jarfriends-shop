@@ -82,6 +82,32 @@
   // How a seller's payout details read: "Checking account ending 1234" or "SWIFT wire to Barclays ending 1234".
   var bankLine = function (s) { var h = s.bankHint; if (!h) return ''; if (h.type === 'crypto') return '🪙 Crypto: ' + h.holder + ' to wallet …' + h.last4; return h.type === 'intl' ? 'International wire to ' + (s.payTo || 'your bank').replace(/^SWIFT wire to /, '') + ' · ' + h.holder : (h.type === 'savings' ? 'Savings' : 'Checking') + ' account ending ' + h.last4 + ' · ' + h.holder; };
   // The payout details card (Payments tab, and Settings): shows what is on file, or the form to add or change it.
+  // What you owe VeeFam: the fee on every sale a buyer paid you directly, what you already paid, and how to pay.
+  function oweTab(pane) {
+    var t = D.totals || {}, c = el('section', null, 'card'); c.style.gap = '10px';
+    c.appendChild(el('h2', t.feeOwed > 0 ? 'You owe VeeFam ' + JF.cents(t.feeOwed) : 'You owe VeeFam nothing right now'));
+    c.appendChild(el('div', 'When a buyer pays you directly (your Zelle, Venmo, Cash App or crypto wallet), you have all the money, so VeeFam\u2019s ' + D.fee + '% fee on the piece price comes from you. Card sales and sales paid to VeeFam are never listed here: the fee is already taken.', 'small dim'));
+    var rows = (D.orders || []).filter(function (o) { return o.directPay && o.paid; });
+    if (!rows.length) c.appendChild(el('div', 'No sales paid to you directly yet.', 'small'));
+    rows.forEach(function (o) { var r0 = el('div'); r0.style.cssText = 'display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;border-top:1px solid #2E4A3B;padding-top:8px;font-size:14px';
+      r0.appendChild(el('span', 'Order ' + o.n + ' · ' + o.product + ' · ' + new Date(o.at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' · buyer paid you ' + JF.cents(o.gross) + ' by ' + (o.pay || '?') + ' · ' + D.fee + '% of the piece price ' + JF.cents(o.items || 0)));
+      r0.appendChild(el('b', JF.cents(o.fee))); c.appendChild(r0); });
+    if (t.feePaid) { var pd = el('div'); pd.style.cssText = 'display:flex;justify-content:space-between;gap:8px;border-top:1px solid #2E4A3B;padding-top:8px;font-size:14px;opacity:.8'; pd.appendChild(el('span', 'You already paid')); pd.appendChild(el('b', '−' + JF.cents(t.feePaid))); c.appendChild(pd); }
+    pane.appendChild(c);
+    var hold = el('div'); pane.appendChild(hold); feeBox(hold);
+  }
+  function feeBox(pane) {
+    var t = D.totals || {};
+    if (t.feeOwed > 0) { var fb = el('section', null, 'card'); fb.style.cssText = 'gap:8px;border-color:#C9A45C';
+      fb.appendChild(el('b', 'You owe VeeFam ' + JF.cents(t.feeOwed) + ' in fees'));
+      fb.appendChild(el('div', 'Buyers paid you directly on these sales, so VeeFam\u2019s ' + D.fee + '% fee comes from you.', 'small dim'));
+      fb.appendChild(el('div', '⭐ We prefer crypto: it marks itself paid automatically as soon as it arrives. Keep the payment page open until it confirms.', 'small'));
+      var alt = [['Zelle', D.zelleTo], ['Venmo', D.venmoTo], ['Cash App', D.cashappTo]].filter(function (x) { return x[1]; }).map(function (x) { return x[0] + ': ' + x[1]; });
+      if (alt.length) fb.appendChild(el('div', 'Other ways to pay: ' + alt.join(' · ') + '. Put \u201cVeeFam fees, ' + D.seller.name + '\u201d in the note; VeeFam marks it paid once it arrives.', 'small dim'));
+      var fpb = el('button', 'Pay ' + JF.cents(t.feeOwed) + ' in crypto', 'solid'); fpb.type = 'button'; fpb.style.alignSelf = 'flex-start'; var fpm = el('div', '', 'small');
+      fpb.addEventListener('click', function () { fpb.disabled = true; fpm.textContent = 'Opening…'; JF.api('/api/market', { do: 'fee-pay', t: tok, as: AS, ak: AK }).then(function (x) { fpb.disabled = false; if (x.link) location.href = x.link; else fpm.textContent = x.error || 'Could not open it.'; }); });
+      fb.appendChild(fpb); fb.appendChild(fpm); pane.appendChild(fb); }
+  }
   function payoutCard(pane) {
     var s = D.seller;
     var c = el('section', null, 'card'); c.style.gap = '12px';
@@ -268,13 +294,13 @@
     }
     var tabs = el('div', null, 'hub-tabs'); tabs.setAttribute('role', 'tablist');
     var toShip = D.orders.filter(function (o) { return o.paid && !o.tracking; }).length;
-    [['overview', 'Overview'], ['orders', 'Orders' + (toShip ? ' (' + toShip + ')' : '')], ['listings', 'Listings'], ['live', '🔴 Live'], ['messages', '💬 Messages'], ['offers', 'Offers'], ['trades', 'Trades'], ['marketing', 'Marketing'], ['reviews', 'Performance'], ['payouts', 'Payments'], ['profit', 'Profit & taxes'], ['research', 'Research'], ['settings', 'Settings']].forEach(function (x) {
+    [['overview', 'Overview'], ['owe', 'What you owe' + (D.totals && D.totals.feeOwed > 0 ? ' (' + JF.cents(D.totals.feeOwed) + ')' : '')], ['orders', 'Orders' + (toShip ? ' (' + toShip + ')' : '')], ['listings', 'Listings'], ['live', '🔴 Live'], ['messages', '💬 Messages'], ['offers', 'Offers'], ['trades', 'Trades'], ['marketing', 'Marketing'], ['reviews', 'Performance'], ['payouts', 'Payments'], ['profit', 'Profit & taxes'], ['research', 'Research'], ['settings', 'Settings']].forEach(function (x) {
       var b = el('button', x[1]); b.type = 'button'; b.setAttribute('aria-pressed', tab === x[0] ? 'true' : 'false');
       b.addEventListener('click', function () { tab = x[0]; editing = null; adding = false; dash(); }); tabs.appendChild(b);
     });
     wrap.appendChild(tabs);
     var pane = el('div'); pane.style.cssText = 'display:flex;flex-direction:column;gap:18px';
-    ({ messages: messagesTab, overview: overview, live: liveTab, listings: listings, marketing: posts, reviews: performance, offers: offers, trades: trades, orders: orders, payouts: payments, profit: profit, research: research, settings: settings })[tab](pane);
+    ({ owe: oweTab, messages: messagesTab, overview: overview, live: liveTab, listings: listings, marketing: posts, reviews: performance, offers: offers, trades: trades, orders: orders, payouts: payments, profit: profit, research: research, settings: settings })[tab](pane);
     wrap.appendChild(pane);
     var out = el('button', 'Sign out', 'ghost'); out.type = 'button'; out.style.alignSelf = 'flex-start';
     out.addEventListener('click', function () { if (AS) { location.href = '/admin.html'; return; } JF.signOut(); location.reload(); });
@@ -449,15 +475,7 @@
         cb.addEventListener('click', function () { cb.disabled = true; JF.api('/api/market', { do: 'direct-received', t: tok, as: AS, ak: AK, n: o.n }).then(function (x) { cb.textContent = x.error || '✓ Marked paid'; if (x.error) cb.disabled = false; }); });
         r0.appendChild(cb); ci.appendChild(r0); });
       pane.appendChild(ci); }
-    if (t.feeOwed > 0) { var fb = el('section', null, 'card'); fb.style.cssText = 'gap:8px;border-color:#C9A45C';
-      fb.appendChild(el('b', 'You owe VeeFam ' + JF.cents(t.feeOwed) + ' in fees'));
-      fb.appendChild(el('div', 'Buyers paid you directly on these sales, so VeeFam\u2019s ' + D.fee + '% fee comes from you.', 'small dim'));
-      fb.appendChild(el('div', '⭐ We prefer crypto: it marks itself paid automatically as soon as it arrives. Keep the payment page open until it confirms.', 'small'));
-      var alt = [['Zelle', D.zelleTo], ['Venmo', D.venmoTo], ['Cash App', D.cashappTo]].filter(function (x) { return x[1]; }).map(function (x) { return x[0] + ': ' + x[1]; });
-      if (alt.length) fb.appendChild(el('div', 'Other ways to pay: ' + alt.join(' · ') + '. Put \u201cVeeFam fees, ' + D.seller.name + '\u201d in the note; VeeFam marks it paid once it arrives.', 'small dim'));
-      var fpb = el('button', 'Pay ' + JF.cents(t.feeOwed) + ' in crypto', 'solid'); fpb.type = 'button'; fpb.style.alignSelf = 'flex-start'; var fpm = el('div', '', 'small');
-      fpb.addEventListener('click', function () { fpb.disabled = true; fpm.textContent = 'Opening…'; JF.api('/api/market', { do: 'fee-pay', t: tok, as: AS, ak: AK }).then(function (x) { fpb.disabled = false; if (x.link) location.href = x.link; else fpm.textContent = x.error || 'Could not open it.'; }); });
-      fb.appendChild(fpb); fb.appendChild(fpm); pane.appendChild(fb); }
+    feeBox(pane);
     if (t.unpaidGross) pane.appendChild(el('div', JF.cents(t.unpaidGross) + ' more is in orders waiting for the buyer to pay. It counts once they pay.', 'small dim'));
     payouts(pane);
   }
