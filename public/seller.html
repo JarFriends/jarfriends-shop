@@ -1386,7 +1386,7 @@
     f.appendChild(field('About your shop', about));
     var lfmt = select([['half', 'Half sheet: label on the top half of a letter page (default)'], ['4x6', '4 x 6 label printer (thermal)']], s.labelFormat || 'half');
     f.appendChild(field('How your shipping labels print', lfmt, 'Half sheet fits regular printers and half-sheet label paper. Pick 4 x 6 if you use a label printer.'));
-    var intl = select([['no', 'United States only (default)'], ['yes', 'Ship internationally too']], s.shipIntl ? 'yes' : 'no');
+    var intl = select([['no', 'United States only (default)'], ['yes', 'Ship internationally too']], (s.shipIntl != null ? s.shipIntl : s.based === 'intl') ? 'yes' : 'no');
     f.appendChild(field('Where you ship', intl, 'Ship internationally: buyers in other countries can buy your pieces and pay real international postage at checkout (customs duties are theirs). When you buy the label here, the customs form is filled in for you from the listing and prints with it.'));
     f.appendChild(el('h3', 'Payouts'));
     var bk = el('div'); bk.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;align-items:center';

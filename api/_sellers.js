@@ -143,7 +143,7 @@ async function apply(email, f) {
   const vouch = String(f.vouch == null ? '' : f.vouch).replace(/\r/g, '').replace(/[ \t]+/g, ' ').trim().slice(0, 600);
   if (vouch.length < 3) return { error: 'Tell us who can vouch for you.' };
   if (!f.agree) return { error: 'Tick the box to agree to the seller terms.' };
-  const s = Object.assign({ slug: slug, name: name, email: String(email).trim().toLowerCase(), about: tidy(f.about, 400), vouch: vouch, status: autoApprove() ? 'approved' : 'pending', at: Date.now(), agreedFee: feePct(), based: based, country: based === 'intl' ? tidy(f.country, 60) : 'United States' }, bank.fields);
+  const s = Object.assign({ slug: slug, name: name, email: String(email).trim().toLowerCase(), about: tidy(f.about, 400), vouch: vouch, shipIntl: based === 'intl', status: autoApprove() ? 'approved' : 'pending', at: Date.now(), agreedFee: feePct(), based: based, country: based === 'intl' ? tidy(f.country, 60) : 'United States' }, bank.fields);
   await save(s);
   await store.write('sellers/e/' + hashOf(email) + '.json', { slug: slug });
   return { seller: s };

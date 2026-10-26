@@ -65,6 +65,8 @@ async function cheapest(from, to, parcel) {
 // ---- Outside the USA (sellers who tick "Ship internationally" in Shop settings) ----
 // A Shippo customs declaration is made for the package (what is inside, its value, weight; certified by the seller),
 // so the label comes with its customs form. USPS first, any carrier if USPS has no price.
+// Ships abroad: the seller's choice in Shop settings; sellers based outside the USA ship internationally unless they turn it off.
+const shipsIntl = (s) => (s && s.shipIntl != null ? !!s.shipIntl : !!(s && s.based === 'intl'));
 async function intlRate(seller, listing, to, qty, value, item) {
   const from = fromOf(seller);
   if (!from) throw new Error('no ship-from address');
@@ -87,7 +89,9 @@ async function quoteIntl(o) {
   if (!ready()) return { error: 'Shipping outside the USA is not available right now.' };
   const listing = (await M.listings()).filter((x) => x.id === o.pid)[0];
   const seller = listing && (await M.bySlug(listing.seller));
-  if (!seller || !seller.shipIntl) return { error: 'This seller ships inside the USA only.' };
+  if (!seller || !shipsIntl(seller)) return { error: 'This seller ships inside the USA only.' };
+  // A seller based outside the USA ships their own way: the buyer pays the shipping price on the listing.
+  if (seller.based === 'intl') return { cents: listing.shipping === 'free' ? 0 : Math.round(Number(listing.shipping) * 100) || 0, service: 'Seller ships from ' + (seller.country || 'outside the USA') };
   if (!fromOf(seller)) return { error: 'This seller has not finished setting up shipping yet.' };
   try {
     const r = await intlRate(seller, listing, o.to, o.qty, o.value, o.item);
@@ -221,4 +225,4 @@ async function buyLabel(seller, n, rateId, host) {
 }
 const money = (c) => '$' + (c / 100).toFixed(2);
 
-module.exports = { quoteIntl, intlRate, PRESETS, packageOf, fromOf, calcFor, quoteLabel, buyLabel, payPlan, ready, isTest };
+module.exports = { shipsIntl, quoteIntl, intlRate, PRESETS, packageOf, fromOf, calcFor, quoteLabel, buyLabel, payPlan, ready, isTest };
