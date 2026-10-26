@@ -46,7 +46,7 @@
     if (r.error) { box.textContent = r.error; return; }
     var t = r.totals;
     var tiles = el('div', null, 'sx-tiles');
-    [['YOUR FEES EARNED (' + r.fee + '%)', money(t.fee), 'gold'], ['GIVEAWAY WALLET (' + (r.giveaway || 2) + '% OF SALES, FROM YOUR FEE)', money(t.wallet || 0), ''], ['YOU KEEP AFTER WALLET', money((t.fee || 0) - (t.wallet || 0)), 'gold'], ['SELLER SALES (PAID)', money(t.gross), ''], ['PAID TO SELLERS BY STRIPE', money(t.byStripe || 0), ''], ['SENT BY YOU', money(t.paidOut), ''], ['YOU STILL OWE SELLERS', money(t.owed), ''], ['SELLERS', String(r.sellers.length), '']].forEach(function (x) {
+    [['YOUR FEES EARNED (' + r.fee + '%)', money(t.fee), 'gold'], ['GIVEAWAY WALLET (' + (r.giveaway || 2) + '% OF SALES, FROM YOUR FEE)', money(t.wallet || 0), ''], ['YOU KEEP AFTER WALLET', money((t.fee || 0) - (t.wallet || 0)), 'gold'], ['SELLER SALES (PAID)', money(t.gross), ''], ['PAID TO SELLERS BY STRIPE', money(t.byStripe || 0), ''], ['SENT BY YOU', money(t.paidOut), ''], ['YOU STILL OWE SELLERS', money(Math.max(0, t.payNow != null ? t.payNow : t.owed)) + (t.shipHeld ? ' (+' + money(t.shipHeld) + ' shipping held)' : ''), ''], ['SELLERS', String(r.sellers.length), '']].forEach(function (x) {
       var owe = x[0] === 'YOU STILL OWE SELLERS';
       var d = el(owe ? 'button' : 'div', null, 'sx-tile ' + x[2]); d.appendChild(el('span', x[0], 'label')); d.appendChild(el('b', x[1])); tiles.appendChild(d);
       if (owe) { d.type = 'button'; d.style.cssText = 'cursor:pointer;text-align:left;font:inherit;color:inherit;border-color:#C9A45C'; d.appendChild(el('span', 'See who and why ›', 'label')).style.color = '#E8C77A'; d.addEventListener('click', function () { oweBox.hidden = !oweBox.hidden; if (!oweBox.hidden) oweBox.scrollIntoView({ behavior: 'smooth', block: 'start' }); }); }
@@ -128,27 +128,64 @@
         c.appendChild(j); wrap.appendChild(c);
       });
     })();
+    // Needs to be paid: who you pay by hand now, and the card sales Stripe pays sellers by itself, with a rough date.
+    (function () {
+      var nb = el('details', null, 'card'); nb.style.gap = '10px'; box.appendChild(nb);
+      var manual = r.sellers.filter(function (s) { return s.totals && s.totals.payNow > 0; }).sort(function (a, b) { return b.totals.payNow - a.totals.payNow; });
+      var addBiz = function (t, n) { var d = new Date(t); while (n > 0) { d.setDate(d.getDate() + 1); if (d.getDay() !== 0 && d.getDay() !== 6) n--; } return d; };
+      var auto = (r.sales || []).filter(function (x) { return x.paid && x.direct && Date.now() - x.at < 14 * 864e5; }).sort(function (a, b) { return b.at - a.at; });
+      var total = manual.reduce(function (t, s) { return t + s.totals.payNow; }, 0);
+      var sm = el('summary'); sm.style.cssText = 'cursor:pointer;font-weight:800;font-size:17px'; sm.textContent = '💸 Needs to be paid' + (manual.length ? ' · ' + manual.length + ' to pay by hand, ' + money(total) : ' · nothing to pay by hand'); nb.appendChild(sm);
+      var wrap = el('div'); wrap.style.cssText = 'display:flex;flex-direction:column;gap:10px;margin-top:12px'; nb.appendChild(wrap);
+      wrap.appendChild(el('b', 'You pay these by hand'));
+      if (!manual.length) wrap.appendChild(el('div', 'Nobody is waiting on a payout from you.', 'small dim'));
+      manual.forEach(function (s) {
+        var c = el('div'); c.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;border:1px solid #2E4A3B;border-radius:10px;padding:10px 12px';
+        var info = el('div'); info.style.cssText = 'display:flex;flex-direction:column;gap:2px;min-width:0';
+        info.appendChild(el('b', s.name + ' · ' + money(s.totals.payNow)));
+        info.appendChild(el('span', 'Send to: ' + (s.payTo ? (s.payHow === 'bank' || s.payHow === 'wire' ? 'bank account (on their card)' : (s.payHow || '') + ' ' + s.payTo) : 'no payout details yet, ask them to add them in Seller Hub') + (s.totals.shipHeld ? ' · ' + money(s.totals.shipHeld) + ' shipping held until it ships' : ''), 'small dim'));
+        c.appendChild(info);
+        var go = el('button', 'Record a payout ›', 'ghost'); go.type = 'button'; go.style.cssText = 'padding:6px 10px;min-height:0';
+        go.addEventListener('click', function () { var t2 = box.querySelector('[data-seller="' + s.slug + '"]'); if (t2) { var hid = t2.closest('[hidden]'); if (hid) hid.hidden = false; t2.scrollIntoView({ behavior: 'smooth', block: 'center' }); if (t2.click) t2.click(); } });
+        c.appendChild(go); wrap.appendChild(c);
+      });
+      wrap.appendChild(el('b', 'Stripe pays these automatically'));
+      if (!auto.length) wrap.appendChild(el('div', 'No card sales in the last 2 weeks went straight to a seller\u2019s Stripe.', 'small dim'));
+      auto.forEach(function (x) {
+        var sn = (r.sellers.filter(function (s) { return s.slug === x.seller; })[0] || {}).name || x.seller, when = addBiz(x.at, 2), past = when.getTime() < Date.now();
+        var c = el('div'); c.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;border:1px solid #2E4A3B;border-radius:10px;padding:10px 12px;font-size:14px';
+        c.appendChild(el('span', sn + ' · order ' + x.n + ' · ' + x.product + ' · ' + money(x.net)));
+        c.appendChild(el('span', (past ? 'Sent by Stripe around ' : 'Stripe sends it around ') + when.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }), 'small dim'));
+        wrap.appendChild(c);
+      });
+      if (auto.length) wrap.appendChild(el('div', 'Dates are rough: Stripe usually pays 2 business days after a sale (daily payouts). A brand-new Stripe account, or a seller on weekly payouts, can take up to about 7 days.', 'small dim'));
+    })();
     // What you owe, seller by seller: every sale that paid you (not their Stripe), minus labels, charges and payouts.
     var oweBox = el('section', null, 'card'); oweBox.hidden = true; oweBox.style.gap = '14px'; box.appendChild(oweBox);
     (function () {
       oweBox.appendChild(el('h2', 'What you owe sellers'));
       oweBox.appendChild(el('div', 'These sales were paid to you (Zelle, Venmo, Cash App, cash, crypto, or a card sale before the seller set up Stripe payouts). You keep your ' + r.fee + '% and send the seller the rest. Card sales paid straight to a seller\u2019s Stripe are not listed: Stripe already paid them.', 'small dim'));
-      var due = r.sellers.filter(function (s) { return s.totals && s.totals.owed !== 0; }).sort(function (a, b) { return b.totals.owed - a.totals.owed; });
+      var due = r.sellers.filter(function (s) { return s.totals && s.totals.owed !== 0; }).sort(function (a, b) { return b.totals.payNow - a.totals.payNow; });
       if (!due.length) { oweBox.appendChild(el('div', 'You are all square with every seller.', 'small')); return; }
       due.forEach(function (s) {
         var st = s.totals, w = el('div'); w.style.cssText = 'display:flex;flex-direction:column;gap:8px;border:1px solid #2E4A3B;border-radius:10px;padding:12px';
         var hd = el('div'); hd.style.cssText = 'display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;align-items:baseline';
-        hd.appendChild(el('b', s.name)); hd.appendChild(el('b', (st.owed < 0 ? 'They owe you ' : 'You owe ') + money(Math.abs(st.owed))));
+        hd.appendChild(el('b', s.name)); hd.appendChild(el('b', st.payNow < 0 ? 'They owe you ' + money(-st.payNow) : 'Ready to pay now ' + money(st.payNow)));
         w.appendChild(hd);
+        if (st.shipHeld) w.appendChild(el('div', '+ ' + money(st.shipHeld) + ' shipping held until it ships. It pays for the label; if they ship their own way, it goes to them once tracking is added.', 'small dim'));
         w.appendChild(el('div', 'Send to: ' + (s.payTo ? (s.payHow === 'bank' || s.payHow === 'wire' ? 'bank account (Show bank details on their card below)' : (s.payHow || '') + ' ' + s.payTo) : 'no payout details yet. Ask them to add them in Seller Hub.') + ' · ' + s.email, 'small'));
         var rows = (r.sales || []).filter(function (x) { return x.seller === s.slug && x.paid && !x.direct; });
         var tb = el('div'); tb.style.cssText = 'display:flex;flex-direction:column;gap:4px;font-size:14px';
         var line = function (a, b, dim) { var l = el('div'); l.style.cssText = 'display:flex;justify-content:space-between;gap:10px' + (dim ? ';opacity:.75' : ''); l.appendChild(el('span', a)); l.appendChild(el('span', b)); tb.appendChild(l); };
-        rows.forEach(function (x) { line('Order ' + x.n + ' · ' + x.product + (x.q > 1 ? ' ×' + x.q : '') + ' · ' + new Date(x.at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' · paid by ' + (x.pay || '?') + ' · sold ' + money(x.gross) + ' − your fee ' + money(x.fee), '+' + money(x.net)); });
+        rows.forEach(function (x) {
+          var sh = Math.max(0, x.gross - (x.items || 0)), shipped = !!(x.tracking || x.shippedAt);
+          line('Order ' + x.n + ' · ' + x.product + (x.q > 1 ? ' ×' + x.q : '') + ' · ' + new Date(x.at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' · paid by ' + (x.pay || '?') + ' · piece ' + money(x.items || 0) + ' − your fee ' + money(x.fee), '+' + money((x.items || 0) - x.fee));
+          if (sh) line('   Shipping the buyer paid on ' + x.n + (shipped ? ' (shipped)' : ' (held until it ships)'), shipped ? '+' + money(sh) : money(sh) + ' held', !shipped);
+        });
         if (st.labels) line('Shipping labels taken from their earnings', '−' + money(st.labels), true);
         (s.payouts || []).forEach(function (p) { line((p.kind === 'deduct' ? 'Charge taken: ' : 'You sent them: ') + [p.how, p.note].filter(Boolean).join(' · ') + ' · ' + new Date(p.at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), '−' + money(p.cents), true); });
         w.appendChild(tb);
-        var go = el('button', st.owed > 0 ? 'Record a payout to ' + s.name + ' ›' : 'Open their card ›', 'ghost'); go.type = 'button'; go.style.alignSelf = 'flex-start';
+        var go = el('button', st.payNow > 0 ? 'Record a payout to ' + s.name + ' ›' : 'Open their card ›', 'ghost'); go.type = 'button'; go.style.alignSelf = 'flex-start';
         go.addEventListener('click', function () { var t2 = box.querySelector('[data-seller="' + s.slug + '"]'); if (t2) { var hid = t2.closest('[hidden]'); if (hid) { var gb = Array.prototype.filter.call(box.querySelectorAll('button'), function (x) { return x.textContent === '▦ Gallery'; })[0]; if (gb) gb.click(); else hid.hidden = false; } t2.scrollIntoView({ behavior: 'smooth', block: 'start' }); var f2 = t2.querySelector('form input'); if (f2) setTimeout(function () { f2.focus(); }, 500); } });
         w.appendChild(go); oweBox.appendChild(w);
       });
@@ -228,7 +265,7 @@
       var st = s.totals;
       c.appendChild(el('div', st.sales + ' paid sales · sold ' + money(st.gross) + ' · your fee ' + money(st.fee) + ' · their share ' + money(st.net) + ' · paid by Stripe ' + money(st.byStripe || 0) + ' · sent by you ' + money(st.paidOut) + ' · you owe ' + money(st.owed), 'small'));
       var f = el('form', null, 'sx-pay'); f.style.maxWidth = 'none';
-      var amt = el('input'); amt.type = 'number'; amt.step = '0.01'; amt.min = '0.01'; amt.placeholder = 'Amount'; amt.value = st.owed > 0 ? (st.owed / 100).toFixed(2) : ''; amt.style.width = '120px';
+      var amt = el('input'); amt.type = 'number'; amt.step = '0.01'; amt.min = '0.01'; amt.placeholder = 'Amount'; amt.value = st.payNow > 0 ? (st.payNow / 100).toFixed(2) : ''; amt.style.width = '120px';
       var how = el('input'); how.placeholder = 'How (e.g. Zelle)'; how.value = s.payHow || ''; how.style.width = '140px';
       var note = el('input'); note.placeholder = 'Note (optional)'; note.style.flex = '1 1 160px';
       var go = el('button', 'Record payout', 'ghost'); go.type = 'submit';
@@ -275,7 +312,7 @@
       act.forEach(function (x) {
         var t2 = x.totals || {}, rt = x.stats && x.stats.rating ? x.stats.rating.toFixed(1) + '★ (' + (x.stats.reviews || 0) + ')' : '-';
         var tr = el('tr'); tr.style.cursor = 'pointer'; tr.title = 'Open ' + x.name + '\u2019s card';
-        [x.name + (x.stats && x.stats.verified ? ' ✔' : ''), x.email, String(x.listings || 0), String(t2.sales || 0), money(t2.gross || 0), money(t2.fee || 0), money(t2.owed || 0), x.stripeOn ? 'Stripe on' : x.stripe ? 'Setup unfinished' : 'Not set up', rt, x.at ? new Date(x.at).toLocaleDateString('en-US', { dateStyle: 'medium' }) : '-'].forEach(function (v, i) { var td = el('td', v); if (i >= 2 && i <= 6) td.className = 'num'; tr.appendChild(td); });
+        [x.name + (x.stats && x.stats.verified ? ' ✔' : ''), x.email, String(x.listings || 0), String(t2.sales || 0), money(t2.gross || 0), money(t2.fee || 0), money(Math.max(0, t2.payNow != null ? t2.payNow : (t2.owed || 0))), x.stripeOn ? 'Stripe on' : x.stripe ? 'Setup unfinished' : 'Not set up', rt, x.at ? new Date(x.at).toLocaleDateString('en-US', { dateStyle: 'medium' }) : '-'].forEach(function (v, i) { var td = el('td', v); if (i >= 2 && i <= 6) td.className = 'num'; tr.appendChild(td); });
         tr.addEventListener('click', function () { var c2 = gal.querySelector('[data-seller="' + x.slug + '"]'); if (c2) { view('gallery'); c2.scrollIntoView({ behavior: 'smooth', block: 'start' }); } });
         sb.appendChild(tr);
       });

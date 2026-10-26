@@ -425,7 +425,7 @@
     var t = D.totals;
     payoutCard(pane);
     var tiles = el('div', null, 'jf-tiles');
-    [['PAID SALES', String(t.sales), ''], ['SOLD (PIECES + SHIPPING)', JF.cents(t.gross), ''], ['V2V FEE (' + D.fee + '%)', JF.cents(t.fee), ''], ['YOU EARNED', JF.cents(t.net), ''], ['PAID TO YOUR BANK BY STRIPE', JF.cents(t.byStripe || 0), ''], ['SENT BY V2V', JF.cents(t.paidOut), ''], ['V2V STILL OWES YOU', JF.cents(t.owed), 'gold']].forEach(function (x) {
+    [['PAID SALES', String(t.sales), ''], ['SOLD (PIECES + SHIPPING)', JF.cents(t.gross), ''], ['V2V FEE (' + D.fee + '%)', JF.cents(t.fee), ''], ['YOU EARNED', JF.cents(t.net), ''], ['PAID TO YOUR BANK BY STRIPE', JF.cents(t.byStripe || 0), ''], ['SENT BY V2V', JF.cents(t.paidOut), ''], ['V2V STILL OWES YOU', JF.cents(Math.max(0, t.payNow != null ? t.payNow : t.owed)) + (t.shipHeld ? ' + ' + JF.cents(t.shipHeld) + ' shipping once shipped' : ''), 'gold']].forEach(function (x) {
       var d = el('div', null, 'jf-tile ' + x[2]); d.appendChild(el('span', x[0], 'label')); d.appendChild(el('b', x[1])); tiles.appendChild(d);
     });
     pane.appendChild(tiles);

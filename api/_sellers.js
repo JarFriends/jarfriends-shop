@@ -390,6 +390,12 @@ function totals(rows, outs) {
   rows.forEach((r) => { if (r.paid) { t.sales++; t.gross += r.gross; t.fee += r.fee; t.net += r.net; if (r.direct) t.byStripe += r.net; } else t.unpaidGross += r.gross; t.labels += r.labelEarn || 0; t.labelsCard += r.labelCard || 0; });
   outs.forEach((p) => { if (p.kind === 'deduct') t.deducted += p.cents; else t.paidOut += p.cents; });
   t.owed = t.net - t.byStripe - t.paidOut - t.labels - t.deducted;
+  // Shipping the buyer paid on an order that has not shipped yet stays with VeeFam: it pays for the label. So what
+  // is ready to send the seller now is what they are owed less that shipping. Once it ships, the shipping counts
+  // (less the label if it was bought through VeeFam; all of it if they shipped their own way).
+  t.shipHeld = 0;
+  rows.forEach((r) => { if (r.paid && !r.direct && !(r.tracking || r.shippedAt)) t.shipHeld += Math.max(0, r.gross - (r.items || 0)); });
+  t.payNow = t.owed - t.shipHeld;
   return t;
 }
 
