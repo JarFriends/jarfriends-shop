@@ -56,6 +56,7 @@ module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   if (req.method !== 'GET') return res.status(405).json({ error: 'Use GET.' });
   // The daily job also checks where VeeFam stands on each state's sales tax line (see _tax.js).
+  if (/vercel-cron/i.test(String(req.headers['user-agent'] || ''))) await require('./_backup').snapshot().catch((e) => console.error('BACKUP_FAIL', String(e && e.message || e)));
   if (/vercel-cron/i.test(String(req.headers['user-agent'] || ''))) await require('./_tax').watch().catch((e) => console.error('TAX_WATCH_FAIL', String(e && e.message || e)));
   const p = product(), cents = Math.round(p.price * 100), host = 'https://' + req.headers.host;
   const st = await party.state(cents);

@@ -11,6 +11,25 @@
   var btn = el('button', 'Sellers', 'ghost'); btn.type = 'button'; btn.setAttribute('aria-pressed', 'false');
   tabs.insertBefore(btn, $('out'));
   // Fees to collect: its own tab button. It opens Sellers at the fee section (who owes you, and who is paid up).
+  // 🗄️ Backup: every data file in one download, made daily by itself; photos are copied inside the site too.
+  var bkBtn = el('button', '🗄️ Backup', 'ghost'); bkBtn.type = 'button'; tabs.insertBefore(bkBtn, $('out'));
+  var bkBox = el('section', null, 'card'); bkBox.dataset.extraTab = 'backup'; bkBox.hidden = true; bkBox.style.gap = '10px'; main.insertBefore(bkBox, $('wOrders'));
+  bkBtn.addEventListener('click', function () { setTimeout(function () {
+    Array.prototype.forEach.call(tabs.querySelectorAll('button'), function (b) { if (b.id !== 'out') b.setAttribute('aria-pressed', b === bkBtn ? 'true' : 'false'); });
+    ['wOrders', 'wPeople', 'wItems', 'none', 'offerWait'].forEach(function (id) { if ($(id)) $(id).hidden = true; });
+    Array.prototype.forEach.call(main.children, function (c) { if (c.dataset && c.dataset.extraTab) c.hidden = c !== bkBox; });
+    bkBox.textContent = ''; bkBox.appendChild(el('h2', '🗄️ Backups'));
+    bkBox.appendChild(el('div', 'The site backs itself up every day: every shop, listing, order, payout, offer, account and setting, in one file, kept 60 days. Photos are copied too. Download one now and then and keep it on your computer or Google Drive: if anything is ever lost, it can be put back from it.', 'small dim'));
+    var now = el('button', 'Back up now', 'solid'); now.type = 'button'; now.style.alignSelf = 'flex-start'; var m = el('div', '', 'small'); var lst = el('div'); lst.style.cssText = 'display:flex;flex-direction:column;gap:6px';
+    bkBox.appendChild(now); bkBox.appendChild(m); bkBox.appendChild(lst);
+    var load = function () { fetch('/api/market?do=backup&ak=' + encodeURIComponent(key()), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (j) { lst.textContent = ''; if (!j.backups || !j.backups.length) { lst.appendChild(el('div', 'No backups yet. Press Back up now.', 'small')); return; }
+      j.backups.slice(0, 14).forEach(function (b) { var r0 = el('div'); r0.style.cssText = 'display:flex;justify-content:space-between;gap:10px;align-items:center;border:1px solid #2E4A3B;border-radius:10px;padding:8px 12px'; r0.appendChild(el('span', b.day + ' · ' + Math.max(1, Math.round(b.size / 1024)) + ' KB'));
+        var dl = el('button', '⬇ Download', 'ghost'); dl.type = 'button'; dl.style.cssText = 'padding:4px 10px;min-height:0';
+        dl.addEventListener('click', function () { dl.disabled = true; fetch('/api/market?do=backup&day=' + b.day + '&ak=' + encodeURIComponent(key()), { cache: 'no-store' }).then(function (r) { return r.blob(); }).then(function (bl) { var a = document.createElement('a'); a.href = URL.createObjectURL(bl); a.download = 'veefam-backup-' + b.day + '.json'; document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000); dl.disabled = false; }); });
+        r0.appendChild(dl); lst.appendChild(r0); }); }); };
+    now.addEventListener('click', function () { now.disabled = true; m.textContent = 'Backing up… (up to a minute)'; post({ do: 'backup' }).then(function (x) { now.disabled = false; m.textContent = x.error || ('✓ Backed up ' + x.files + ' files and ' + x.photos + ' photos.'); load(); }); });
+    load();
+  }, 0); });
   // Sellers to pay: its own tab button too. It opens Sellers at "Needs to be paid" (who you pay by hand, and Stripe's).
   var payBtn = el('button', '💵 Sellers to pay', 'ghost'); payBtn.type = 'button'; tabs.insertBefore(payBtn, $('out'));
   payBtn.addEventListener('click', function () { setTimeout(function () { btn.click(); box.classList.add('focus-pay'); payBtn.setAttribute('aria-pressed', 'true'); btn.setAttribute('aria-pressed', 'false'); }, 0); box.classList.add('focus-pay'); var tries = 0; (function go() { var f = document.getElementById('payBox'); if (f) { box.classList.add('focus-pay'); f.open = true; setTimeout(function () { f.open = true; f.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 250); } else if (tries++ < 40) setTimeout(go, 150); })(); });
