@@ -46,6 +46,13 @@ function fromOf(seller) {
   return { name: f.name || seller.name, street1: f.street1, street2: f.street2 || '', city: f.city, state: f.state, zip: f.zip, country: 'US', phone: f.phone || '', email: seller.email };
 }
 
+// For a checkout price only: the seller's ship-from, or VeeFam's own address (SHIP_FROM) when the seller has not
+// added theirs yet. They add it when they buy the label, which always uses their own address.
+function fromForQuote(seller) {
+  const f = fromOf(seller); if (f) return f;
+  try { const d = JSON.parse(process.env.SHIP_FROM || '{}'); if (d.street1 && d.city && d.state && d.zip) return { name: d.name || 'VeeFam', street1: d.street1, street2: d.street2 || '', city: d.city, state: d.state, zip: d.zip, country: 'US', phone: d.phone || '', email: '' }; } catch (e) { /* not set */ }
+  return null;
+}
 async function shippo(path, body) {
   const r = await fetch(API + path, { method: body ? 'POST' : 'GET', signal: AbortSignal.timeout(25000), headers: { authorization: 'ShippoToken ' + key(), 'content-type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
   const j = await r.json().catch(() => ({}));
@@ -67,8 +74,8 @@ async function cheapest(from, to, parcel) {
 // so the label comes with its customs form. USPS first, any carrier if USPS has no price.
 // Ships abroad: the seller's choice in Shop settings; sellers based outside the USA ship internationally unless they turn it off.
 const shipsIntl = (s) => (s && s.shipIntl != null ? !!s.shipIntl : !!(s && s.based === 'intl'));
-async function intlRate(seller, listing, to, qty, value, item) {
-  const from = fromOf(seller);
+async function intlRate(seller, listing, to, qty, value, item, quoteOnly) {
+  const from = quoteOnly ? fromForQuote(seller) : fromOf(seller);
   if (!from) throw new Error('no ship-from address');
   const parcel = packageOf(listing, qty);
   const cd = await shippo('/customs/declarations/', {
@@ -92,9 +99,9 @@ async function quoteIntl(o) {
   if (!seller || !shipsIntl(seller)) return { error: 'This seller ships inside the USA only.' };
   // A seller based outside the USA ships their own way: the buyer pays the shipping price on the listing.
   if (seller.based === 'intl') return { cents: listing.shipping === 'free' ? 0 : Math.round(Number(listing.shipping) * 100) || 0, service: 'Seller ships from ' + (seller.country || 'outside the USA') };
-  if (!fromOf(seller)) return { error: 'This seller has not finished setting up shipping yet.' };
+  if (!fromForQuote(seller)) return { error: 'This seller has not finished setting up shipping yet.' };
   try {
-    const r = await intlRate(seller, listing, o.to, o.qty, o.value, o.item);
+    const r = await intlRate(seller, listing, o.to, o.qty, o.value, o.item, true);
     return { cents: Math.ceil(r.cents * 1.10), base: r.cents / 100, service: r.service };
   } catch (e) { console.error('SELLER_INTL_QUOTE_FAIL', o.pid, String(e && e.message || e)); return { error: 'We could not get a shipping price to that address. Check the address and try again.' }; }
 }
@@ -108,17 +115,9 @@ async function calcFor(pid, to, qty) {
   if (!listing || listing.shipMode !== 'calc') return null;
   if (!ready()) return { error: 'Shipping cannot be priced right now. Try again later.' };
   const seller = await M.bySlug(listing.seller);
-  let from = fromOf(seller);
-  // The seller picked calculated shipping but never saved where they ship from: price it from VeeFam's own
-  // ship-from address (close enough for USPS inside the USA) so the buyer is never stuck, and remind the
-  // seller once a day to add their address (they need it to buy the label anyway).
-  if (!from) {
-    try { const d = JSON.parse(process.env.SHIP_FROM || '{}'); if (d.street1 && d.city && d.state && d.zip) from = { name: d.name || 'VeeFam', street1: d.street1, street2: d.street2 || '', city: d.city, state: d.state, zip: d.zip, country: 'US', phone: d.phone || '', email: '' }; } catch (e) { from = null; }
-    if (seller && seller.email) {
-      const day = new Date().toISOString().slice(0, 10), mk = 'ship/remind-' + seller.slug + '-' + day + '.json';
-      require('./_store').read(mk).then((x) => { if (x) return; return require('./_store').write(mk, { at: Date.now() }).then(() => require('./_lib').mail(seller.email, 'Add your ship-from address on VeeFam', ['A buyer is checking out ' + listing.name + ', which you set to calculated shipping.', '', 'You have not added the address you ship from, so the shipping price was estimated. Add it in Seller Hub (Settings, Where you ship from) so prices are exact and you can buy labels.'], 'shipfrom-' + seller.slug + '-' + day)); }).catch(() => null);
-    }
-  }
+  // No ship-from address yet: the checkout price comes from VeeFam's own address (close enough for USPS inside the
+  // USA). The seller adds theirs when they buy the label.
+  const from = fromForQuote(seller);
   if (!from) return { error: 'This seller has not finished setting up shipping yet.' };
   if (!/^[0-9]{5}(-[0-9]{4})?$/.test(String(to.zip || '')) || String(to.street1 || '').length < 4) return { error: 'Enter your full address to see the shipping price.' };
   const parcel = packageOf(listing, qty);

@@ -1201,7 +1201,28 @@
     var box = el('div'); box.style.cssText = 'display:flex;flex-direction:column;gap:10px;border:1px solid #4E7A63;padding:14px';
     box.appendChild(el('b', 'Buy a shipping label'));
     if (!D.labelsOn) { box.appendChild(el('div', 'Labels are not switched on for V2V yet. Ship it your own way and add the tracking number below.', 'small dim')); return box; }
-    if (!D.seller.shipFrom) { box.appendChild(el('div', 'Add your ship-from address in Shop settings first.', 'small')); return box; }
+    // No ship-from address yet: add it right here, then the label part opens. It is saved for every label after.
+    if (!D.seller.shipFrom) {
+      box.appendChild(el('div', 'Where are you shipping it from? This goes on the label as the return address, and is saved for next time.', 'small dim'));
+      var af = el('form'); af.style.cssText = 'display:flex;flex-direction:column;gap:8px;max-width:none';
+      var an = input('text', D.seller.name || '', { maxlength: '60', autocomplete: 'name' }), as1 = input('text', '', { maxlength: '120', autocomplete: 'address-line1', placeholder: '123 Main St' }), as2 = input('text', '', { maxlength: '60', autocomplete: 'address-line2' });
+      var ac = input('text', '', { maxlength: '60', autocomplete: 'address-level2' }), ast = input('text', '', { maxlength: '30', autocomplete: 'address-level1', placeholder: 'IL' }), az = input('text', '', { maxlength: '10', inputmode: 'numeric', autocomplete: 'postal-code' }), aph = input('tel', '', { maxlength: '20', autocomplete: 'tel' });
+      af.appendChild(field('Name on the label', an));
+      var b2 = el('div', null, 'two'); b2.appendChild(field('Street address', as1)); b2.appendChild(field('Apt or unit', as2, 'Optional.')); af.appendChild(b2);
+      var b3 = el('div', null, 'two'); b3.appendChild(field('City', ac)); b3.appendChild(field('State', ast)); b3.appendChild(field('ZIP code', az)); af.appendChild(b3);
+      af.appendChild(field('Phone', aph, 'Optional. Some carriers ask for it.'));
+      var ago = el('button', 'Save and continue', 'solid'); ago.type = 'submit'; ago.style.alignSelf = 'flex-start'; var am = el('div', '', 'small');
+      af.appendChild(ago); af.appendChild(am); box.appendChild(af);
+      af.addEventListener('submit', function (ev) {
+        ev.preventDefault(); ago.disabled = true; am.textContent = 'Saving…';
+        JF.api('/api/market', { do: 'profile', t: tok, as: AS, ak: AK, shipFrom: { name: an.value, street1: as1.value, street2: as2.value, city: ac.value, state: ast.value, zip: az.value, phone: aph.value } }).then(function (r) {
+          ago.disabled = false;
+          if (r.error) { am.textContent = r.error; return; }
+          D.seller = r.seller; var fresh = labelBox(o); box.replaceWith(fresh);
+        });
+      });
+      return box;
+    }
     var PRE = D.presets || {};
     var listing = D.listings.filter(function (x) { return x.id === o.pid; })[0] || {};
     var lp = pkgFields(listing.pkg, Math.max(1, o.q), 'Weigh it if you can. A wrong size or weight can bring a USPS charge later.'); box.appendChild(lp.node);
