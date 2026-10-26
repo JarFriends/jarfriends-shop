@@ -199,7 +199,7 @@ async function buyLabel(seller, n, rateId, host) {
   const o = await orderFor(seller, n);
   if (o.error) return o;
   const meta0 = (await store.read('meta/' + n + '.json')) || {};
-  if (meta0.labelPdf) return { error: 'A label was already bought for this order.' };
+  if (meta0.labelPdf && !(meta0.testLabel && !isTest())) return { error: 'A label was already bought for this order.' };
   const rate = await shippo('/rates/' + rateId).catch(() => null);
   if (!rate || !(Number(rate.amount) > 0)) return { error: 'That price has run out. Get a new price.' };
   const cents = Math.round(Number(rate.amount) * 100);

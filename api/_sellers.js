@@ -330,6 +330,9 @@ async function ledger(slug) {
     const got = await Promise.all([store.read(s.path), store.read('meta/' + s.n + '.json'), store.read('fees/' + s.n + '.json')]);
     const d = got[0] || {}, m = got[1] || {};
     // Shipped in the same box as another order from the same cart: it shares that order's tracking.
+    // A test-mode label (Shippo test key) is not real postage: once the live key is in, it no longer counts, so the
+    // order shows as not shipped and a real label can be bought.
+    if (m.testLabel && !require('./_ship').isTest()) ['tracking', 'shippedAt', 'labelPdf', 'labelCost', 'labelFromEarnings', 'labelFromCard', 'customsPdf'].forEach((k) => { delete m[k]; });
     if (m.bundleLead && !m.tracking) { const lm = await store.read('meta/' + m.bundleLead + '.json'); if (lm && lm.tracking) { m.tracking = lm.tracking; m.shippedAt = lm.shippedAt || 0; } }
     let rate = got[2] && got[2].pct, onShip = !!(got[2] && got[2].pct != null && !got[2].base);
     // The fee is on the listing price only (base 'items'). Sales booked before that rule took it on shipping too.
