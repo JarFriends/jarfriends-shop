@@ -219,6 +219,7 @@
       + '.jf-grid.vw-list .jf-item>:first-child{grid-row:1/span 8;width:92px!important;height:92px!important;aspect-ratio:1;margin:0!important}'
       + '.jf-grid.vw-list .jf-item>:not(:first-child):not(.jf-heart):not(.jf-tag){grid-column:2}'
       + '.jf-grid.vw-list .jf-tag{top:12px!important;left:12px!important;font-size:9px!important}'
+      + '.jf-grid.vw-list .jf-heart{left:auto!important;right:12px!important}.jf-grid.vw-list .jf-plus{top:56px!important}'
       + '.jf-grid.vw-list .jf-acts{max-width:330px;width:100%}.jf-grid.vw-list .jf-offer{width:auto!important;justify-self:start;margin-top:6px!important}.jf-grid.vw-list .jf-name{padding-right:44px;margin:0!important}.jf-grid.vw-list .jf-item{min-height:0!important;row-gap:4px}'
       + 'table.vw-cards thead{display:none}'
       + 'table.vw-cards,table.vw-cards tbody{display:grid!important;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;width:100%;border:0!important}'
