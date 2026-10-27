@@ -108,29 +108,6 @@ async function bring(seller, url) {
   return { ok: true, listing: r.listing, updated: !!have, photo: pic, shipUnknown: e.ship == null };
 }
 
-// Check eBay for listings that came from there; take down any that sold or ended. Oldest-checked first, a few per run.
-async function sync(limit) {
-  const all = (await M.listings()).filter((p) => p.ebay && p.ebay.id && !p.hidden && p.ebay.status !== 'gone').sort((a, b) => (a.ebay.checkedAt || 0) - (b.ebay.checkedAt || 0)).slice(0, limit || 15);
-  const out = [];
-  for (const p of all) {
-    const seller = await M.bySlug(p.seller);
-    if (!seller) continue;
-    let e;
-    try { e = await read(p.ebay.id); } catch (x) { e = { error: String(x && x.message || x) }; }
-    if (e.error) { await M.setListing(seller, p.id, { ebay: Object.assign({}, p.ebay, { checkedAt: Date.now(), lastError: e.error.slice(0, 200) }) }); out.push([p.id, 'error']); continue; }
-    if (!e.live) {
-      await M.setListing(seller, p.id, { hidden: true, ebay: Object.assign({}, p.ebay, { checkedAt: Date.now(), status: 'gone', goneAt: Date.now() }) });
-      const host = 'https://' + String(process.env.SITE_HOST || 'v2v-market.vercel.app').replace(/^https?:\/\//, '');
-      await require('./_lib').mail(seller.email, 'Sold or ended on eBay: ' + p.name, ['Your eBay listing for ' + p.name + ' has sold or ended, so we took it down on V2V for you. Nobody can buy it here now.', '', 'If it is still for sale, put it back in your Seller Hub: ' + host + '/seller.html'], 'ebay-gone-' + p.id).catch(() => null);
-      out.push([p.id, 'gone']);
-    } else { await M.setListing(seller, p.id, { ebay: Object.assign({}, p.ebay, { checkedAt: Date.now(), status: 'live', lastError: '' }) }); out.push([p.id, 'live']); }
-  }
-  return out;
-}
-
-// Every Buy It Now listing an eBay seller has, found through eBay's search (Browse API), one search per top-level
-// eBay category. Returns [{ id, title, price, image }] (up to a few thousand), or { error }.
-const TOP = [1, 20081, 550, 2984, 267, 12576, 625, 15032, 11450, 11116, 58058, 293, 14339, 237, 11232, 45100, 172008, 26395, 11700, 281, 11233, 619, 1281, 870, 316, 888, 64482, 260, 1305, 220, 3252, 1249, 99];
 async function listAll(username) {
   if (!apiOn()) return { error: 'Bringing over all your eBay listings needs the eBay keys (EBAY_CLIENT_ID and EBAY_CLIENT_SECRET) added by the V2V owner.' };
   const user = String(username || '').trim().toLowerCase();
@@ -151,4 +128,4 @@ async function listAll(username) {
   return { items: out };
 }
 
-module.exports = { idOf, read, bring, sync, apiOn, listAll };
+module.exports = { idOf, read, bring, apiOn, listAll };

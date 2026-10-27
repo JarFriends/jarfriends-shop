@@ -54,29 +54,6 @@ async function paths(prefix) {
 
 // ---- Sellers ----
 let sMemo = null;
-// SEED_SELLERS starts the marketplace with sellers already open, so the owner's own shops need no sign-up:
-// "Name|email" pairs separated by commas, e.g. "JarFriends|me@example.com". Each is made once, approved.
-let seeded = false;
-async function seed() {
-  return; // turned off (Oct 27 2026): no shop is created or changed by itself.
-  if (seeded) return;
-  seeded = true;
-  await retire();
-  const gone = String(process.env.REMOVE_SELLERS || '').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean);
-  const want = String(process.env.SEED_SELLERS || '').split(',').map((x) => x.split('|').map((y) => y.trim())).filter((x) => x[0] && /@/.test(x[1] || ''));
-  for (const [name, email] of want) {
-    try {
-      if (await store.read('sellers/e/' + hashOf(email) + '.json')) continue;
-      const slug = slugify(name);
-      if (!slug || gone.indexOf(slug) >= 0 || await bySlug(slug)) continue;
-      await store.write('sellers/s/' + slug + '.json', { slug: slug, name: name.slice(0, 40), email: email.toLowerCase(), about: '', payHow: 'zelle', payTo: email.toLowerCase(), status: 'approved', at: Date.now(), agreedFee: feePct(), seeded: true });
-      await store.write('sellers/e/' + hashOf(email) + '.json', { slug: slug });
-    } catch (e) { console.error('SEED_FAIL', name, String(e && e.message || e)); }
-  }
-}
-// REMOVE_SELLERS: shops to delete for good, by their shop name in the link (e.g. "jarfriends"), comma-separated.
-// Everything of theirs goes: the shop, its pieces and photos, posts, reviews, trades, costs and payout records.
-// Sales already made stay in the order records. Runs once per shop (sellers/removed/<slug>.json marks it done).
 // Delete one shop for good: its pieces and photos, posts, reviews, trades and the shop itself. keepMoney keeps the
 // payout and cost records (the owner's books); sales already made always stay in the order records.
 // Shops and accounts that can never be deleted by any code path: the owner's JarFriends shop, the owner's email,
@@ -106,24 +83,8 @@ async function removeShop(slug, keepMoney) {
   sMemo = null; lMemo = null;
   return { name: s ? s.name : '', pieces: ids.length, files: urls.length };
 }
-async function retire() {
-  // DISABLED for good (Oct 26 2026): a failed read of the 'already removed' marker made this delete the owner's
-  // live JarFriends shop. Shops are only ever removed by hand from the back office now.
-  if (true) return;
-  const list = String(process.env.REMOVE_SELLERS || '').split(',').map((x) => x.trim().toLowerCase()).filter((x) => /^[a-z0-9-]{1,30}$/.test(x));
-  if (!list.length || !store.on()) return;
-  for (const slug of list) {
-    try {
-      if (await store.read('sellers/removed/' + slug + '.json')) continue;
-      const r = await removeShop(slug, false);
-      await store.write('sellers/removed/' + slug + '.json', Object.assign({ at: Date.now() }, r));
-      console.log('SELLER_REMOVED', slug, r.pieces, 'pieces', r.files, 'files');
-    } catch (e) { console.error('RETIRE_FAIL', slug, String(e && e.message || e)); }
-  }
-}
 async function all() {
   if (sMemo && Date.now() - sMemo.at < 5000) return sMemo.v;
-  await seed();
   const v = (await Promise.all((await paths('sellers/s/')).map((p) => store.read(p.path)))).filter((s) => s && s.slug).map(modeFix);
   v.sort((a, b) => (a.at || 0) - (b.at || 0));
   sMemo = { at: Date.now(), v: v };
@@ -132,18 +93,10 @@ async function all() {
 const forget = () => { sMemo = null; lMemo = null; };
 // One-time owner request (Oct 2026): the owner's own shop ships from 833 Central Ave, not 2480 Saint Johns Ave.
 // Swapped when read and saved once; any later change in Settings stands.
-function shipFix(s) {
-  return s; // turned off: nothing changes a seller's shop by itself any more (Oct 27 2026)
-  if (!s || !s.shipFrom || !/^\s*2480\b/.test(String(s.shipFrom.street1 || '')) || String(s.email || '').toLowerCase() !== String(process.env.OWNER_EMAIL || '').trim().toLowerCase()) return s;
-  s.shipFrom = Object.assign({}, s.shipFrom, { street1: '833 Central Ave', street2: 'Unit 102', city: 'Highland Park', state: 'IL', zip: '60035' });
-  store.write('sellers/s/' + s.slug + '.json', s).catch(() => null);
-  return s;
-}
-const modeFix = (s) => shipFix(require('./_stripe').forMode(s, ['stripe', 'stripeOn']));
+const modeFix = (s) => require('./_stripe').forMode(s, ['stripe', 'stripeOn']);
 async function bySlug(slug) { return /^[a-z0-9-]{2,30}$/.test(String(slug || '')) ? modeFix(await store.read('sellers/s/' + slug + '.json')) : null; }
 async function byEmail(email) {
   if (!email) return null;
-  await seed();
   const m = await store.read('sellers/e/' + hashOf(email) + '.json');
   return m && m.slug ? bySlug(m.slug) : null;
 }
