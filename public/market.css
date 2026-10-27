@@ -10,8 +10,8 @@
 .jf-meta{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
 .jf-price{font-family:'IBM Plex Mono',monospace;font-size:16px;color:#C9A45C}
 .jf-by{font-size:12px;color:#A8BFB1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.jf-tag{position:absolute;top:60px;left:16px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.12em;background:#C9A45C;color:#0B1A13;padding:3px 8px}
-.jf-tag.out{background:#244536;color:#D6E2DA}
+.jf-tag{position:static;align-self:flex-start;margin-bottom:-2px;font-family:inherit;font-size:11px;font-weight:800;letter-spacing:.06em;background:rgba(201,164,92,.14);color:#C9A45C;border:1px solid rgba(201,164,92,.45);border-radius:999px;padding:3px 10px;line-height:1.3}
+.jf-tag.out{background:#1A3326;color:#A8BFB1;border-color:#2E4A3B}
 .jf-heart{position:absolute;top:14px;left:14px;width:38px;height:38px;border-radius:999px;border:1px solid #4E7A63;background:rgba(11,26,19,.85);color:#F7F2E6;font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center;padding:0}
 .jf-heart[aria-pressed="true"]{color:#E86A6A;border-color:#E86A6A}
 .jf-filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
@@ -37,7 +37,7 @@ textarea.jf-ta{min-height:96px;resize:vertical}
 .jf-empty{border:1px dashed #4E7A63;padding:28px;text-align:center;color:#A8BFB1}
 .jf-check{flex-direction:row!important;align-items:flex-start;gap:10px!important;font-weight:400!important}
 .jf-check input{width:20px;height:20px;min-height:0;margin-top:3px;flex:none}
-@media(max-width:520px){.jf-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.jf-heart{width:34px;height:34px;top:12px;left:12px}.jf-tag{top:52px;left:12px}}
+@media(max-width:520px){.jf-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.jf-heart{width:34px;height:34px;top:12px;left:12px}.jf-tag{font-size:10px;padding:2px 8px}}
 @media(prefers-reduced-motion:reduce){.jf-item{transition:none}.jf-item:hover{transform:none}}
 .jf-mode{display:inline-flex;border:1px solid #4E7A63;border-radius:999px;padding:4px;gap:4px;align-self:flex-start}
 .jf-mode a{padding:9px 20px;border-radius:999px;color:#D6E2DA;text-decoration:none;font-weight:700;font-size:15px}
