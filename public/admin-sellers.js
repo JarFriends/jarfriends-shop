@@ -39,7 +39,7 @@
   main.insertBefore(box, $('wOrders'));
   var css = el('style'); css.textContent = '.sx-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}.sx-tile{background:#11261C;border:1px solid #244536;padding:14px 16px;display:flex;flex-direction:column;gap:4px}.sx-tile b{font-family:"IBM Plex Mono",monospace;font-size:22px;font-weight:500}.sx-tile.gold{border-color:#C9A45C}.sx-tile.gold b{color:#C9A45C}.sx-b{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.1em;padding:3px 8px;border:1px solid #4E7A63}.sx-b.ok{border-color:#8FD3AE;color:#8FD3AE}.sx-b.wait{border-color:#C9A45C;color:#C9A45C}.sx-b.off{border-color:#E86A6A;color:#E86A6A}.sx-pay{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-top:8px}.sx-pay input,.sx-pay select{min-height:40px;font-size:15px;padding:6px 10px;background:#0B1A13;border:1px solid #4E7A63;color:#F7F2E6;border-radius:2px;font-family:inherit}';
   document.head.appendChild(css);
-  var pvCss = el('style'); pvCss.textContent = '.pv-card{display:flex;flex-direction:column;gap:12px;border:1px solid #2E4A3B;border-radius:14px;padding:16px;background:#0E2219}.pv-done{opacity:.55}.pv-hd{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}.pv-hd b{font-size:18px}.pv-hd>div:first-child{display:flex;flex-direction:column;gap:6px;align-items:flex-start;min-width:0}.pv-amt{color:#C9A45C;font-size:24px;font-weight:800;white-space:nowrap}.pv-pill{font-size:12px;border:1px solid #2E4A3B;border-radius:99px;padding:2px 8px;opacity:.85}.pv-ways{display:flex;flex-direction:column;border:1px solid #2E4A3B;border-radius:10px;overflow:hidden}.pv-way{display:grid;grid-template-columns:96px 1fr auto;gap:10px;align-items:center;padding:10px 12px;border-top:1px solid #1F3A2D}.pv-way:first-child{border-top:0}.pv-lab{display:flex;flex-direction:column;gap:2px}.pv-pref{font-size:11px;color:#C9A45C;font-weight:700}.pv-val{min-width:0;overflow-wrap:anywhere;font-size:15px}.pv-act{display:flex;gap:6px;align-items:center}.pv-act button{padding:4px 10px!important;min-height:0!important;font-size:13px}.pv-act a{font-size:13px;white-space:nowrap}.pv-bank{display:flex;flex-direction:column;gap:6px;padding:10px 12px;background:#0B1A13;border-top:1px solid #1F3A2D}.pv-bank>div{display:grid;grid-template-columns:70px 1fr auto;gap:8px;align-items:center;font-size:14px}.pv-bank b{word-break:break-all}.pv-bank button{padding:3px 8px!important;min-height:0!important;font-size:12px}.pv-mark{display:flex;gap:8px;flex-wrap:wrap;align-items:stretch;padding-top:4px;border-top:1px dashed #2E4A3B}.pv-money{display:flex!important;flex-direction:row!important;align-items:center;gap:4px;border:1px solid #2E4A3B;border-radius:8px;padding:0 10px;background:#0B1A13;flex:0 0 120px}.pv-money input{border:0!important;background:transparent!important;width:100%;padding:8px 0!important;min-height:0!important;color:inherit;font-size:16px}.pv-mark select{flex:1 1 110px;background:#0B1A13;color:inherit;border:1px solid #2E4A3B;border-radius:8px;padding:8px 10px;font-size:15px}.pv-mark .solid{flex:1 1 150px;padding:10px 14px!important;min-height:0!important}@media(max-width:520px){.pv-way{grid-template-columns:1fr auto}.pv-val{grid-column:1/-1;grid-row:2;white-space:normal;overflow-wrap:anywhere}}.pv-list{display:flex;flex-direction:column;gap:12px}.pv-why{border:1px solid #2E4A3B;border-radius:10px;padding:8px 12px;background:#0B1A13}.pv-paid>summary{cursor:pointer;font-size:13px;font-weight:700;color:#8FD3AE;padding:8px 0 2px;border-top:1px solid #1F3A2D}.pv-done-ln{opacity:.65}.pv-why>summary{cursor:pointer;font-weight:700;font-size:14px;color:#C9A45C;padding:2px 0}.pv-ln{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid #1F3A2D;font-size:14px}.pv-ln b{white-space:nowrap}.pv-tot{border-top:2px solid #2E4A3B;font-size:15px}.pv-tot b:last-child{color:#C9A45C}.pv-grid .pv-list{grid-template-columns:repeat(auto-fill,minmax(min(340px,100%),1fr))!important;align-items:start}.pv-wrap:not(.pv-grid) .pv-card{max-width:760px}.pv-grid .pv-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}.focus-pay>:not(#payBox){display:none!important}.pv-all{display:none}.focus-pay .pv-all{display:inline-flex}.pv-wrap button[aria-pressed="true"]{background:#C9A45C;color:#0B1A13;border-color:#C9A45C}'; document.head.appendChild(pvCss);
+  var pvCss = el('style'); pvCss.textContent = '.sx-card{gap:8px!important;padding:14px 16px!important}.sx-top{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;align-items:center}.sx-nm{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.sx-nm b{font-size:17px}.sx-chip{font-size:12px;border:1px solid #2E4A3B;border-radius:99px;padding:2px 8px}.sx-acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.sx-acts button{padding:5px 12px!important;min-height:0!important;font-size:13px}.sx-acts a{font-size:13px}.sx-nums{display:grid;grid-template-columns:repeat(auto-fit,minmax(78px,1fr));gap:6px}.sx-nums>div{background:#0B1A13;border:1px solid #1F3A2D;border-radius:8px;padding:6px 8px;display:flex;flex-direction:column;gap:1px;min-width:0}.sx-nums span{font-size:11px;opacity:.7;text-transform:uppercase;letter-spacing:.04em}.sx-nums b{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sx-line{overflow-wrap:anywhere}.sx-clamp{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;opacity:.9}.sx-more>summary{cursor:pointer;font-size:13px;font-weight:700;color:#C9A45C}.sx-more[open]{display:flex;flex-direction:column;gap:8px}.sx-gal{display:grid!important;grid-template-columns:repeat(auto-fill,minmax(min(460px,100%),1fr));gap:12px!important;align-items:start}.pv-card{display:flex;flex-direction:column;gap:12px;border:1px solid #2E4A3B;border-radius:14px;padding:16px;background:#0E2219}.pv-done{opacity:.55}.pv-hd{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}.pv-hd b{font-size:18px}.pv-hd>div:first-child{display:flex;flex-direction:column;gap:6px;align-items:flex-start;min-width:0}.pv-amt{color:#C9A45C;font-size:24px;font-weight:800;white-space:nowrap}.pv-pill{font-size:12px;border:1px solid #2E4A3B;border-radius:99px;padding:2px 8px;opacity:.85}.pv-ways{display:flex;flex-direction:column;border:1px solid #2E4A3B;border-radius:10px;overflow:hidden}.pv-way{display:grid;grid-template-columns:96px 1fr auto;gap:10px;align-items:center;padding:10px 12px;border-top:1px solid #1F3A2D}.pv-way:first-child{border-top:0}.pv-lab{display:flex;flex-direction:column;gap:2px}.pv-pref{font-size:11px;color:#C9A45C;font-weight:700}.pv-val{min-width:0;overflow-wrap:anywhere;font-size:15px}.pv-act{display:flex;gap:6px;align-items:center}.pv-act button{padding:4px 10px!important;min-height:0!important;font-size:13px}.pv-act a{font-size:13px;white-space:nowrap}.pv-bank{display:flex;flex-direction:column;gap:6px;padding:10px 12px;background:#0B1A13;border-top:1px solid #1F3A2D}.pv-bank>div{display:grid;grid-template-columns:70px 1fr auto;gap:8px;align-items:center;font-size:14px}.pv-bank b{word-break:break-all}.pv-bank button{padding:3px 8px!important;min-height:0!important;font-size:12px}.pv-mark{display:flex;gap:8px;flex-wrap:wrap;align-items:stretch;padding-top:4px;border-top:1px dashed #2E4A3B}.pv-money{display:flex!important;flex-direction:row!important;align-items:center;gap:4px;border:1px solid #2E4A3B;border-radius:8px;padding:0 10px;background:#0B1A13;flex:0 0 120px}.pv-money input{border:0!important;background:transparent!important;width:100%;padding:8px 0!important;min-height:0!important;color:inherit;font-size:16px}.pv-mark select{flex:1 1 110px;background:#0B1A13;color:inherit;border:1px solid #2E4A3B;border-radius:8px;padding:8px 10px;font-size:15px}.pv-mark .solid{flex:1 1 150px;padding:10px 14px!important;min-height:0!important}@media(max-width:520px){.pv-way{grid-template-columns:1fr auto}.pv-val{grid-column:1/-1;grid-row:2;white-space:normal;overflow-wrap:anywhere}}.pv-list{display:flex;flex-direction:column;gap:12px}.pv-why{border:1px solid #2E4A3B;border-radius:10px;padding:8px 12px;background:#0B1A13}.pv-paid>summary{cursor:pointer;font-size:13px;font-weight:700;color:#8FD3AE;padding:8px 0 2px;border-top:1px solid #1F3A2D}.pv-done-ln{opacity:.65}.pv-why>summary{cursor:pointer;font-weight:700;font-size:14px;color:#C9A45C;padding:2px 0}.pv-ln{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid #1F3A2D;font-size:14px}.pv-ln b{white-space:nowrap}.pv-tot{border-top:2px solid #2E4A3B;font-size:15px}.pv-tot b:last-child{color:#C9A45C}.pv-grid .pv-list{grid-template-columns:repeat(auto-fill,minmax(min(340px,100%),1fr))!important;align-items:start}.pv-wrap:not(.pv-grid) .pv-card{max-width:760px}.pv-grid .pv-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}.focus-pay>:not(#payBox){display:none!important}.pv-all{display:none}.focus-pay .pv-all{display:inline-flex}.pv-wrap button[aria-pressed="true"]{background:#C9A45C;color:#0B1A13;border-color:#C9A45C}'; document.head.appendChild(pvCss);
   // Your own shops (SEED_SELLERS) get their own back office: a button at the top of this page opens it.
   var mine = $('myShops'), shown = false;
   function myShops() {
@@ -314,7 +314,7 @@
         (s.payouts || []).forEach(function (p) { line((p.kind === 'deduct' ? 'Charge taken: ' : 'You sent them: ') + [p.how, p.note].filter(Boolean).join(' · ') + ' · ' + new Date(p.at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), '−' + money(p.cents), true); });
         w.appendChild(tb);
         var go = el('button', st.payNow > 0 ? 'Record a payout to ' + s.name + ' ›' : 'Open their card ›', 'ghost'); go.type = 'button'; go.style.alignSelf = 'flex-start';
-        go.addEventListener('click', function () { var t2 = box.querySelector('[data-seller="' + s.slug + '"]'); if (t2) { var hid = t2.closest('[hidden]'); if (hid) { var gb = Array.prototype.filter.call(box.querySelectorAll('button'), function (x) { return x.textContent === '▦ Gallery'; })[0]; if (gb) gb.click(); else hid.hidden = false; } t2.scrollIntoView({ behavior: 'smooth', block: 'start' }); var f2 = t2.querySelector('form input'); if (f2) setTimeout(function () { f2.focus(); }, 500); } });
+        go.addEventListener('click', function () { var t2 = box.querySelector('[data-seller="' + s.slug + '"]'); if (t2) { var hid = t2.closest('[hidden]'); if (hid) { var gb = Array.prototype.filter.call(box.querySelectorAll('button'), function (x) { return x.textContent === '▦ Gallery'; })[0]; if (gb) gb.click(); else hid.hidden = false; } t2.scrollIntoView({ behavior: 'smooth', block: 'start' }); var md = t2.querySelector('details.sx-more'); if (md) md.open = true; var f2 = t2.querySelector('form input'); if (f2) setTimeout(function () { f2.focus(); }, 500); } });
         w.appendChild(go); oweBox.appendChild(w);
       });
     })();
@@ -337,17 +337,22 @@
     if (!r.sellers.length) { box.appendChild(el('div', 'No sellers yet. Send people to /seller.html to open a shop. Sellers listed in SEED_SELLERS open by themselves the first time the site is visited.', 'card small')); return; }
     // One card per seller; the cards are shown in groups below.
     var cardOf = function (s, into) {
-      var c = el('section', null, 'card'); c.style.gap = '10px'; c.setAttribute('data-seller', s.slug);
-      var top = el('div'); top.style.cssText = 'display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;align-items:center';
-      var nm = el('div'); nm.appendChild(el('b', s.name + '  ')); nm.appendChild(el('span', s.status === 'approved' ? 'OPEN' : s.status === 'pending' ? 'NEEDS YOUR OK' : 'PAUSED', 'sx-b ' + (s.status === 'approved' ? 'ok' : s.status === 'pending' ? 'wait' : 'off')));
+      var c = el('section', null, 'card sx-card'); c.setAttribute('data-seller', s.slug);
+      var st = s.totals || {}, vs = s.stats || {};
+      // Top: name, status, where they are, verified; actions on the right.
+      var top = el('div', null, 'sx-top');
+      var nm = el('div', null, 'sx-nm'); nm.appendChild(el('b', s.name + (vs.verified ? ' ✔' : '')));
+      nm.appendChild(el('span', s.status === 'approved' ? 'OPEN' : s.status === 'pending' ? 'NEEDS YOUR OK' : 'PAUSED', 'sx-b ' + (s.status === 'approved' ? 'ok' : s.status === 'pending' ? 'wait' : 'off')));
+      if (s.based === 'intl') nm.appendChild(el('span', '🌎 ' + (s.country || 'Outside US'), 'sx-chip'));
       top.appendChild(nm);
-      var acts = el('div'); acts.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap';
+      var acts = el('div', null, 'sx-acts');
       var mk = function (label, status) { var b = el('button', label, 'ghost'); b.type = 'button'; b.addEventListener('click', function () { b.disabled = true; post({ do: 'status', slug: s.slug, status: status }).then(function (x) { if (x.error) alert(x.error); load(); }); }); acts.appendChild(b); };
       if (s.status !== 'approved') mk(s.status === 'pending' ? 'Approve' : 'Re-open', 'approved');
+      var pf = null;
       // Pause: write why (emailed to them and shown in their Seller Hub), then pause.
       if (s.status !== 'paused') {
         var pb = el('button', 'Pause…', 'ghost'); pb.type = 'button'; acts.appendChild(pb);
-        var pf = el('div'); pf.hidden = true; pf.style.cssText = 'flex-basis:100%;display:flex;flex-direction:column;gap:8px;border:1px solid #E8A87C;border-radius:10px;padding:10px 12px';
+        pf = el('div'); pf.hidden = true; pf.style.cssText = 'display:flex;flex-direction:column;gap:8px;border:1px solid #E8A87C;border-radius:10px;padding:10px 12px';
         pf.appendChild(el('b', 'Why are you pausing ' + s.name + '? They get this by email and see it in their Seller Hub.'));
         var why = el('textarea'); why.rows = 3; why.maxLength = 800; why.placeholder = 'For example: Please add a photo of each piece and your ship-from address, then reply and we will re-open your shop.'; pf.appendChild(why);
         var pr = el('div'); pr.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap';
@@ -355,14 +360,50 @@
         pb.addEventListener('click', function () { pf.hidden = !pf.hidden; if (!pf.hidden) why.focus(); });
         cx.addEventListener('click', function () { pf.hidden = true; });
         go2.addEventListener('click', function () { go2.disabled = true; post({ do: 'status', slug: s.slug, status: 'paused', reason: why.value.trim() }).then(function (x) { if (x.error) { go2.disabled = false; alert(x.error); return; } load(); }); });
-        acts.appendChild(pf);
       }
-      if (s.status === 'paused' && s.pauseReason) acts.appendChild(el('div', 'Paused: ' + s.pauseReason, 'small dim'));
-      var shop = el('a', 'Shop page'); shop.href = '/shop.html?s=' + encodeURIComponent(s.slug); shop.target = '_blank'; shop.style.alignSelf = 'center'; acts.appendChild(shop);
-      var portal = el('a', 'Open their portal'); portal.href = '/seller.html?as=' + encodeURIComponent(s.slug); portal.target = '_blank'; portal.style.alignSelf = 'center'; acts.appendChild(portal);
-      top.appendChild(acts);
-      c.appendChild(top);
-      c.appendChild(el('div', s.stripeOn ? 'Card sales: paid automatically to their Stripe' : s.stripe ? 'Card sales: Stripe payout setup not finished, so card money comes to you' : 'Card sales: no Stripe payouts yet, so card money comes to you', 'sx-b ' + (s.stripeOn ? 'ok' : 'wait')));
+      var shop = el('a', 'Shop ↗'); shop.href = '/shop.html?s=' + encodeURIComponent(s.slug); shop.target = '_blank'; acts.appendChild(shop);
+      var portal = el('a', 'Portal ↗'); portal.href = '/seller.html?as=' + encodeURIComponent(s.slug); portal.target = '_blank'; acts.appendChild(portal);
+      top.appendChild(acts); c.appendChild(top);
+      if (pf) c.appendChild(pf);
+      if (s.status === 'paused' && s.pauseReason) c.appendChild(el('div', 'Paused: ' + s.pauseReason, 'small dim'));
+      // Numbers at a glance.
+      var nums = el('div', null, 'sx-nums');
+      [['Listings', String(s.listings || 0)], ['Paid sales', String(st.sales || 0)], ['Sold', money(st.gross || 0)], ['Your fee', money(st.fee || 0)], ['You owe', money(Math.max(0, st.payNow != null ? st.payNow : (st.owed || 0)))], ['Rating', vs.reviews ? '★ ' + vs.rating.toFixed(1) + ' (' + vs.reviews + ')' : '-']].forEach(function (n) { var d = el('div'); d.appendChild(el('span', n[0])); d.appendChild(el('b', n[1])); nums.appendChild(d); });
+      c.appendChild(nums);
+      // One line of who they are and how they get paid.
+      c.appendChild(el('div', s.email + ' · joined ' + new Date(s.at).toLocaleDateString('en-US', { dateStyle: 'medium' }) + ' · payouts: ' + (s.payTo ? (s.payHow === 'bank' || s.payHow === 'wire' ? s.payTo : (s.payHow || '') + ' ' + s.payTo) : 'none yet') + ' · card sales: ' + (s.stripeOn ? 'Stripe pays them' : s.stripe ? 'Stripe setup unfinished, to you' : 'to you'), 'small dim sx-line'));
+      if (s.vouch || s.about) c.appendChild(el('div', (s.vouch ? '🤝 ' + s.vouch : '') + (s.vouch && s.about ? ' · ' : '') + (s.about || ''), 'small sx-clamp'));
+      // Everything else, folded: money details, record a payout, charge, checkmark, bank, eBay, reviews.
+      var more = el('details', null, 'sx-more'); more.appendChild(el('summary', 'More · payouts, charges, checkmark' + (s.bankHint ? ', bank' : '') + (s.ebayUser ? ', eBay' : '') + (s.reviewList && s.reviewList.length ? ', reviews (' + s.reviewList.length + ')' : '')));
+      more.appendChild(el('div', 'Their share ' + money(st.net || 0) + ' · paid by Stripe ' + money(st.byStripe || 0) + ' · sent by you ' + money(st.paidOut || 0) + ' · ' + (vs.completed || 0) + ' completed · ' + (vs.issues || 0) + ' issues', 'small'));
+      var row = function () { var r0 = el('form'); r0.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;align-items:center'; return r0; };
+      var inp = function (ph, w, v) { var i = el('input'); i.placeholder = ph; if (v != null) i.value = v; i.style.cssText = 'height:38px;min-height:0;padding:0 10px;flex:' + w; return i; };
+      var f = row(), amt = inp('Amount', '0 0 100px', st.payNow > 0 ? (st.payNow / 100).toFixed(2) : ''); amt.type = 'number'; amt.step = '0.01'; amt.min = '0.01';
+      var how = inp('How (e.g. Zelle)', '0 0 130px', s.payHow || ''), note = inp('Note (optional)', '1 1 140px');
+      var go = el('button', 'Record payout', 'ghost'); go.type = 'submit'; go.style.cssText = 'height:38px;min-height:0;padding:0 12px';
+      f.appendChild(amt); f.appendChild(how); f.appendChild(note); f.appendChild(go);
+      f.addEventListener('submit', function (ev) { ev.preventDefault(); if (!confirm('Record ' + money(Math.round(Number(amt.value) * 100)) + ' sent to ' + s.name + '? They get an email.')) return; go.disabled = true; post({ do: 'payout', slug: s.slug, amount: amt.value, how: how.value, note: note.value }).then(function (x) { if (x.error) { alert(x.error); go.disabled = false; return; } load(); }); });
+      more.appendChild(f);
+      // Charge the seller (a USPS charge after one of their labels, say): from money held for them first, then their card.
+      var cf = row(), camt = inp('Amount', '0 0 100px'); camt.type = 'number'; camt.step = '0.01'; camt.min = '0.01'; camt.setAttribute('aria-label', 'Amount to charge ' + s.name);
+      var cnote = inp('What for (e.g. USPS adjustment, order W123)', '1 1 200px'); cnote.setAttribute('aria-label', 'Reason');
+      var cgo = el('button', 'Charge seller', 'ghost'); cgo.type = 'submit'; cgo.style.cssText = 'height:38px;min-height:0;padding:0 12px';
+      cf.appendChild(camt); cf.appendChild(cnote); cf.appendChild(cgo);
+      cf.addEventListener('submit', function (ev) { ev.preventDefault(); if (!confirm('Charge ' + s.name + ' ' + money(Math.round(Number(camt.value) * 100)) + '? It comes out of money held for them first, then their card. They get an email.')) return; cgo.disabled = true; post({ do: 'charge', slug: s.slug, amount: camt.value, note: cnote.value }).then(function (x) { cgo.disabled = false; if (x.error) { alert(x.error); return; } load(); }); });
+      more.appendChild(cf);
+      // Verified checkmark, set by hand.
+      var vsel = el('select'); vsel.style.cssText = 'font-family:inherit;font-size:14px;height:38px;padding:0 8px;background:#0B1A13;border:1px solid #4E7A63;color:#F7F2E6;border-radius:8px;align-self:flex-start';
+      [['', 'Checkmark: automatic (' + (vs.need || 10) + ' clean sales)'], ['on', 'Checkmark: always on'], ['off', 'Checkmark: off']].forEach(function (o) { var op = el('option', o[1]); op.value = o[0]; vsel.appendChild(op); });
+      vsel.value = vs.override || ''; vsel.setAttribute('aria-label', 'Verified checkmark for ' + s.name);
+      vsel.addEventListener('change', function () { post({ do: 'verify', slug: s.slug, mode: vsel.value }).then(function (x) { if (x.error) alert(x.error); load(); }); });
+      more.appendChild(vsel);
+      // Their bank account (kept encrypted): shown only when asked, to send a payout by hand.
+      if (s.bankHint) {
+        var bkr = el('div'); bkr.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;align-items:center';
+        var bkb = el('button', 'Show bank details', 'ghost'); bkb.type = 'button'; var bko = el('span', '', 'small');
+        bkb.addEventListener('click', function () { bkb.disabled = true; post({ do: 'bank', slug: s.slug }).then(function (x) { bkb.disabled = false; if (x.error) { bko.textContent = x.error; return; } var k = x.bank; bko.textContent = k.region === 'intl' ? 'INTERNATIONAL WIRE · ' + k.holder + ' · ' + k.bank + ' (' + k.country + ') · SWIFT ' + k.swift + ' · ' + (k.iban ? 'IBAN ' + k.iban : 'account ' + k.account) + ' · holder address: ' + k.address : k.holder + ' · ' + k.type + ' · routing ' + k.routing + ' · account ' + k.account; bkb.remove(); }); });
+        bkr.appendChild(bkb); bkr.appendChild(bko); more.appendChild(bkr);
+      }
       // Their eBay user name: confirm it is really theirs before they can bring all their eBay listings over.
       if (s.ebayUser) {
         var er = el('div'); er.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;align-items:center';
@@ -370,57 +411,18 @@
         var eo = el('a', 'See their eBay store'); eo.href = 'https://www.ebay.com/usr/' + encodeURIComponent(s.ebayUser); eo.target = '_blank'; eo.rel = 'noopener'; eo.className = 'small'; er.appendChild(eo);
         var ec = el('button', s.ebayOk ? 'Un-confirm' : 'Confirm it is theirs', 'ghost'); ec.type = 'button';
         ec.addEventListener('click', function () { ec.disabled = true; post({ do: 'ebay-ok', slug: s.slug, on: !s.ebayOk }).then(function (x) { if (x.error) alert(x.error); load(); }); });
-        er.appendChild(ec); c.appendChild(er);
+        er.appendChild(ec); more.appendChild(er);
       }
-      // Their bank account (kept encrypted): shown only when asked, to send a payout by hand.
-      if (s.bankHint) {
-        var bkr = el('div'); bkr.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;align-items:center';
-        var bkb = el('button', 'Show bank details', 'ghost'); bkb.type = 'button'; var bko = el('span', '', 'small');
-        bkb.addEventListener('click', function () { bkb.disabled = true; post({ do: 'bank', slug: s.slug }).then(function (x) { bkb.disabled = false; if (x.error) { bko.textContent = x.error; return; } var k = x.bank; bko.textContent = k.region === 'intl' ? 'INTERNATIONAL WIRE · ' + k.holder + ' · ' + k.bank + ' (' + k.country + ') · SWIFT ' + k.swift + ' · ' + (k.iban ? 'IBAN ' + k.iban : 'account ' + k.account) + ' · holder address: ' + k.address : k.holder + ' · ' + k.type + ' · routing ' + k.routing + ' · account ' + k.account; bkb.remove(); }); });
-        bkr.appendChild(bkb); bkr.appendChild(bko); c.appendChild(bkr);
-      }
-      c.appendChild(el('div', '🤝 Vouch: ' + (s.vouch || 'no answer (opened before this question)'), 'small'));
-      c.appendChild(el('div', s.email + (s.based === 'intl' ? ' · based outside the US' + (s.country ? ' (' + s.country + ')' : '') : '') + ' · paid by ' + (s.payHow === 'bank' || s.payHow === 'wire' ? s.payTo : s.payTo ? (s.payHow || '') + ': ' + s.payTo : 'no payout details yet') + ' · ' + s.listings + ' listings · joined ' + new Date(s.at).toLocaleDateString('en-US', { dateStyle: 'medium' }), 'small dim'));
-      if (s.about) c.appendChild(el('div', s.about, 'small'));
-      // Rating and the verified checkmark, with a way to set it by hand.
-      var vs = s.stats || {};
-      var vl = el('div'); vl.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;align-items:center';
-      vl.appendChild(el('span', (vs.reviews ? '★ ' + vs.rating.toFixed(1) + ' (' + vs.reviews + ' reviews)' : 'No reviews') + ' · ' + (vs.completed || 0) + ' completed · ' + (vs.issues || 0) + ' issues · ' + (vs.verified ? '✓ VERIFIED' : 'not verified'), 'small'));
-      var vsel = el('select'); vsel.style.cssText = 'font-family:inherit;font-size:14px;height:36px;padding:0 8px;background:#0B1A13;border:1px solid #4E7A63;color:#F7F2E6;border-radius:2px';
-      [['', 'Checkmark: automatic (' + (vs.need || 10) + ' clean sales)'], ['on', 'Checkmark: always on'], ['off', 'Checkmark: off']].forEach(function (o) { var op = el('option', o[1]); op.value = o[0]; vsel.appendChild(op); });
-      vsel.value = vs.override || ''; vsel.setAttribute('aria-label', 'Verified checkmark for ' + s.name);
-      vsel.addEventListener('change', function () { post({ do: 'verify', slug: s.slug, mode: vsel.value }).then(function (x) { if (x.error) alert(x.error); load(); }); });
-      vl.appendChild(vsel);
-      c.appendChild(vl);
       if (s.reviewList && s.reviewList.length) {
-        var det = el('details'), sum = el('summary', 'Reviews (' + s.reviewList.length + ')'); sum.style.cursor = 'pointer'; det.appendChild(sum);
         s.reviewList.forEach(function (r) {
           var rr = el('div'); rr.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start;justify-content:space-between;padding:8px 0;border-top:1px solid #244536';
           rr.appendChild(el('span', '★'.repeat(r.stars) + ' ' + r.name + ' · ' + r.product + (r.text ? ': ' + r.text : ''), 'small'));
           var rm = el('button', 'Remove review', 'ghost'); rm.type = 'button';
           rm.addEventListener('click', function () { if (!confirm('Remove this review? Do this only for abuse or a review that is not about the order.')) return; post({ do: 'review-remove', slug: s.slug, n: r.n }).then(function () { load(); }); });
-          rr.appendChild(rm); det.appendChild(rr);
+          rr.appendChild(rm); more.appendChild(rr);
         });
-        c.appendChild(det);
       }
-      var st = s.totals;
-      c.appendChild(el('div', st.sales + ' paid sales · sold ' + money(st.gross) + ' · your fee ' + money(st.fee) + ' · their share ' + money(st.net) + ' · paid by Stripe ' + money(st.byStripe || 0) + ' · sent by you ' + money(st.paidOut) + ' · you owe ' + money(st.owed), 'small'));
-      var f = el('form', null, 'sx-pay'); f.style.maxWidth = 'none';
-      var amt = el('input'); amt.type = 'number'; amt.step = '0.01'; amt.min = '0.01'; amt.placeholder = 'Amount'; amt.value = st.payNow > 0 ? (st.payNow / 100).toFixed(2) : ''; amt.style.width = '120px';
-      var how = el('input'); how.placeholder = 'How (e.g. Zelle)'; how.value = s.payHow || ''; how.style.width = '140px';
-      var note = el('input'); note.placeholder = 'Note (optional)'; note.style.flex = '1 1 160px';
-      var go = el('button', 'Record payout', 'ghost'); go.type = 'submit';
-      f.appendChild(amt); f.appendChild(how); f.appendChild(note); f.appendChild(go);
-      f.addEventListener('submit', function (ev) { ev.preventDefault(); if (!confirm('Record ' + money(Math.round(Number(amt.value) * 100)) + ' sent to ' + s.name + '? They get an email.')) return; go.disabled = true; post({ do: 'payout', slug: s.slug, amount: amt.value, how: how.value, note: note.value }).then(function (x) { if (x.error) { alert(x.error); go.disabled = false; return; } load(); }); });
-      c.appendChild(f);
-      // Charge the seller (a USPS charge after one of their labels, say): from money held for them first, then their card.
-      var cf = el('form', null, 'sx-pay'); cf.style.maxWidth = 'none';
-      var camt = el('input'); camt.type = 'number'; camt.step = '0.01'; camt.min = '0.01'; camt.placeholder = 'Amount'; camt.style.width = '120px'; camt.setAttribute('aria-label', 'Amount to charge ' + s.name);
-      var cnote = el('input'); cnote.placeholder = 'What for (e.g. USPS postage adjustment, order W123)'; cnote.style.flex = '1 1 240px'; cnote.setAttribute('aria-label', 'Reason');
-      var cgo = el('button', 'Charge seller', 'ghost'); cgo.type = 'submit';
-      cf.appendChild(camt); cf.appendChild(cnote); cf.appendChild(cgo);
-      cf.addEventListener('submit', function (ev) { ev.preventDefault(); if (!confirm('Charge ' + s.name + ' ' + money(Math.round(Number(camt.value) * 100)) + '? It comes out of money held for them first, then their card. They get an email.')) return; cgo.disabled = true; post({ do: 'charge', slug: s.slug, amount: camt.value, note: cnote.value }).then(function (x) { cgo.disabled = false; if (x.error) { alert(x.error); return; } load(); }); });
-      c.appendChild(cf);
+      c.appendChild(more);
       into.appendChild(c);
     };
     // Groups: shops waiting for your OK, open shops, paused shops, then the people buying.
@@ -439,7 +441,7 @@
       [bG, bL].forEach(function (x) { x.style.cssText = 'border:0;border-radius:999px;padding:7px 14px;min-height:0;font-weight:800;font-size:13px;cursor:pointer'; sw2.appendChild(x); });
       hd.appendChild(sw2); box.appendChild(hd);
       if (!act.length) { sw2.hidden = true; if (empty) box.appendChild(el('div', empty, 'small dim')); return; }
-      var gal = el('div'); gal.style.cssText = 'display:flex;flex-direction:column;gap:14px'; gal.setAttribute('data-noview', '1'); box.appendChild(gal);
+      var gal = el('div', null, 'sx-gal'); gal.setAttribute('data-noview', '1'); box.appendChild(gal);
       act.slice().sort(function (a, b) { return sellerSort(a, b); }).forEach(function (x) { cardOf(x, gal); });
       var lstBox = el('div'); box.appendChild(lstBox);
       (function (box) {
