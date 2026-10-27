@@ -430,6 +430,7 @@
       list.sort(function (a, b) { return b.at - a.at; }).forEach(function (x) { cardOf(x, box); });
     };
     // Active sellers: a Gallery (each shop's full card) or a List (one row per shop with its numbers). The choice is remembered.
+    var sellerSort = function (a, b) { return (b.at || 0) - (a.at || 0); };
     var sellerGroup = function (title, act, empty, vkey) {
       var hd = el('div'); hd.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between';
       hd.appendChild(el('div', title + ' (' + act.length + ')', 'mono gold'));
@@ -439,11 +440,11 @@
       hd.appendChild(sw2); box.appendChild(hd);
       if (!act.length) { sw2.hidden = true; if (empty) box.appendChild(el('div', empty, 'small dim')); return; }
       var gal = el('div'); gal.style.cssText = 'display:flex;flex-direction:column;gap:14px'; gal.setAttribute('data-noview', '1'); box.appendChild(gal);
-      act.slice().sort(function (a, b) { return b.at - a.at; }).forEach(function (x) { cardOf(x, gal); });
+      act.slice().sort(function (a, b) { return sellerSort(a, b); }).forEach(function (x) { cardOf(x, gal); });
       var lstBox = el('div'); box.appendChild(lstBox);
       (function (box) {
     // Active sellers as a list, like the buyers: every open shop with its numbers. Click a shop to jump to its card.
-    act = act.slice().sort(function (a, b) { return (b.totals ? b.totals.gross : 0) - (a.totals ? a.totals.gross : 0); });
+    act = act.slice().sort(function (a, b) { return sellerSort(a, b); });
     if (!act.length) box.appendChild(el('div', 'No open shops yet.', 'small dim'));
     else {
       var sw = el('div', null, 'scroll'), stb = el('table'), sh = el('tr'); stb.setAttribute('data-noview', '1');
@@ -470,6 +471,17 @@
       var saved = 'gallery'; try { saved = localStorage.getItem('adminSellerView-' + vkey) || 'gallery'; } catch (e) {}
       view(saved);
     };
+    // Sort every seller group: newest sign-up (default), oldest, A to Z, Z to A, or most sold. Remembered.
+    var sortRow = el('div'); sortRow.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap';
+    sortRow.appendChild(el('b', 'Sort sellers', 'small'));
+    var ssel = el('select'); ssel.style.cssText = 'font-family:inherit;font-size:14px;height:38px;padding:0 10px;background:#0B1A13;border:1px solid #4E7A63;color:#F7F2E6;border-radius:8px';
+    [['new', 'Newest sign-up first'], ['old', 'Oldest sign-up first'], ['az', 'Name A to Z'], ['za', 'Name Z to A'], ['sold', 'Most sold']].forEach(function (o) { var op = el('option', o[1]); op.value = o[0]; ssel.appendChild(op); });
+    try { ssel.value = localStorage.getItem('adminSellerSort') || 'new'; } catch (e) { ssel.value = 'new'; }
+    ssel.addEventListener('change', function () { try { localStorage.setItem('adminSellerSort', ssel.value); } catch (e) {} load(); });
+    sortRow.appendChild(ssel); box.appendChild(sortRow);
+    sellerSort = function (a, b) { var k = ssel.value, na = String(a.name || '').toLowerCase(), nb = String(b.name || '').toLowerCase();
+      if (k === 'az') return na < nb ? -1 : na > nb ? 1 : 0; if (k === 'za') return na < nb ? 1 : na > nb ? -1 : 0;
+      if (k === 'old') return (a.at || 0) - (b.at || 0); if (k === 'sold') return (b.totals ? b.totals.gross : 0) - (a.totals ? a.totals.gross : 0); return (b.at || 0) - (a.at || 0); };
     sellerGroup('NEEDS YOUR APPROVAL', r.sellers.filter(function (x) { return x.status === 'pending'; }), 'Nobody is waiting. New shops show up here until you approve them.', 'pending');
     sellerGroup('ACTIVE SELLERS', r.sellers.filter(function (x) { return x.status === 'approved'; }), 'No open shops yet.', 'active');
     var paused = r.sellers.filter(function (x) { return x.status !== 'pending' && x.status !== 'approved'; });
