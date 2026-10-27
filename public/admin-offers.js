@@ -38,7 +38,8 @@
     var list = offers.filter(function (o) { var st = stand(o, orders); return st === 'accepted' || st === 'countered'; });
     wait.textContent = '';
     if (!list.length) { wait.hidden = true; return; }
-    var hd = el('div', '💳 Payment due · offers you accepted (' + list.length + ')'); hd.style.cssText = 'font-weight:800;font-size:17px;color:#E8A87C'; wait.appendChild(hd);
+    wait.appendChild(el('b', '💳 Payment due · offers you accepted (' + list.length + ')', 'due-h'));
+    if (!$('dueHcss')) { var dcs = el('style', '.due-h{font-weight:800;font-size:17px;color:#E8A87C}'); dcs.id = 'dueHcss'; document.head.appendChild(dcs); }
     var grid = el('div'); grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px'; wait.appendChild(grid);
     list.forEach(function (o) {
       var each = o.counter || o.offer, c = el('div'); c.style.cssText = 'border:1px solid #E8A87C;border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:5px;background:#14271D';
