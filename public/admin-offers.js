@@ -38,13 +38,18 @@
     var list = offers.filter(function (o) { var st = stand(o, orders); return st === 'accepted' || st === 'countered'; });
     wait.textContent = '';
     if (!list.length) { wait.hidden = true; return; }
-    wait.appendChild(el('b', 'Accepted offers waiting for the buyer to check out (' + list.length + ')'));
+    var hd = el('div', '💳 Payment due · offers you accepted (' + list.length + ')'); hd.style.cssText = 'font-weight:800;font-size:17px;color:#E8A87C'; wait.appendChild(hd);
+    var grid = el('div'); grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px'; wait.appendChild(grid);
     list.forEach(function (o) {
-      var each = o.counter || o.offer, c = el('div', null, 'card small'); c.style.cssText = 'border-left:4px solid #C9A45C';
-      c.appendChild(el('b', o.q + ' x ' + o.item + ' at ' + usd(each) + ' each' + (o.q > 1 ? ' (' + usd(each * o.q) + ')' : '') + (o.counter ? ', your counter' : '')));
-      c.appendChild(el('div', o.buyer + ' · ' + o.email + ' · would pay with ' + (o.pay || 'not said') + ' · offer ' + o.n));
-      c.appendChild(el('div', 'Held for them. Their checkout link is good until ' + when(o.until) + '. It becomes a normal order below once they check out.'));
-      wait.appendChild(c);
+      var each = o.counter || o.offer, c = el('div'); c.style.cssText = 'border:1px solid #E8A87C;border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:5px;background:#14271D';
+      var tg = el('span', 'PAYMENT DUE · OFFER ACCEPTED'); tg.style.cssText = 'align-self:flex-start;background:#E8A87C;color:#0B1A13;font-size:11px;font-weight:800;letter-spacing:.05em;border-radius:6px;padding:3px 8px'; c.appendChild(tg);
+      c.appendChild(el('b', o.buyer || o.email || '-'));
+      var it = el('span', (o.q > 1 ? o.q + ' x ' : '') + o.item); it.style.cssText = 'font-size:13px;opacity:.85'; c.appendChild(it);
+      var pr = el('span', usd(each * (o.q || 1)) + (o.counter ? ' (your counter)' : '') + ' · ' + (o.pay || 'card')); pr.style.cssText = 'font-size:14px;color:#C9A45C;font-weight:700'; c.appendChild(pr);
+      var lft = o.until ? Math.max(0, Math.round((o.until - Date.now()) / 3600000)) : 0;
+      c.appendChild(el('div', (o.email || '') + (o.until ? ' · link good until ' + when(o.until) + ' (about ' + lft + 'h left)' : ''), 'small'));
+      c.appendChild(el('div', 'Becomes a paid order below once they check out.', 'small dim'));
+      grid.appendChild(c);
     });
     wait.hidden = !!$('wOrders').hidden;
   }
