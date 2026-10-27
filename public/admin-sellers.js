@@ -480,14 +480,24 @@
     [['new', 'Newest sign-up first'], ['old', 'Oldest sign-up first'], ['az', 'Name A to Z'], ['za', 'Name Z to A'], ['sold', 'Most sold']].forEach(function (o) { var op = el('option', o[1]); op.value = o[0]; ssel.appendChild(op); });
     try { ssel.value = localStorage.getItem('adminSellerSort') || 'new'; } catch (e) { ssel.value = 'new'; }
     ssel.addEventListener('change', function () { try { localStorage.setItem('adminSellerSort', ssel.value); } catch (e) {} load(); });
-    sortRow.appendChild(ssel); box.appendChild(sortRow);
+    sortRow.appendChild(ssel);
+    // Show: every group, or only shops waiting for approval, open shops, or paused shops. Remembered.
+    sortRow.appendChild(el('b', 'Show', 'small'));
+    var fsel = el('select'); fsel.style.cssText = ssel.style.cssText;
+    var cnt = function (f) { return r.sellers.filter(f).length; };
+    var isPend = function (x) { return x.status === 'pending'; }, isAct = function (x) { return x.status === 'approved'; }, isPau = function (x) { return x.status !== 'pending' && x.status !== 'approved'; };
+    [['all', 'All sellers (' + r.sellers.length + ')'], ['pending', 'Needs approval (' + cnt(isPend) + ')'], ['active', 'Active (' + cnt(isAct) + ')'], ['paused', 'Paused (' + cnt(isPau) + ')']].forEach(function (o) { var op = el('option', o[1]); op.value = o[0]; fsel.appendChild(op); });
+    try { fsel.value = localStorage.getItem('adminSellerShow') || 'all'; } catch (e) { fsel.value = 'all'; }
+    fsel.addEventListener('change', function () { try { localStorage.setItem('adminSellerShow', fsel.value); } catch (e) {} load(); });
+    sortRow.appendChild(fsel); box.appendChild(sortRow);
+    var showG = function (k) { return fsel.value === 'all' || fsel.value === k; };
     sellerSort = function (a, b) { var k = ssel.value, na = String(a.name || '').toLowerCase(), nb = String(b.name || '').toLowerCase();
       if (k === 'az') return na < nb ? -1 : na > nb ? 1 : 0; if (k === 'za') return na < nb ? 1 : na > nb ? -1 : 0;
       if (k === 'old') return (a.at || 0) - (b.at || 0); if (k === 'sold') return (b.totals ? b.totals.gross : 0) - (a.totals ? a.totals.gross : 0); return (b.at || 0) - (a.at || 0); };
-    sellerGroup('NEEDS YOUR APPROVAL', r.sellers.filter(function (x) { return x.status === 'pending'; }), 'Nobody is waiting. New shops show up here until you approve them.', 'pending');
-    sellerGroup('ACTIVE SELLERS', r.sellers.filter(function (x) { return x.status === 'approved'; }), 'No open shops yet.', 'active');
+    if (showG('pending')) sellerGroup('NEEDS YOUR APPROVAL', r.sellers.filter(function (x) { return x.status === 'pending'; }), 'Nobody is waiting. New shops show up here until you approve them.', 'pending');
+    if (showG('active')) sellerGroup('ACTIVE SELLERS', r.sellers.filter(function (x) { return x.status === 'approved'; }), 'No open shops yet.', 'active');
     var paused = r.sellers.filter(function (x) { return x.status !== 'pending' && x.status !== 'approved'; });
-    if (paused.length) sellerGroup('PAUSED SHOPS', paused, '', 'paused');
+    if (showG('paused') && (paused.length || fsel.value === 'paused')) sellerGroup('PAUSED SHOPS', paused, 'No paused shops.', 'paused');
     // Active buyers: everyone with a paid order, with how many orders and how much they spent.
     var by = {};
     (r.sales || []).forEach(function (o) { if (!o.paid || !o.email) return; var k = String(o.email).toLowerCase(); var b2 = by[k] = by[k] || { email: k, name: o.buyer || '', n: 0, spent: 0, last: 0 }; b2.n++; b2.spent += o.gross || 0; if (o.at > b2.last) { b2.last = o.at; if (o.buyer) b2.name = o.buyer; } });
