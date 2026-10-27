@@ -260,6 +260,8 @@ async function voidLabel(n) {
   if (m.labelCardPi) await require('./_stripe').call('POST', '/refunds', { payment_intent: m.labelCardPi, 'metadata[reason]': 'label cancelled' }, 'label-void-' + n + '-' + m.labelCardPi).catch(() => null);
   const keep = { at: Date.now(), tracking: m.tracking || '', tx: m.labelTx || '', cost: m.labelCost || 0, shippo: shippo_ };
   ['tracking', 'labelPdf', 'labelTx', 'testLabel', 'shippedAt', 'shippedBy', 'labelCost', 'labelFromEarnings', 'labelFromCard', 'labelCardPi', 'customsPdf'].forEach((k) => { delete m[k]; });
+  // An order that counted as paid because its label was bought stays paid.
+  if (!m.paidAt) { m.paidAt = Date.now(); m.paidHow = m.paidHow || 'label'; }
   m.labelVoids = (m.labelVoids || []).concat([keep]);
   await store.write(mk, m);
   return { ok: true, shippo: shippo_ };
