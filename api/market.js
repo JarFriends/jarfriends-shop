@@ -101,7 +101,6 @@ module.exports = async (req, res) => {
         + '<meta http-equiv="refresh" content="0;url=' + esc(to) + '"><script>location.replace(' + JSON.stringify(to) + ')</script></head><body style="background:#0B1A13;color:#F7F2E6;font-family:sans-serif;padding:24px"><a style="color:#C9A45C" href="' + esc(to) + '">Open ' + esc(title) + '</a></body></html>');
     }
     if (req.method === 'GET' && what === 'shop') {
-      await require('./_jffix').run();
       let items = await shopItems();
       const open = (await M.all()).filter((s) => s.status === 'approved');
       const st = await M.statsAll(open);

@@ -402,7 +402,7 @@ async function run() {
   await partyOpen(now, mail).catch((e) => console.error('SWEEP_PARTY_FAIL', String(e && e.message || e)));
   await auctions(now, mail).catch((e) => console.error('SWEEP_AUCTIONS_FAIL', String(e && e.message || e)));
   // Pieces brought over from eBay: take down any that sold or ended there (see _ebay.js).
-  await require('./_ebay').sync(15).catch((e) => console.error('SWEEP_EBAY_FAIL', String(e && e.message || e)));
+  // eBay check turned off (Oct 27 2026): nothing changes or hides a seller's listings by itself.
 }
 // Called by the back office the moment a lower price is saved.
 async function dropNow() { /* price drops now go out with the daily update (see _digest.js) */ }

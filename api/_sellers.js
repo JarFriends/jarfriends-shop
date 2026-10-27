@@ -58,6 +58,7 @@ let sMemo = null;
 // "Name|email" pairs separated by commas, e.g. "JarFriends|me@example.com". Each is made once, approved.
 let seeded = false;
 async function seed() {
+  return; // turned off (Oct 27 2026): no shop is created or changed by itself.
   if (seeded) return;
   seeded = true;
   await retire();
