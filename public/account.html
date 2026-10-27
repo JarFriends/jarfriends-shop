@@ -85,7 +85,7 @@
               $('msg').textContent = ''; load();
             }, function () { $('msg').textContent = 'Could not sign in. Try again.'; });
         } });
-        window.google.accounts.id.renderButton($('gbtn'), { theme: 'filled_black', size: 'large', text: 'signin_with', shape: 'rectangular' });
+        window.google.accounts.id.renderButton($('gbtn'), { theme: 'filled_black', size: 'large', text: 'continue_with', shape: 'pill', logo_alignment: 'center', width: 320 });
       };
       document.head.appendChild(sc);
     }, function () {});

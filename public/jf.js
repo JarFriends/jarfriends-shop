@@ -99,13 +99,8 @@
   }
   function google(host, msg, done, or) {
     if (inApp()) { inAppNote(host); return; }
-    if (!host.dataset.armed) {
-      host.dataset.armed = '1';
-      var gb = el('button', 'Continue with Google', 'ghost'); gb.type = 'button'; gb.style.cssText = 'width:100%;max-width:300px;min-height:44px';
-      gb.addEventListener('click', function () { gb.disabled = true; gb.textContent = 'Opening Google…'; host.textContent = ''; realGoogle(host, msg, done, or); });
-      host.appendChild(gb);
-      return;
-    }
+    // The real Google button straight away (one press), with a quiet placeholder while Google's script loads.
+    if (!host.firstChild) { var ph = el('div', 'Loading Google sign-in…', 'small dim'); ph.style.cssText = 'height:44px;display:flex;align-items:center;justify-content:center;border:1px solid #2E4A3B;border-radius:999px;width:100%;max-width:360px;margin:0 auto'; host.appendChild(ph); }
     realGoogle(host, msg, done, or);
   }
   function realGoogle(host, msg, done, or) {
@@ -119,8 +114,8 @@
         msg.textContent = 'Signing you in…';
         api('/api/google', { credential: resp.credential }).then(function (r) { if (!r.token) { msg.textContent = r.error || 'Could not sign in with Google.'; return; } keep(r.token); afterSignIn(r, function () { done(r.token); }); });
       } });
-      window.google.accounts.id.renderButton(host, { theme: 'filled_black', size: 'large', text: 'continue_with', shape: 'rectangular', width: 300 });
-      msg.textContent = 'Press the Google button to continue.';
+      host.textContent = ''; host.style.cssText = 'display:flex;justify-content:center;min-height:44px';
+      window.google.accounts.id.renderButton(host, { theme: 'filled_black', size: 'large', text: 'continue_with', shape: 'pill', logo_alignment: 'center', width: Math.max(240, Math.min(360, (host.offsetWidth || 320))) });
     });
   }
   function keep(t) { try { localStorage.setItem('acct_token', t); localStorage.removeItem('bid_token'); } catch (x) {} }
@@ -130,7 +125,7 @@
     var card = el('section', null, 'card'); card.style.cssText = 'gap:16px;max-width:520px';
     var head = el('h2'), sub = el('div', lead || '', 'small');
     var g = el('div'); g.style.minHeight = '44px';
-    var or = el('div', 'or with your email', 'label'); or.style.textAlign = 'center';
+    var or = el('div', 'or with your email', 'label'); or.style.cssText = 'display:flex;align-items:center;gap:12px;text-align:center;opacity:.8'; or.insertAdjacentHTML('afterbegin', '<span style="flex:1;height:1px;background:#2E4A3B"></span>'); or.insertAdjacentHTML('beforeend', '<span style="flex:1;height:1px;background:#2E4A3B"></span>');
     var f = el('form'); f.style.gap = '12px';
     var ln = el('label', 'Full name (your electronic signature on the Terms)'), n = el('input'); n.autocomplete = 'name'; n.maxLength = 80; ln.appendChild(n);
     // The Terms of Service, signed at sign-up: the ticked box plus the typed full name.
