@@ -49,7 +49,10 @@
       var pr = el('span', usd(each * (o.q || 1)) + (o.counter ? ' (your counter)' : '') + ' · ' + (o.pay || 'card')); pr.style.cssText = 'font-size:14px;color:#C9A45C;font-weight:700'; c.appendChild(pr);
       var lft = o.until ? Math.max(0, Math.round((o.until - Date.now()) / 3600000)) : 0;
       c.appendChild(el('div', (o.email || '') + (o.until ? ' · link good until ' + when(o.until) + ' (about ' + lft + 'h left)' : ''), 'small'));
-      c.appendChild(el('div', 'Becomes a paid order below once they check out.', 'small dim'));
+      c.appendChild(el('div', 'Becomes a paid order below once they check out. Paid you another way? Mark it paid.', 'small dim'));
+      var mp = el('button', '✓ Mark as paid', 'solid'); mp.type = 'button'; mp.style.cssText = 'align-self:flex-start;padding:6px 14px;min-height:0;border-radius:999px';
+      mp.addEventListener('click', function () { var PW = { 'Zelle': 'zelle', 'Venmo': 'venmo', 'Cash App': 'cashapp', 'Card': 'card' }; if (window.jfNewOrder) { var ob = document.querySelector('.tabs button'); if (ob && $('wOrders') && $('wOrders').hidden) ob.click(); setTimeout(function () { window.jfNewOrder({ pid: o.pid, item: o.item, qty: o.q || 1, each: (each / 100).toFixed(2), name: o.buyer || '', email: o.email || '', pay: PW[o.pay] || (/eth|usd|crypto/i.test(o.pay || '') ? 'crypto' : 'zelle'), note: 'accepted offer ' + o.n }); }, 200); } });
+      c.appendChild(mp);
       grid.appendChild(c);
     });
     wait.hidden = !!$('wOrders').hidden;

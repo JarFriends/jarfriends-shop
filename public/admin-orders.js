@@ -119,7 +119,10 @@
     var i = el('input'); i.value = val == null ? '' : val; if (type) { i.type = type; if (type === 'number') { i.step = 'any'; i.min = '0'; } }
     l.appendChild(i); return { box: l, input: i };
   }
-  function showForm() {
+  // Other tabs can open it filled in (an accepted offer the buyer paid outside checkout).
+  window.jfNewOrder = function (pre) { showForm(pre); formBox.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+  function showForm(pre) {
+    pre = pre || {};
     formBox.hidden = false; formBox.textContent = '';
     var c = el('section', null, 'card'); c.style.cssText = 'display:flex;flex-direction:column;gap:12px;border-color:#C9A45C';
     c.appendChild(el('b', 'New order (made by hand)'));
@@ -129,6 +132,7 @@
     var ps = el('select'); var items = (window.jfItems || []).filter(function (p) { return !p.test; }).sort(function (a, b) { return a.name.localeCompare(b.name); });
     var ph = el('option', 'Pick the product'); ph.value = ''; ps.appendChild(ph);
     items.forEach(function (p) { var op = el('option', p.name + ' · ' + usd(p.price) + ' · ' + p.left + ' left'); op.value = p.id; ps.appendChild(op); });
+    if (pre.pid && !items.filter(function (x) { return x.id === pre.pid; }).length) { var po = el('option', pre.item || pre.pid); po.value = pre.pid; ps.appendChild(po); }
     pl.appendChild(ps); row.appendChild(pl);
     var qty = field('How many', 1, '90px', 'number'), each = field('Price each, $', '', '120px', 'number'), ship = field('Shipping charged, $', '0', '140px', 'number');
     ps.addEventListener('change', function () { var p = items.filter(function (x) { return x.id === ps.value; })[0]; if (p) { each.input.value = Number(p.price).toFixed(2); ship.input.value = Number(p.shipping || 0).toFixed(2); } });
@@ -140,6 +144,7 @@
     var pd = el('input'); pd.type = 'checkbox'; pd.checked = true; pd.style.cssText = 'width:20px;height:20px;min-height:0;margin:0;padding:0;accent-color:#C9A45C'; pdl.appendChild(pd); pdl.appendChild(el('span', 'Already paid'));
     var nt = field('Note (where it sold, e.g. Whatnot)', '', '240px');
     [qty, each, ship, nm, em, st, l2, ci, sa, zp].forEach(function (f) { row.appendChild(f.box); }); row.appendChild(pyl); row.appendChild(pdl); row.appendChild(nt.box);
+    if (pre.pid) { ps.value = pre.pid; ps.dispatchEvent(new Event('change')); if (pre.each != null) each.input.value = pre.each; if (pre.qty) qty.input.value = pre.qty; nm.input.value = pre.name || ''; em.input.value = pre.email || ''; if (pre.pay) py.value = pre.pay; nt.input.value = pre.note || ''; }
     c.appendChild(row);
     var bt = el('div'); bt.style.cssText = 'display:flex;gap:10px;flex-wrap:wrap';
     var save = el('button', 'Save order', 'solid'); save.type = 'button'; var cancel = el('button', 'Cancel', 'ghost'); cancel.type = 'button';
