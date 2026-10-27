@@ -344,7 +344,20 @@
       var acts = el('div'); acts.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap';
       var mk = function (label, status) { var b = el('button', label, 'ghost'); b.type = 'button'; b.addEventListener('click', function () { b.disabled = true; post({ do: 'status', slug: s.slug, status: status }).then(function (x) { if (x.error) alert(x.error); load(); }); }); acts.appendChild(b); };
       if (s.status !== 'approved') mk(s.status === 'pending' ? 'Approve' : 'Re-open', 'approved');
-      if (s.status !== 'paused') mk('Pause', 'paused');
+      // Pause: write why (emailed to them and shown in their Seller Hub), then pause.
+      if (s.status !== 'paused') {
+        var pb = el('button', 'Pause…', 'ghost'); pb.type = 'button'; acts.appendChild(pb);
+        var pf = el('div'); pf.hidden = true; pf.style.cssText = 'flex-basis:100%;display:flex;flex-direction:column;gap:8px;border:1px solid #E8A87C;border-radius:10px;padding:10px 12px';
+        pf.appendChild(el('b', 'Why are you pausing ' + s.name + '? They get this by email and see it in their Seller Hub.'));
+        var why = el('textarea'); why.rows = 3; why.maxLength = 800; why.placeholder = 'For example: Please add a photo of each piece and your ship-from address, then reply and we will re-open your shop.'; pf.appendChild(why);
+        var pr = el('div'); pr.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap';
+        var go2 = el('button', 'Pause and send', 'solid'); go2.type = 'button'; var cx = el('button', 'Cancel', 'ghost'); cx.type = 'button'; pr.appendChild(go2); pr.appendChild(cx); pf.appendChild(pr);
+        pb.addEventListener('click', function () { pf.hidden = !pf.hidden; if (!pf.hidden) why.focus(); });
+        cx.addEventListener('click', function () { pf.hidden = true; });
+        go2.addEventListener('click', function () { go2.disabled = true; post({ do: 'status', slug: s.slug, status: 'paused', reason: why.value.trim() }).then(function (x) { if (x.error) { go2.disabled = false; alert(x.error); return; } load(); }); });
+        acts.appendChild(pf);
+      }
+      if (s.status === 'paused' && s.pauseReason) acts.appendChild(el('div', 'Paused: ' + s.pauseReason, 'small dim'));
       var shop = el('a', 'Shop page'); shop.href = '/shop.html?s=' + encodeURIComponent(s.slug); shop.target = '_blank'; shop.style.alignSelf = 'center'; acts.appendChild(shop);
       var portal = el('a', 'Open their portal'); portal.href = '/seller.html?as=' + encodeURIComponent(s.slug); portal.target = '_blank'; portal.style.alignSelf = 'center'; acts.appendChild(portal);
       top.appendChild(acts);

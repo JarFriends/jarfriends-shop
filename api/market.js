@@ -374,7 +374,9 @@ module.exports = async (req, res) => {
         if (['approved', 'paused', 'pending'].indexOf(b.status) < 0) return res.status(400).json({ error: 'Pick approve or pause.' });
         const was = s.status;
         s.status = b.status; s.statusAt = Date.now();
+        if (b.status === 'paused') s.pauseReason = String(b.reason || '').trim().slice(0, 800); else delete s.pauseReason;
         await M.save(s);
+        if (b.status === 'paused' && was !== 'paused') await mail(s.email, 'Your V2V seller shop is paused', ['Your seller shop "' + s.name + '" on V2V is paused for now, so your pieces are not showing.', '', s.pauseReason ? 'Why: ' + s.pauseReason : 'V2V will be in touch about why.', '', 'Questions? Just reply to this email.', '', 'Your Seller Hub: https://' + req.headers.host + '/seller.html'], 'seller-pause-' + s.slug + '-' + s.statusAt).catch(() => null);
         if (was !== 'approved' && s.status === 'approved') {
           await mail(s.email, 'Your JarFriends seller shop is open', ['Good news: your seller shop "' + s.name + '" is approved.', '', 'List your pieces here:', 'https://' + req.headers.host + '/seller.html'], 'seller-ok-' + s.slug + '-' + s.statusAt,
             '<div style="background:#0B1712;padding:28px 16px;font-family:Arial,Helvetica,sans-serif;color:#E6EFE9"><div style="max-width:520px;margin:0 auto"><div style="font-size:13px;letter-spacing:2px;color:#C9A45C">SELLER SHOP</div><h1 style="font-size:24px;margin:8px 0 14px;color:#8FD3AE">You are open for business</h1><p style="font-size:16px;line-height:1.5">Your shop <b>' + esc(s.name) + '</b> is approved. Add your pieces and they show in the JarFriends market right away.</p><p style="margin:18px 0"><a href="https://' + req.headers.host + '/seller.html" style="background:#C9A45C;color:#0B1712;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:24px;display:inline-block">Open my seller portal</a></p></div></div>').catch(() => null);
