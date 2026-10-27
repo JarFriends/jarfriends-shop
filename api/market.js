@@ -37,7 +37,7 @@ async function walletCents() {
   const live = Math.round((await M.ledger(null)).filter((r) => r.paid).reduce((t, r) => t + (r.items || 0), 0) * M.giveawayPct() / 100);
   // The wallet only ever goes up: a cancelled label, refund or edited order never takes money back out of it.
   const fl = (await store.read('settings/wallet-floor.json').catch(() => null)) || { v: 2366 }; // $23.66 shown on Oct 27 2026
-  const v = Math.max(live, fl.v || 0);
+  const v = Math.max(live, fl.v || 0, 3000); // never below $30.00, the amount on Oct 27 2026
   if (v > (fl.v || 0)) await store.write('settings/wallet-floor.json', { v: v, at: Date.now() }).catch(() => null);
   walletMemo = { at: Date.now(), v: v };
   return v;
