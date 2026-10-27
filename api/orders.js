@@ -23,6 +23,16 @@ async function mine(email) {
   return out;
 }
 
+// The by-hand ways an order can be paid: to the seller's own handle when they added one, otherwise to VeeFam's.
+async function ways(inv) {
+  const off = require('./_offline'), M = require('./_sellers'), L = { zelle: 'Zelle', venmo: 'Venmo', cashapp: 'Cash App', paypal: 'PayPal' }, out = [];
+  for (const w of Object.keys(L)) {
+    const d = await M.directFor(inv.pid, w).catch(() => null);
+    const to = d ? d.to : (process.env[{ zelle: 'ZELLE_TO', venmo: 'VENMO_TO', cashapp: 'CASHAPP_TO', paypal: 'PAYPAL_TO' }[w]] || '').trim();
+    if (to) out.push({ way: w, label: L[w], to: to, seller: d ? d.slug : '', name: d ? d.name : '' });
+  }
+  return out;
+}
 module.exports = async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   const b = req.method === 'POST' && req.body && typeof req.body === 'object' ? req.body : {};
@@ -36,6 +46,19 @@ module.exports = async (req, res) => {
     if (req.method === 'POST') {
       const x = list.filter((o) => o.s.n === String(b.n || ''))[0];
       if (!x) return res.status(404).json({ error: 'That order was not found under your email.' });
+      // Switch how a by-hand payment is sent (Zelle, Venmo, Cash App, PayPal), while the order is still unpaid.
+      if (b.way) {
+        const inv = invOf(x.d), due = /payment due/i.test(x.d.status || '') && !x.m.paidAt;
+        if (!inv || inv.m !== 'cash' || !due || sent(x.m)) return res.status(400).json({ error: 'This order is already paid, so its payment method can no longer change.' });
+        const opt = (await ways(inv)).filter((w) => w.way === String(b.way))[0];
+        if (!opt) return res.status(400).json({ error: 'That payment method is not available for this order.' });
+        const meta = Object.assign({}, x.m, { payWay: opt.way, payTo: opt.to, payWayAt: Date.now() });
+        if (opt.seller) meta.directPay = { way: opt.way, to: opt.to, name: opt.name, slug: opt.seller }; else delete meta.directPay;
+        await store.write('meta/' + x.s.n + '.json', meta);
+        await store.write(x.s.path, Object.assign({}, x.d, { pay: opt.label, status: String(x.d.status || '').replace(/payment due by [A-Za-z ]+/i, 'payment due by ' + opt.label) }));
+        console.log('PAY_WAY_CHANGED', x.s.n, opt.way);
+        return res.json({ ok: true, way: opt.way, label: opt.label, to: opt.to, seller: opt.name || '' });
+      }
       if (sent(x.m)) return res.status(400).json({ error: 'This order has already shipped (or its label is bought), so the address can no longer change. Reply to your order email and we will help.' });
       const inv = invOf(x.d), was = inv && Array.isArray(inv.a) ? inv.a : null;
       if (!was || !was[2] || (inv && inv.wa)) return res.status(400).json({ error: 'This order does not ship to a mailing address.' });
@@ -67,9 +90,11 @@ module.exports = async (req, res) => {
         total: total.toFixed(2), paid: (paidNow ? total : num(d.paid)).toFixed(2), balance: (paidNow ? 0 : Math.max(0, total - num(d.paid))).toFixed(2),
         status: status, proof: /^https:\/\//.test(s(d.proof)) ? s(d.proof) : '', ship: s(d.ship),
         // Not shipped yet and going to a mailing address: the address can still change.
+        payWay: (!paidNow && inv && inv.m === 'cash') ? { now: m.payWay || inv.w || 'cash', to: m.payTo || '' } : null,
         edit: !sent(m) && Array.isArray(cur) && !!cur[2] && !(inv && inv.wa) ? { name: cur[0], street: cur[2], line2: cur[3] || '', city: cur[4], state: cur[5], zip: cur[6], intl: !!(cur[7] && cur[7] !== 'US') } : null
       };
     }).sort((a, z) => z.at - a.at);
+    await Promise.all(orders.map(async (o) => { if (!o.payWay) return; const x = list.filter((y) => y.s.n === o.invoice)[0], inv = x && invOf(x.d); o.payWay.options = inv ? (await ways(inv)).map((w) => ({ way: w.way, label: w.label, to: w.to, seller: w.name })) : []; if (!o.payWay.to) { const cur = o.payWay.options.filter((w) => w.way === o.payWay.now)[0]; o.payWay.to = cur ? cur.to : ''; } }));
     res.json({ email: t.e, orders: orders });
   } catch (e) {
     console.error('ORDERS_FAIL', String(e && e.message || e));

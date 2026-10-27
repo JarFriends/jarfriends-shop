@@ -138,6 +138,24 @@
       if (o.ship) rows.appendChild(row('Ships to', o.ship));
       card.appendChild(rows);
       if (o.edit) card.appendChild(addrForm(o));
+      // Unpaid, paying by hand: where to send it, and a way to switch to another method.
+      if (o.payWay && o.payWay.options && o.payWay.options.length) {
+        var pw = document.createElement('div'); pw.style.cssText = 'display:flex;flex-direction:column;gap:8px;border:1px solid #C9A45C;border-radius:10px;padding:10px 12px';
+        var cur = o.payWay.options.filter(function (x) { return x.way === o.payWay.now; })[0];
+        var info = el('div', 'small', cur ? 'Send ' + money(o.balance) + ' by ' + cur.label + ' to ' + cur.to + (cur.seller ? ' (the seller, ' + cur.seller + ')' : '') + '. Put order ' + o.invoice + ' in the note.' : 'Pick how you will pay.');
+        pw.appendChild(info);
+        if (o.payWay.options.length > 1 || !cur) {
+          var rowp = document.createElement('div'); rowp.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;align-items:center';
+          var sel = document.createElement('select'); o.payWay.options.forEach(function (x) { var op = document.createElement('option'); op.value = x.way; op.textContent = x.label; sel.appendChild(op); }); sel.value = cur ? cur.way : o.payWay.options[0].way; sel.style.cssText = 'height:40px;padding:0 12px;border-radius:8px;background:#0B1A13;color:#F7F2E6;border:1px solid #4E7A63;font:inherit';
+          var sv = document.createElement('button'); sv.type = 'button'; sv.className = 'ghost'; sv.textContent = 'Change payment method';
+          var pm = el('div', 'small', '');
+          sv.addEventListener('click', function () { if (cur && sel.value === cur.way) { pm.textContent = 'That is already how you are paying.'; return; } sv.disabled = true; pm.textContent = 'Saving…';
+            fetch('/api/orders', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ t: token, n: o.invoice, way: sel.value }) }).then(function (r) { return r.json(); }).then(function (r) { sv.disabled = false;
+              if (r.error) { pm.textContent = r.error; return; } cur = { way: r.way, label: r.label, to: r.to, seller: r.seller }; info.textContent = 'Send ' + money(o.balance) + ' by ' + r.label + ' to ' + r.to + (r.seller ? ' (the seller, ' + r.seller + ')' : '') + '. Put order ' + o.invoice + ' in the note.'; pm.textContent = '✓ Changed to ' + r.label + '.'; Array.prototype.forEach.call(card.querySelectorAll('.rows > *'), function (rw) { if (rw.firstChild && rw.firstChild.textContent === 'Paid with' && rw.lastChild) rw.lastChild.textContent = r.label; }); }, function () { sv.disabled = false; pm.textContent = 'Could not change it just now. Try again.'; }); });
+          rowp.appendChild(sel); rowp.appendChild(sv); pw.appendChild(rowp); pw.appendChild(pm);
+        }
+        card.appendChild(pw);
+      }
       // Ask the seller to return (or cancel) this order: placed by accident, changed your mind, or a problem.
       if (o.invoice && /^W/.test(String(o.invoice))) { var rb = document.createElement('button'); rb.type = 'button'; rb.className = 'ghost'; rb.textContent = '↩️ Request a return'; rb.style.alignSelf = 'flex-start';
         rb.addEventListener('click', function () { if (rb.dataset.open) return; rb.dataset.open = '1'; var w = el('div'); w.style.cssText = 'display:flex;flex-direction:column;gap:8px'; var ta = document.createElement('textarea'); ta.rows = 2; ta.maxLength = 500; ta.placeholder = 'Why? (ordered by accident, changed my mind, it arrived damaged…)'; var sb = document.createElement('button'); sb.type = 'button'; sb.className = 'solid'; sb.textContent = 'Send the request to the seller'; sb.style.alignSelf = 'flex-start'; var rm = el('div', 'small', '');
