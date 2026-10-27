@@ -745,6 +745,30 @@ module.exports = async (req, res) => {
       if (!seller) return res.status(403).json({ error: 'Open a seller shop first.' });
       return res.json({ trades: await require('./_trades').forSeller(seller.slug) });
     }
+    // The buyer of an accepted offer paid the seller some other way (DMs, in person): the seller records it here.
+    // It becomes a paid order, paid straight to the seller, so the piece comes off stock and VeeFam's fee is owed.
+    if (what === 'offer-paid' && req.method === 'POST') {
+      if (!seller) return res.status(403).json({ error: 'Open a seller shop first.' });
+      const n = String(b.n || '').replace(/[^A-Za-z0-9-]/g, '').slice(0, 30), o = n && await store.read('offers/' + n + '.json');
+      const p = o && (await M.listings()).filter((x) => x.id === o.pid && x.seller === seller.slug)[0];
+      if (!o || !p) return res.status(404).json({ error: 'That offer was not found.' });
+      if (!(o.status === 'accepted' || o.status === 'countered')) return res.status(400).json({ error: 'Only an accepted offer can be marked paid.' });
+      if (o.paidOrder) return res.status(400).json({ error: 'Already marked paid: order ' + o.paidOrder + '.' });
+      const tidy = (v, k) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, k);
+      const WAYS = { zelle: 'Zelle', venmo: 'Venmo', cashapp: 'Cash App', paypal: 'PayPal', crypto: 'Crypto', cash: 'Cash' }, way = WAYS[b.how] ? b.how : 'cash';
+      const q = Math.max(1, Number(o.q) || 1), each = o.status === 'countered' && o.counter ? o.counter : o.offer, L = each * q;
+      const a = [tidy(b.name || o.buyer, 80), '', tidy(b.street, 120), tidy(b.line2, 60), tidy(b.city, 60), tidy(b.state, 30), tidy(b.zip, 12)];
+      const lib = require('./_lib'), off = require('./_offline'), dt = { way: way, to: tidy(((seller.directPay || {})[way]) || 'seller', 80), seller: seller.slug };
+      const r = await lib.createInvoice({ no: 'D' + Date.now().toString(36).toUpperCase(), item: o.item, qty: String(q), buyer: a[0], terms: '', email: String(o.email || '').toLowerCase(), cents: L, hours: 24 * 30, noCoins: true,
+        extra: { p: 'shop', pid: o.pid, L: L, T: L, sh: 0, a: a, m: 'cash', w: way } });
+      if (r.error) return res.status(503).json({ error: r.error });
+      const out = await off.record(r.inv, 'Paid in full to the seller by ' + WAYS[way] + ' (accepted offer ' + n + ')', { paid: true, label: a[2] ? off.labelLink('https://' + req.headers.host, r.token, r.inv) : '' });
+      if (!(out === 'ok' || out === 'duplicate' || out === 'short')) return res.status(503).json({ error: 'Could not save the order just now. Try again.' });
+      await store.write('meta/' + r.inv.n + '.json', Object.assign((await store.read('meta/' + r.inv.n + '.json').catch(() => null)) || {}, { directPay: dt, paidAt: Date.now(), paidHow: 'seller' }));
+      await store.write('offers/' + n + '.json', Object.assign(o, { paidOrder: r.inv.n, paidAt: Date.now() }));
+      M.forget();
+      return res.json({ ok: true, n: r.inv.n });
+    }
     if (what === 'offers') {
       if (!seller) return res.status(403).json({ error: 'Open a seller shop first.' });
       const mine = {};
@@ -753,7 +777,7 @@ module.exports = async (req, res) => {
       const r = await ls({ prefix: 'offers/', limit: 1000 });
       const all = (await Promise.all((r.blobs || []).map((x) => store.read(x.pathname)))).filter((o) => o && mine[o.pid]);
       all.sort((a, b2) => (b2.at || 0) - (a.at || 0));
-      return res.json({ offers: all.slice(0, 100).map((o) => ({ note: o.note || '', n: o.n, pid: o.pid, item: o.item, q: o.q, offer: o.offer, list: o.list, buyer: o.buyer, pay: o.pay, status: o.status, at: o.at, until: o.until || 0, counter: o.counter || 0, who: M.hashOf(o.email || '').slice(0, 10), events: offerEvents(o), t: o.status === 'pending' ? o.t : '' })) });
+      return res.json({ offers: all.slice(0, 100).map((o) => ({ note: o.note || '', n: o.n, pid: o.pid, item: o.item, q: o.q, offer: o.offer, list: o.list, buyer: o.buyer, pay: o.pay, status: o.status, at: o.at, until: o.until || 0, counter: o.counter || 0, paidOrder: o.paidOrder || '', who: M.hashOf(o.email || '').slice(0, 10), events: offerEvents(o), t: o.status === 'pending' ? o.t : '' })) });
     }
     if (req.method !== 'POST') return res.status(405).json({ error: 'Use POST.' });
 
