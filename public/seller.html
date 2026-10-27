@@ -1234,10 +1234,10 @@
       if (!r.offers || !r.offers.length) { box.appendChild(el('div', r.error || 'No offers yet.', 'jf-empty')); return; }
       var words = { pending: 'WAITING FOR YOU', accepted: 'ACCEPTED', countered: 'YOU COUNTERED', declined: 'DECLINED', auto: 'DECLINED (UNDER YOUR LOWEST)' };
       // Accepted (or countered) and not paid yet go first, under their own heading; then everything else.
-      var unpaid = function (x) { return (x.status === 'accepted' || x.status === 'countered') && !x.paid && !x.paidOrder && (!x.until || x.until > Date.now()); };
+      var unpaid = function (x) { return (x.status === 'accepted' || x.status === 'countered') && !x.paid && !x.paidOrder; };
       var up = r.offers.filter(unpaid);
       r.offers = up.concat(r.offers.filter(function (x) { return !unpaid(x); }));
-      if (up.length) { var uh = el('h3', '💳 Accepted, not paid yet (' + up.length + ')'); uh.style.cssText = 'margin:0;color:#E8A87C;font-size:17px'; box.appendChild(uh); box.appendChild(el('div', 'The buyer has a link to pay at your price for 48 hours. If they paid you some other way, press Buyer paid me.', 'small dim')); }
+      if (up.length) { var uh = el('h3', '💳 Accepted, not paid yet (' + up.length + ')'); uh.style.cssText = 'margin:0;color:#E8A87C;font-size:17px'; box.appendChild(uh); box.appendChild(el('div', 'The buyer has a link to pay at your price for 48 hours. If they paid you some other way, press Mark as paid.', 'small dim')); }
       var restH = false;
       r.offers.forEach(function (o) {
         if (up.length && !unpaid(o) && !restH) { restH = true; var rh = el('h3', 'All other offers'); rh.style.cssText = 'margin:8px 0 0;font-size:17px'; box.appendChild(rh); }
@@ -1266,7 +1266,7 @@
         }
         // Accepted, and the buyer paid the seller another way (DMs, in person): record it, so it becomes a paid order.
         if (unpaid(o)) {
-          var pb = el('button', '✓ Buyer paid me', 'solid'); pb.type = 'button'; pb.style.alignSelf = 'flex-start';
+          var pb = el('button', '✓ Mark as paid', 'solid'); pb.type = 'button'; pb.style.alignSelf = 'flex-start';
           var pf = el('div'); pf.hidden = true; pf.style.cssText = 'display:flex;flex-direction:column;gap:8px;border:1px solid #4E7A63;border-radius:10px;padding:10px 12px';
           pf.appendChild(el('div', 'Only if they already paid you outside checkout. It becomes a paid order you can ship, and V2V’s 5.55% goes in What you owe.', 'small'));
           var hw = select([['zelle', 'Zelle'], ['venmo', 'Venmo'], ['cashapp', 'Cash App'], ['paypal', 'PayPal'], ['crypto', 'Crypto'], ['cash', 'Cash']], 'zelle');
