@@ -1255,6 +1255,15 @@
         var hist = el('div'); hist.hidden = true;
         hb.addEventListener('click', function () { if (!hist.firstChild) hist.appendChild(JF.offerHistory(same, 'seller')); hist.hidden = !hist.hidden; hb.textContent = hist.hidden ? 'View history' + (same.length > 1 ? ' (' + same.length + ' offers)' : '') : 'Hide history'; });
         c.appendChild(hb); c.appendChild(hist);
+        // Accepted and not paid yet: who it is, how they planned to pay, how long the link lasts, and the full history open.
+        if (unpaid(o)) {
+          var who2 = el('div'); who2.style.cssText = 'display:flex;flex-direction:column;gap:3px;border-left:3px solid #E8A87C;padding-left:10px';
+          who2.appendChild(el('div', 'Buyer: ' + (o.buyer || '-') + (o.email ? ' · ' + o.email : ''), 'small'));
+          who2.appendChild(el('div', 'Planned to pay with: ' + (o.pay || 'not said') + ' · Price: ' + JF.cents((o.counter || o.offer) * (o.q || 1)), 'small'));
+          if (o.until) who2.appendChild(el('div', 'Their pay link works until ' + new Date(o.until).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) + '.', 'small dim'));
+          c.insertBefore(who2, hb);
+          hist.appendChild(JF.offerHistory(same, 'seller')); hist.hidden = false; hb.textContent = 'Hide history';
+        }
         // Accepted, and the buyer paid the seller another way (DMs, in person): record it, so it becomes a paid order.
         if ((o.status === 'accepted' || o.status === 'countered') && !o.paidOrder) {
           var pb = el('button', '✓ Buyer paid me', 'solid'); pb.type = 'button'; pb.style.alignSelf = 'flex-start';
@@ -1268,7 +1277,7 @@
           ok2.addEventListener('click', function () { ok2.disabled = true; pm.textContent = 'Saving…'; JF.api('/api/market', { do: 'offer-paid', t: tok, as: AS, ak: AK, n: o.n, how: hw.value, street: f1.value, city: f2.value, state: f3.value, zip: f4.value }).then(function (x) { ok2.disabled = false; if (x.error) { pm.textContent = x.error; return; } pm.textContent = '✓ Saved as order ' + x.n + '. Ship it from Orders.'; pb.remove(); setTimeout(load, 1200); }); });
           c.appendChild(pb); c.appendChild(pf);
         } else if (o.paidOrder) c.appendChild(el('div', '✓ Paid · order ' + o.paidOrder, 'small'));
-        if (o.t) {
+        if (o.t && !unpaid(o)) {
           var row = el('div'); row.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end';
           var m = status();
           var act = function (body, btn) { btn.disabled = true; m.textContent = 'Sending…'; body.t = o.t; JF.api('/api/offer', body).then(function (x) { btn.disabled = false; if (x.error) { m.textContent = x.error; return; } pane.textContent = ''; offers(pane); }); };
