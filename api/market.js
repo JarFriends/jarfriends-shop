@@ -101,6 +101,7 @@ module.exports = async (req, res) => {
         + '<meta http-equiv="refresh" content="0;url=' + esc(to) + '"><script>location.replace(' + JSON.stringify(to) + ')</script></head><body style="background:#0B1A13;color:#F7F2E6;font-family:sans-serif;padding:24px"><a style="color:#C9A45C" href="' + esc(to) + '">Open ' + esc(title) + '</a></body></html>');
     }
     if (req.method === 'GET' && what === 'shop') {
+      await require('./_jffix').run();
       let items = await shopItems();
       const open = (await M.all()).filter((s) => s.status === 'approved');
       const st = await M.statsAll(open);
@@ -291,11 +292,6 @@ module.exports = async (req, res) => {
         const E = require('./_emails');
         if (req.method === 'GET') return res.json(await E.list());
         const r = what === 'email-save' ? await E.save(String(b.id || ''), b) : what === 'email-ai' ? await E.polish(b.text, b.how, b.about) : await E.test(String(b.id || ''));
-        return res.status(r.error ? 400 : 200).json(r);
-      }
-      // Bring the JarFriends shop's pieces into a seller shop (see _import.js). ?do=import&ak=&slug=jarfriends&from=0
-      if (req.method === 'GET' && what === 'import') {
-        const r = await require('./_import').run(String(q.slug || 'jarfriends'), Math.max(0, Math.floor(Number(q.from) || 0)), Math.min(10, Math.max(1, Math.floor(Number(q.limit) || 5))));
         return res.status(r.error ? 400 : 200).json(r);
       }
       if (req.method === 'GET') {

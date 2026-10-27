@@ -132,6 +132,7 @@ const forget = () => { sMemo = null; lMemo = null; };
 // One-time owner request (Oct 2026): the owner's own shop ships from 833 Central Ave, not 2480 Saint Johns Ave.
 // Swapped when read and saved once; any later change in Settings stands.
 function shipFix(s) {
+  return s; // turned off: nothing changes a seller's shop by itself any more (Oct 27 2026)
   if (!s || !s.shipFrom || !/^\s*2480\b/.test(String(s.shipFrom.street1 || '')) || String(s.email || '').toLowerCase() !== String(process.env.OWNER_EMAIL || '').trim().toLowerCase()) return s;
   s.shipFrom = Object.assign({}, s.shipFrom, { street1: '833 Central Ave', street2: 'Unit 102', city: 'Highland Park', state: 'IL', zip: '60035' });
   store.write('sellers/s/' + s.slug + '.json', s).catch(() => null);
