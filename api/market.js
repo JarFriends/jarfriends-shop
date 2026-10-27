@@ -800,7 +800,10 @@ module.exports = async (req, res) => {
       const r = await ls({ prefix: 'offers/', limit: 1000 });
       const all = (await Promise.all((r.blobs || []).map((x) => store.read(x.pathname)))).filter((o) => o && mine[o.pid]);
       all.sort((a, b2) => (b2.at || 0) - (a.at || 0));
-      return res.json({ offers: all.slice(0, 100).map((o) => ({ note: o.note || '', n: o.n, pid: o.pid, item: o.item, q: o.q, offer: o.offer, list: o.list, buyer: o.buyer, pay: o.pay, status: o.status, at: o.at, until: o.until || 0, counter: o.counter || 0, paidOrder: o.paidOrder || '', email: (o.status === 'accepted' || o.status === 'countered') ? (o.email || '') : '', who: M.hashOf(o.email || '').slice(0, 10), events: offerEvents(o), t: o.status === 'pending' ? o.t : '' })) });
+      // Paid already: marked paid here, or the buyer has a paid order for that piece since it was accepted.
+      const led = await M.ledger(seller.slug).catch(() => []);
+      const paidRow = (o) => led.filter((x) => x.paid && x.pid === o.pid && String(x.email || '').toLowerCase() === String(o.email || '').toLowerCase() && (x.at || 0) >= (o.statusAt || o.at || 0) - 60000)[0];
+      return res.json({ offers: all.slice(0, 100).map((o) => ({ paid: !!(o.paidOrder || paidRow(o)), paidN: o.paidOrder || ((paidRow(o) || {}).n || ''), note: o.note || '', n: o.n, pid: o.pid, item: o.item, q: o.q, offer: o.offer, list: o.list, buyer: o.buyer, pay: o.pay, status: o.status, at: o.at, until: o.until || 0, counter: o.counter || 0, paidOrder: o.paidOrder || '', email: (o.status === 'accepted' || o.status === 'countered') ? (o.email || '') : '', who: M.hashOf(o.email || '').slice(0, 10), events: offerEvents(o), t: o.status === 'pending' ? o.t : '' })) });
     }
     if (req.method !== 'POST') return res.status(405).json({ error: 'Use POST.' });
 

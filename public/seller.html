@@ -1234,7 +1234,7 @@
       if (!r.offers || !r.offers.length) { box.appendChild(el('div', r.error || 'No offers yet.', 'jf-empty')); return; }
       var words = { pending: 'WAITING FOR YOU', accepted: 'ACCEPTED', countered: 'YOU COUNTERED', declined: 'DECLINED', auto: 'DECLINED (UNDER YOUR LOWEST)' };
       // Accepted (or countered) and not paid yet go first, under their own heading; then everything else.
-      var unpaid = function (x) { return (x.status === 'accepted' || x.status === 'countered') && !x.paidOrder && (!x.until || x.until > Date.now()); };
+      var unpaid = function (x) { return (x.status === 'accepted' || x.status === 'countered') && !x.paid && !x.paidOrder && (!x.until || x.until > Date.now()); };
       var up = r.offers.filter(unpaid);
       r.offers = up.concat(r.offers.filter(function (x) { return !unpaid(x); }));
       if (up.length) { var uh = el('h3', '💳 Accepted, not paid yet (' + up.length + ')'); uh.style.cssText = 'margin:0;color:#E8A87C;font-size:17px'; box.appendChild(uh); box.appendChild(el('div', 'The buyer has a link to pay at your price for 48 hours. If they paid you some other way, press Buyer paid me.', 'small dim')); }
@@ -1244,7 +1244,7 @@
         var c = el('section', null, 'card'); c.style.gap = '10px';
         var top = el('div'); top.style.cssText = 'display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px';
         top.appendChild(el('b', o.item + (o.q > 1 ? ' × ' + o.q : '')));
-        top.appendChild(el('span', words[o.status] || String(o.status).toUpperCase(), 'jf-badge ' + (o.status === 'pending' ? 'wait' : o.status === 'accepted' ? 'ok' : '')));
+        top.appendChild(el('span', o.paid ? 'ACCEPTED · PAID ✓' : unpaid(o) ? 'ACCEPTED · NOT PAID YET' : words[o.status] || String(o.status).toUpperCase(), 'jf-badge ' + (o.status === 'pending' ? 'wait' : o.status === 'accepted' ? 'ok' : '')));
         c.appendChild(top);
         c.appendChild(el('div', o.buyer + ' offered ' + JF.cents(o.offer) + (o.q > 1 ? ' each' : '') + ' (your price ' + JF.cents(o.list) + ') · would pay with ' + (o.pay || '-') + ' · ' + new Date(o.at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }), 'small'));
         if (o.note) { var nq = el('div', '\u201c' + o.note + '\u201d'); nq.style.cssText = 'font-style:italic;border-left:3px solid #C9A45C;padding-left:10px'; c.appendChild(nq); }
@@ -1265,7 +1265,7 @@
           hist.appendChild(JF.offerHistory(same, 'seller')); hist.hidden = false; hb.textContent = 'Hide history';
         }
         // Accepted, and the buyer paid the seller another way (DMs, in person): record it, so it becomes a paid order.
-        if ((o.status === 'accepted' || o.status === 'countered') && !o.paidOrder) {
+        if (unpaid(o)) {
           var pb = el('button', '✓ Buyer paid me', 'solid'); pb.type = 'button'; pb.style.alignSelf = 'flex-start';
           var pf = el('div'); pf.hidden = true; pf.style.cssText = 'display:flex;flex-direction:column;gap:8px;border:1px solid #4E7A63;border-radius:10px;padding:10px 12px';
           pf.appendChild(el('div', 'Only if they already paid you outside checkout. It becomes a paid order you can ship, and V2V’s 5.55% goes in What you owe.', 'small'));
@@ -1276,7 +1276,7 @@
           pb.addEventListener('click', function () { pf.hidden = !pf.hidden; });
           ok2.addEventListener('click', function () { ok2.disabled = true; pm.textContent = 'Saving…'; JF.api('/api/market', { do: 'offer-paid', t: tok, as: AS, ak: AK, n: o.n, how: hw.value, street: f1.value, city: f2.value, state: f3.value, zip: f4.value }).then(function (x) { ok2.disabled = false; if (x.error) { pm.textContent = x.error; return; } pm.textContent = '✓ Saved as order ' + x.n + '. Ship it from Orders.'; pb.remove(); setTimeout(load, 1200); }); });
           c.appendChild(pb); c.appendChild(pf);
-        } else if (o.paidOrder) c.appendChild(el('div', '✓ Paid · order ' + o.paidOrder, 'small'));
+        } else if (o.paid) c.appendChild(el('div', '✓ Paid' + (o.paidN ? ' · order ' + o.paidN : ''), 'small'));
         if (o.t && !unpaid(o)) {
           var row = el('div'); row.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end';
           var m = status();
