@@ -1233,7 +1233,14 @@
       box.textContent = '';
       if (!r.offers || !r.offers.length) { box.appendChild(el('div', r.error || 'No offers yet.', 'jf-empty')); return; }
       var words = { pending: 'WAITING FOR YOU', accepted: 'ACCEPTED', countered: 'YOU COUNTERED', declined: 'DECLINED', auto: 'DECLINED (UNDER YOUR LOWEST)' };
+      // Accepted (or countered) and not paid yet go first, under their own heading; then everything else.
+      var unpaid = function (x) { return (x.status === 'accepted' || x.status === 'countered') && !x.paidOrder && (!x.until || x.until > Date.now()); };
+      var up = r.offers.filter(unpaid);
+      r.offers = up.concat(r.offers.filter(function (x) { return !unpaid(x); }));
+      if (up.length) { var uh = el('h3', '💳 Accepted, not paid yet (' + up.length + ')'); uh.style.cssText = 'margin:0;color:#E8A87C;font-size:17px'; box.appendChild(uh); box.appendChild(el('div', 'The buyer has a link to pay at your price for 48 hours. If they paid you some other way, press Buyer paid me.', 'small dim')); }
+      var restH = false;
       r.offers.forEach(function (o) {
+        if (up.length && !unpaid(o) && !restH) { restH = true; var rh = el('h3', 'All other offers'); rh.style.cssText = 'margin:8px 0 0;font-size:17px'; box.appendChild(rh); }
         var c = el('section', null, 'card'); c.style.gap = '10px';
         var top = el('div'); top.style.cssText = 'display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px';
         top.appendChild(el('b', o.item + (o.q > 1 ? ' × ' + o.q : '')));

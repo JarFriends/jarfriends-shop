@@ -14,7 +14,7 @@
   main.insertBefore(box, $('wOrders'));
   tabs.addEventListener('click', function (ev) { var b = ev.target.closest && ev.target.closest('button'); if (b && b !== btn && b.id !== 'out') { box.hidden = true; btn.setAttribute('aria-pressed', 'false'); } });
 
-  var NAMES = { pending: 'Pending', accepted: 'Accepted', countered: 'Countered', ordered: 'Ordered', lapsed: 'Ran out unpaid', declined: 'Declined', auto: 'Declined automatically' };
+  var NAMES = { pending: 'Pending', accepted: '💳 Accepted, not paid yet', countered: 'Countered', ordered: 'Ordered', lapsed: 'Ran out unpaid', declined: 'Declined', auto: 'Declined automatically' };
   var COLORS = { pending: '#C9A45C', accepted: '#8FD3AE', countered: '#8FD3AE', ordered: '#F7F2E6', lapsed: '#A8BFB1', declined: '#A8BFB1', auto: '#A8BFB1' };
   var show = 'all', note = '';
   function load(msg) {
@@ -65,11 +65,11 @@
   function draw(offers, orders) {
     box.textContent = '';
     // An accepted or countered offer becomes "Ordered" once that buyer has an order for the piece, or "Ran out unpaid" once its link is dead.
-    var rows = offers.map(function (o) { return { o: o, st: stand(o, orders) }; }).sort(function (a, b) { return (b.o.at || 0) - (a.o.at || 0); });
+    var rows = offers.map(function (o) { return { o: o, st: stand(o, orders) }; }).sort(function (a, b) { var ua = a.st === 'accepted' || a.st === 'countered', ub = b.st === 'accepted' || b.st === 'countered'; return ua !== ub ? (ua ? -1 : 1) : (b.o.at || 0) - (a.o.at || 0); });
     var bar = el('div'); bar.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px';
     [['all', 'All']].concat(Object.keys(NAMES).map(function (k) { return [k, NAMES[k]]; })).forEach(function (f) {
       var n = f[0] === 'all' ? rows.length : rows.filter(function (r) { return r.st === f[0]; }).length;
-      if (f[0] !== 'all' && f[0] !== 'pending' && !n) return;
+      if (f[0] !== 'all' && f[0] !== 'pending' && f[0] !== 'accepted' && !n) return;
       var b = el('button', f[1] + ' (' + n + ')', show === f[0] ? 'solid' : 'ghost'); b.type = 'button'; b.style.cssText = 'padding:6px 14px;font-size:14px';
       b.addEventListener('click', function () { show = f[0]; draw(offers, orders); });
       bar.appendChild(b);
