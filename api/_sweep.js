@@ -381,6 +381,28 @@ async function partyOpen(now, mail) {
   await store.write(key, log);
 }
 
+// 10. Reviews: 5 days after an order ships, the buyer gets one email asking them to review the seller, and the seller
+// one asking them to rate the buyer (only if they have not already). Each is sent once per order.
+async function reviewNudge(now, mail) {
+  const M = require('./_sellers'), host = 'https://' + (process.env.SITE_HOST || 'veefam.io');
+  const rows = (await M.ledger(null)).filter((r) => M.completed(r) && r.seller && r.email && r.shippedAt && now - r.shippedAt > 5 * 864e5 && now - r.shippedAt < 30 * 864e5);
+  const shops = {}; (await M.all()).forEach((x) => { shops[x.slug] = x; });
+  let sent = 0;
+  for (const r of rows) {
+    if (sent >= 20) break;
+    const mk = 'meta/' + r.n + '.json', m = (await store.read(mk)) || {}, s = shops[r.seller];
+    if (!s) continue;
+    if (!m.revNudge && !(await store.read('reviews/' + r.seller + '/' + r.n + '.json'))) {
+      await mail(r.email, 'How was your order from ' + s.name + '?', ['Your ' + r.product + ' (order ' + r.n + ') from ' + s.name + ' should have arrived.', '', 'A quick star rating helps other collectors and helps good sellers get their ✔ checkmark.', '', 'Leave a review: ' + host + '/me.html'], 'rev-nudge-' + r.n).catch(() => null);
+      m.revNudge = now; sent++;
+    }
+    if (!m.brevNudge && !(await store.read('breviews/' + r.seller + '/' + r.n + '.json'))) {
+      await mail(s.email, 'Rate your buyer for order ' + r.n, ['How was ' + (r.buyer || 'the buyer') + ' on order ' + r.n + ' (' + r.product + ')?', '', 'Your rating helps other sellers know who they are dealing with. It takes two seconds.', '', 'Rate them in your Seller Hub, Orders: ' + host + '/seller.html#orders'], 'brev-nudge-' + r.n).catch(() => null);
+      m.brevNudge = now; sent++;
+    }
+    if (m.revNudge || m.brevNudge) await store.write(mk, m);
+  }
+}
 async function run() {
   const now = Date.now();
   if (process.env.VERCEL_ENV === 'production' && store.on()) await oneOff().catch((e) => { once = false; console.error('ONEOFF_FAIL', String(e && e.message || e)); });
@@ -401,6 +423,7 @@ async function run() {
   await require('./_partyS').wrapUp().catch((e) => console.error('SWEEP_PARTYS_FAIL', String(e && e.message || e)));
   await partyOpen(now, mail).catch((e) => console.error('SWEEP_PARTY_FAIL', String(e && e.message || e)));
   await auctions(now, mail).catch((e) => console.error('SWEEP_AUCTIONS_FAIL', String(e && e.message || e)));
+  await reviewNudge(now, mail).catch((e) => console.error('SWEEP_REVIEWS_FAIL', String(e && e.message || e)));
   // Pieces brought over from eBay: take down any that sold or ended there (see _ebay.js).
 }
 // Called by the back office the moment a lower price is saved.

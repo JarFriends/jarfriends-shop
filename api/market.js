@@ -603,6 +603,17 @@ module.exports = async (req, res) => {
       }));
       return res.json({ orders: out });
     }
+    // The seller rates the buyer of a shipped order (1 to 5 stars and a note). Other sellers see the buyer's average.
+    if (what === 'buyer-review' && req.method === 'POST') {
+      if (!seller) return res.status(403).json({ error: 'Open a seller shop first.' });
+      const n = String(b.n || ''), stars = Math.round(Number(b.stars));
+      if (!(stars >= 1 && stars <= 5)) return res.status(400).json({ error: 'Pick 1 to 5 stars.' });
+      const row = (await M.ledger(seller.slug)).filter((r) => r.n === n)[0];
+      if (!row || !row.email) return res.status(404).json({ error: 'That order was not found.' });
+      if (!M.completed(row)) return res.status(400).json({ error: 'You can rate the buyer once the order has shipped.' });
+      await store.write('breviews/' + seller.slug + '/' + n + '.json', { n: n, stars: stars, text: String(b.text || '').replace(/\r/g, '').trim().slice(0, 500), who: M.hashOf(row.email), seller: seller.slug, at: Date.now() });
+      return res.json({ ok: true });
+    }
     if (what === 'review' && req.method === 'POST') {
       const n = String(b.n || ''), stars = Math.round(Number(b.stars));
       if (!(stars >= 1 && stars <= 5)) return res.status(400).json({ error: 'Pick 1 to 5 stars.' });
@@ -628,6 +639,9 @@ module.exports = async (req, res) => {
         shop ? M.ledger(shop.slug).catch(() => []) : [], shop ? M.payouts(shop.slug).catch(() => []) : [],
         shop ? require('./_trades').forSeller(shop.slug).catch(() => []) : []]);
       add(box.unread, 'Unread message' + (box.unread > 1 ? 's' : ''), '/messages.html');
+      try { const mineB = (await M.ledger(null)).filter((r) => String(r.email || '').toLowerCase() === me && M.completed(r) && r.seller && Date.now() - (r.shippedAt || r.at || 0) > 3 * 864e5);
+        const left = await Promise.all(mineB.map((r) => store.read('reviews/' + r.seller + '/' + r.n + '.json').catch(() => null)));
+        add(left.filter((x) => !x).length, 'Review your seller', '/me.html'); } catch (e) { /* extra */ }
       const live = (o) => o && (!o.until || o.until > Date.now());
       add(offs.filter((o) => live(o) && String(o.email || '').toLowerCase() === me && (o.status === 'accepted' || o.status === 'countered')).length, 'Offer accepted or countered: pay for it before it runs out', '/me.html#offers');
       if (shop) {
@@ -637,6 +651,8 @@ module.exports = async (req, res) => {
         add(rows.filter((r) => r.returnReq && r.returnReq.status === 'requested').length, 'Return request to answer', '/seller.html#orders');
         add(rows.filter((r) => r.directPay && !r.paid && !/crypto/i.test(r.pay || '')).length, 'Buyer paid you directly: confirm it arrived', '/seller.html#payouts');
         add(trades.filter((t) => t.status === 'pending').length, 'Trade offer to answer', '/seller.html#trades');
+        try { const { list: lsR } = await import('@vercel/blob'), rated = {}; ((await lsR({ prefix: 'breviews/' + shop.slug + '/', limit: 1000 })).blobs || []).forEach((x) => { rated[(/([^\/]+)\.json$/.exec(x.pathname) || [])[1]] = 1; });
+          add(rows.filter((r) => M.completed(r) && r.email && !rated[r.n] && Date.now() - (r.shippedAt || r.at || 0) > 3 * 864e5).length, 'Rate your buyer', '/seller.html#orders'); } catch (e) { /* extra */ }
         const t = M.totals(rows, outs); if (t.feeOwed > 0) items.push({ n: 1, text: 'You owe VeeFam ' + '$' + usd(t.feeOwed) + ' in fees', link: '/seller.html#owe' });
       }
       return res.json({ items: items, total: items.reduce((a, x) => a + x.n, 0) });
@@ -684,6 +700,13 @@ module.exports = async (req, res) => {
         .map((p) => Object.assign({}, p, { sold: sold[p.id] || 0, left: Math.max(0, p.stock - (sold[p.id] || 0)), photoUrl: photoOf(p) }));
       // The seller ships their own orders, so they see the ship-to address, but only once the order is paid.
       const orders = rows.map((r) => Object.assign({}, r, r.paid ? {} : { ship: '', email: '' }));
+      // Buyer ratings: which orders this seller already rated, and each buyer's average from every seller.
+      try {
+        const { list: lsB } = await import('@vercel/blob'), all = await Promise.all(((await lsB({ prefix: 'breviews/', limit: 1000 })).blobs || []).map((x) => store.read(x.pathname).catch(() => null)));
+        const by = {}; all.filter(Boolean).forEach((x) => { const k = x.who; by[k] = by[k] || { sum: 0, n: 0 }; by[k].sum += x.stars; by[k].n++; });
+        const mine = {}; all.filter((x) => x && x.seller === seller.slug).forEach((x) => { mine[x.n] = x.stars; });
+        orders.forEach((o) => { if (mine[o.n]) o.buyerRated = mine[o.n]; const h = rows.filter((r) => r.n === o.n)[0]; const k = h && h.email ? M.hashOf(h.email) : ''; if (k && by[k]) o.buyerScore = { avg: Math.round(by[k].sum / by[k].n * 10) / 10, n: by[k].n }; });
+      } catch (e) { /* ratings are extra */ }
       const myStats = M.statsFrom(seller, rows, await M.reviews(seller.slug));
       const myReviews = (await M.reviews(seller.slug)).map((r) => ({ n: r.n, stars: r.stars, text: r.text || '', name: r.name, product: r.product || '', at: r.at, reply: r.reply || '' }));
       const feed = (await M.posts(seller.slug, 50)).map((x) => Object.assign({}, x, { photoUrl: x.photo ? '/api/photo?id=' + x.id + '&v=' + x.photo : '' }));

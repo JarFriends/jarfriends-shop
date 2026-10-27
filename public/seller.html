@@ -1397,6 +1397,17 @@
       top.appendChild(el('span', !o.paid ? 'WAITING FOR PAYMENT' : o.tracking ? 'SHIPPED' : 'PAID · SHIP IT', 'jf-badge ' + (!o.paid ? '' : o.tracking ? 'ok' : 'wait')));
       if (o.direct) top.appendChild(el('span', 'PAID TO YOUR STRIPE', 'jf-badge ok'));
       c.appendChild(top);
+      if (o.buyerScore) c.appendChild(el('div', 'Buyer rating from sellers: ★ ' + o.buyerScore.avg.toFixed(1) + ' (' + o.buyerScore.n + ')', 'small dim'));
+      // Shipped: rate the buyer (once; can be changed).
+      if (o.paid && o.tracking) {
+        var rbx = el('div'); rbx.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;align-items:center';
+        rbx.appendChild(el('span', o.buyerRated ? 'You rated this buyer ' + '★'.repeat(o.buyerRated) + '. Change:' : 'Rate this buyer:', 'small'));
+        var rmsg = el('span', '', 'small');
+        [1, 2, 3, 4, 5].forEach(function (k) { var sb = el('button', '★'.repeat(k), 'ghost'); sb.type = 'button'; sb.style.cssText = 'padding:3px 8px;min-height:0;font-size:12px;border-radius:999px' + (o.buyerRated === k ? ';background:#C9A45C;color:#0B1A13' : '');
+          sb.addEventListener('click', function () { rmsg.textContent = 'Saving…'; JF.api('/api/market', { do: 'buyer-review', t: tok, as: AS, ak: AK, n: o.n, stars: k }).then(function (x) { rmsg.textContent = x.error || '✓ Thanks'; if (!x.error) { o.buyerRated = k; Array.prototype.forEach.call(rbx.querySelectorAll('button'), function (q, qi) { q.style.background = qi + 1 === k ? '#C9A45C' : ''; q.style.color = qi + 1 === k ? '#0B1A13' : ''; }); } }); });
+          rbx.appendChild(sb); });
+        rbx.appendChild(rmsg); c.appendChild(rbx);
+      }
       // Waiting for a by-hand payment: if it was paid to the seller's own Zelle/Venmo/Cash App/PayPal/crypto, they mark it paid here.
       if (!o.paid && !o.cancelled) {
         var pr2 = el('div'); pr2.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;align-items:center';
