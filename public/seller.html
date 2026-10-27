@@ -276,7 +276,8 @@
     box.textContent = '';
     var wrap = el('div'); wrap.style.cssText = 'display:flex;flex-direction:column;gap:20px';
     if (!AS) JF.modeBar(wrap, 'seller');
-    if (s.status !== 'approved') wrap.appendChild(el('div', s.status === 'pending' ? 'Your shop is waiting for V2V to approve it. You can add your pieces now; they go live the moment you are approved.' : 'Your shop is paused.' + (s.pauseReason ? ' Why: ' + s.pauseReason : '') + ' Reply to the email from V2V with any questions.', 'alert small'));
+    if (s.status !== 'approved') wrap.appendChild(el('div', s.status === 'pending' ? 'Your shop is waiting for V2V to approve it. You can add your pieces now; they go live the moment you are approved.' : 'Your shop is paused.' + (s.pauseReason ? ' Why: ' + s.pauseReason : '') + ' To get it re-opened, DM @JarFriends on X.', 'alert small'));
+    if (s.status === 'paused') { var xdm = el('a', '💬 DM @JarFriends on X'); xdm.href = 'https://x.com/JarFriends'; xdm.target = '_blank'; xdm.rel = 'noopener'; xdm.className = 'solid'; xdm.style.cssText = 'align-self:flex-start;display:inline-flex;padding:10px 16px;border-radius:10px;text-decoration:none;font-weight:800'; wrap.appendChild(xdm); }
     if (s.seeded) {
       var site = el('div', null, 'small'); site.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;align-items:center';
       site.appendChild(el('span', 'This is your Seller Hub: your own store only. Everything for the whole site is in the back office.', 'dim'));
