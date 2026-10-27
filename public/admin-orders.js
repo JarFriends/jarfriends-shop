@@ -80,9 +80,18 @@
     var im = el('img'); im.alt = ''; im.src = photoOf(o); im.style.cssText = 'width:110px;height:110px;object-fit:cover;border-radius:8px'; im.onerror = function () { im.style.display = 'none'; }; top.appendChild(im);
     var info = el('div'); info.style.cssText = 'flex:1 1 260px;min-width:0;display:flex;flex-direction:column;gap:4px';
     info.appendChild(el('b', (o.product || o.pid) + (o.q > 1 ? ' x ' + o.q : '')));
-    info.appendChild(el('div', (o.buyer || '-') + (o.email ? ' · ' + o.email : ''), 'small'));
     info.appendChild(el('div', 'Order ' + o.n + ' · ' + when(o.at) + ' · ' + usd(o.total) + (o.pay ? ' · paid with ' + o.pay : ''), 'small'));
-    if (o.ship) info.appendChild(el('div', 'Ship to: ' + o.ship, 'small'));
+    // Who ships it (seller and their ship-from address) and who buys it (buyer and their ship-to address), side by side.
+    var pp = el('div'); pp.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:6px';
+    var box2 = function (title, name, mail, addr, none) { var d = el('div'); d.style.cssText = 'border:1px solid #2E4A3B;border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:3px;background:#0E2219';
+      var h = el('div', title); h.style.cssText = 'font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#C9A45C;font-weight:700'; d.appendChild(h);
+      d.appendChild(el('b', name || '-')); if (mail) d.appendChild(el('div', mail, 'small'));
+      var a = el('div', addr || none, 'small'); a.style.cssText = 'white-space:pre-line' + (addr ? '' : ';opacity:.6'); d.appendChild(a);
+      if (addr) { var cp = el('button', 'Copy address', 'ghost'); cp.type = 'button'; cp.style.cssText = 'align-self:flex-start;padding:3px 10px;min-height:0;font-size:12px;margin-top:4px'; cp.addEventListener('click', function () { try { navigator.clipboard.writeText(addr); cp.textContent = '✓ Copied'; setTimeout(function () { cp.textContent = 'Copy address'; }, 1500); } catch (e) {} }); d.appendChild(cp); }
+      return d; };
+    pp.appendChild(box2('📦 Shipped by', o.sellerName || 'Site shop', o.sellerEmail || '', String(o.shipFrom || '').split(', ').join('\n'), 'No ship-from address added yet'));
+    pp.appendChild(box2('🛍️ Bought by', o.buyer || '-', o.email || '', String(o.ship || '').split(', ').join('\n'), o.nft ? 'Digital (NFT), no address' : 'No shipping address on this order'));
+    info.appendChild(pp);
     if (o.due || o.reminders) info.appendChild(el('div', o.reminders ? 'Payment reminders emailed: ' + o.reminders + ' (last ' + when(o.remindedAt) + ')' + (o.paidAt ? ', before you marked it paid ' + when(o.paidAt) : '') : 'No payment reminder emailed yet. The first goes out 4 hours after the order if it is still unpaid.', 'small'));
     top.appendChild(info);
     var x = el('button', 'Close', 'ghost'); x.type = 'button'; x.style.cssText = 'padding:6px 16px;align-self:flex-start';

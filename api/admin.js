@@ -86,9 +86,11 @@ module.exports = async (req, res) => {
   // Which shop each order came from: every seller's orders are listed here, not just one shop's.
   try {
     const M = require('./_sellers');
-    const names = {}; (await M.all()).forEach((x) => { names[x.slug] = x.name || x.slug; });
+    const names = {}, from = {}, mails = {};
+    (await M.all()).forEach((x) => { names[x.slug] = x.name || x.slug; mails[x.slug] = x.email || ''; const f = x.shipFrom || {};
+      from[x.slug] = f.street1 ? [f.name || x.name, f.street1, f.street2, [f.city, [f.state, f.zip].filter(Boolean).join(' ')].filter(Boolean).join(', '), x.based === 'intl' ? (f.country || x.country || '') : '', f.phone].filter(Boolean).join(', ') : ''; });
     const shopOf = {}; (await M.listings()).forEach((p) => { if (p.seller) shopOf[p.id] = p.seller; });
-    orders.forEach((o) => { const sl = shopOf[o.pid] || o.seller || ''; o.sellerSlug = sl; o.sellerName = sl ? (names[sl] || sl) : 'Site shop'; });
+    orders.forEach((o) => { const sl = shopOf[o.pid] || o.seller || ''; o.sellerSlug = sl; o.sellerName = sl ? (names[sl] || sl) : 'Site shop'; o.sellerEmail = sl ? mails[sl] || '' : ''; o.shipFrom = sl ? from[sl] || '' : (() => { try { const d = JSON.parse(process.env.SHIP_FROM || '{}'); return d.street1 ? [d.name, d.street1, d.street2, [d.city, [d.state, d.zip].filter(Boolean).join(' ')].filter(Boolean).join(', '), d.phone].filter(Boolean).join(', ') : ''; } catch (e) { return ''; } })(); });
   } catch (e) { console.error('ADMIN_SELLERS', String(e && e.message || e)); }
   const mp = catalog.filter((p) => p.id === party.PARTY.pid)[0];
   const ps = await party.state(mp ? Math.round(mp.price * 100) : 0);
