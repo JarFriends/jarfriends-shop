@@ -131,4 +131,33 @@
     box.hidden = false; box.textContent = 'Loading...';
     load('');
   });
+  // ⏳ Awaiting payment: offers you accepted (or countered) that the buyer has not paid yet, and orders still marked payment due.
+  var apBtn = el('button', '⏳ Awaiting payment', 'ghost'); apBtn.type = 'button'; tabs.insertBefore(apBtn, $('out'));
+  var apBox = el('section', null, 'card'); apBox.hidden = true; apBox.dataset.extraTab = 'await'; apBox.style.cssText = 'display:flex;flex-direction:column;gap:12px'; main.insertBefore(apBox, $('wOrders'));
+  var left = function (ms) { var m = Math.round((ms - Date.now()) / 60000); if (m <= 0) return 'ran out'; var h = Math.floor(m / 60); return h >= 1 ? h + 'h ' + (m % 60) + 'm left' : m + 'm left'; };
+  var apCard = function (title, price, lines, tag, color) { var c = el('div'); c.style.cssText = 'border:1px solid #2E4A3B;border-left:4px solid ' + color + ';border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:4px;background:#0E2219';
+    var t = el('div'); t.style.cssText = 'display:flex;justify-content:space-between;gap:10px;align-items:flex-start'; t.appendChild(el('b', title)); var pr = el('b', price); pr.style.cssText = 'color:#C9A45C;font-size:18px;white-space:nowrap'; t.appendChild(pr); c.appendChild(t);
+    var tg = el('span', tag); tg.style.cssText = 'align-self:flex-start;font-size:11px;font-weight:800;letter-spacing:.06em;color:' + color; c.appendChild(tg);
+    lines.forEach(function (l) { if (l) c.appendChild(el('div', l, 'small')); }); return c; };
+  var apDraw = function (offers, orders) {
+    apBox.textContent = ''; apBox.appendChild(el('h2', '⏳ Awaiting payment'));
+    var offs = offers.filter(function (o) { var st = stand(o, orders); return st === 'accepted' || st === 'countered'; }).sort(function (a, b) { return (a.until || 0) - (b.until || 0); });
+    var dues = orders.filter(function (o) { return o.due && !o.cancelled; });
+    apBtn.textContent = '⏳ Awaiting payment' + (offs.length + dues.length ? ' (' + (offs.length + dues.length) + ')' : '');
+    apBox.appendChild(el('b', 'Offers you accepted, not paid yet (' + offs.length + ')'));
+    if (!offs.length) apBox.appendChild(el('div', 'None right now.', 'small dim'));
+    offs.forEach(function (o) { var each = o.counter || o.offer;
+      apBox.appendChild(apCard((o.q > 1 ? o.q + ' x ' : '') + o.item, usd(each * (o.q || 1)), [(o.buyer || '-') + ' · ' + (o.email || ''), 'Offer ' + o.n + ' · ' + (o.counter ? 'your counter' : 'accepted') + (o.statusAt ? ' ' + when(o.statusAt) : '') + ' · would pay with ' + (o.pay || 'not said'), o.until ? 'Their checkout link works until ' + when(o.until) + ' (' + left(o.until) + '). They were emailed the link and get a reminder before it runs out.' : ''], 'WAITING FOR THE BUYER TO PAY', '#C9A45C')); });
+    apBox.appendChild(el('b', 'Orders placed, payment not received (' + dues.length + ')'));
+    if (!dues.length) apBox.appendChild(el('div', 'None right now.', 'small dim'));
+    dues.forEach(function (o) { apBox.appendChild(apCard((o.q > 1 ? o.q + ' x ' : '') + (o.product || o.pid), '$' + Number(o.total || 0).toFixed(2), [(o.buyer || '-') + ' · ' + (o.email || ''), 'Order ' + o.n + ' · ' + when(o.at) + ' · paying with ' + (o.pay || '-') + (o.sellerName ? ' · shop: ' + o.sellerName : ''), 'Mark it paid in the Orders tab once the money arrives.'], 'PAYMENT DUE', '#E8A87C')); });
+  };
+  var apLoad = function () { if (!key()) return; Promise.all([get('&offers=1'), get('')]).then(function (a) { if (!a[0].error && !a[1].error) apDraw(a[0].offers || [], a[1].orders || []); }, function () {}); };
+  apBtn.addEventListener('click', function () { setTimeout(function () {
+    Array.prototype.forEach.call(tabs.querySelectorAll('button'), function (b) { if (b.id !== 'out') b.setAttribute('aria-pressed', b === apBtn ? 'true' : 'false'); });
+    ['wOrders', 'wPeople', 'wItems', 'none', 'offerWait'].forEach(function (id) { if ($(id)) $(id).hidden = true; });
+    Array.prototype.forEach.call(main.children, function (c) { if (c.dataset && c.dataset.extraTab) c.hidden = c !== apBox; });
+    apBox.textContent = 'Loading…'; apLoad();
+  }, 0); });
+  setTimeout(apLoad, 1500);
 })();
