@@ -236,7 +236,9 @@ function markSigned(email, version) { signedMemo.set(String(email || '').trim().
 async function sheetPost(payload) {
   if (!sheetUrl()) return 'off';
   try {
-    const r = await fetch(sheetUrl(), { method: 'POST', signal: AbortSignal.timeout(15000), headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) });
+    // Signed so the site's own order book (testsheet.js) only takes rows this server wrote.
+    const body = JSON.stringify(payload);
+    const r = await fetch(sheetUrl(), { method: 'POST', signal: AbortSignal.timeout(15000), headers: { 'content-type': 'application/json', 'x-v2v-sig': secret() ? mac('sheet|' + body) : '' }, body: body });
     const t = (await r.text()).trim();
     if (r.ok && (t === 'ok' || t === 'duplicate' || t === 'short')) return t;
     console.error('SHEET_FAIL', r.status, t.slice(0, 200));
@@ -493,4 +495,5 @@ function sendCashEmail(inv) {
   return mail(inv.e, 'Invoice ' + inv.n + ': order received', [intro, '', 'Invoice: ' + inv.n, 'Order: ' + orderLine(inv)].concat(totalsText(inv, false), note ? ['', 'How to pay:', note] : []), hash('cash|' + inv.n + '|' + inv.c), html);
 }
 
-module.exports = { isCash, isCard, sendCardPaidEmail, payNote, sendCashEmail, COINS, GRACE, ORDER_HOURS, PLANS, sheetPost, sign, verify, safeEqual, amountFor, display, check, priceOrder, getInventory, recordOrder, createInvoice, sendPaidEmail, sendLinkEmail, sendLaterEmail, invoiceHtml, getSigned, markSigned, mail, esc };
+const sheetSig = (body) => (secret() ? mac('sheet|' + body) : '');
+module.exports = { sheetSig, isCash, isCard, sendCardPaidEmail, payNote, sendCashEmail, COINS, GRACE, ORDER_HOURS, PLANS, sheetPost, sign, verify, safeEqual, amountFor, display, check, priceOrder, getInventory, recordOrder, createInvoice, sendPaidEmail, sendLinkEmail, sendLaterEmail, invoiceHtml, getSigned, markSigned, mail, esc };

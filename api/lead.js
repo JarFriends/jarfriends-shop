@@ -8,10 +8,8 @@ async function toSheet(when, d, ref) {
   const url = (process.env.SHEET_WEBHOOK_URL || '').trim();
   if (!url) return 'off';
   try {
-    const r = await fetch(url, {
-      method: 'POST', signal: AbortSignal.timeout(15000), headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ tab: 'Leads', key: ref, headers: ['Received'].concat(FIELDS.map((f) => f[1]), ['Status', 'Ref']), row: [when].concat(FIELDS.map((f) => d[f[0]]), ['New', ref]) })
-    });
+    const body = JSON.stringify({ tab: 'Leads', key: ref, headers: ['Received'].concat(FIELDS.map((f) => f[1]), ['Status', 'Ref']), row: [when].concat(FIELDS.map((f) => d[f[0]]), ['New', ref]) });
+    const r = await fetch(url, { method: 'POST', signal: AbortSignal.timeout(15000), headers: { 'content-type': 'application/json', 'x-v2v-sig': require('./_lib').sheetSig(body) }, body: body });
     const t = (await r.text()).trim();
     if (r.ok && (t === 'ok' || t === 'duplicate')) return 'saved';
     console.error('SHEET_FAIL', r.status, t.slice(0, 200));

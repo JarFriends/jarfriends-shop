@@ -11,7 +11,12 @@ module.exports = async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   if (req.method === 'POST') {
     const b = req.body && typeof req.body === 'object' ? req.body : {};
-    console.log('TEST_SHEET', JSON.stringify(b).slice(0, 2000));
+    // Only rows this server wrote (signed in _lib.js sheetPost) are taken. Anything else is refused: a buyer must not
+    // be able to mark their own order paid or shipped, or rewrite its total, by posting here with their invoice link.
+    const crypto = require('crypto'), want = require('./_lib').sheetSig(JSON.stringify(b));
+    const got = String(req.headers['x-v2v-sig'] || '');
+    if (!want || got.length !== want.length || !crypto.timingSafeEqual(Buffer.from(got), Buffer.from(want))) { console.error('SHEET_REFUSED', req.headers['x-forwarded-for'] || ''); return res.status(403).send('refused'); }
+    console.log('TEST_SHEET', b.tab || '', b.key || '');
     res.setHeader('content-type', 'text/plain');
     // An order row: keep it in the ledger so the units come out of stock.
     const pid = b.stock && String(b.stock.product || ''), qty = b.stock && Math.floor(Number(b.stock.qty)), key = String(b.key || ''), row = Array.isArray(b.row) ? b.row : [];
