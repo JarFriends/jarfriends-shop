@@ -53,6 +53,9 @@
       var mp = el('button', '✓ Mark as paid', 'solid'); mp.type = 'button'; mp.style.cssText = 'align-self:flex-start;padding:6px 14px;min-height:0;border-radius:999px';
       mp.addEventListener('click', function () { var PW = { 'Zelle': 'zelle', 'Venmo': 'venmo', 'Cash App': 'cashapp', 'Card': 'card' }; if (window.jfNewOrder) { var ob = document.querySelector('.tabs button'); if (ob && $('wOrders') && $('wOrders').hidden) ob.click(); setTimeout(function () { window.jfNewOrder({ pid: o.pid, item: o.item, qty: o.q || 1, each: (each / 100).toFixed(2), name: o.buyer || '', email: o.email || '', pay: PW[o.pay] || (/eth|usd|crypto/i.test(o.pay || '') ? 'crypto' : 'zelle'), note: 'accepted offer ' + o.n }); }, 200); } });
       c.appendChild(mp);
+      var lk = el('button', '🔗 Copy pay link (card or any way)', 'ghost'); lk.type = 'button'; lk.style.cssText = 'align-self:flex-start;padding:6px 14px;min-height:0;border-radius:999px'; var lm = el('div', '', 'small');
+      lk.addEventListener('click', function () { lk.disabled = true; get('&offerlink=' + encodeURIComponent(o.n)).then(function (x) { lk.disabled = false; if (x.error) { lm.textContent = x.error; return; } try { navigator.clipboard.writeText(x.link); lm.textContent = '✓ Copied. Send it to the buyer: it pays at the offer price, good until ' + when(x.until) + '.'; } catch (e) { lm.textContent = x.link; } }); });
+      c.appendChild(lk); c.appendChild(lm);
       grid.appendChild(c);
     });
     wait.hidden = !!$('wOrders').hidden;

@@ -64,6 +64,16 @@ module.exports = async (req, res) => {
   if (!store.on()) return res.json({ orders: [], products: await shelf([]), note: 'Order storage is not connected.' });
   let sales = [];
   try { sales = await store.sales(); } catch (e) { return res.status(503).json({ error: 'Could not read the orders just now. Try again.' }); }
+  // A fresh pay link for an accepted offer (good 48 more hours), to send the buyer: pays at the offer price, card included.
+  if (req.query && req.query.offerlink) {
+    const n = String(req.query.offerlink).replace(/[^A-Za-z0-9-]/g, '').slice(0, 30), o = n && await store.read('offers/' + n + '.json');
+    if (!o || !(o.status === 'accepted' || o.status === 'countered')) return res.status(404).json({ error: 'That accepted offer was not found.' });
+    const until = Math.max(o.until || 0, Date.now() + 48 * 3600000);
+    if (until !== o.until) await store.write('offers/' + n + '.json', Object.assign(o, { until: until }));
+    const c = o.status === 'countered' && o.counter ? o.counter : o.offer;
+    const link = 'https://' + req.headers.host + '/order.html?offer=' + sign({ oa: 1, n: o.n, pid: o.pid, q: o.q || 1, c: c, x: Math.floor(until / 1000) }) + '&email=' + encodeURIComponent(o.email || '');
+    return res.json({ ok: true, link: link, until: until });
+  }
   // Mark one order as paid. The note sits beside the sale file; the buyer is told once.
   const mark = String((req.query && req.query.paid) || '');
   if (mark) {
