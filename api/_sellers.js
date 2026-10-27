@@ -386,7 +386,7 @@ async function profit(slug, rows) {
     if (!c && l && l.cost != null) { c = { cost: Math.round(l.cost * 100) * r.q, other: 0, note: '', auto: true, at: Date.now() }; await store.write('cogs/' + slug + '/' + r.n + '.json', c).catch(() => null); }
     c = c || {};
     const known = c.cost != null;
-    return { n: r.n, at: r.at, product: r.product, q: r.q, pay: r.pay, gross: r.gross, fee: r.fee, net: r.net, label: r.labelCost || 0,
+    return { n: r.n, at: r.at, product: r.product, q: r.q, pay: r.pay, gross: r.gross, items: r.items || 0, fee: r.fee, net: r.net, label: r.labelCost || 0,
       cost: known ? c.cost : null, other: c.other || 0, note: c.note || '', profit: known ? r.net - (r.labelCost || 0) - c.cost - (c.other || 0) : null };
   }));
 }

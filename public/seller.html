@@ -1550,7 +1550,7 @@
         top.appendChild(el('b', r.product + (r.q > 1 ? ' x ' + r.q : '')));
         top.appendChild(el('b', r.profit == null ? 'Add the cost' : 'Profit ' + money(r.profit), r.profit == null ? 'dim' : r.profit < 0 ? '' : 'gold'));
         row.appendChild(top);
-        row.appendChild(el('div', new Date(r.at).toLocaleDateString('en-US', { dateStyle: 'medium' }) + ' · order ' + r.n + ' · sold ' + JF.cents(r.gross) + ' · V2V fee ' + JF.cents(r.fee) + (r.label ? ' · label ' + JF.cents(r.label) : ''), 'small dim'));
+        row.appendChild(el('div', new Date(r.at).toLocaleDateString('en-US', { dateStyle: 'medium' }) + ' · order ' + r.n + ' · buyer paid ' + JF.cents(r.gross) + (r.items && r.gross > r.items ? ' (' + JF.cents(r.items) + ' item + ' + JF.cents(r.gross - r.items) + ' shipping)' : '') + ' − V2V fee ' + JF.cents(r.fee) + (r.label ? ' − label ' + JF.cents(r.label) : '') + (r.cost != null ? ' − your cost ' + JF.cents(r.cost + (r.other || 0)) : ''), 'small dim'));
         var ed = el('div'); ed.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-top:6px';
         var ci = input('number', r.cost == null ? '' : (r.cost / 100).toFixed(2), { min: '0', step: '0.01', inputmode: 'decimal' });
         var oi = input('number', r.other ? (r.other / 100).toFixed(2) : '', { min: '0', step: '0.01', inputmode: 'decimal', placeholder: '0.00' });
