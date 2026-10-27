@@ -914,6 +914,27 @@ module.exports = async (req, res) => {
       await store.write(ck, { n: used.n + 1 });
       return res.json({ data: 'data:image/jpeg;base64,' + out.toString('base64'), left: cap - used.n - 1 });
     }
+    // AI reads the tracking number off a photo of a shipping receipt or label (any carrier, any country).
+    if (what === 'tracking-ai') {
+      if (!require('./_ai').on()) return res.status(503).json({ error: 'Photo reading is not switched on yet. Type the tracking number instead.' });
+      const now = Date.now(), k = 'T' + seller.slug, seen = (photoHits.get(k) || []).filter((t) => now - t < 3600000);
+      if (seen.length >= 60) return res.status(429).json({ error: 'That is a lot of photos this hour. Type the tracking number instead.' });
+      seen.push(now); photoHits.set(k, seen);
+      const data = String(b.data || '').replace(/^data:image\/jpeg;base64,/, '');
+      if (data.length < 1000 || data.length > 2500000) return res.status(400).json({ error: 'That photo could not be used. Try another one.' });
+      const A = require('./_ai');
+      const r = await fetch(A.url(), { method: 'POST', signal: AbortSignal.timeout(25000), headers: A.headers(),
+        body: JSON.stringify({ model: A.model(), max_tokens: 200,
+          system: 'You read shipping receipts and shipping labels from any carrier and country (USPS, UPS, FedEx, DHL, Canada Post, Royal Mail, Australia Post, Chit Chats, Stallion Express and others). Find the package tracking number. Ignore order numbers, receipt numbers, account numbers, phone numbers, postal codes and prices. Reply with JSON only: {"tracking":"the tracking number with no spaces, or empty if none is readable","carrier":"carrier name or empty","sure":true or false}.',
+          messages: [{ role: 'user', content: [{ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: data } }, { type: 'text', text: 'What is the tracking number?' }] }] })
+      }).catch((e) => ({ ok: false, status: 0, text: async () => String(e) }));
+      if (!r.ok) { console.error('TRACK_AI_FAIL', r.status, (await r.text()).slice(0, 200)); return res.status(503).json({ error: 'Could not read the photo just now. Type the tracking number instead.' }); }
+      const j = await r.json(), txt = (j.content || []).filter((c) => c.type === 'text').map((c) => c.text).join('');
+      let out = {}; try { out = JSON.parse(txt.slice(txt.indexOf('{'), txt.lastIndexOf('}') + 1)); } catch (e) { out = {}; }
+      const t = String(out.tracking || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+      if (!/^[A-Z0-9]{8,40}$/.test(t)) return res.status(422).json({ error: 'No tracking number could be read. Try a closer, sharper photo of the number, or type it in.' });
+      return res.json({ tracking: t, carrier: String(out.carrier || '').slice(0, 40), sure: out.sure !== false });
+    }
     // AI suggests a title, description and category from a photo of the piece (see _ai.js).
     if (what === 'listing-ai') {
       if (!require('./_ai').on()) return res.status(503).json({ error: 'AI suggestions are not switched on yet. Type the title yourself for now.' });

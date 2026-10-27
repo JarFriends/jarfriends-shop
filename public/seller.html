@@ -1416,7 +1416,18 @@
           var f = el('form'); f.style.cssText = 'flex-direction:row;flex-wrap:wrap;align-items:flex-end;gap:10px;max-width:none';
           var tr = input('text', '', { placeholder: 'Tracking number', required: '', autocomplete: 'off' }); var l = field('Or shipped it your own way? Add the tracking number', tr); l.style.flex = '1 1 260px';
           var go = el('button', 'Mark shipped', 'solid'); go.type = 'submit'; var m = status();
-          f.appendChild(l); f.appendChild(go); c.appendChild(f); c.appendChild(m);
+          // Or a photo of the receipt or label: the tracking number is read off it and the order is marked shipped.
+          var sc = el('label', '📷 Photo of receipt', 'ghost'); sc.style.cssText = 'display:inline-flex;align-items:center;gap:6px;cursor:pointer;padding:10px 14px;border:1px solid #4E7A63;border-radius:999px;font-weight:700;font-size:14px';
+          var sf = el('input'); sf.type = 'file'; sf.accept = 'image/*'; sf.hidden = true; sc.appendChild(sf);
+          sf.addEventListener('change', function () { var file = sf.files && sf.files[0]; sf.value = ''; if (!file) return; m.textContent = 'Reading the tracking number…'; go.disabled = true;
+            shrink(file).then(function (d) { return JF.api('/api/market', { do: 'tracking-ai', t: tok, as: AS, ak: AK, data: d }); }).then(function (r) {
+              if (!r || r.error) { go.disabled = false; m.textContent = (r && r.error) || 'Could not read it. Type the tracking number instead.'; return; }
+              tr.value = r.tracking;
+              if (!r.sure) { go.disabled = false; m.textContent = 'Found ' + r.tracking + (r.carrier ? ' (' + r.carrier + ')' : '') + '. Not fully sure: check it, then press Mark shipped.'; return; }
+              m.textContent = 'Found ' + r.tracking + (r.carrier ? ' (' + r.carrier + ')' : '') + '. Updating the order…';
+              JF.api('/api/market', { do: 'ship', t: tok, as: AS, ak: AK, n: o.n, tracking: r.tracking }).then(function (x) { go.disabled = false; if (x.error) { m.textContent = x.error; return; } load(); });
+            }, function (e) { go.disabled = false; m.textContent = (e && e.message) || 'Could not read that photo.'; }); });
+          f.appendChild(l); f.appendChild(go); f.appendChild(sc); c.appendChild(f); c.appendChild(m);
           f.addEventListener('submit', function (ev) { ev.preventDefault(); go.disabled = true; JF.api('/api/market', { do: 'ship', t: tok, as: AS, ak: AK, n: o.n, tracking: tr.value }).then(function (r) { go.disabled = false; if (r.error) { m.textContent = r.error; return; } load(); }); });
         }
       } else c.appendChild(el('div', (/zelle|venmo|cash ?app/i.test(o.pay || '') ? 'The buyer is paying by ' + o.pay + '. That money goes to VeeFam, and VeeFam marks the order paid once it arrives. ' : '') + 'You get a "Paid, ship it" email, and the address and the Buy label button show here, once it is paid. Do not ship before then.', 'small dim'));
