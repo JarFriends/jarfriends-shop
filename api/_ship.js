@@ -247,5 +247,22 @@ async function buyLabel(seller, n, rateId, host) {
   return { ok: true, customs: t.commercial_invoice_url || '', label: t.label_url, tracking: tracking, track: t.tracking_url_provider || '', cents: cents, fromEarnings: plan.fromEarnings, fromCard: plan.fromCard, test: isTest() };
 }
 const money = (c) => '$' + (c / 100).toFixed(2);
+// Cancel a bought label so it can be bought again: Shippo refunds the postage (if the label was never scanned), any
+// card charge for it is refunded, and the order goes back to "Paid, ship it" with no tracking. Kept in labelVoids.
+async function voidLabel(n) {
+  const mk = 'meta/' + n + '.json', m = (await store.read(mk)) || {};
+  if (!m.labelPdf && !m.labelTx) return { error: 'This order has no label to cancel.' };
+  let shippo_ = 'none';
+  if (m.labelTx && !m.testLabel && ready()) {
+    try { const r = await shippo('/refunds/', { transaction: m.labelTx, async: false }); shippo_ = r.status || 'QUEUED'; }
+    catch (e) { const t = String(e && e.message || e); if (!/already|refund/i.test(t)) return { error: 'Shippo would not cancel this label: ' + t.slice(0, 160) }; shippo_ = 'already'; }
+  }
+  if (m.labelCardPi) await require('./_stripe').call('POST', '/refunds', { payment_intent: m.labelCardPi, 'metadata[reason]': 'label cancelled' }, 'label-void-' + n + '-' + m.labelCardPi).catch(() => null);
+  const keep = { at: Date.now(), tracking: m.tracking || '', tx: m.labelTx || '', cost: m.labelCost || 0, shippo: shippo_ };
+  ['tracking', 'labelPdf', 'labelTx', 'testLabel', 'shippedAt', 'shippedBy', 'labelCost', 'labelFromEarnings', 'labelFromCard', 'labelCardPi', 'customsPdf'].forEach((k) => { delete m[k]; });
+  m.labelVoids = (m.labelVoids || []).concat([keep]);
+  await store.write(mk, m);
+  return { ok: true, shippo: shippo_ };
+}
 
-module.exports = { countryCode, shipsIntl, quoteIntl, intlRate, PRESETS, packageOf, fromOf, calcFor, quoteLabel, buyLabel, payPlan, ready, isTest };
+module.exports = { voidLabel, countryCode, shipsIntl, quoteIntl, intlRate, PRESETS, packageOf, fromOf, calcFor, quoteLabel, buyLabel, payPlan, ready, isTest };

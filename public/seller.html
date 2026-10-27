@@ -1446,6 +1446,10 @@
         if (o.tracking) {
           c.appendChild(el('div', 'Tracking: ' + o.tracking + ' · the buyer was emailed.', 'small'));
           if (o.labelPdf) labelLinks(c, o.n, false);
+          if (o.labelPdf) { var vb = el('button', 'Cancel this label', 'ghost'); vb.type = 'button'; vb.style.cssText = 'align-self:flex-start;padding:6px 12px;min-height:0;font-size:13px'; var vm = el('span', '', 'small');
+            vb.addEventListener('click', function () { if (!confirm('Cancel this shipping label? Only if it has not been used. The postage is refunded and you can buy a new label.')) return; vb.disabled = true; vm.textContent = 'Cancelling…';
+              JF.api('/api/market', { do: 'label-void', t: tok, as: AS, ak: AK, n: o.n }).then(function (x) { if (x.error) { vb.disabled = false; vm.textContent = x.error; return; } vm.textContent = '✓ Cancelled. Buy a new label below.'; setTimeout(load, 900); }); });
+            var vr = el('div'); vr.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap'; vr.appendChild(vb); vr.appendChild(vm); c.appendChild(vr); }
           if (o.customsPdf) { var cu = el('a', '🌍 Print the customs form'); cu.href = o.customsPdf; cu.target = '_blank'; cu.rel = 'noopener'; c.appendChild(cu); }
           if (o.labelCost) c.appendChild(el('div', 'Label: ' + JF.cents(o.labelCost) + (o.labelEarn ? ' · ' + JF.cents(o.labelEarn) + ' from your earnings' : '') + (o.labelCard ? ' · ' + JF.cents(o.labelCard) + ' on your card' : ''), 'small dim'));
         } else if (/^NFT to wallet /.test(o.ship || '')) {

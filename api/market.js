@@ -1074,6 +1074,13 @@ module.exports = async (req, res) => {
     // goes back on sale and the order leaves the sales totals and the giveaway wallet. A card payment is refunded in
     // full through Stripe; money paid by Zelle, Venmo, Cash App or cash is with V2V, so the owner is emailed to send it back.
     // A buyer paid this seller directly by Zelle, Venmo or Cash App: the seller confirms the money arrived.
+    // Cancel a label this shop bought (the owner can do it from any seller's hub) so a new one can be bought.
+    if (what === 'label-void' && req.method === 'POST') {
+      const n = String(b.n || ''), row = (await M.ledger(seller.slug)).filter((r) => r.n === n)[0];
+      if (!row) return res.status(404).json({ error: 'That order was not found.' });
+      const r = await require('./_ship').voidLabel(n);
+      return res.status(r.error ? 400 : 200).json(r);
+    }
     if (what === 'direct-received' && req.method === 'POST') {
       const n = String(b.n || ''), row = (await M.ledger(seller.slug)).filter((r) => r.n === n)[0];
       if (!row) return res.status(404).json({ error: 'That order was not found.' });
