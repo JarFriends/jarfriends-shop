@@ -1420,11 +1420,11 @@
       // Waiting for a by-hand payment: if it was paid to the seller's own Zelle/Venmo/Cash App/PayPal/crypto, they mark it paid here.
       if (!o.paid && !o.cancelled) {
         var pr2 = el('div'); pr2.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;align-items:center';
-        if (o.directPay) {
-          var mpb = el('button', '✓ Mark as paid', 'solid'); mpb.type = 'button'; var mpm = el('span', 'Only once the money is in your ' + (o.pay || 'account') + '.', 'small dim');
+        if (true) {
+          var mpb = el('button', '✓ Mark as paid', 'solid'); mpb.type = 'button'; var mpm = el('span', 'Only once the money has reached you' + (o.pay ? ' (' + o.pay + ')' : '') + '.', 'small dim');
           mpb.addEventListener('click', function () { if (!confirm('Mark order ' + o.n + ' as paid? Only do this once the money has arrived.')) return; mpb.disabled = true; JF.api('/api/market', { do: 'direct-received', t: tok, as: AS, ak: AK, n: o.n }).then(function (x) { if (x.error) { mpb.disabled = false; mpm.textContent = x.error; return; } load(); }); });
           pr2.appendChild(mpb); pr2.appendChild(mpm);
-        } else pr2.appendChild(el('span', 'The buyer pays V2V for this one' + (o.pay ? ' (' + o.pay + ')' : '') + '. V2V marks it paid when the money arrives, then you ship it.', 'small dim'));
+        }
         c.appendChild(pr2);
       }
       // A return the buyer asked for: accept or decline. Accepted and not shipped yet: cancel it below (refunds them).

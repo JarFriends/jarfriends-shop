@@ -1076,8 +1076,13 @@ module.exports = async (req, res) => {
     // A buyer paid this seller directly by Zelle, Venmo or Cash App: the seller confirms the money arrived.
     if (what === 'direct-received' && req.method === 'POST') {
       const n = String(b.n || ''), row = (await M.ledger(seller.slug)).filter((r) => r.n === n)[0];
-      if (!row || !row.directPay) return res.status(404).json({ error: 'That order was not found.' });
+      if (!row) return res.status(404).json({ error: 'That order was not found.' });
+      if (row.paid) return res.json({ ok: true });
       const mk = 'meta/' + n + '.json', m = (await store.read(mk)) || {};
+      // The seller says the money reached them. Unless it is the owner's own shop, that money is the seller's, so
+      // V2V's fee is owed (see What you owe), the same as any sale paid to the seller directly.
+      const own = String(seller.email || '').toLowerCase() === String(process.env.OWNER_EMAIL || '').trim().toLowerCase();
+      if (!m.directPay && !row.direct && !own) m.directPay = { way: String(row.pay || 'hand').toLowerCase(), to: 'seller', slug: seller.slug, marked: true };
       if (!m.paidAt) { m.paidAt = Date.now(); m.paidBy = 'seller'; await store.write(mk, m); }
       return res.json({ ok: true });
     }
