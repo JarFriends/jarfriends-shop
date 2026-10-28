@@ -189,7 +189,7 @@
       if (r.error) { box.textContent = r.error; return; }
       D = r;
       if (!r.seller) return applyForm();
-      dash();
+      if (/^#order-/.test(location.hash) && window.V2VJump) window.V2VJump(); else dash();
     }).catch(function () { box.textContent = 'The portal did not load. Refresh to try again.'; });
   }
   function ask() {
@@ -263,6 +263,10 @@
   var dayKey = function (t) { return new Date(t).toLocaleDateString('en-CA', { timeZone: 'America/Chicago' }); };
   function pct(now, before) { if (!before) return now ? '' : ''; var p = Math.round((now - before) * 100 / before); return (p >= 0 ? '▲ ' : '▼ ') + Math.abs(p) + '%'; }
   // A link to #orders, #offers, #owe and so on (the 🔔 bell) opens that tab, even when Seller Hub is already open.
+  // #order-<n>: open Orders and jump to that order (the 🔔 "Send NFT" link).
+  var jumpTo = function () { var m2 = /^order-([A-Za-z0-9]+)$/.exec(location.hash.slice(1)); if (!m2 || !D) return false; tab = 'orders'; dash(); setTimeout(function () { var t2 = document.getElementById('ord-' + m2[1]); if (t2) { t2.scrollIntoView({ behavior: 'smooth', block: 'start' }); t2.style.outline = '3px solid #C9A45C'; } }, 150); return true; };
+  window.addEventListener('hashchange', jumpTo);
+  window.V2VJump = jumpTo;
   window.addEventListener('hashchange', function () { var h = location.hash.slice(1); if (/^(owe|orders|offers|payouts|trades|messages|listings)$/.test(h) && D) { tab = h; dash(); window.scrollTo(0, 0); } });
   function dash() {
     var s = D.seller, t = D.totals;
@@ -1403,7 +1407,8 @@
       var c = el('section', null, 'card'); c.style.gap = '10px';
       var top = el('div'); top.style.cssText = 'display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px';
       top.appendChild(el('b', o.product + (o.q > 1 ? ' × ' + o.q : '')));
-      top.appendChild(el('span', !o.paid ? 'WAITING FOR PAYMENT' : o.tracking ? 'SHIPPED' : 'PAID · SHIP IT', 'jf-badge ' + (!o.paid ? '' : o.tracking ? 'ok' : 'wait')));
+      var isNftO = /^NFT to wallet /.test(o.ship || ''); c.id = 'ord-' + o.n;
+      top.appendChild(el('span', !o.paid ? 'WAITING FOR PAYMENT' : o.tracking ? (isNftO ? 'NFT SENT' : 'SHIPPED') : (isNftO ? 'PAID · SEND NFT' : 'PAID · SHIP IT'), 'jf-badge ' + (!o.paid ? '' : o.tracking ? 'ok' : 'wait')));
       if (o.direct) top.appendChild(el('span', 'PAID TO YOUR STRIPE', 'jf-badge ok'));
       c.appendChild(top);
       if (o.buyerScore) c.appendChild(el('div', 'Buyer rating from sellers: ★ ' + o.buyerScore.avg.toFixed(1) + ' (' + o.buyerScore.n + ')', 'small dim'));

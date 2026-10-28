@@ -651,7 +651,9 @@ module.exports = async (req, res) => {
       if (shop) {
         const mine = {}; (await M.listings()).forEach((p) => { if (p.seller === shop.slug) mine[p.id] = 1; });
         add(offs.filter((o) => o && mine[o.pid] && o.status === 'pending').length, 'Offer waiting for your answer', '/seller.html#offers');
-        add(rows.filter((r) => r.paid && !r.tracking && !r.shippedAt).length, 'Paid order to ship', '/seller.html#orders');
+        const toDo = rows.filter((r) => r.paid && !r.tracking && !r.shippedAt), nftDo = toDo.filter((r) => /^NFT to wallet /.test(r.ship || ''));
+        add(toDo.length - nftDo.length, 'Paid order to ship', '/seller.html#orders');
+        nftDo.forEach((r) => items.push({ n: 1, text: 'Send NFT: ' + (r.product || 'order ' + r.n), link: '/seller.html#order-' + r.n }));
         add(rows.filter((r) => r.returnReq && r.returnReq.status === 'requested').length, 'Return request to answer', '/seller.html#orders');
         add(rows.filter((r) => r.directPay && !r.paid && !/crypto/i.test(r.pay || '')).length, 'Buyer paid you directly: confirm it arrived', '/seller.html#payouts');
         add(trades.filter((t) => t.status === 'pending').length, 'Trade offer to answer', '/seller.html#trades');
