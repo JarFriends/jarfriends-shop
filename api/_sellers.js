@@ -201,7 +201,7 @@ async function products() {
   const sellers = {};
   (await all()).forEach((s) => { sellers[s.slug] = s; });
   return (await listings()).filter((p) => sellers[p.seller] && sellers[p.seller].status === 'approved' && !p.hidden)
-    .map((p) => { const o = Object.assign({}, p, { section: sectionOf(p), sellerName: sellers[p.seller].name, shelf: false, paypal: !!String((sellers[p.seller].directPay || {}).paypal || '').trim() }); delete o.cost; return o; }); // cost is private to the seller
+    .map((p) => { const o = Object.assign({}, p, { section: sectionOf(p), sellerName: sellers[p.seller].name, shelf: false, paypal: !!String((sellers[p.seller].directPay || {}).paypal || '').trim(), prefPay: (sellers[p.seller].directPay || {}).preferred || '' }); delete o.cost; return o; }); // cost is private to the seller
 }
 const isSellerPid = (id) => /^S[0-9A-Z]{5,19}$/.test(String(id || ''));
 // One listing saved by its seller. New listings get an id starting with S.

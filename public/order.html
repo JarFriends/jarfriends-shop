@@ -111,6 +111,13 @@ fieldset[hidden]{display:none}
   var BY_HAND = { cash: 1, zelle: 1, venmo: 1, cashapp: 1, paypal: 1 };
   var usd = function (cents) { return '$' + (cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
   function cur() { return products.filter(function (p) { return p.id === $('product').value; })[0]; }
+  // The seller's preferred way to be paid: marked on that payment choice, with a note, so the buyer can pick it.
+  function markPref() { var p = cur(), pf = p && p.prefPay, NM = { zelle: 'Zelle', venmo: 'Venmo', cashapp: 'Cash App', paypal: 'PayPal', crypto: 'crypto', card: 'card' };
+    Array.prototype.forEach.call(document.querySelectorAll('label.plan'), function (l) { var t = l.querySelector('.pref-tag'); if (t) t.remove(); if (pf && l.dataset.m === pf && !l.hidden) { var g = document.createElement('em'); g.className = 'pref-tag'; g.textContent = '⭐ Seller’s preferred'; g.style.cssText = 'font-style:normal;font-size:12px;font-weight:800;color:#C9A45C;margin-left:6px'; (l.querySelector('strong') || l).appendChild(g); } });
+    var nt = document.getElementById('prefNote'); if (!nt) { nt = document.createElement('div'); nt.id = 'prefNote'; nt.className = 'small'; nt.style.cssText = 'margin:4px 0 8px;color:#C9A45C'; var first = document.querySelector('label.plan'); if (first) first.parentNode.insertBefore(nt, first); }
+    nt.textContent = pf ? '⭐ This seller prefers to be paid by ' + (NM[pf] || pf) + '. Pick it below if it works for you.' : ''; }
+  setTimeout(function () { try { $('product').addEventListener('change', markPref); } catch (e) {} }, 0);
+  setInterval(function () { try { if (cur() && document.getElementById('prefNote') === null) markPref(); } catch (e) {} }, 800);
   function method() { var r = document.querySelector('input[name="method"]:checked'); return r && HOW[r.value] ? r.value : 'crypto'; }
   function total() {
     var p = cur(); if (!p) return;

@@ -907,7 +907,7 @@ module.exports = async (req, res) => {
       }
       // Get paid directly: where buyers send Zelle, Venmo, Cash App or crypto for this seller's pieces.
       if (b.directPay && typeof b.directPay === 'object') {
-        const d = b.directPay, dp = { zelle: tidy(d.zelle, 80), venmo: tidy(d.venmo, 40), cashapp: tidy(d.cashapp, 40), paypal: tidy(d.paypal, 80), crypto: tidy(d.crypto, 42) };
+        const d = b.directPay, dp = { zelle: tidy(d.zelle, 80), venmo: tidy(d.venmo, 40), cashapp: tidy(d.cashapp, 40), paypal: tidy(d.paypal, 80), crypto: tidy(d.crypto, 42), preferred: ['zelle', 'venmo', 'cashapp', 'paypal', 'crypto', 'card'].indexOf(d.preferred) >= 0 ? d.preferred : ((seller.directPay || {}).preferred || '') };
         if (dp.crypto && !/^0x[0-9a-fA-F]{40}$/.test(dp.crypto)) return res.status(400).json({ error: 'Crypto wallet: paste your 0x address (42 characters). It is used on Ethereum and Base.' });
         seller.directPay = dp;
       }
