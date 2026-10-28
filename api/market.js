@@ -34,11 +34,13 @@ const photoHits = new Map();
 let walletMemo = null;
 async function walletCents() {
   if (walletMemo && Date.now() - walletMemo.at < 60000) return walletMemo.v;
-  const live = Math.round((await M.ledger(null)).filter((r) => r.paid).reduce((t, r) => t + (r.items || 0), 0) * M.giveawayPct() / 100);
-  // The wallet only ever goes up: a cancelled label, refund or edited order never takes money back out of it.
-  const fl = (await store.read('settings/wallet-floor.json').catch(() => null)) || { v: 2366 }; // $23.66 shown on Oct 27 2026
-  const v = Math.max(live, fl.v || 0, 3000); // never below $30.00, the amount on Oct 27 2026
-  if (v > (fl.v || 0)) await store.write('settings/wallet-floor.json', { v: v, at: Date.now() }).catch(() => null);
+  // The wallet was set to $30.00 on Oct 27 2026 (3:31 PM Chicago). From then on, each paid sale adds its 2% on top.
+  // It only ever goes up: a cancelled label, refund or edited order never takes money back out of it.
+  const BASE = 3000, SINCE = 1793133000000;
+  const live = BASE + Math.round((await M.ledger(null)).filter((r) => r.paid && (r.at || 0) >= SINCE).reduce((t, r) => t + (r.items || 0), 0) * M.giveawayPct() / 100);
+  const fl = (await store.read('settings/wallet-floor-2.json').catch(() => null)) || { v: BASE };
+  const v = Math.max(live, fl.v || 0);
+  if (v > (fl.v || 0)) await store.write('settings/wallet-floor-2.json', { v: v, at: Date.now() }).catch(() => null);
   walletMemo = { at: Date.now(), v: v };
   return v;
 }
