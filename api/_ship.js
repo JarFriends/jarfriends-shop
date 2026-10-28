@@ -219,8 +219,8 @@ async function buyLabel(seller, n, rateId, host) {
   const plan = await payPlan(seller, cents);
   // The part the held earnings do not cover goes on the seller's card, before anything is bought.
   let pi = null;
+  if (plan.fromCard > 0 && !plan.card) { plan.owed = plan.fromCard; plan.fromCard = 0; } // No card: the rest goes in What you owe.
   if (plan.fromCard > 0) {
-    if (!plan.card) return { error: 'This label costs ' + money(cents) + ' and V2V is holding ' + money(plan.held) + ' for you. Add a card in My account (How I pay) to cover the other ' + money(plan.fromCard) + '.', needCard: true };
     const s = require('./_stripe');
     const r = await s.call('POST', '/payment_intents', { amount: plan.fromCard, currency: 'usd', customer: plan.card.customer, payment_method: plan.card.pm, confirm: 'true', off_session: 'true',
       'payment_method_types[0]': 'card', description: 'V2V shipping label, order ' + n, 'metadata[order]': n, 'metadata[v2v_label]': '1' }, 'label-card-' + n + '-' + rateId);
@@ -239,7 +239,7 @@ async function buyLabel(seller, n, rateId, host) {
   const tracking = t.tracking_number || '';
   const meta = (await store.read('meta/' + n + '.json')) || {};
   await store.write('meta/' + n + '.json', Object.assign(meta, { tracking: tracking, labelPdf: t.label_url, labelTx: t.object_id || '', testLabel: isTest(), shippedAt: Date.now(), shippedBy: seller.slug,
-    labelCost: cents, labelFromEarnings: plan.fromEarnings, labelFromCard: plan.fromCard, labelCardPi: pi || '', customsPdf: t.commercial_invoice_url || '' }));
+    labelCost: cents, labelFromEarnings: plan.fromEarnings, labelFromCard: plan.fromCard, labelOwed: plan.owed || 0, labelCardPi: pi || '', customsPdf: t.commercial_invoice_url || '' }));
   if (!isTest() && o.row.email && tracking) {
     const { mail } = require('./_lib');
     await mail(o.row.email, 'Your order ' + n + ' has shipped', ['Your ' + o.row.product + ' (order ' + n + ') is on its way from ' + seller.name + ' by USPS.', '', 'Tracking number: ' + tracking].concat(t.tracking_url_provider ? ['Track it here:', t.tracking_url_provider] : []).concat(['', 'Once it arrives, rate ' + seller.name + ' in My account: ' + host + '/me.html']), 'seller-label-' + n).catch(() => null);
@@ -259,7 +259,7 @@ async function voidLabel(n) {
   }
   if (m.labelCardPi) await require('./_stripe').call('POST', '/refunds', { payment_intent: m.labelCardPi, 'metadata[reason]': 'label cancelled' }, 'label-void-' + n + '-' + m.labelCardPi).catch(() => null);
   const keep = { at: Date.now(), tracking: m.tracking || '', tx: m.labelTx || '', cost: m.labelCost || 0, shippo: shippo_ };
-  ['tracking', 'labelPdf', 'labelTx', 'testLabel', 'shippedAt', 'shippedBy', 'labelCost', 'labelFromEarnings', 'labelFromCard', 'labelCardPi', 'customsPdf'].forEach((k) => { delete m[k]; });
+  ['tracking', 'labelPdf', 'labelTx', 'testLabel', 'shippedAt', 'shippedBy', 'labelCost', 'labelFromEarnings', 'labelFromCard', 'labelOwed', 'labelCardPi', 'customsPdf'].forEach((k) => { delete m[k]; });
   // An order that counted as paid because its label was bought stays paid.
   if (!m.paidAt) { m.paidAt = Date.now(); m.paidHow = m.paidHow || 'label'; }
   m.labelVoids = (m.labelVoids || []).concat([keep]);

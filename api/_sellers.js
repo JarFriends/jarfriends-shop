@@ -324,7 +324,7 @@ async function ledger(slug) {
       // Paid by card straight to the seller's own Stripe (see _connect.js): Stripe pays the seller, nothing is owed.
       abroad: !!abroad[mine[s.pid].seller], direct: !!m.direct, directPay: !!m.directPay, returnReq: m.returnReq || null, issue: m.issue || null, bundleLead: m.bundleLead || '', bundleMates: m.bundleMates || [],
       // A shipping label the seller bought through V2V: its cost, and the part taken from money V2V holds for them.
-      customsPdf: m.customsPdf || '', labelCost: m.labelCost || 0, labelEarn: m.labelFromEarnings || 0, labelCard: m.labelFromCard || 0, labelPdf: m.labelPdf || '' };
+      customsPdf: m.customsPdf || '', labelCost: m.labelCost || 0, labelEarn: m.labelFromEarnings || 0, labelCard: m.labelFromCard || 0, labelOwed: m.testLabel ? 0 : (m.labelOwed || 0), labelPdf: m.labelPdf || '' };
   }));
   return rows.sort((a, b) => b.at - a.at);
 }
@@ -374,6 +374,8 @@ function totals(rows, outs) {
   // has that money, so nothing is owed to them for it; they owe VeeFam its fee instead (feeDue, less fees paid).
   t.byDirect = 0; t.feeDue = 0; t.feePaid = 0;
   rows.forEach((r) => { if (r.paid) { t.sales++; t.gross += r.gross; t.fee += r.fee; t.net += r.net; if (r.direct) t.byStripe += r.net; if (r.directPay) { t.byDirect += r.net; t.feeDue += r.fee; } } else t.unpaidGross += r.gross; t.labels += r.labelEarn || 0; t.labelsCard += r.labelCard || 0; });
+  // A label bought with no card and not enough held: the seller owes V2V that part, paid with their fees.
+  rows.forEach((r) => { if (r.labelOwed) t.feeDue += r.labelOwed; });
   outs.forEach((p) => { if (p.kind === 'deduct') t.deducted += p.cents; else if (p.kind === 'fee') t.feePaid += p.cents; else t.paidOut += p.cents; });
   t.owed = t.net - t.byStripe - t.byDirect - t.paidOut - t.labels - t.deducted;
   t.feeOwed = Math.max(0, t.feeDue - t.feePaid);

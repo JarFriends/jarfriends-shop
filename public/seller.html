@@ -1382,10 +1382,9 @@
           info.parentNode.insertBefore(ob, info); }
         lines.push(r.rate.service + ': ' + JF.cents(r.rate.cents) + (r.rate.days ? ' (about ' + r.rate.days + ' days)' : '') + '. The buyer paid ' + JF.cents(r.buyerPaidShipping) + ' for shipping.');
         if (r.rate.cents > r.buyerPaidShipping) lines.push('This label costs ' + JF.cents(r.rate.cents - r.buyerPaidShipping) + ' more than the buyer paid. That is your cost.');
-        lines.push('How it is paid: ' + (pl.fromEarnings ? JF.cents(pl.fromEarnings) + ' from the money V2V is holding for you' : '') + (pl.fromEarnings && pl.fromCard ? ', plus ' : '') + (pl.fromCard ? JF.cents(pl.fromCard) + (pl.card ? ' on your ' + pl.card.brand + ' ending ' + pl.card.last4 : ' on a card (add one in My account first)') : '') + '.');
+        lines.push('How it is paid: ' + (pl.fromEarnings ? JF.cents(pl.fromEarnings) + ' from the money V2V is holding for you' : '') + (pl.fromEarnings && pl.fromCard ? ', plus ' : '') + (pl.fromCard ? JF.cents(pl.fromCard) + (pl.card ? ' on your ' + pl.card.brand + ' ending ' + pl.card.last4 : ' added to What you owe, to send V2V with your fees (or add a card in My account to pay it now)') : '') + '.');
         if (r.test) lines.push('TEST MODE: this makes a sample label that cannot be mailed.');
         info.textContent = lines.join(' ');
-        if (pl.fromCard && !pl.card) { var a = el('a', ' Add a card'); a.href = '/me.html'; info.appendChild(a); return; }
         buy.textContent = 'Buy label for ' + JF.cents(r.rate.cents); buy.hidden = false;
       });
     });
