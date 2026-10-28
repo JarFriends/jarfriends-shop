@@ -170,7 +170,7 @@
       // Its own Gallery / List switch (remembered), and a way back to the whole Sellers tab when opened on its own.
       var vt = el('div'); vt.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;align-items:center';
       var vg = el('button', '▦ Gallery', 'ghost'), vl = el('button', '☰ List', 'ghost'); vg.type = vl.type = 'button';
-      var setV = function (g) { wrap.classList.toggle('pv-grid', g); vg.setAttribute('aria-pressed', g ? 'true' : 'false'); vl.setAttribute('aria-pressed', g ? 'false' : 'true'); try { localStorage.setItem('pvView', g ? 'g' : 'l'); } catch (e) {} };
+      var pvw = wrap, setV = function (g) { pvw.classList.toggle('pv-grid', g); vg.setAttribute('aria-pressed', g ? 'true' : 'false'); vl.setAttribute('aria-pressed', g ? 'false' : 'true'); try { localStorage.setItem('pvView', g ? 'g' : 'l'); } catch (e) {} };
       vg.addEventListener('click', function () { setV(true); }); vl.addEventListener('click', function () { setV(false); });
       var all = el('button', '‹ Show the whole Sellers tab', 'ghost'); all.type = 'button'; all.className = 'ghost pv-all'; all.addEventListener('click', function () { box.classList.remove('focus-pay'); });
       vt.appendChild(vg); vt.appendChild(vl); vt.appendChild(all); wrap.appendChild(vt);
