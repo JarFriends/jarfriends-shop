@@ -1407,7 +1407,7 @@
       var c = el('section', null, 'card'); c.style.gap = '10px';
       var top = el('div'); top.style.cssText = 'display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px';
       top.appendChild(el('b', o.product + (o.q > 1 ? ' × ' + o.q : '')));
-      var isNftO = /^NFT to wallet /.test(o.ship || ''); c.id = 'ord-' + o.n;
+      var isNftO = /NFT|0x[0-9a-fA-F]{6}/.test(o.ship || '') || (D.listings || []).some(function (l) { return l.id === o.pid && l.nft; }); c.id = 'ord-' + o.n;
       top.appendChild(el('span', !o.paid ? 'WAITING FOR PAYMENT' : o.tracking ? (isNftO ? 'NFT SENT' : 'SHIPPED') : (isNftO ? 'PAID · SEND NFT' : 'PAID · SHIP IT'), 'jf-badge ' + (!o.paid ? '' : o.tracking ? 'ok' : 'wait')));
       if (o.direct) top.appendChild(el('span', 'PAID TO YOUR STRIPE', 'jf-badge ok'));
       c.appendChild(top);
@@ -1457,9 +1457,9 @@
             var vr = el('div'); vr.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap'; vr.appendChild(vb); vr.appendChild(vm); c.appendChild(vr); }
           if (o.customsPdf) { var cu = el('a', '🌍 Print the customs form'); cu.href = o.customsPdf; cu.target = '_blank'; cu.rel = 'noopener'; c.appendChild(cu); }
           if (o.labelCost) c.appendChild(el('div', 'Label: ' + JF.cents(o.labelCost) + (o.labelEarn ? ' · ' + JF.cents(o.labelEarn) + ' from your earnings' : '') + (o.labelCard ? ' · ' + JF.cents(o.labelCard) + ' on your card' : ''), 'small dim'));
-        } else if (/^NFT to wallet /.test(o.ship || '')) {
+        } else if (isNftO) {
           // An NFT: the buyer gave their wallet at checkout. The seller sends it, then adds the transaction hash.
-          var wa = (o.ship || '').replace(/^NFT to wallet /, '');
+          var wa = ((o.ship || '').match(/0x[0-9a-fA-F]{40}/) || [(o.ship || '').replace(/^NFT to wallet /, '') || 'not given: message the buyer'])[0];
           var nb = el('div', null, 'addr'); nb.textContent = '🖼 Send the NFT to this wallet: ' + wa; c.appendChild(nb);
           var cpw = el('button', 'Copy wallet address', 'ghost'); cpw.type = 'button'; cpw.style.alignSelf = 'flex-start'; cpw.addEventListener('click', function () { try { navigator.clipboard.writeText(wa); cpw.textContent = 'Copied!'; } catch (e) { prompt('Copy this wallet address:', wa); } }); c.appendChild(cpw);
           var nf = el('form'); nf.style.cssText = 'flex-direction:row;flex-wrap:wrap;align-items:flex-end;gap:10px;max-width:none';

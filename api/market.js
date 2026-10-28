@@ -651,7 +651,7 @@ module.exports = async (req, res) => {
       if (shop) {
         const mine = {}; (await M.listings()).forEach((p) => { if (p.seller === shop.slug) mine[p.id] = 1; });
         add(offs.filter((o) => o && mine[o.pid] && o.status === 'pending').length, 'Offer waiting for your answer', '/seller.html#offers');
-        const toDo = rows.filter((r) => r.paid && !r.tracking && !r.shippedAt), nftDo = toDo.filter((r) => /^NFT to wallet /.test(r.ship || ''));
+        const toDo = rows.filter((r) => r.paid && !r.tracking && !r.shippedAt && !r.nftSentAt), nftIds = {}; (await M.listings()).forEach((p) => { if (p.seller === shop.slug && p.nft) nftIds[p.id] = 1; }); const nftDo = toDo.filter((r) => nftIds[r.pid] || /NFT|0x[0-9a-fA-F]{6}/.test(r.ship || ''));
         add(toDo.length - nftDo.length, 'Paid order to ship', '/seller.html#orders');
         nftDo.forEach((r) => items.push({ n: 1, text: 'Send NFT: ' + (r.product || 'order ' + r.n), link: '/seller.html#order-' + r.n }));
         add(rows.filter((r) => r.returnReq && r.returnReq.status === 'requested').length, 'Return request to answer', '/seller.html#orders');
