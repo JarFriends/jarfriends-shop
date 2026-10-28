@@ -95,6 +95,7 @@
       a.appendChild(JF.picture(p));
       if (p.left <= 0 && !p.auction) a.appendChild(el('span', 'SOLD OUT', 'jf-tag out'));
       else if (p.auction) a.appendChild(el('span', live ? 'LIVE AUCTION' : 'AUCTION ENDED', 'jf-tag' + (live ? '' : ' out')));
+      else if (p.party) a.appendChild(el('span', '🎉 Party · up to ' + p.party.top + '% off', 'jf-pty'));
       else if (p.left === 1) a.appendChild(el('span', 'LAST ONE', 'jf-tag'));
       a.appendChild(el('div', p.name, 'jf-name'));
       var m = el('div', null, 'jf-meta');
