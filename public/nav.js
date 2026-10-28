@@ -299,10 +299,14 @@
     a.style.cssText = 'position:relative;display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;min-height:0;padding:0;border:1px solid #4E7A63;border-radius:50%;background:transparent;font-size:17px;cursor:pointer';
     var n = document.createElement('b'); n.style.cssText = 'position:absolute;top:-6px;right:-6px;background:#E5484D;color:#fff;border-radius:10px;font-size:11px;padding:1px 6px;font-weight:900'; n.hidden = true; a.appendChild(n);
     var pop = document.createElement('div'); pop.hidden = true; pop.style.cssText = 'position:fixed;right:16px;top:104px;z-index:2147483000;width:min(340px,calc(100vw - 32px));background:#0B1712;border:1px solid #2E4A3B;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.5);padding:8px;display:flex;flex-direction:column;gap:4px';
-    w.appendChild(a); w.appendChild(pop);
+    // 💬 Messages: every conversation, one tap away, with the unread count.
+    var ml = document.createElement('a'); ml.href = '/messages.html'; ml.setAttribute('aria-label', 'Messages'); ml.textContent = '💬';
+    ml.style.cssText = 'position:relative;display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border:1px solid #4E7A63;border-radius:50%;font-size:17px;text-decoration:none;margin-right:10px';
+    var mn = document.createElement('b'); mn.style.cssText = n.style.cssText; mn.hidden = true; ml.appendChild(mn);
+    w.appendChild(ml); w.appendChild(a); w.appendChild(pop);
     var tok = ''; try { tok = localStorage.getItem('acct_token') || ''; } catch (e) {}
     var show = function (j) {
-      w.style.display = 'inline-flex'; pop.textContent = ''; n.hidden = !j.total; n.textContent = j.total > 99 ? '99+' : j.total;
+      w.style.display = 'inline-flex'; pop.textContent = ''; var um = (j.items || []).filter(function (x) { return x.link === '/messages.html'; })[0]; mn.hidden = !um; if (um) mn.textContent = um.n > 99 ? '99+' : um.n; n.hidden = !j.total; n.textContent = j.total > 99 ? '99+' : j.total;
       if (!j.items.length) { var e0 = document.createElement('div'); e0.style.cssText = 'padding:10px;font-size:14px;opacity:.8'; e0.textContent = 'You are all caught up.'; pop.appendChild(e0); }
       j.items.forEach(function (x) { var l = document.createElement('a'); l.href = x.link; l.addEventListener('click', function () { pop.hidden = true; try { sessionStorage.removeItem('v2vBell'); } catch (e) {} }); l.style.cssText = 'display:flex;justify-content:space-between;gap:10px;padding:10px;border-radius:8px;text-decoration:none;color:#F7F2E6;font-size:14px;background:#11261C'; var t = document.createElement('span'); t.textContent = x.text; var c = document.createElement('b'); c.textContent = x.n; c.style.cssText = 'background:#C9A45C;color:#0B1A13;border-radius:10px;padding:0 8px;align-self:center'; l.appendChild(t); l.appendChild(c); pop.appendChild(l); });
     };
