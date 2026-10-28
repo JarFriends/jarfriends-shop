@@ -312,8 +312,9 @@
     };
     if (tok) {
       var cached = null; try { cached = JSON.parse(sessionStorage.getItem('v2vBell') || 'null'); } catch (e) {}
-      if (cached && Date.now() - cached.at < 90000) show(cached.j);
+      if (cached && Date.now() - cached.at < 15000 && !/messages|seller|admin/.test(location.pathname)) show(cached.j);
       else fetch('/api/market?do=notify&t=' + encodeURIComponent(tok), { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { if (!j || !j.items) return; show(j); try { sessionStorage.setItem('v2vBell', JSON.stringify({ at: Date.now(), j: j })); } catch (e) {} }).catch(function () {});
+      window.addEventListener('v2v-bell', function () { setTimeout(function () { fetch('/api/market?do=notify&t=' + encodeURIComponent(tok), { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { if (!j || !j.items) return; show(j); try { sessionStorage.setItem('v2vBell', JSON.stringify({ at: Date.now(), j: j })); } catch (e) {} }).catch(function () {}); }, 600); });
     }
     a.addEventListener('click', function (ev) { ev.stopPropagation(); pop.hidden = !pop.hidden; });
     document.addEventListener('click', function (ev) { if (!w.contains(ev.target)) pop.hidden = true; });

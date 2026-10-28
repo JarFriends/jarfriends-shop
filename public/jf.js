@@ -74,6 +74,8 @@
   function afterSignIn(r, next) { if (r.terms === false) { termsGate(next); } else next(); }
   function api(path, body) {
     var o = body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) } : { cache: 'no-store' };
+    // Anything done (shipped, marked paid, replied, answered): the 🔔 must count again, not show an old copy.
+    if (body || /do=thread|do=open|messages/.test(path)) { try { sessionStorage.removeItem('v2vBell'); } catch (e) {} if (body && !/notify/.test(path)) setTimeout(function () { try { window.dispatchEvent(new Event('v2v-bell')); } catch (e) {} }, 0); }
     return fetch(path, o).then(function (r) { return r.json().catch(function () { return { error: 'The site did not answer. Try again.' }; }).then(function (j) { j._status = r.status; if (j && j.needTerms && (body || /^\/(me|seller|wishlist|account|giveaway)\.html/.test(location.pathname))) termsGate(); return j; }); });
   }
   // The V2V sign-in box: Continue with Google, or an email and password. A new password account confirms its
