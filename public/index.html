@@ -119,7 +119,7 @@
     <label class="v-dd"><span class="v-lab">Category</span>
       <select class="jf-sel" id="cat"><option value="">All categories</option></select></label>
     <label class="v-dd"><span class="v-lab">Sort</span>
-      <select class="jf-sel" id="sort"><option value="low">Price: low to high</option><option value="high">Price: high to low</option><option value="ending">Auctions ending soonest</option><option value="new">Newest</option></select></label></div>
+      <select class="jf-sel" id="sort"><option value="low">Price: low to high</option><option value="high">Price: high to low</option><option value="ending">Auctions ending soonest</option><option value="party">🎉 Party pricing only</option><option value="new">Newest</option></select></label></div>
     </div>
   </div>
   <div class="small" id="photoBar" hidden style="display:flex;flex-wrap:wrap;gap:10px;align-items:center"></div>
@@ -159,6 +159,7 @@
       if (view === 'auctions' && !p.auction) return false;
       if (view === 'buy' && p.auction) return false;
       if (sort === 'ending' && !p.auction) return false;
+      if (sort === 'party' && !p.party) return false;
       if ($('cat').value && p.section !== $('cat').value) return false;
       if ($('seller').value && p.seller !== $('seller').value) return false;
       if (photoIds && photoIds.indexOf(p.id) < 0) return false;
