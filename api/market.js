@@ -609,17 +609,6 @@ module.exports = async (req, res) => {
       }));
       return res.json({ orders: out });
     }
-    // The seller rates the buyer of a shipped order (1 to 5 stars and a note). Other sellers see the buyer's average.
-    if (what === 'buyer-review' && req.method === 'POST') {
-      if (!seller) return res.status(403).json({ error: 'Open a seller shop first.' });
-      const n = String(b.n || ''), stars = Math.round(Number(b.stars));
-      if (!(stars >= 1 && stars <= 5)) return res.status(400).json({ error: 'Pick 1 to 5 stars.' });
-      const row = (await M.ledger(seller.slug)).filter((r) => r.n === n)[0];
-      if (!row || !row.email) return res.status(404).json({ error: 'That order was not found.' });
-      if (!M.completed(row)) return res.status(400).json({ error: 'You can rate the buyer once the order has shipped.' });
-      await store.write('breviews/' + seller.slug + '/' + n + '.json', { n: n, stars: stars, text: String(b.text || '').replace(/\r/g, '').trim().slice(0, 500), who: M.hashOf(row.email), seller: seller.slug, at: Date.now() });
-      return res.json({ ok: true });
-    }
     if (what === 'review' && req.method === 'POST') {
       const n = String(b.n || ''), stars = Math.round(Number(b.stars));
       if (!(stars >= 1 && stars <= 5)) return res.status(400).json({ error: 'Pick 1 to 5 stars.' });
@@ -775,6 +764,17 @@ module.exports = async (req, res) => {
     if (what === 'trades') {
       if (!seller) return res.status(403).json({ error: 'Open a seller shop first.' });
       return res.json({ trades: await require('./_trades').forSeller(seller.slug) });
+    }
+    // The seller rates the buyer of a shipped order (1 to 5 stars and a note). Other sellers see the buyer's average.
+    if (what === 'buyer-review' && req.method === 'POST') {
+      if (!seller) return res.status(403).json({ error: 'Open a seller shop first.' });
+      const n = String(b.n || ''), stars = Math.round(Number(b.stars));
+      if (!(stars >= 1 && stars <= 5)) return res.status(400).json({ error: 'Pick 1 to 5 stars.' });
+      const row = (await M.ledger(seller.slug)).filter((r) => r.n === n)[0];
+      if (!row || !row.email) return res.status(404).json({ error: 'That order was not found.' });
+      if (!M.completed(row)) return res.status(400).json({ error: 'You can rate the buyer once the order has shipped.' });
+      await store.write('breviews/' + seller.slug + '/' + n + '.json', { n: n, stars: stars, text: String(b.text || '').replace(/\r/g, '').trim().slice(0, 500), who: M.hashOf(row.email), seller: seller.slug, at: Date.now() });
+      return res.json({ ok: true });
     }
     // The buyer of an accepted offer paid the seller some other way (DMs, in person): the seller records it here.
     // It becomes a paid order, paid straight to the seller, so the piece comes off stock and VeeFam's fee is owed.
