@@ -503,7 +503,11 @@ async function promoFor(pid, code) {
   const c = String(code || '').trim().toUpperCase(); if (!c || !isSellerPid(pid)) return null;
   const p = (await listings()).filter((x) => x.id === pid)[0], s = p && (await bySlug(p.seller));
   const x = s && (s.promos || []).filter((y) => y.code === c)[0];
-  if (!x || x.on === false || (x.ends && Date.now() > x.ends) || (x.max && (x.used || 0) >= x.max)) return null;
+  if (!x || x.on === false || (x.ends && Date.now() > x.ends) || (x.max && (x.used || 0) >= x.max)) {
+    // The owner's own shop also takes the codes made in the back office (Promo codes tab).
+    if (s && isProtected(s.slug, s.email)) { const o = require('./_offline').promo(c, pid, 'shop'); if (o) return o; }
+    return null;
+  }
   return x.kind === 'pct' ? { code: c, pct: x.value, seller: s.slug } : x.kind === 'off' ? { code: c, off: Math.round(x.value * 100), seller: s.slug } : { code: c, ship: true, off: 0, seller: s.slug };
 }
 async function promoUsed(slug, code) { const s = await bySlug(slug); const x = s && (s.promos || []).filter((y) => y.code === code)[0]; if (!x) return; x.used = (x.used || 0) + 1; await save(s); }
