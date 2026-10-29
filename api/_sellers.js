@@ -505,7 +505,7 @@ async function promoFor(pid, code) {
   const x = s && (s.promos || []).filter((y) => y.code === c)[0];
   if (!x || x.on === false || (x.ends && Date.now() > x.ends) || (x.max && (x.used || 0) >= x.max)) {
     // The owner's own shop also takes the codes made in the back office (Promo codes tab).
-    if (s && isProtected(s.slug, s.email)) { const o = require('./_offline').promo(c, pid, 'shop'); if (o) return o; }
+    if (s && isProtected(s.slug, s.email)) { const o = require('./_offline').promo(c); if (o) return { code: o.code, pct: o.pct, off: o.off }; }
     return null;
   }
   return x.kind === 'pct' ? { code: c, pct: x.value, seller: s.slug } : x.kind === 'off' ? { code: c, off: Math.round(x.value * 100), seller: s.slug } : { code: c, ship: true, off: 0, seller: s.slug };
