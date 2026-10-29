@@ -484,7 +484,7 @@ async function notifySale(n, kind) {
   const paid = kind === 'paid';
   const lines = paid
     ? ['You made a sale on V2V: ' + (d.product || 'your piece') + ' x ' + sale.q + ' (order ' + n + ').', '', 'It is paid, so please ship it within 3 days.', 'Ship to: ' + (d.buyer ? d.buyer + ', ' : '') + (d.ship || 'see your seller portal'), '', 'When it ships, add the tracking number in your seller portal and the buyer is emailed:', portal]
-    : ['New order on V2V: ' + (d.product || 'your piece') + ' x ' + sale.q + ' (order ' + n + ').', '', 'The buyer is paying by ' + (d.pay || 'hand') + ', which is not confirmed yet. Do not ship until you get the "it is paid" email.', '', 'Your seller portal:', portal];
+    : ['New order on V2V: ' + (d.product || 'your piece') + ' x ' + sale.q + ' (order ' + n + ').', '', 'The buyer is paying by ' + (d.pay || 'hand') + ', which is not confirmed yet. Do not ship until you get the "it is paid" email.', 'Ship to: ' + (d.buyer ? d.buyer + ', ' : '') + (d.ship || 'see your seller portal'), '', 'Your seller portal:', portal];
   // A piece that is also on eBay: remind the seller to end that listing so it cannot sell twice.
   const l = (await listings()).filter((x) => x.id === sale.pid)[0];
   if (l && l.ebay && l.ebay.url) lines.push('', 'This piece is also listed on eBay. End that listing now so it does not sell twice: ' + l.ebay.url);
