@@ -441,3 +441,36 @@
     }).catch(function () {});
   })();
 })();
+
+// Tracking numbers anywhere on the site become links to the carrier's tracking page (USPS, UPS, FedEx, DHL,
+// Canada Post; anything else opens a tracker that covers every carrier).
+(function () {
+  function trackUrl(n) {
+    var t = String(n).toUpperCase();
+    if (/^1Z[0-9A-Z]{16}$/.test(t)) return 'https://www.ups.com/track?tracknum=' + t;
+    if (/^(9[1-5]\d{18,24}|[A-Z]{2}\d{9}US|82\d{8})$/.test(t)) return 'https://tools.usps.com/go/TrackConfirmAction?tLabels=' + t;
+    if (/^(\d{12}|\d{15}|\d{20})$/.test(t)) return 'https://www.fedex.com/fedextrack/?trknbr=' + t;
+    if (/^[A-Z]{2}\d{9}CA$|^\d{16}$/.test(t)) return 'https://www.canadapost-postescanada.ca/track-reperage/en#/search?searchFor=' + t;
+    if (/^\d{10}$/.test(t)) return 'https://www.dhl.com/us-en/home/tracking.html?tracking-id=' + t;
+    return 'https://parcelsapp.com/en/tracking/' + t;
+  }
+  window.V2VTrackUrl = trackUrl;
+  var RX = /(tracking(?:\s+number)?\s*[:#]?\s*\(?\s*)([A-Za-z0-9]{10,34})/gi, busy = false;
+  function linkify(root) {
+    var w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: function (n) { var p = n.parentNode; if (!p || /^(A|SCRIPT|STYLE|TEXTAREA|INPUT|OPTION|BUTTON)$/.test(p.nodeName) || p.isContentEditable) return NodeFilter.FILTER_REJECT; RX.lastIndex = 0; return RX.test(n.nodeValue) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT; } });
+    var list = []; while (w.nextNode()) list.push(w.currentNode);
+    list.forEach(function (n) {
+      var s = n.nodeValue, f = document.createDocumentFragment(), last = 0, m; RX.lastIndex = 0;
+      while ((m = RX.exec(s))) {
+        if (!/\d/.test(m[2])) continue;
+        f.appendChild(document.createTextNode(s.slice(last, m.index) + m[1]));
+        var a = document.createElement('a'); a.href = trackUrl(m[2]); a.target = '_blank'; a.rel = 'noopener'; a.textContent = m[2]; a.title = 'Track this package'; f.appendChild(a);
+        last = m.index + m[0].length;
+      }
+      if (last) { f.appendChild(document.createTextNode(s.slice(last))); n.parentNode.replaceChild(f, n); }
+    });
+  }
+  function run() { if (busy) return; busy = true; setTimeout(function () { try { linkify(document.body); } catch (e) {} busy = false; }, 300); }
+  if (document.body) { run(); new MutationObserver(run).observe(document.body, { childList: true, subtree: true, characterData: true }); }
+  else document.addEventListener('DOMContentLoaded', function () { run(); new MutationObserver(run).observe(document.body, { childList: true, subtree: true, characterData: true }); });
+})();
