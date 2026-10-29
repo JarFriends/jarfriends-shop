@@ -98,6 +98,7 @@ module.exports = async (req, res) => {
   // Paying by card adds the card fee on top of the order and shipping: what Stripe takes. The buyer sees it before placing the order.
   const fee = card ? offline.cardFee(list - cut + ship) : 0;
   const total = list - cut + ship + fee;
+  if (total <= 0) return res.status(400).json({ error: 'This piece is free with that code and has no shipping, so there is nothing to pay. Message the seller to get it.' });
   const r = await createInvoice({
     no: 'W' + Date.now().toString(36).toUpperCase(), item: p.name, qty: String(qty), buyer: company ? company + ' (' + name + ')' : name, terms: '', email: email,
     cents: total, hours: ORDER_HOURS, noCoins: cash || card,

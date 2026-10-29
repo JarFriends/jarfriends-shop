@@ -52,7 +52,7 @@ function promo(code) {
 function promoCut(p, list) {
   if (!p) return 0;
   const cut = p.pct ? Math.round(list * p.pct / 100) : p.off;
-  return Math.max(0, Math.min(cut, list - 1));
+  return Math.max(0, Math.min(cut, p.pct >= 100 ? list : list - 1));
 }
 
 // The product rows exactly as the sheet lists them, read fresh (20 second memory). _lib.js keeps only the

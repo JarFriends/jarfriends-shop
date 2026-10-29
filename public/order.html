@@ -125,7 +125,7 @@ fieldset[hidden]{display:none}
     var list = Math.round(Number(p.price) * 100) * q;
     // A promo code takes a percent or a dollar amount off. It never stacks on an accepted offer.
     var cut = promo && !deal ? (promo.pct ? Math.round(list * promo.pct / 100) : promo.off) : 0;
-    cut = Math.max(0, Math.min(cut, list - 1));
+    cut = Math.max(0, Math.min(cut, promo && promo.pct >= 100 ? list : list - 1));
     // Shipping is set per piece and charged once per order.
     var ship = Math.round(Number(p.ship || 0) * 100);
     // An NFT asks for a wallet in place of a mailing address, and has no shipping line.

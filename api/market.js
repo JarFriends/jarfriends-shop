@@ -914,7 +914,7 @@ module.exports = async (req, res) => {
           const code = String(x.code || '').trim().toUpperCase(), kind = ['pct', 'off', 'ship'].indexOf(x.kind) >= 0 ? x.kind : '', v = Number(x.value) || 0;
           if (!/^[A-Z0-9_-]{3,20}$/.test(code)) return res.status(400).json({ error: 'Promo code "' + (x.code || '') + '": use 3 to 20 letters or numbers.' });
           if (seen[code]) return res.status(400).json({ error: 'You have the code ' + code + ' twice.' });
-          if (!kind || (kind === 'pct' && !(v > 0 && v <= 90)) || (kind === 'off' && !(v > 0 && v <= 5000))) return res.status(400).json({ error: code + ': pick percent off (1 to 90), dollars off, or free shipping.' });
+          if (!kind || (kind === 'pct' && !(v > 0 && v <= (M.isProtected(seller.slug, seller.email) ? 100 : 90))) || (kind === 'off' && !(v > 0 && v <= 5000))) return res.status(400).json({ error: code + ': pick percent off (1 to ' + (M.isProtected(seller.slug, seller.email) ? 100 : 90) + '), dollars off, or free shipping.' });
           const was = (seller.promos || []).filter((y) => y.code === code)[0];
           seen[code] = 1; out.push({ code: code, kind: kind, value: kind === 'ship' ? 0 : v, max: Math.max(0, Math.floor(Number(x.max) || 0)), ends: Number(x.ends) || 0, on: x.on !== false, used: was ? was.used || 0 : 0 });
         }
