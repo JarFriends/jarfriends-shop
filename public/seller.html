@@ -25,7 +25,8 @@
 <script>
 (function () {
   var $ = function (id) { return document.getElementById(id); }, el = JF.el;
-  var tok = JF.token(), D = null, tab = (/^#(owe|orders|offers|payouts|trades|messages|listings)$/.test(location.hash) ? location.hash.slice(1) : 'overview'), editing = null, adding = false, bulkOn = false, BULK = [], openEbay = false, pendingEdit = '';
+  var tok = JF.token(), D = null, tab = (/^#(owe|orders|offers|payouts|trades|messages|listings|settings)$/.test(location.hash) ? location.hash.slice(1) : /^#(add|bulk)$/.test(location.hash) ? 'listings' : 'overview'), editing = null, adding = false, bulkOn = false, BULK = [], openEbay = false, pendingEdit = '';
+  if (location.hash === '#add') adding = true; if (location.hash === '#bulk') bulkOn = true; if (location.hash === '#tour') setTimeout(function () { if (window.V2VTour) V2VTour.start(); }, 1500);
   // The owner can open any seller's portal from the back office: seller.html?as=<shop>. Uses the back-office key.
   var AS = new URLSearchParams(location.search).get('as') || '', AK = '';
   if (AS) { try { AK = localStorage.getItem('adminKey') || ''; } catch (e) { AK = ''; } }
@@ -275,7 +276,7 @@
   var jumpTo = function () { var m2 = /^order-([A-Za-z0-9]+)$/.exec(location.hash.slice(1)); if (!m2 || !D) return false; tab = 'orders'; dash(); setTimeout(function () { var t2 = document.getElementById('ord-' + m2[1]); if (t2) { t2.scrollIntoView({ behavior: 'smooth', block: 'start' }); t2.style.outline = '3px solid #C9A45C'; } }, 150); return true; };
   window.addEventListener('hashchange', jumpTo);
   window.V2VJump = jumpTo;
-  window.addEventListener('hashchange', function () { var h = location.hash.slice(1); if (/^(owe|orders|offers|payouts|trades|messages|listings)$/.test(h) && D) { tab = h; dash(); window.scrollTo(0, 0); } });
+  window.addEventListener('hashchange', function () { var h = location.hash.slice(1); if (/^(owe|orders|offers|payouts|trades|messages|listings|settings)$/.test(h) && D) { tab = h; dash(); window.scrollTo(0, 0); } });
   function dash() {
     var s = D.seller, t = D.totals;
     if (!hubCss) { var cs = el('style'); cs.textContent = HUB_CSS; document.head.appendChild(cs); hubCss = true; }

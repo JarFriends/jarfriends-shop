@@ -2,7 +2,7 @@
 // sold archive and seller portal. Added to each page at build time (marketpages.js).
 (function () {
   if (window.__jfNav) return; window.__jfNav = 1;
-  var links = [['Market', '/market.html'], ['Auctions', '/market.html?view=auctions'], ['Live shows', '/live.html'], ['Messages', '/messages.html'], ['My wishlist', '/wishlist.html'], ['Giveaway and vote', '/giveaway.html'], ['Terms of Service', '/terms.html'], ['Sold prices', '/sold.html'], ['My account', '/me.html'], ['My orders', '/account.html'], ['Seller Hub', '/seller.html']];
+  var links = [['Market', '/market.html'], ['Auctions', '/market.html?view=auctions'], ['Live shows', '/live.html'], ['Messages', '/messages.html'], ['My wishlist', '/wishlist.html'], ['Giveaway and vote', '/giveaway.html'], ['Terms of Service', '/terms.html'], ['Sold prices', '/sold.html'], ['My V2V', '/hub.html'], ['My account', '/me.html'], ['My orders', '/account.html'], ['Seller Hub', '/seller.html']];
   var css = '.jfn-btn{position:fixed;left:16px;bottom:16px;z-index:2147483000;background:#C9A45C;color:#0B1A13;border:0;border-radius:999px;padding:12px 18px;font:700 15px Archivo,system-ui,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.35);cursor:pointer}'
     + '.jfn-btn:focus-visible{outline:2px solid #F7F2E6;outline-offset:3px}'
     + '.jfn-panel{position:fixed;left:16px;bottom:72px;z-index:2147483000;background:#0B1A13;border:1px solid #C9A45C;min-width:220px;padding:8px 0;box-shadow:0 10px 30px rgba(0,0,0,.45);font:16px Archivo,system-ui,sans-serif}'
@@ -473,4 +473,24 @@
   function run() { if (busy) return; busy = true; setTimeout(function () { try { linkify(document.body); } catch (e) {} busy = false; }, 300); }
   if (document.body) { run(); new MutationObserver(run).observe(document.body, { childList: true, subtree: true, characterData: true }); }
   else document.addEventListener('DOMContentLoaded', function () { run(); new MutationObserver(run).observe(document.body, { childList: true, subtree: true, characterData: true }); });
+})();
+// Phone tab bar (like the big marketplace apps): Home, My V2V, Search, Live, Selling, floating at the bottom.
+(function () {
+  if (/^\/(admin|label)\.html/.test(location.pathname)) return;
+  function add() {
+    if (document.querySelector('.v2v-tb')) return;
+    var st = document.createElement('style');
+    st.textContent = '.v2v-tb{display:none}@media(max-width:700px){.v2v-tb{position:fixed;left:12px;right:12px;bottom:max(10px,env(safe-area-inset-bottom));z-index:2147482000;display:flex;justify-content:space-around;background:rgba(17,38,28,.96);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid #2E4A3B;border-radius:999px;padding:6px;box-shadow:0 8px 28px rgba(0,0,0,.5)}'
+      + '.v2v-tb a{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 0;border-radius:999px;text-decoration:none;color:#F7F2E6;font:600 11px Archivo,system-ui,sans-serif}.v2v-tb a i{font-style:normal;font-size:19px;line-height:1}'
+      + '.v2v-tb a[aria-current]{background:#2E4A3B}body{padding-bottom:84px}.jfn-help,.jfn-btn{bottom:88px!important}.jfn-panel{bottom:140px!important}}';
+    document.head.appendChild(st);
+    var bar = document.createElement('nav'); bar.className = 'v2v-tb'; bar.setAttribute('aria-label', 'Main');
+    var p = location.pathname, here = p === '/' || p === '/index.html' ? '/' : p;
+    [['🏠', 'Home', '/', /^\/$/], ['👤', 'My V2V', '/hub.html', /^\/(hub|me|account|wishlist|messages|cart)\.html/], ['🔍', 'Search', '/market.html', /^\/(market|shop|piece|sold)\.html/], ['📡', 'Live', '/live.html', /^\/live\.html/], ['🏷️', 'Selling', '/seller.html', /^\/seller\.html/]].forEach(function (x) {
+      var a = document.createElement('a'); a.href = x[2]; var i = document.createElement('i'); i.textContent = x[0]; a.appendChild(i); a.appendChild(document.createTextNode(x[1]));
+      if (x[3].test(here)) a.setAttribute('aria-current', 'page'); bar.appendChild(a);
+    });
+    document.body.appendChild(bar);
+  }
+  if (document.body) add(); else document.addEventListener('DOMContentLoaded', add);
 })();
