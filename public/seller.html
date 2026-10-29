@@ -1187,7 +1187,7 @@
     c.appendChild(el('div', 'Codes buyers type at checkout for your pieces only. You give the discount; VeeFam\u2019s ' + D.fee + '% is on the price after the discount. Share them on social or in a live show.', 'small dim'));
     var list = (D.seller.promos || []).map(function (x) { return Object.assign({}, x); }), box = el('div'); box.style.cssText = 'display:flex;flex-direction:column;gap:8px'; c.appendChild(box);
     var m = el('div', '', 'small');
-    var save = function () { m.textContent = 'Saving…'; JF.api('/api/market', { do: 'profile', t: tok, as: AS, ak: AK, promos: list }).then(function (r) { if (r.error) { m.textContent = r.error; return; } D.seller = r.seller; list = (r.seller.promos || []).map(function (x) { return Object.assign({}, x); }); draw(); m.textContent = 'Saved.'; }); };
+    var save = function () { m.textContent = 'Saving…'; JF.api('/api/market', { do: 'profile', t: tok, as: AS, ak: AK, promos: list }).then(function (r) { if (r.error) { m.textContent = r.error; list = (D.seller.promos || []).map(function (x) { return Object.assign({}, x); }); return; } D.seller = r.seller; list = (r.seller.promos || []).map(function (x) { return Object.assign({}, x); }); draw(); m.textContent = 'Saved.'; }); };
     var draw = function () { box.textContent = ''; if (!list.length) box.appendChild(el('div', 'No codes yet.', 'small'));
       list.forEach(function (x, i) { var r0 = el('div'); r0.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;border:1px solid #2E4A3B;border-radius:10px;padding:8px 12px';
         var what = x.kind === 'pct' ? x.value + '% off' : x.kind === 'off' ? JF.usd(x.value) + ' off' : 'Free shipping';
