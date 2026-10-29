@@ -20,6 +20,7 @@
   <div id="box"></div>
 </main>
 <script src="/jf.js"></script>
+<script src="/phonemenu.js"></script>
 <script>
 (function () {
   var $ = function (id) { return document.getElementById(id); }, el = JF.el;
@@ -59,17 +60,30 @@
     var links = el('div'); links.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px';
     [['My orders', '/account.html'], ['My wishlist', '/wishlist.html'], ['Browse the market', '/market.html']].forEach(function (x) { var a = el('a', x[0], 'ghost'); a.href = x[1]; a.style.textDecoration = 'none'; links.appendChild(a); });
     wrap.appendChild(links);
-    wrap.appendChild(offerCard());
-    wrap.appendChild(tradeCard());
-    wrap.appendChild(reviewCard());
-    wrap.appendChild(payCard());
-    wrap.appendChild(addrCard());
-    wrap.appendChild(profileCard());
+    var C = { offers: offerCard(), trades: tradeCard(), reviews: reviewCard(), pay: payCard(), addr: addrCard(), sell: profileCard(), del: deleteCard() };
     var out = el('button', 'Sign out', 'ghost'); out.type = 'button'; out.style.alignSelf = 'flex-start';
     out.addEventListener('click', function () { JF.signOut(); location.href = '/'; });
+    if (window.V2VMenu && V2VMenu.phone()) { links.remove(); phoneView(wrap, C); box.appendChild(wrap); return; }
+    ['offers', 'trades', 'reviews', 'pay', 'addr', 'sell'].forEach(function (k) { wrap.appendChild(C[k]); });
     wrap.appendChild(out);
-    wrap.appendChild(deleteCard());
+    wrap.appendChild(C.del);
     box.appendChild(wrap);
+  }
+  // Phones: a list menu like the big marketplace apps; each row opens one part, with "‹ Menu" to go back.
+  var PV = /^#(offers|trades|reviews|pay|addr|sell|del)$/.test(location.hash) ? location.hash.slice(1) : 'menu', NB = null;
+  window.addEventListener('hashchange', function () { var h = location.hash.slice(1); if (D && window.V2VMenu && V2VMenu.phone()) { PV = /^(offers|trades|reviews|pay|addr|sell|del)$/.test(h) ? h : 'menu'; draw(); window.scrollTo(0, 0); } });
+  function phoneView(wrap, C) {
+    var open = function (k) { return function () { PV = k; try { history.pushState(null, '', '#' + k); } catch (e) {} draw(); window.scrollTo(0, 0); }; };
+    if (PV !== 'menu' && C[PV]) { V2VMenu.back(wrap, function () { PV = 'menu'; try { history.pushState(null, '', '#menu'); } catch (e) {} draw(); window.scrollTo(0, 0); }); wrap.appendChild(C[PV]); return; }
+    var n = function (re) { return NB ? (NB.items || []).filter(function (i) { return re.test(i.link + ' ' + i.text); }).reduce(function (a, i) { return a + i.n; }, 0) : 0; };
+    var offN = n(/me\.html#offers/), revN = n(/Review your seller/), S = D.seller;
+    V2VMenu.render(wrap, { letter: (D.name || D.email).charAt(0).toUpperCase(), name: D.name || D.email.split('@')[0], sub: D.email,
+      tiles: [['💳', 'Payments', open('pay')], ['🔔', 'Notifications', V2VMenu.bell, NB ? NB.total : 0], ['✉️', 'Messages', '/messages.html', n(/messages\.html/)]],
+      sections: [
+        ['Shopping', [['📦', 'Purchases', 'Your orders and tracking', '/account.html'], ['♡', 'Wishlist', 'Pieces you saved', '/wishlist.html'], ['🤝', 'Bids & offers', offN ? offN + ' to pay for' : 'Offers you made', open('offers'), !!offN], ['🔁', 'Trade requests', 'Trades you offered', open('trades')], ['⭐', 'Review your purchases', revN ? revN + ' to review' : 'Rate your sellers', open('reviews'), !!revN], ['🛒', 'Browse the market', 'Buy now and auctions', '/market.html']]],
+        ['Selling', [S ? ['🏷️', 'Switch to selling', S.name + (S.status !== 'approved' ? ' · ' + S.status : ''), '/seller.html'] : ['＋', 'Become a seller', 'Open your shop in a minute', '/seller.html']]],
+        ['Account', [['💳', 'How I pay', 'Saved cards and payment method', open('pay')], ['📍', 'Ship to', 'Your address', open('addr')], ['🔐', 'Two-step sign-in', 'Authenticator app', '/account.html'], ['❓', 'Help', '', '/help.html'], ['↩︎', 'Sign out', '', function () { JF.signOut(); location.href = '/'; }], ['🗑️', 'Delete my account', '', open('del')]]]] });
+    if (!NB) V2VMenu.counts(tok).then(function (j) { NB = j; if (PV === 'menu') draw(); });
   }
   // Delete my account: asks to type DELETE, then removes it for good and signs out.
   function deleteCard() {
