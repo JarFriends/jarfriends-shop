@@ -889,6 +889,13 @@
     var allMode = select([['', 'Set all to…'], ['buynow', '📌 All Buy now'], ['a24', '🔨 All auctions · 1 day'], ['a72', '🔨 All auctions · 3 days'], ['a168', '🔨 All auctions · 7 days']], '');
     allMode.style.maxWidth = '240px'; allLive.parentNode && allLive.parentNode.insertBefore(allMode, allLive);
     allMode.addEventListener('change', function () { var v = allMode.value; if (!v) return; BULK.forEach(function (x) { if (x.status !== 'ready') return; if (v === 'buynow') x.mode = 'buynow'; else { x.mode = 'auction'; x.hours = v.slice(1); x.stock = 1; } }); allMode.value = ''; draw(); });
+    // Price for all and shipping for all: type once, press Apply, every draft still being checked gets it.
+    var setRow = el('div'); setRow.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;align-items:center;flex-basis:100%';
+    var ap = input('number', '', { min: '1', step: '0.01', placeholder: 'Price for all ($)', inputmode: 'decimal' }), as2 = input('text', '', { placeholder: 'Shipping for all (free or 5)' });
+    ap.style.maxWidth = as2.style.maxWidth = '200px';
+    var apb = el('button', 'Apply to all', 'ghost'); apb.type = 'button'; var apm = el('span', '', 'small');
+    apb.addEventListener('click', function () { var n0 = 0, stamp = Date.now(); BULK.forEach(function (x) { if (x.status !== 'ready') return; if (ap.value) { x.price = ap.value; x.guess = false; } if (as2.value.trim()) x.shipping = as2.value.trim(); x.bulkSet = stamp; n0++; }); apm.textContent = n0 ? '✓ Applied to ' + n0 + ' piece' + (n0 === 1 ? '' : 's') + '.' : 'Nothing to apply to yet.'; draw(); });
+    setRow.appendChild(ap); setRow.appendChild(as2); setRow.appendChild(apb); setRow.appendChild(apm); allLive.parentNode && allLive.parentNode.appendChild(setRow);
     allLive.addEventListener('click', function () {
       var todo = BULK.filter(function (x) { return x.status === 'ready' && x.pick !== false; }); if (!todo.length) return;
       allLive.disabled = true; var i = 0;
@@ -921,7 +928,7 @@
     var draw = function () {
       Array.prototype.slice.call(list.children).forEach(function (n) { if (!BULK.some(function (it) { return it.node === n; })) n.remove(); });
       BULK.forEach(function (it) {
-        var key = it.status + (it.live ? 'L' : '') + (it.preview ? 'p' : '') + (it.err || '') + '|' + (it.mode || '') + (it.hours || '') + (it.manual ? 'm' : '');
+        var key = it.status + (it.live ? 'L' : '') + (it.preview ? 'p' : '') + (it.err || '') + '|' + (it.mode || '') + (it.hours || '') + (it.manual ? 'm' : '') + '|' + (it.bulkSet || 0);
         if (it.node && it.node.parentNode === list && it.drawn === key) return;
         var n = card(it);
         if (it.node && it.node.parentNode === list) list.replaceChild(n, it.node); else list.appendChild(n);
