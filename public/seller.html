@@ -862,8 +862,8 @@
       // Buy now or Auction (one piece; the price is the starting bid).
       var HRS = [['1', '1 hour'], ['3', '3 hours'], ['6', '6 hours'], ['12', '12 hours'], ['24', '1 day'], ['72', '3 days'], ['120', '5 days'], ['168', '7 days'], ['240', '10 days'], ['336', '14 days']];
       var md = select([['buynow', '📌 Buy now'], ['auction', '🔨 Auction']], it.mode || 'buynow'), hr = select(HRS, String(it.hours || 72));
-      var hrf = field('Auction length', hr); hrf.hidden = it.mode !== 'auction';
-      md.addEventListener('change', function () { it.mode = md.value; hrf.hidden = it.mode !== 'auction'; if (it.mode === 'auction') { it.stock = 1; qt.value = 1; } pr.previousSibling && (pr.parentNode.firstChild.textContent = it.mode === 'auction' ? 'Starting bid (USD)' : 'Price (USD)'); });
+      var hrf = field('Auction length', hr); hrf.style.display = it.mode === 'auction' ? '' : 'none';
+      md.addEventListener('change', function () { it.mode = md.value; hrf.style.display = it.mode === 'auction' ? '' : 'none'; if (it.mode === 'auction') { it.stock = 1; qt.value = 1; } pr.previousSibling && (pr.parentNode.firstChild.textContent = it.mode === 'auction' ? 'Starting bid (USD)' : 'Price (USD)'); });
       hr.addEventListener('change', function () { it.hours = hr.value; });
       var two3 = el('div', null, 'two'); two3.appendChild(field('Sell as', md)); two3.appendChild(hrf); w.appendChild(two3);
       var dd = el('details'); dd.appendChild(el('summary', 'Description', 'small')); dd.appendChild(ds); w.appendChild(dd);
@@ -921,7 +921,7 @@
     var draw = function () {
       Array.prototype.slice.call(list.children).forEach(function (n) { if (!BULK.some(function (it) { return it.node === n; })) n.remove(); });
       BULK.forEach(function (it) {
-        var key = it.status + (it.live ? 'L' : '') + (it.preview ? 'p' : '') + (it.err || '');
+        var key = it.status + (it.live ? 'L' : '') + (it.preview ? 'p' : '') + (it.err || '') + '|' + (it.mode || '') + (it.hours || '') + (it.manual ? 'm' : '');
         if (it.node && it.node.parentNode === list && it.drawn === key) return;
         var n = card(it);
         if (it.node && it.node.parentNode === list) list.replaceChild(n, it.node); else list.appendChild(n);
