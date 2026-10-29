@@ -776,6 +776,17 @@ module.exports = async (req, res) => {
       await store.write('breviews/' + seller.slug + '/' + n + '.json', { n: n, stars: stars, text: String(b.text || '').replace(/\r/g, '').trim().slice(0, 500), who: M.hashOf(row.email), seller: seller.slug, at: Date.now() });
       return res.json({ ok: true });
     }
+    // A fresh pay link for one of this shop's accepted offers (48 more hours), to send the buyer.
+    if (what === 'offer-link' && req.method === 'POST') {
+      if (!seller) return res.status(403).json({ error: 'Open a seller shop first.' });
+      const n = String(b.n || '').replace(/[^A-Za-z0-9-]/g, '').slice(0, 30), o = n && await store.read('offers/' + n + '.json');
+      const p = o && (await M.listings()).filter((x) => x.id === o.pid && x.seller === seller.slug)[0];
+      if (!o || !p || !(o.status === 'accepted' || o.status === 'countered')) return res.status(404).json({ error: 'That accepted offer was not found.' });
+      const until = Math.max(o.until || 0, Date.now() + 48 * 3600000);
+      await store.write('offers/' + n + '.json', Object.assign(o, { until: until }));
+      const c = o.status === 'countered' && o.counter ? o.counter : o.offer;
+      return res.json({ ok: true, until: until, link: 'https://' + req.headers.host + '/order.html?offer=' + require('./_lib').sign({ oa: 1, n: o.n, pid: o.pid, q: o.q || 1, c: c, x: Math.floor(until / 1000) }) + '&email=' + encodeURIComponent(o.email || '') });
+    }
     // The buyer of an accepted offer paid the seller some other way (DMs, in person): the seller records it here.
     // It becomes a paid order, paid straight to the seller, so the piece comes off stock and VeeFam's fee is owed.
     if (what === 'offer-paid' && req.method === 'POST') {

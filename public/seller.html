@@ -1287,6 +1287,9 @@
           pb.addEventListener('click', function () { pf.hidden = !pf.hidden; });
           ok2.addEventListener('click', function () { ok2.disabled = true; pm.textContent = 'Saving…'; JF.api('/api/market', { do: 'offer-paid', t: tok, as: AS, ak: AK, n: o.n, how: hw.value, street: f1.value, city: f2.value, state: f3.value, zip: f4.value }).then(function (x) { ok2.disabled = false; if (x.error) { pm.textContent = x.error; return; } pm.textContent = '✓ Saved as order ' + x.n + '. Ship it from Orders.'; pb.remove(); setTimeout(load, 1200); }); });
           c.appendChild(pb); c.appendChild(pf);
+          var lk2 = el('button', '🔗 Copy pay link for the buyer', 'ghost'); lk2.type = 'button'; lk2.style.alignSelf = 'flex-start'; var lkm = el('div', '', 'small');
+          lk2.addEventListener('click', function () { lk2.disabled = true; JF.api('/api/market', { do: 'offer-link', t: tok, as: AS, ak: AK, n: o.n }).then(function (x) { lk2.disabled = false; if (x.error) { lkm.textContent = x.error; return; } try { navigator.clipboard.writeText(x.link); lkm.textContent = '✓ Copied. Send it to the buyer: it opens checkout at the offer price (card or any way), good 48 more hours.'; } catch (e) { lkm.textContent = x.link; } }); });
+          c.appendChild(lk2); c.appendChild(lkm);
         } else if (o.paid) c.appendChild(el('div', '✓ Paid' + (o.paidN ? ' · order ' + o.paidN : ''), 'small'));
         if (o.t && !unpaid(o)) {
           var row = el('div'); row.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end';

@@ -224,7 +224,7 @@ fieldset[hidden]{display:none}
       $('product').disabled = true; $('qty').readOnly = true;
       $('lead').textContent = 'Your offer was accepted. The price below is your offer price.';
     } else if (offerTok) {
-      $('lead').textContent = 'That accepted offer has run out or is not valid, so this shows the listed price.';
+      $('lead').textContent = 'That accepted offer link has run out, so this shows the listed price. Message the seller and ask for a new pay link: it brings back your offer price.';
     }
     if (deal && /^PTY/.test(String(deal.no || ''))) $('lead').textContent = 'Party price locked in for 30 minutes. Party pricing is paid by card only: if the price drops lower before the party ends, the difference goes back to your card automatically.';
     ['name', 'company', 'email'].forEach(function (k) { var v = qs.get(k); if (v) $('f').elements[k].value = v; });

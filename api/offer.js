@@ -53,7 +53,13 @@ module.exports = async (req, res) => {
     const o = verify(req.query.t);
     if (o && o.o === 1) return res.json({ offer: view(o) });
     const a = verify(req.query.a);
-    if (a && a.oa === 1) return res.json({ deal: { no: a.n, product: a.pid, qty: a.q, price: usd(a.c), expired: now > a.x } });
+    if (a && a.oa === 1) {
+      // The link's own time ran out, but the offer is still accepted and was given more time (or not paid yet within
+      // its saved window): honor the offer price.
+      let expired = now > a.x;
+      if (expired && a.n) { const rec = await require('./_store').read('offers/' + String(a.n).replace(/[^A-Za-z0-9-]/g, '') + '.json').catch(() => null); if (rec && (rec.status === 'accepted' || rec.status === 'countered') && !rec.paidOrder && rec.until && rec.until > Date.now()) expired = false; }
+      return res.json({ deal: { no: a.n, product: a.pid, qty: a.q, price: usd(a.c), expired: expired } });
+    }
     return res.status(400).json({ error: 'This offer link is not valid.' });
   }
   if (req.method !== 'POST') return res.status(405).json({ error: 'Use POST.' });

@@ -77,7 +77,10 @@ module.exports = async (req, res) => {
   if (b.offer) {
     deal = verify(b.offer);
     if (!deal || deal.oa !== 1) return res.status(400).json({ error: 'This offer link is not valid.' });
-    if (Math.floor(Date.now() / 1000) > deal.x) return res.status(400).json({ error: 'This accepted offer has run out. Send a new offer, or order at the listed price.' });
+    if (Math.floor(Date.now() / 1000) > deal.x) {
+      const rec = deal.n ? await require('./_store').read('offers/' + String(deal.n).replace(/[^A-Za-z0-9-]/g, '') + '.json').catch(() => null) : null;
+      if (!(rec && (rec.status === 'accepted' || rec.status === 'countered') && !rec.paidOrder && rec.until && rec.until > Date.now())) return res.status(400).json({ error: 'This accepted offer has run out. Ask the seller for a new pay link (they can send one from their hub), or order at the listed price.' });
+    }
     if (deal.pid !== p.id || deal.q !== qty) return res.status(400).json({ error: 'Your offer was accepted for ' + deal.q + ' x ' + p.name + ' only.' });
     // Party pricing is card only, so money owed back when the price drops is refunded to the card automatically.
     if (/^PTY/.test(String(deal.n || '')) && !card) return res.status(400).json({ error: 'Party pricing is paid by card only, so any price drop is refunded to your card automatically.' });
