@@ -954,6 +954,7 @@
     var c = el('section', null, 'card'); c.style.gap = '14px';
     c.appendChild(el('h2', p ? 'Change this piece' : 'Add a piece'));
     if (!p) {
+      var blk = el('button', '📸 Have lots? Bulk list from photos', 'ghost'); blk.type = 'button'; blk.style.alignSelf = 'flex-start'; blk.addEventListener('click', function () { adding = false; bulkOn = true; dash(); window.scrollTo(0, 0); }); c.appendChild(blk);
       // One box for both: a photo of the piece, or a screenshot of an eBay listing. AI works out which it is and fills
       // in the form (api/market.js, do=listing-ai, kind auto). A photo of the piece also becomes the piece's photo.
       var sb = el('div'); sb.style.cssText = 'display:flex;flex-direction:column;gap:10px;border:1px dashed #4A4F5E;padding:14px';

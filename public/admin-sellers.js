@@ -11,6 +11,22 @@
   var btn = el('button', 'Sellers', 'ghost'); btn.type = 'button'; btn.setAttribute('aria-pressed', 'false');
   tabs.insertBefore(btn, $('out'));
   // Fees to collect: its own tab button. It opens Sellers at the fee section (who owes you, and who is paid up).
+  // 🤖 AI guide: notes the listing AI reads when it names a piece from a photo (card versions, parallels, covers).
+  var agBtn = el('button', '🤖 AI guide', 'ghost'); agBtn.type = 'button'; tabs.insertBefore(agBtn, $('out'));
+  var agBox = el('section', null, 'card'); agBox.dataset.extraTab = 'aiguide'; agBox.hidden = true; agBox.style.gap = '10px'; main.insertBefore(agBox, $('wOrders'));
+  agBtn.addEventListener('click', function () { setTimeout(function () {
+    Array.prototype.forEach.call(tabs.querySelectorAll('button'), function (b) { if (b.id !== 'out') b.setAttribute('aria-pressed', b === agBtn ? 'true' : 'false'); });
+    ['wOrders', 'wPeople', 'wItems', 'none', 'offerWait'].forEach(function (id) { if ($(id)) $(id).hidden = true; });
+    Array.prototype.forEach.call(main.children, function (c) { if (c.dataset && c.dataset.extraTab) c.hidden = c !== agBox; });
+    agBox.textContent = ''; agBox.appendChild(el('h2', '🤖 AI guide'));
+    agBox.appendChild(el('div', 'Teach the listing AI what pieces look like. Everything here is read every time a seller lists from a photo (single or bulk). Write one line per thing: what it is and how to recognize it.', 'small dim'));
+    var ta = el('textarea'); ta.rows = 14; ta.maxLength = 6000; ta.style.cssText = 'width:100%;box-sizing:border-box;font:inherit;padding:10px;border-radius:10px;background:#0B1A13;color:#F7F2E6;border:1px solid #4E7A63';
+    ta.placeholder = 'Examples:\nSapphire parallel: blue shimmering border, numbered /25 on the front.\nEmerald: green border.\nLava: orange-red swirl background.\nTopps Chrome: shiny chrome stock, Topps logo top corner; refractors show a rainbow sheen.\nGraded slab: read the grade and company (PSA, CGC, BGS) from the label and put both in the title.';
+    var sv = el('button', 'Save guide', 'solid'); sv.type = 'button'; sv.style.alignSelf = 'flex-start'; var m = el('div', '', 'small');
+    agBox.appendChild(ta); agBox.appendChild(sv); agBox.appendChild(m);
+    fetch('/api/market?do=ai-guide&ak=' + encodeURIComponent(key()), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (j) { ta.value = j.text || ''; });
+    sv.addEventListener('click', function () { sv.disabled = true; m.textContent = 'Saving…'; post({ do: 'ai-guide', text: ta.value }).then(function (x) { sv.disabled = false; m.textContent = x.error || '✓ Saved. The AI uses it from the next photo on.'; }); });
+  }, 0); });
   // 🗄️ Backup: every data file in one download, made daily by itself; photos are copied inside the site too.
   var bkBtn = el('button', '🗄️ Backup', 'ghost'); bkBtn.type = 'button'; tabs.insertBefore(bkBtn, $('out'));
   var bkBox = el('section', null, 'card'); bkBox.dataset.extraTab = 'backup'; bkBox.hidden = true; bkBox.style.gap = '10px'; main.insertBefore(bkBox, $('wOrders'));
