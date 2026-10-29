@@ -35,6 +35,13 @@
     b.appendChild(el('div', g.count + ' entered · ' + (open ? left(g.endsAt - Date.now()) : g.status === 'drawn' ? 'Winner: ' + g.winnerName : 'Ended') + ' · ' + (g.shipBy === 'winner' ? 'Winner pays ' + money(g.ship) + ' shipping' : 'Free shipping'), 'small'));
     var row = el('div'); row.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;align-items:center'; b.appendChild(row);
     var m = el('div', '', 'small'); b.appendChild(m);
+    if (open) {
+      var url = location.origin + '/giveaway.html#' + g.id, txt = '🎁 Giveaway: ' + g.title + ' on VeeFam. Enter free:';
+      var sh = el('div'); sh.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap'; b.appendChild(sh);
+      sh.appendChild(btn('🔗 Copy link', 'ghost', function () { var done = function () { m.textContent = 'Link copied. Paste it in your post, story or bio.'; }; if (navigator.clipboard) navigator.clipboard.writeText(url).then(done, function () { prompt('Copy this link:', url); }); else prompt('Copy this link:', url); }));
+      var x = el('a', '𝕏 Post on X', 'ghost'); x.href = 'https://x.com/intent/post?text=' + encodeURIComponent(txt) + '&url=' + encodeURIComponent(url); x.target = '_blank'; x.rel = 'noopener'; sh.appendChild(x);
+      if (navigator.share) sh.appendChild(btn('📤 Share (Instagram, texts…)', 'ghost', function () { navigator.share({ title: g.title, text: txt, url: url }).catch(function () {}); }));
+    }
     var act = function (body) { return function () { m.textContent = '...'; body.id = g.id; post(body).then(function (r) { if (r.error) m.textContent = r.error; else load(); }); }; };
     if (!g.mine && open) {
       if (!tok) { var si = el('a', 'Sign in to enter', 'solid'); si.href = '/me.html'; row.appendChild(si); }
