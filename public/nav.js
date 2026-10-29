@@ -482,7 +482,7 @@
     var st = document.createElement('style');
     st.textContent = '.v2v-tb{display:none}@media(max-width:700px){.v2v-tb{position:fixed;left:12px;right:12px;bottom:max(10px,env(safe-area-inset-bottom));z-index:2147482000;display:flex;justify-content:space-around;background:rgba(17,38,28,.96);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid #2E4A3B;border-radius:999px;padding:6px;box-shadow:0 8px 28px rgba(0,0,0,.5)}'
       + '.v2v-tb a{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 0;border-radius:999px;text-decoration:none;color:#F7F2E6;font:600 11px Archivo,system-ui,sans-serif}.v2v-tb a i{font-style:normal;font-size:19px;line-height:1}'
-      + '.v2v-tb a[aria-current]{background:#2E4A3B}body{padding-bottom:84px}.jfn-help,.jfn-btn{bottom:88px!important}.jfn-panel{bottom:140px!important}}';
+      + '.v2v-tb a[aria-current]{background:#2E4A3B}body{padding-bottom:84px}.jfn-help,.jfn-btn{bottom:88px!important}.jfn-panel:not(.in-bar){bottom:140px!important}.jfn-panel.in-bar{max-height:70vh;overflow:auto}}';
     document.head.appendChild(st);
     var bar = document.createElement('nav'); bar.className = 'v2v-tb'; bar.setAttribute('aria-label', 'Main');
     var p = location.pathname, here = p === '/' || p === '/index.html' ? '/' : p;
