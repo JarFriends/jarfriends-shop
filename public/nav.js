@@ -477,7 +477,6 @@
 // Phone tab bar (like the big marketplace apps): Home, My V2V, Search, Live, Selling, floating at the bottom.
 (function () {
   if (/^\/(admin|label)\.html/.test(location.pathname)) return;
-  try { var nl = new URLSearchParams(location.search).get('newlook'); if (nl === '1') localStorage.setItem('v2vNewLook', '1'); if (nl === '0') localStorage.removeItem('v2vNewLook'); if (localStorage.getItem('v2vNewLook') !== '1') return; } catch (e) { return; }
   function add() {
     if (document.querySelector('.v2v-tb')) return;
     var st = document.createElement('style');
