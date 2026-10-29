@@ -39,5 +39,7 @@
   function back(host, fn) { if (!document.getElementById('pmCss')) render(el('div'), {}); var b = el('button', '‹ Menu', 'pm-back'); b.type = 'button'; b.addEventListener('click', fn); host.appendChild(b); return b; }
   function bell() { var b = document.querySelector('.jfn-bell'); if (b) { window.scrollTo(0, 0); setTimeout(function () { b.click(); }, 60); } }
   function counts(tok) { return fetch('/api/market?do=notify&t=' + encodeURIComponent(tok), { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : { items: [] }; }).catch(function () { return { items: [] }; }); }
-  window.V2VMenu = { phone: function () { return window.matchMedia('(max-width:700px)').matches; }, render: render, back: back, bell: bell, counts: counts };
+  // Test mode: only people who opened a page with ?newlook=1 see it (?newlook=0 turns it off again).
+  var on = false; try { var nl = new URLSearchParams(location.search).get('newlook'); if (nl === '1') localStorage.setItem('v2vNewLook', '1'); if (nl === '0') localStorage.removeItem('v2vNewLook'); on = localStorage.getItem('v2vNewLook') === '1'; } catch (e) {}
+  window.V2VMenu = { phone: function () { return on && window.matchMedia('(max-width:700px)').matches; }, render: render, back: back, bell: bell, counts: counts };
 })();
