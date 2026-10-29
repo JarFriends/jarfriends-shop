@@ -35,6 +35,7 @@ td small{display:block;color:#DADDE8}
   <section id="ask" hidden class="card side" style="max-width:520px">
     <form id="passForm" class="side" style="display:flex;flex-direction:column;gap:10px">
       <label>Passcode<input id="pass" type="password" autocomplete="current-password" required></label>
+      <label>Authenticator code <span class="dim">(if two-step is on)</span><input id="pcode" inputmode="numeric" maxlength="6" autocomplete="one-time-code"></label>
       <button type="submit" class="solid" id="passGo">Sign in</button>
       <div class="small" id="passMsg" role="status"></div>
     </form>
@@ -49,6 +50,7 @@ td small{display:block;color:#DADDE8}
         <button type="button" class="ghost" id="tOrders" aria-pressed="true">Orders</button>
         <button type="button" class="ghost" id="tPeople" aria-pressed="false">Customers</button>
         <button type="button" class="ghost" id="tItems" aria-pressed="false">Products</button>
+        <button type="button" class="ghost" id="tSec">🔐 Two-step</button>
         <button type="button" class="ghost" id="out">Sign out</button>
       </div>
       <label style="flex:1 1 220px;max-width:340px">Search<input id="find" type="search" placeholder="Name, email, invoice or item" autocomplete="off"></label>
@@ -78,7 +80,7 @@ td small{display:block;color:#DADDE8}
   var orders = [], items = [], party = null, tab = 'orders';
   $('passForm').addEventListener('submit', function (ev) {
     ev.preventDefault(); $('passGo').disabled = true; $('passMsg').textContent = 'Checking...';
-    fetch('/api/admin', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pass: $('pass').value }) }).then(function (r) { return r.json(); }).then(function (r) {
+    fetch('/api/admin', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pass: $('pass').value, code: $('pcode').value }) }).then(function (r) { return r.json(); }).then(function (r) {
       $('passGo').disabled = false;
       if (!r.k) { $('passMsg').textContent = r.error || 'Could not sign in.'; return; }
       key = r.k; try { localStorage.setItem('adminKey', key); } catch (e) { /* no storage */ }
@@ -226,6 +228,8 @@ td small{display:block;color:#DADDE8}
 })();
 </script>
 <script src="/office-home.js" defer></script>
+<script src="/twofa.js" defer></script>
+<script>document.addEventListener('DOMContentLoaded', function () { var b = document.getElementById('tSec'); if (!b) return; b.addEventListener('click', function () { var c = document.getElementById('secBox'); if (c) { c.remove(); return; } c = document.createElement('section'); c.id = 'secBox'; c.className = 'card'; c.style.maxWidth = '560px'; b.closest('.tabs').after(c); V2V2FA.box(c, function (x) { var k = ''; try { k = localStorage.getItem('adminKey') || ''; } catch (e) {} x.k = k; return fetch('/api/admin', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(x) }).then(function (r) { return r.json(); }); }); }); });</script>
 <script src="/admin-drop.js" defer></script>
 </body>
 </html>

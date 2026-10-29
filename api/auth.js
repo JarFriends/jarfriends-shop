@@ -33,6 +33,16 @@ module.exports = async (req, res) => {
     if (b.agree !== true) return res.status(400).json({ error: 'Tick the box to agree to the Terms.' });
     try { const r = await U.sign(who, b.name, req); return res.status(r.error ? 400 : 200).json(r); } catch (e) { return res.status(503).json({ error: 'Could not save that just now. Try again.' }); }
   }
+  // Two-step sign-in (authenticator app): finish a sign-in with the code; set it up, confirm it, or turn it off.
+  if (b.do === '2fa') { const r = await require('./_totp').redeem(b.ticket, b.code); if (r.token) { const t = require('./_lib').verify(r.token); r.terms = await U.hasAgreed(t.e).catch(() => false); } return res.status(r.error ? 400 : 200).json(r); }
+  if (/^2fa-(status|setup|confirm|off)$/.test(String(b.do || ''))) {
+    const who = require('./_gate').emailOf(b.t), T = require('./_totp');
+    if (!who) return res.status(401).json({ error: 'Sign in again first.' });
+    if (b.do === '2fa-status') return res.json({ on: await T.isOn(who) });
+    if (b.do === '2fa-setup') { if (await T.isOn(who)) return res.status(400).json({ error: 'It is already on.' }); return res.json(await T.begin(who)); }
+    const r = b.do === '2fa-confirm' ? await T.confirm(who, b.code) : await T.off(who, b.code);
+    return res.status(r.error ? 400 : 200).json(r);
+  }
   const email = String(b.email || '').trim().toLowerCase().slice(0, 160);
   if (!U.validEmail(email)) return res.status(400).json({ error: 'Enter a valid email address.' });
   const pass = String(b.password || '');
@@ -66,7 +76,7 @@ module.exports = async (req, res) => {
       const u = await U.get(email);
       if ((u && pwConfirmed(u)) || skip) {
         if (!u || !pwConfirmed(u)) await U.put(email, { verified: true, pwOk: true });
-        return res.json({ token: U.tokenFor(email), created: b.do === 'signup', terms: await U.hasAgreed(email) });
+        return res.json(await require('./_totp').issue(email, { created: b.do === 'signup', terms: await U.hasAgreed(email) }));
       }
       const sent = await sendCode(email, host);
       if (sent !== 'sent' && sent !== 'duplicate') return res.status(503).json({ error: 'We could not email your code just now. Try again in a minute, or sign in with Google.' });
@@ -74,7 +84,7 @@ module.exports = async (req, res) => {
     }
     if (b.do === 'verify') {
       const r = await U.checkCode(email, b.code);
-      if (r === 'ok') { await U.put(email, { verified: true, pwOk: true }); return res.json({ token: U.tokenFor(email), terms: await U.hasAgreed(email) }); }
+      if (r === 'ok') { await U.put(email, { verified: true, pwOk: true }); return res.json(await require('./_totp').issue(email, { terms: await U.hasAgreed(email) })); }
       return res.status(400).json({ error: r === 'wrong' ? 'That code is not right. Check the email and try again.' : r === 'tries' ? 'Too many wrong codes. Ask for a new one.' : 'That code has run out. Ask for a new one.' });
     }
     if (b.do === 'resend') {

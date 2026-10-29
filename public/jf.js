@@ -114,11 +114,22 @@
       if (!cid || !window.google) { host.hidden = true; host.dataset.off = '1'; if (or) { or.hidden = true; or.dataset.off = '1'; } return; }
       window.google.accounts.id.initialize({ client_id: cid, use_fedcm_for_button: true, callback: function (resp) {
         msg.textContent = 'Signing you in…';
-        api('/api/google', { credential: resp.credential }).then(function (r) { if (!r.token) { msg.textContent = r.error || 'Could not sign in with Google.'; return; } keep(r.token); afterSignIn(r, function () { done(r.token); }); });
+        api('/api/google', { credential: resp.credential }).then(twoStep).then(function (r) { if (!r.token) { msg.textContent = r.error || 'Could not sign in with Google.'; return; } keep(r.token); afterSignIn(r, function () { done(r.token); }); });
       } });
       host.textContent = ''; host.style.cssText = 'display:flex;justify-content:center;min-height:44px';
       window.google.accounts.id.renderButton(host, { theme: 'filled_black', size: 'large', text: 'continue_with', shape: 'pill', logo_alignment: 'center', width: Math.max(240, Math.min(360, (host.offsetWidth || 320))) });
     });
+  }
+  // Two-step sign-in: the server answered { need2fa, ticket } instead of a token. Ask for the authenticator code.
+  function twoStep(r) {
+    if (!r || !r.need2fa) return Promise.resolve(r);
+    var tries = 0;
+    var ask = function (bad) {
+      var c = window.prompt((bad ? bad + '\n\n' : '') + '🔐 Two-step sign-in is on.\nType the 6-digit code from your authenticator app:');
+      if (c === null) return Promise.resolve({ error: 'Sign-in cancelled.' });
+      return api('/api/auth', { do: '2fa', ticket: r.ticket, code: c }).then(function (x) { if (x.token || ++tries >= 3) return x; return ask(x.error || 'That code is not right.'); });
+    };
+    return ask('');
   }
   function keep(t) { try { localStorage.setItem('acct_token', t); localStorage.removeItem('bid_token'); } catch (x) {} }
   function signInBox(host, lead, done, startMode) {
@@ -167,7 +178,7 @@
       var body = pending ? { do: 'verify', email: pending, code: c.value } : { do: mode, email: e.value, password: p.value, name: n.value, agree: tc.checked };
       // Signed in to the back office on this browser: lets the owner's own email skip the emailed code.
       try { var ak0 = localStorage.getItem('adminKey'); if (ak0 && !pending) body.ak = ak0; } catch (x) {}
-      api('/api/auth', body).then(function (r) {
+      api('/api/auth', body).then(twoStep).then(function (r) {
         go.disabled = false;
         if (r.token) { keep(r.token); msg.textContent = ''; afterSignIn(r, function () { done(r.token, !!r.created); }); return; }
         if (r.code) { pending = r.email; msg.textContent = ''; show(); return; }
@@ -332,5 +343,5 @@
     var hay = ' ' + words([p.name, p.desc, p.sellerName, p.section, p.id].join(' ')).join(' ') + ' ';
     return ws.every(function (w) { var stem = w.length > 3 ? w.replace(/(es|s)$/, '') : w; return hay.indexOf(w) >= 0 || hay.indexOf(stem) >= 0; });
   }
-  window.JF = { inApp: inApp, inAppNote: inAppNote, cartPlus: cartPlus, toast: toast, matches: matches, cardActions: cardActions, quickOffer: quickOffer, offerChip: offerChip, offerHistory: offerHistory, stars: stars, check: check, modeBar: modeBar, token: token, emailOf: emailOf, signOut: signOut, el: el, usd: usd, cents: cents, api: api, signInBox: signInBox, picture: picture };
+  window.JF = { twoStep: twoStep, inApp: inApp, inAppNote: inAppNote, cartPlus: cartPlus, toast: toast, matches: matches, cardActions: cardActions, quickOffer: quickOffer, offerChip: offerChip, offerHistory: offerHistory, stars: stars, check: check, modeBar: modeBar, token: token, emailOf: emailOf, signOut: signOut, el: el, usd: usd, cents: cents, api: api, signInBox: signInBox, picture: picture };
 })();

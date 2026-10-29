@@ -21,6 +21,7 @@
 </main>
 <script src="/jf.js"></script>
 <script src="/tour.js" defer></script>
+<script src="/twofa.js" defer></script>
 <script>
 (function () {
   var $ = function (id) { return document.getElementById(id); }, el = JF.el;
@@ -1707,6 +1708,7 @@
   }
   function settings(pane) {
     var s = D.seller;
+    if (window.V2V2FA && !/[?&]as=/.test(location.search)) setTimeout(function () { var tf = el('section', null, 'card'); pane.appendChild(tf); V2V2FA.box(tf, function (b) { return fetch('/api/auth', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(Object.assign(b, { t: JF.token() })) }).then(function (r) { return r.json(); }); }); }, 0);
     var c = el('section', null, 'card'); c.style.gap = '14px';
     c.appendChild(el('h2', 'Shop settings'));
     var f = el('form');

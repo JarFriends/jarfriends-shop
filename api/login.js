@@ -42,7 +42,9 @@ module.exports = async (req, res) => {
   const now = Math.floor(Date.now() / 1000);
   // Where to go after signing in: a page on this site only (for example the Customer Loyalty safe).
   const next = /^\/[A-Za-z0-9._\-\/?=&%]*$/.test(String(b.next || '')) && !/^\/\//.test(String(b.next)) ? String(b.next) : '';
-  const link = 'https://' + req.headers.host + '/account.html?t=' + sign({ a: 1, e: email, x: now + 30 * 86400 }) + (next ? '&next=' + encodeURIComponent(next) : '');
+  // With two-step sign-in on, the link carries a ticket and the page asks for the authenticator code.
+  const two = await require('./_totp').isOn(email).catch(() => false);
+  const link = 'https://' + req.headers.host + '/account.html?' + (two ? 'tk=' + sign({ t2: 1, e: email, x: now + 3600 }) : 't=' + sign({ a: 1, e: email, x: now + 30 * 86400 })) + (next ? '&next=' + encodeURIComponent(next) : '');
   const key = (process.env.RESEND_API_KEY || '').trim(), from = (process.env.EMAIL_FROM || '').trim();
   let sent = 'off';
   if (key && from) {

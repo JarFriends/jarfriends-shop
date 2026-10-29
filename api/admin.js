@@ -17,11 +17,23 @@ async function passIn(req, res, now, host) {
   if (want.length < 8) return res.status(503).json({ error: 'No passcode is set up yet. Use the emailed link instead.' });
   let b = req.body || {};
   if (typeof b === 'string') { try { b = JSON.parse(b); } catch (e) { b = {}; } }
+  const T = require('./_totp');
+  // Back office two-step setup: needs a signed-in back office key.
+  if (/^2fa-(status|setup|confirm|off)$/.test(String(b.do || ''))) {
+    const kk = verify(String(b.k || '')); if (!kk || kk.adm !== 1 || kk.x < now) return res.status(401).json({ error: 'Sign in to the back office again.' });
+    if (b.do === '2fa-status') return res.json({ on: await T.isOn('admin') });
+    if (b.do === '2fa-setup') return res.json(await T.begin('admin'));
+    const r = b.do === '2fa-confirm' ? await T.confirm('admin', b.code) : await T.off('admin', b.code); return res.status(r.error ? 400 : 200).json(r);
+  }
   const f = store.on() ? ((await store.read('meta/admin-tries.json')) || {}) : {};
   if (f.n >= TRIES && Date.now() - f.at < PAUSE * 60000) return res.status(429).json({ error: 'Too many wrong passcodes. Wait ' + PAUSE + ' minutes, or use the emailed link.' });
   if (!crypto.timingSafeEqual(hash(String(b.pass || '').trim()), hash(want))) {
     if (store.on()) await store.write('meta/admin-tries.json', { n: (Date.now() - (f.at || 0) < PAUSE * 60000 ? f.n || 0 : 0) + 1, at: Date.now() }).catch(() => null);
     return res.status(401).json({ error: 'That passcode is not right.' });
+  }
+  if (await T.isOn('admin') && !(await T.ok('admin', b.code))) {
+    if (store.on()) await store.write('meta/admin-tries.json', { n: (Date.now() - (f.at || 0) < PAUSE * 60000 ? f.n || 0 : 0) + 1, at: Date.now() }).catch(() => null);
+    return res.status(401).json({ error: 'Type the 6-digit code from your authenticator app too.' });
   }
   if (f.n && store.on()) await store.write('meta/admin-tries.json', { n: 0, at: 0 }).catch(() => null);
   return res.json({ k: sign({ adm: 1, x: now + 30 * 86400 }) });
@@ -55,6 +67,7 @@ module.exports = async (req, res) => {
   const owner = (process.env.OWNER_EMAIL || '').trim();
   if (req.query && req.query.send) {
     if (!owner) return res.status(503).json({ error: 'No owner email is set up for this site.' });
+    if (await require('./_totp').isOn('admin')) return res.status(403).json({ error: 'Two-step sign-in is on, so emailed links are off. Sign in with your passcode and authenticator code.' });
     // At most one email every ten minutes.
     const out = await mail(owner, 'Your private link to the orders page', ['Open this link to see every order and customer:', host + '/admin.html?k=' + sign({ adm: 1, x: now + DAYS * 86400 }), '', 'The link works for ' + DAYS + ' days. Anyone who has it can see your orders, so do not forward it.'], 'admin-link-' + Math.floor(now / 600)).catch(() => 'failed');
     return res.json({ ok: out === 'sent' || out === 'duplicate', sent: out });

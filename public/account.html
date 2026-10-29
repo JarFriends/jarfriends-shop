@@ -34,6 +34,7 @@
   </section>
 
   <div class="list" id="list" hidden></div>
+  <section class="card" id="tfa" hidden></section>
   <div id="foot" hidden style="display:flex;flex-wrap:wrap;gap:10px">
     <a class="solid" href="/order.html" style="text-decoration:none;display:inline-flex;align-items:center">Place a new order</a>
     <button type="button" class="ghost" id="out">Sign out</button>
@@ -44,6 +45,17 @@
   var $ = function (id) { return document.getElementById(id); };
   var KEY = 'acct_token', token = null;
   var qs = new URLSearchParams(location.search);
+  // Two-step sign-in: a ticket (from Google or an emailed link) plus the authenticator code makes the sign-in.
+  function twoStep(r) {
+    if (!r || !r.need2fa) return Promise.resolve(r);
+    var tries = 0;
+    var ask = function (bad) { var c = window.prompt((bad ? bad + '\n\n' : '') + '🔐 Two-step sign-in is on.\nType the 6-digit code from your authenticator app:'); if (c === null) return Promise.resolve({ error: 'Sign-in cancelled.' });
+      return fetch('/api/auth', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ do: '2fa', ticket: r.ticket, code: c }) }).then(function (x) { return x.json(); }).then(function (x) { if (x.token || ++tries >= 3) return x; return ask(x.error || 'That code is not right.'); }); };
+    return ask('');
+  }
+  if (qs.get('tk')) {
+    twoStep({ need2fa: true, ticket: qs.get('tk') }).then(function (x) { if (x && x.token) { try { localStorage.setItem(KEY, x.token); } catch (e) {} var nx0 = qs.get('next') || ''; location.replace(/^\/[^\/]/.test(nx0) ? nx0 : location.pathname); } else { history.replaceState(null, '', location.pathname); if (x && x.error) alert(x.error); } });
+  }
   try {
     var nx = qs.get('next') || '';
     if (qs.get('t')) {
@@ -78,7 +90,7 @@
         window.google.accounts.id.initialize({ client_id: c.clientId, use_fedcm_for_button: true, callback: function (resp) {
           $('msg').textContent = 'Signing you in...';
           fetch('/api/google', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ credential: resp.credential }) })
-            .then(function (r) { return r.json(); })
+            .then(function (r) { return r.json(); }).then(twoStep)
             .then(function (r) {
               if (r.error) { $('msg').textContent = r.error; return; }
               token = r.token; try { localStorage.setItem(KEY, token); } catch (e) {}
@@ -110,6 +122,7 @@
 
   function show(data) {
     $('signin').hidden = true;
+    if (window.V2V2FA && token) { $('tfa').hidden = false; V2V2FA.box($('tfa'), function (b) { return fetch('/api/auth', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(Object.assign(b, { t: token })) }).then(function (r) { return r.json(); }); }); }
     $('who').textContent = data.email.toUpperCase();
     $('lead').textContent = data.orders.length ? 'Every order placed with this email, newest first. The status updates as your order moves.' : 'No orders have been placed with this email yet.';
     var list = $('list'); list.textContent = '';
@@ -253,5 +266,6 @@
   load();
 })();
 </script>
+<script src="/twofa.js"></script>
 </body>
 </html>
