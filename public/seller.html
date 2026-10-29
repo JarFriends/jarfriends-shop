@@ -841,6 +841,7 @@
       if (it.status === 'error') {
         w.appendChild(el('div', '⚠ ' + it.err, 'small'));
         var rt = el('button', 'Try again', 'ghost'); rt.type = 'button'; rt.addEventListener('click', function () { it.status = 'waiting'; it.err = ''; draw(); pump(); }); w.appendChild(rt);
+        var ty = el('button', '✍️ Type it in myself', 'solid'); ty.type = 'button'; ty.addEventListener('click', function () { it.status = 'ready'; it.manual = !it.id; it.name = it.name || ''; it.price = it.price || ''; it.stock = it.stock || 1; it.note = 'Type the title and price yourself.'; draw(); }); w.appendChild(ty);
         var rm0 = el('button', 'Remove', 'ghost'); rm0.type = 'button'; rm0.addEventListener('click', function () { BULK.splice(BULK.indexOf(it), 1); draw(); }); w.appendChild(rm0);
         return w;
       }
@@ -848,7 +849,8 @@
       // ready: everything editable
       var ck = el('input'); ck.type = 'checkbox'; ck.checked = it.pick !== false; ck.addEventListener('change', function () { it.pick = ck.checked; });
       var cl = el('label'); cl.style.cssText = 'display:flex!important;flex-direction:row!important;gap:8px;align-items:center;font-size:13px'; cl.appendChild(ck); cl.appendChild(document.createTextNode('Include in "Make all live"')); w.appendChild(cl);
-      var nm = input('text', it.name, { maxlength: '120' }); nm.addEventListener('input', function () { it.name = nm.value; });
+      if (it.note) { var nt0 = el('div', '✍️ ' + it.note, 'small'); nt0.style.color = '#E8A87C'; w.appendChild(nt0); }
+      var nm = input('text', it.name, { maxlength: '120', placeholder: 'Type the title' }); nm.addEventListener('input', function () { it.name = nm.value; });
       var pr = input('number', it.price, { min: '1', step: '0.01', inputmode: 'decimal' }); pr.addEventListener('input', function () { it.price = pr.value; });
       var qt = input('number', it.stock, { min: '1', step: '1' }); qt.addEventListener('input', function () { it.stock = qt.value; });
       var sh = input('text', it.shipping, { placeholder: 'free, or e.g. 5' }); sh.addEventListener('input', function () { it.shipping = sh.value; });
@@ -879,9 +881,10 @@
       return JF.api('/api/market', { do: 'listing', t: tok, as: AS, ak: AK, id: it.id || '', name: it.name, desc: it.desc, price: it.price, stock: it.stock, shipping: free ? 'free' : s0.replace(/[^0-9.]/g, ''), shipMode: free ? 'free' : 'flat', section: it.section, hidden: !live, mode: 'buy' , mode: it.mode === 'auction' ? 'auction' : 'buynow', hours: it.mode === 'auction' ? String(it.hours || 72) : ''});
     };
     var finish = function (it, live, m) {
+      if (!String(it.name || '').trim()) { if (m) m.textContent = 'Type a title first.'; return Promise.resolve(); }
       if (live && !(Number(it.price) >= 1)) { if (m) m.textContent = 'Set a price first.'; return Promise.resolve(); }
       if (m) m.textContent = live ? 'Putting it live…' : 'Saving…';
-      return save(it, live).then(function (r) { if (r.error) { if (m) m.textContent = r.error; return; } it.status = 'done'; it.live = live; draw(); loadQuiet(); });
+      return save(it, live).then(function (r) { if (r.error) { if (m) m.textContent = r.error; return r; } var nid = r.listing ? r.listing.id : r.id || (r.p && r.p.id) || ''; if (it.manual && !it.id && nid) { it.id = nid; return JF.api('/api/market', { do: 'photo', t: tok, as: AS, ak: AK, id: nid, data: it.data }).then(function () { return r; }); } return r; }).then(function (r) { if (!r || r.error) return; it.status = 'done'; it.live = live; draw(); loadQuiet(); });
     };
     var allMode = select([['', 'Set all to…'], ['buynow', '📌 All Buy now'], ['a24', '🔨 All auctions · 1 day'], ['a72', '🔨 All auctions · 3 days'], ['a168', '🔨 All auctions · 7 days']], '');
     allMode.style.maxWidth = '240px'; allLive.parentNode && allLive.parentNode.insertBefore(allMode, allLive);
@@ -894,7 +897,8 @@
     var one = function (it) {
       it.status = 'thinking'; draw();
       JF.api('/api/market', { do: 'listing-ai', t: tok, as: AS, ak: AK, kind: 'photo', estimate: 1, data: it.data }).then(function (r) {
-        if (r.error) throw new Error(r.error);
+        // AI could not tell: keep the photo and let the seller type it in.
+        if (r.error) { it.name = ''; it.desc = ''; it.section = ''; it.guess = false; it.price = ''; it.manual = true; it.note = 'AI could not tell what this is. Type the title and price yourself.'; return { manualOnly: true }; }
         it.name = r.title; it.desc = r.description || ''; it.section = r.category || ''; it.guess = r.price > 0; it.price = r.price >= 1 ? r.price : 1;
         it.status = 'saving'; draw();
         return save(it, false).then(function (s) {
