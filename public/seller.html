@@ -857,6 +857,13 @@
       w.appendChild(field('Title', nm));
       var two = el('div', null, 'two'); two.appendChild(field('Price (USD)', pr, it.guess ? 'AI guess: check it' : 'Set your price')); two.appendChild(field('How many', qt)); w.appendChild(two);
       var two2 = el('div', null, 'two'); two2.appendChild(field('Shipping', sh)); two2.appendChild(field('Category', cat)); w.appendChild(two2);
+      // Buy now or Auction (one piece; the price is the starting bid).
+      var HRS = [['1', '1 hour'], ['3', '3 hours'], ['6', '6 hours'], ['12', '12 hours'], ['24', '1 day'], ['72', '3 days'], ['120', '5 days'], ['168', '7 days'], ['240', '10 days'], ['336', '14 days']];
+      var md = select([['buynow', '📌 Buy now'], ['auction', '🔨 Auction']], it.mode || 'buynow'), hr = select(HRS, String(it.hours || 72));
+      var hrf = field('Auction length', hr); hrf.hidden = it.mode !== 'auction';
+      md.addEventListener('change', function () { it.mode = md.value; hrf.hidden = it.mode !== 'auction'; if (it.mode === 'auction') { it.stock = 1; qt.value = 1; } pr.previousSibling && (pr.parentNode.firstChild.textContent = it.mode === 'auction' ? 'Starting bid (USD)' : 'Price (USD)'); });
+      hr.addEventListener('change', function () { it.hours = hr.value; });
+      var two3 = el('div', null, 'two'); two3.appendChild(field('Sell as', md)); two3.appendChild(hrf); w.appendChild(two3);
       var dd = el('details'); dd.appendChild(el('summary', 'Description', 'small')); dd.appendChild(ds); w.appendChild(dd);
       var m = el('div', '', 'small'); 
       var bar = el('div'); bar.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px';
@@ -869,13 +876,16 @@
     };
     var save = function (it, live) {
       var s0 = String(it.shipping || '').trim().toLowerCase(), free = !s0 || s0 === 'free' || Number(s0.replace(/[^0-9.]/g, '')) === 0;
-      return JF.api('/api/market', { do: 'listing', t: tok, as: AS, ak: AK, id: it.id || '', name: it.name, desc: it.desc, price: it.price, stock: it.stock, shipping: free ? 'free' : s0.replace(/[^0-9.]/g, ''), shipMode: free ? 'free' : 'flat', section: it.section, hidden: !live, mode: 'buy' });
+      return JF.api('/api/market', { do: 'listing', t: tok, as: AS, ak: AK, id: it.id || '', name: it.name, desc: it.desc, price: it.price, stock: it.stock, shipping: free ? 'free' : s0.replace(/[^0-9.]/g, ''), shipMode: free ? 'free' : 'flat', section: it.section, hidden: !live, mode: 'buy' , mode: it.mode === 'auction' ? 'auction' : 'buynow', hours: it.mode === 'auction' ? String(it.hours || 72) : ''});
     };
     var finish = function (it, live, m) {
       if (live && !(Number(it.price) >= 1)) { if (m) m.textContent = 'Set a price first.'; return Promise.resolve(); }
       if (m) m.textContent = live ? 'Putting it live…' : 'Saving…';
       return save(it, live).then(function (r) { if (r.error) { if (m) m.textContent = r.error; return; } it.status = 'done'; it.live = live; draw(); loadQuiet(); });
     };
+    var allMode = select([['', 'Set all to…'], ['buynow', '📌 All Buy now'], ['a24', '🔨 All auctions · 1 day'], ['a72', '🔨 All auctions · 3 days'], ['a168', '🔨 All auctions · 7 days']], '');
+    allMode.style.maxWidth = '240px'; allLive.parentNode && allLive.parentNode.insertBefore(allMode, allLive);
+    allMode.addEventListener('change', function () { var v = allMode.value; if (!v) return; BULK.forEach(function (x) { if (x.status !== 'ready') return; if (v === 'buynow') x.mode = 'buynow'; else { x.mode = 'auction'; x.hours = v.slice(1); x.stock = 1; } }); allMode.value = ''; draw(); });
     allLive.addEventListener('click', function () {
       var todo = BULK.filter(function (x) { return x.status === 'ready' && x.pick !== false; }); if (!todo.length) return;
       allLive.disabled = true; var i = 0;
