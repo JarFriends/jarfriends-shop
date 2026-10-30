@@ -160,7 +160,7 @@ async function record(inv, status, o) {
   const out = await sheetPost({
     tab: 'Orders', key: inv.n, stock: { product: inv.pid, qty: Number(inv.q) },
     headers: ['Placed', 'Invoice', 'Product No', 'Product', 'Units', 'Pay with', 'Items total (USD)', 'Shipping (USD)', 'Order total (USD)', 'Paid (USD)', 'Balance due (USD)', 'Buyer', 'Email', 'Status', 'Proof', 'Promo code', 'Ship to', 'Print label'],
-    row: [when, inv.n, inv.pid, inv.i, inv.q, payWith(inv), usd(inv.L), usd(inv.sh || 0), usd(inv.T), usd(paid), usd(inv.T - paid), inv.b, inv.e, status, o.proof || '', inv.pc || '', shipLine(inv), o.label || '']
+    row: [when, inv.n, inv.pid, inv.i, inv.q, payWith(inv), usd(inv.L - (inv.pd || 0)), usd(inv.sh || 0), usd(inv.T), usd(paid), usd(inv.T - paid), inv.b, inv.e, status, o.proof || '', inv.pc || '', shipLine(inv), o.label || '']
   });
   if (out === 'ok' || out === 'duplicate' || out === 'short') { if (recorded.size > 500) recorded.clear(); recorded.set(inv.n, 1); }
   console.log('ORDER', JSON.stringify({ invoice: inv.n, sheet: out }));

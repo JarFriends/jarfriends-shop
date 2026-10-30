@@ -317,10 +317,12 @@ async function ledger(slug) {
     let rate = got[2] && got[2].pct, onShip = !!(got[2] && got[2].pct != null && !got[2].base);
     // The fee is on the listing price only (base 'items'). Sales booked before that rule took it on shipping too.
     if (rate == null) { rate = feePct(); onShip = false; await store.write('fees/' + s.n + '.json', { pct: rate, base: 'items', at: Date.now() }).catch(() => null); }
-    const gross = dollars(d.items) + dollars(d.shipping);
-    const fee = Math.round((onShip ? gross : dollars(d.items)) * rate / 100);
+    // A promo code takes money off the piece: the fee is on what the buyer actually paid for it, never the full price.
+    const tot = dollars(d.total), itm = tot > 0 ? Math.min(dollars(d.items), Math.max(0, tot - dollars(d.shipping))) : dollars(d.items);
+    const gross = itm + dollars(d.shipping);
+    const fee = Math.round((onShip ? gross : itm) * rate / 100);
     return { n: s.n, pid: s.pid, seller: mine[s.pid].seller, product: d.product || mine[s.pid].name, q: s.q, at: d.at || s.at, buyer: d.buyer || '', email: d.email || '', ship: d.ship || '', pay: d.pay || '',
-      gross: gross, items: dollars(d.items), rate: rate, fee: fee, net: gross - fee, paid: paidOf(d, m), tracking: m.tracking || '', shippedAt: m.shippedAt || 0,
+      gross: gross, items: itm, rate: rate, fee: fee, net: gross - fee, paid: paidOf(d, m), tracking: m.tracking || '', shippedAt: m.shippedAt || 0,
       // Paid by card straight to the seller's own Stripe (see _connect.js): Stripe pays the seller, nothing is owed.
       abroad: !!abroad[mine[s.pid].seller], direct: !!m.direct, directPay: !!m.directPay, returnReq: m.returnReq || null, issue: m.issue || null, bundleLead: m.bundleLead || '', bundleMates: m.bundleMates || [],
       // A shipping label the seller bought through V2V: its cost, and the part taken from money V2V holds for them.
