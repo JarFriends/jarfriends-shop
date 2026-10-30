@@ -92,7 +92,7 @@ async function intlRate(seller, listing, to, qty, value, item, quoteOnly) {
   const parcel = packageOf(listing, qty);
   const cd = await shippo('/customs/declarations/', {
     contents_type: 'MERCHANDISE', non_delivery_option: 'RETURN', certify: true, certify_signer: from.name, incoterm: 'DDU', eel_pfc: 'NOEEI_30_37_a',
-    items: [{ description: ('Collectible ' + String(item || 'collectible')).slice(0, 45), quantity: Math.max(1, Number(qty) || 1), net_weight: String(parcel.weight), mass_unit: 'oz',
+    items: [{ description: ('Collectible ' + String(item || 'collectible')).slice(0, 30), quantity: Math.max(1, Number(qty) || 1), net_weight: String(parcel.weight), mass_unit: 'oz',
       value_amount: (Math.max(100, Number(value) || 0) / 100).toFixed(2), value_currency: 'USD', origin_country: from.country || 'US' }]
   });
   const s = await shippo('/shipments/', { address_from: from, address_to: to, parcels: [parcel], customs_declaration: cd.object_id, async: false });
