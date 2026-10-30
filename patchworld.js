@@ -139,7 +139,7 @@ async function intlShipment(parcel, to, qty, value, item) {
   if (pc.template) { const d = FLAT[pc.template] || ['9', '6', '1']; delete pc.template; pc.length = d[0]; pc.width = d[1]; pc.height = d[2]; pc.distance_unit = 'in'; }
   const cd = await shippo('/customs/declarations/', {
     contents_type: 'MERCHANDISE', non_delivery_option: 'RETURN', certify: true, certify_signer: from.name, incoterm: 'DDU', eel_pfc: 'NOEEI_30_37_a',
-    items: [{ description: ('Collectible ' + String(item || 'trading cards')).slice(0, 45), quantity: Math.max(1, Number(qty) || 1), net_weight: String(pc.weight), mass_unit: 'oz', value_amount: (Math.max(100, Number(value) || 0) / 100).toFixed(2), value_currency: 'USD', origin_country: 'US' }]
+    items: [{ description: ('Collectible ' + String(item || 'trading cards')).slice(0, 30), quantity: Math.max(1, Number(qty) || 1), net_weight: String(pc.weight), mass_unit: 'oz', value_amount: (Math.max(100, Number(value) || 0) / 100).toFixed(2), value_currency: 'USD', origin_country: 'US' }]
   });
   return shippo('/shipments/', { address_from: from, address_to: to, parcels: [pc], customs_declaration: cd.object_id, async: false });
 }
