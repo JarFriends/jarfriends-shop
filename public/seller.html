@@ -1465,7 +1465,9 @@
     D.orders.forEach(function (o) {
       var c = el('section', null, 'card'); c.style.gap = '10px';
       var top = el('div'); top.style.cssText = 'display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px';
-      top.appendChild(el('b', o.product + (o.q > 1 ? ' × ' + o.q : '')));
+      var ol = (D.listings || []).filter(function (l) { return l.id === o.pid; })[0], tw = el('div'); tw.style.cssText = 'display:flex;gap:12px;align-items:center';
+      if (ol && ol.photoUrl) { var oi = el('img'); oi.src = ol.photoUrl; oi.alt = ''; oi.loading = 'lazy'; oi.style.cssText = 'width:84px;height:84px;object-fit:cover;border-radius:10px;flex:none;cursor:zoom-in'; oi.addEventListener('click', function () { window.open(ol.photoUrl, '_blank'); }); tw.appendChild(oi); }
+      tw.appendChild(el('b', o.product + (o.q > 1 ? ' × ' + o.q : ''))); top.appendChild(tw);
       var isNftO = /NFT|0x[0-9a-fA-F]{6}/.test(o.ship || '') || (D.listings || []).some(function (l) { return l.id === o.pid && l.nft; }); c.id = 'ord-' + o.n;
       top.appendChild(el('span', !o.paid ? 'WAITING FOR PAYMENT' : o.tracking ? (isNftO ? 'NFT SENT' : 'SHIPPED') : (isNftO ? 'PAID · SEND NFT' : 'PAID · SHIP IT'), 'jf-badge ' + (!o.paid ? '' : o.tracking ? 'ok' : 'wait')));
       if (o.direct) top.appendChild(el('span', 'PAID TO YOUR STRIPE', 'jf-badge ok'));
