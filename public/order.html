@@ -167,6 +167,29 @@ fieldset[hidden]{display:none}
   }
   // A checkout link from an accepted offer carries ?offer=... and locks the item, quantity and price.
   var offerTok = new URLSearchParams(location.search).get('offer'), deal = null;
+  // The offer card (accepted or countered): price, saving, shipping, time left, photo, checkout, history.
+  function offerCard(d) {
+    var E = function (t, x, c) { var e = document.createElement(t); if (x != null) e.textContent = x; if (c) e.style.cssText = c; return e; };
+    var list = Math.round(Number(String(d.list || 0).replace(/[^0-9.]/g, '')) * 100), now = Number(d.cents) || Math.round(Number(d.price) * 100);
+    var w = E('section', null, 'display:flex;flex-direction:column;gap:12px;background:#11261C;border:1px solid #C9A45C;border-radius:16px;padding:18px;margin-bottom:6px');
+    w.appendChild(E('h2', d.status === 'countered' ? 'You got a counteroffer!' : 'Your offer was accepted!', 'margin:0;font-size:24px'));
+    w.appendChild(E('div', 'The piece isn\u2019t yours until you pay. Check out before time runs out or someone else buys it first.', 'opacity:.85'));
+    var pr = E('div', null, 'display:flex;flex-direction:column;gap:2px'); var big = E('div', null, 'font-size:32px;font-weight:800');
+    big.appendChild(document.createTextNode(usd(now * (d.qty || 1)))); var sh = E('span', '', 'font-size:18px;font-weight:500;opacity:.75;margin-left:8px'); big.appendChild(sh); pr.appendChild(big);
+    if (list > now) { var was = E('div', null, 'opacity:.8'); was.appendChild(E('s', usd(list * (d.qty || 1)))); was.appendChild(document.createTextNode('  ' + (Math.round((list - now) * 1000 / list) / 10) + '% off')); pr.appendChild(was); }
+    w.appendChild(pr);
+    var cd = E('div', null, 'display:flex;gap:24px'); cd.appendChild(E('span', 'Expires in', 'opacity:.7')); var left = E('b', ''); cd.appendChild(left); w.appendChild(cd);
+    var tick = function () { var ms = (d.until || 0) - Date.now(); if (ms <= 0) { left.textContent = 'Ended'; return; } var h = Math.floor(ms / 3600e3); left.textContent = (h >= 24 ? Math.floor(h / 24) + 'd ' + (h % 24) + 'h' : h + 'h ' + Math.floor(ms % 3600e3 / 60000) + 'm'); };
+    tick(); setInterval(tick, 30000);
+    var im = E('img', null, 'width:100%;max-height:420px;object-fit:contain;border-radius:12px;background:#0B1712'); im.alt = d.name || ''; im.src = '/api/photo?id=' + encodeURIComponent(d.product); im.onerror = function () { im.remove(); }; w.appendChild(im);
+    var go = E('button', 'Go to checkout'); go.type = 'button'; go.className = 'solid'; go.style.cssText = 'border-radius:999px;font-size:18px;padding:14px;width:100%'; go.onclick = function () { $('f').scrollIntoView({ behavior: 'smooth' }); }; w.appendChild(go);
+    if (window.JF && JF.quickOffer) { var co = E('button', 'Make counteroffer'); co.type = 'button'; co.className = 'ghost'; co.style.cssText = 'border-radius:999px;padding:12px'; co.onclick = function () { JF.quickOffer({ id: d.product, name: d.name, price: d.list }); }; w.appendChild(co); }
+    if (d.history && window.JF && JF.offerHistory) { var hd = E('details'); hd.appendChild(E('summary', 'View offer history', 'cursor:pointer;text-decoration:underline')); hd.appendChild(JF.offerHistory([d.history], 'buyer')); w.appendChild(hd); }
+    $('lead').parentNode.insertBefore(w, $('lead').nextSibling);
+    $('lead').hidden = true;
+    var upd = function () { var t = $('sShip') && $('sShip').textContent; sh.textContent = t ? '+ ' + (/^(\$0\.00|free)/i.test(t.replace('+', '').trim()) ? 'Free shipping' : t.replace('+', '').trim() + ' shipping') : ''; };
+    setTimeout(upd, 800); $('f').addEventListener('input', function () { setTimeout(upd, 600); });
+  }
   var dealP = offerTok ? fetch('/api/offer?a=' + encodeURIComponent(offerTok), { cache: 'no-store' }).then(function (r) { return r.json(); }).catch(function () { return {}; }) : Promise.resolve({});
   Promise.all([fetch('/api/order', { cache: 'no-store' }).then(function (r) { return r.json(); }), dealP]).then(function (both) {
     var r = both[0], d = both[1].deal;
@@ -181,7 +204,7 @@ fieldset[hidden]{display:none}
     if (r.ways && r.ways.cashapp) $('mCashapp').hidden = false;
     window.V2VPP = !!(r.ways && r.ways.paypal); if (window.V2VPP) $('mPaypal').hidden = false;
     var dp = d && !d.expired ? products.filter(function (p) { return p.id === d.product; })[0] : null;
-    if (dp) { deal = d; dp.price = d.price; }
+    if (dp) { deal = d; deal.list = dp.price; deal.name = dp.name; dp.price = d.price; }
     if (r.offers && !deal) $('offerBox').hidden = false;
     // Every way to pay that is open, for the buyer to name with an offer.
     [['Zelle', r.ways && r.ways.zelle], ['Venmo', r.ways && r.ways.venmo], ['Cash App', r.ways && r.ways.cashapp], ['Cash or ACH', true], ['Ethereum', true], ['USDC', true], ['USDT', true], ['Card', r.card]].forEach(function (w) {
@@ -223,6 +246,7 @@ fieldset[hidden]{display:none}
       $('product').value = deal.product; $('qty').value = deal.qty;
       $('product').disabled = true; $('qty').readOnly = true;
       $('lead').textContent = 'Your offer was accepted. The price below is your offer price.';
+      if (!/^(PTY|AUC)/.test(String(deal.no || ''))) offerCard(deal);
     } else if (offerTok) {
       $('lead').textContent = 'That accepted offer link has run out, so this shows the listed price. Message the seller and ask for a new pay link: it brings back your offer price.';
     }

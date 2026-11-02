@@ -58,7 +58,10 @@ module.exports = async (req, res) => {
       // its saved window): honor the offer price.
       let expired = now > a.x;
       if (expired && a.n) { const rec = await require('./_store').read('offers/' + String(a.n).replace(/[^A-Za-z0-9-]/g, '') + '.json').catch(() => null); if (rec && (rec.status === 'accepted' || rec.status === 'countered') && !rec.paidOrder && rec.until && rec.until > Date.now()) expired = false; }
-      return res.json({ deal: { no: a.n, product: a.pid, qty: a.q, price: usd(a.c), expired: expired } });
+      // For the offer card at the top of checkout: whether it was accepted or countered, when it runs out, the history.
+      const r0 = a.n ? await require('./_store').read('offers/' + String(a.n).replace(/[^A-Za-z0-9-]/g, '') + '.json').catch(() => null) : null;
+      return res.json({ deal: { no: a.n, product: a.pid, qty: a.q, price: usd(a.c), cents: a.c, expired: expired, status: r0 ? r0.status : 'accepted', until: (r0 && r0.until) || a.x * 1000,
+        history: r0 ? { offer: r0.offer, q: r0.q || 1, events: (r0.events || []).map((e) => ({ kind: e.kind, c: e.c, at: e.at })) } : null } });
     }
     return res.status(400).json({ error: 'This offer link is not valid.' });
   }
