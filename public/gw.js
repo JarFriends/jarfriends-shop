@@ -36,7 +36,7 @@
     var row = el('div'); row.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;align-items:center'; b.appendChild(row);
     var m = el('div', '', 'small'); b.appendChild(m);
     if (open) {
-      var url = location.origin + '/giveaway.html#' + g.id, txt = '🎁 Giveaway: ' + g.title + ' on VeeFam. Enter free:';
+      var url = location.origin + '/api/giveaways?og=' + g.id, txt = '🎁 Giveaway: ' + g.title + ' on VeeFam. Enter free:';
       var sh = el('div'); sh.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap'; b.appendChild(sh);
       sh.appendChild(btn('🔗 Copy link', 'ghost', function () { var done = function () { m.textContent = 'Link copied. Paste it in your post, story or bio.'; }; if (navigator.clipboard) navigator.clipboard.writeText(url).then(done, function () { prompt('Copy this link:', url); }); else prompt('Copy this link:', url); }));
       var x = el('a', '𝕏 Post on X', 'ghost'); x.href = 'https://x.com/intent/post?text=' + encodeURIComponent(txt) + '&url=' + encodeURIComponent(url); x.target = '_blank'; x.rel = 'noopener'; sh.appendChild(x);
@@ -70,11 +70,12 @@
     }
     if (g.status === 'drawn' && g.mine) {
       // 📣 Announce the winner on X, with a photo: the phone's share sheet sends the photo to the X app; on a computer X opens with the post written.
-      var who = g.winnerX ? '@' + g.winnerX : g.winnerName, msg = '🎉 Congrats ' + who + '! You won ' + g.title + ' in the VeeFam giveaway. Thanks to everyone who entered!', url2 = location.origin + '/giveaway.html';
-      var pic = el('input'); pic.type = 'file'; pic.accept = 'image/*'; pic.hidden = true; b.appendChild(pic);
-      var ab = btn('📣 Announce winner on X' + (g.winnerX ? ' (tags ' + who + ')' : ''), 'solid', function () { if (navigator.canShare) pic.click(); else window.open('https://x.com/intent/post?text=' + encodeURIComponent(msg) + '&url=' + encodeURIComponent(url2), '_blank'); });
-      pic.addEventListener('change', function () { var f = pic.files[0]; var data = { text: msg + ' ' + url2 }; if (f && navigator.canShare({ files: [f] })) data.files = [f];
-        navigator.share(data).catch(function () { window.open('https://x.com/intent/post?text=' + encodeURIComponent(msg) + '&url=' + encodeURIComponent(url2), '_blank'); }); });
+      var who = g.winnerX ? '@' + g.winnerX : g.winnerName, msg = '🎉 Congrats ' + who + '! You won ' + g.title + ' in the VeeFam giveaway. Thanks to everyone who entered!';
+      // The giveaway's own photo goes with the post: fetched now, so the tap can share it straight away.
+      var url2 = location.origin + '/api/giveaways?og=' + g.id, file = null;
+      if (g.photo && navigator.canShare) fetch(g.photo).then(function (r) { return r.blob(); }).then(function (bl) { var f = new File([bl], 'giveaway.jpg', { type: 'image/jpeg' }); if (navigator.canShare({ files: [f] })) file = f; }).catch(function () {});
+      var xpost = function () { window.open('https://x.com/intent/post?text=' + encodeURIComponent(msg) + '&url=' + encodeURIComponent(url2), '_blank'); };
+      var ab = btn('📣 Announce winner on X' + (g.winnerX ? ' (tags ' + who + ')' : ''), 'solid', function () { if (file) navigator.share({ files: [file], text: msg + ' ' + url2 }).catch(xpost); else xpost(); });
       b.appendChild(ab);
       if (!g.winnerX) b.appendChild(el('div', 'The winner did not add an X handle, so the post uses their name.', 'small dim'));
     }

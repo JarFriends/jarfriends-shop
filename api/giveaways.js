@@ -35,6 +35,15 @@ module.exports = async (req, res) => {
   if (!store.on()) return res.status(503).json({ error: 'Giveaways are not set up yet.' });
   let b = req.body || {}; if (typeof b === 'string') { try { b = JSON.parse(b); } catch (e) { b = {}; } }
   const me = gate.emailOf(req.method === 'POST' ? b.t : (req.query || {}).t);
+  // A share link with the giveaway's photo as the preview picture (X, iMessage, Discord), then on to the giveaway.
+  if (req.method === 'GET' && (req.query || {}).og) {
+    const g0 = await store.read(key(String(req.query.og).replace(/[^a-z0-9]/g, ''))).catch(() => null);
+    const H = host(), esc = (v) => String(v || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+    const to = H + '/giveaway.html' + (g0 ? '#' + g0.id : ''), img = g0 && g0.photo ? H + '/api/photo?id=' + g0.id + '&v=' + g0.photo : '';
+    const t0 = g0 ? (g0.status === 'drawn' ? '🎉 Winner: ' + (g0.winnerName || '') + ' · ' : '🎁 Giveaway: ') + g0.title : 'VeeFam giveaways';
+    res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.setHeader('Cache-Control', 'public, max-age=300');
+    return res.send('<!doctype html><html><head><meta charset="utf-8"><title>' + esc(t0) + '</title><meta property="og:title" content="' + esc(t0) + '"><meta property="og:description" content="' + esc(g0 ? 'From ' + g0.hostName + ' on VeeFam' : 'Enter free on VeeFam') + '">' + (img ? '<meta property="og:image" content="' + esc(img) + '"><meta name="twitter:image" content="' + esc(img) + '">' : '') + '<meta name="twitter:card" content="summary_large_image"><meta http-equiv="refresh" content="0;url=' + esc(to) + '"></head><body><a href="' + esc(to) + '">Open the giveaway</a></body></html>');
+  }
   if (req.method === 'GET') {
     const cut = Date.now() - 30 * 864e5;
     const list = (await all()).filter((g) => g.status !== 'cancelled' && (g.endsAt > cut || g.host === me || g.winner === me)).sort((a, c) => (a.status === 'open' ? 0 : 1) - (c.status === 'open' ? 0 : 1) || a.endsAt - c.endsAt);
