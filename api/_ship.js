@@ -247,6 +247,34 @@ async function buyLabel(seller, n, rateId, host) {
   return { ok: true, customs: t.commercial_invoice_url || '', label: t.label_url, tracking: tracking, track: t.tracking_url_provider || '', cents: cents, fromEarnings: plan.fromEarnings, fromCard: plan.fromCard, test: isTest() };
 }
 const money = (c) => '$' + (c / 100).toFixed(2);
+// A giveaway prize (api/giveaways.js): price a label to the winner (no rateId), or buy it (rateId). The owner's shop
+// is billed by Shippo directly; any other host pays by their saved card, before anything is bought.
+async function giftLabel(seller, g, rateId) {
+  if (!ready()) return { error: 'Shipping labels are not switched on yet. Ship it yourself and add the tracking number.' };
+  const from = fromOf(seller); if (!from) return { error: 'Add your ship-from address in Seller Hub > Settings first.' };
+  const a = g.winnerAddress; if (!a || !a.street) return { error: 'The winner has not added their address yet.' };
+  const to = { name: a.name || g.winnerName || 'Winner', street1: a.street, street2: a.line2 || '', city: a.city, state: a.state || '', zip: a.zip, country: 'US', email: g.winner || '' };
+  if (!rateId) {
+    try { const r = await cheapest(from, to, packageOf({}, 1)); return { rate: r.id, cents: r.cents, service: r.service, days: r.days || '' }; }
+    catch (e) { return { error: 'Could not price the label: ' + String(e && e.message || e).slice(0, 160) }; }
+  }
+  if (!/^[a-f0-9]{32}$/i.test(String(rateId))) return { error: 'Price the label first.' };
+  const rate = await shippo('/rates/' + rateId).catch(() => null);
+  if (!rate || !(Number(rate.amount) > 0)) return { error: 'That price has run out. Get a new price.' };
+  const cents = Math.round(Number(rate.amount) * 100); let pi = null;
+  if (!M.isProtected(seller.slug, seller.email)) {
+    const plan = await payPlan(seller, cents); if (!plan.card) return { error: 'Add a card in Seller Hub > Payments to buy giveaway labels, or ship it yourself and add the tracking.' };
+    const r = await require('./_stripe').call('POST', '/payment_intents', { amount: cents, currency: 'usd', customer: plan.card.customer, payment_method: plan.card.pm, confirm: 'true', off_session: 'true', 'payment_method_types[0]': 'card', description: 'V2V shipping label, giveaway ' + g.id, 'metadata[giveaway]': g.id }, 'gift-card-' + g.id + '-' + rateId);
+    if (!r.ok || r.body.status !== 'succeeded') return { error: 'Your card was not charged, so no label was bought.' };
+    pi = r.body.id;
+  }
+  let t; try { t = await shippo('/transactions/', { rate: String(rateId), label_file_type: 'PDF_4x6', async: false, metadata: 'V2V giveaway ' + g.id }); } catch (e) { t = { status: 'ERROR', messages: [{ text: String(e && e.message || e) }] }; }
+  if (t.status !== 'SUCCESS' || !t.label_url) {
+    if (pi) await require('./_stripe').call('POST', '/refunds', { payment_intent: pi }, 'gift-refund-' + g.id + '-' + rateId).catch(() => null);
+    return { error: 'Shippo could not make the label. Nothing was charged. ' + (Array.isArray(t.messages) ? t.messages.map((m) => m && m.text).filter(Boolean).join(' ') : '').slice(0, 200) };
+  }
+  return { ok: true, label: t.label_url, tracking: t.tracking_number || '', cents: cents, test: isTest() };
+}
 // Cancel a bought label so it can be bought again: Shippo refunds the postage (if the label was never scanned), any
 // card charge for it is refunded, and the order goes back to "Paid, ship it" with no tracking. Kept in labelVoids.
 async function voidLabel(n) {
@@ -267,4 +295,4 @@ async function voidLabel(n) {
   return { ok: true, shippo: shippo_ };
 }
 
-module.exports = { voidLabel, countryCode, shipsIntl, quoteIntl, intlRate, PRESETS, packageOf, fromOf, calcFor, quoteLabel, buyLabel, payPlan, ready, isTest };
+module.exports = { giftLabel, voidLabel, countryCode, shipsIntl, quoteIntl, intlRate, PRESETS, packageOf, fromOf, calcFor, quoteLabel, buyLabel, payPlan, ready, isTest };

@@ -24,7 +24,7 @@ function view(g, me) {
   const mine = g.host === me, won = !!me && g.winner === me;
   const o = { id: g.id, title: g.title, desc: g.desc, photo: g.photo ? '/api/photo?id=' + g.id + '&v=' + g.photo : '', hostName: g.hostName, hostShop: g.hostShop || '', endsAt: g.endsAt, at: g.at,
     shipBy: g.shipBy, ship: g.ship, count: (g.entries || []).length, status: g.status, winnerName: g.winnerName || '', entered: !!me && (g.entries || []).indexOf(me) >= 0, mine: mine, won: won,
-    shipPaid: !!g.shipPaid, tracking: g.tracking || '' };
+    shipPaid: !!g.shipPaid, tracking: g.tracking || '', label: mine ? g.labelPdf || '' : '' };
   if (won) o.pay = g.hostPay || null;
   if (mine && g.winner) { o.winnerEmail = g.winner; o.winnerAddress = g.winnerAddress || null; }
   return o;
@@ -89,6 +89,25 @@ module.exports = async (req, res) => {
     g.tracking = String(b.tracking || '').trim().slice(0, 60); if (g.winnerAddress == null) { const wu = await U.get(g.winner).catch(() => null); g.winnerAddress = (wu && wu.address) || null; }
     if (g.tracking) await mail(g.winner, 'Your giveaway prize shipped: ' + g.title, [g.hostName + ' shipped "' + g.title + '".', 'Tracking: ' + g.tracking], 'gw-ship-' + g.id + '-' + g.tracking).catch(() => null);
     return save();
+  }
+  // Shipping label to the winner, right from the giveaway: price it (no rate), then buy it (rate).
+  if (b.do === 'label') {
+    if (!g.winner) return res.status(400).json({ error: 'Draw a winner first.' });
+    if (!g.winnerAddress) { const wu = await U.get(g.winner).catch(() => null); g.winnerAddress = (wu && wu.address) || null; }
+    if (!g.winnerAddress) return res.status(400).json({ error: 'The winner has not added their address yet.' });
+    const shop = await M.byEmail(me).catch(() => null); if (!shop) return res.status(400).json({ error: 'Labels are for sellers: open your shop first.' });
+    if (g.labelPdf) return res.json({ ok: true, label: g.labelPdf, tracking: g.tracking });
+    const r = await require('./_ship').giftLabel(shop, g, b.rate);
+    if (r.error || !r.ok) return res.status(r.error ? 400 : 200).json(r);
+    g.labelPdf = r.label; g.labelCost = r.cents; g.tracking = r.tracking || g.tracking; await store.write(key(g.id), g);
+    if (g.tracking && !r.test) await mail(g.winner, 'Your giveaway prize shipped: ' + g.title, [g.hostName + ' shipped "' + g.title + '".', 'Tracking: ' + g.tracking], 'gw-ship-' + g.id + '-' + g.tracking).catch(() => null);
+    return res.json({ ok: true, label: r.label, tracking: g.tracking, giveaway: view(g, me) });
+  }
+  // Ask the winner (again) to add their ship-to address.
+  if (b.do === 'nudge') {
+    if (!g.winner) return res.status(400).json({ error: 'Draw a winner first.' });
+    const out = await mail(g.winner, 'Add your address to get your prize: ' + g.title, ['You won "' + g.title + '" from ' + g.hostName + ' on VeeFam!', 'Please add your ship-to address as soon as you can so it can be sent: sign in, then My account > Ship to.', host() + '/me.html#addr'], 'gw-nudge-' + g.id + '-' + Math.floor(Date.now() / 36e5)).catch(() => 'failed');
+    return res.json({ ok: true, sent: out });
   }
   if (b.do === 'address') { const wu = await U.get(g.winner).catch(() => null); g.winnerAddress = (wu && wu.address) || null; return save(); }
   return res.status(400).json({ error: 'Unknown action.' });
