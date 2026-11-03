@@ -71,7 +71,22 @@
     // Buy now, Add to cart, Offer, Trade, Ask.
     var acts = el('div', null, 'pc-acts');
     if (p.left > 0) {
-      var buy = el('a', p.party ? '🎉 Buy at the party price' : 'Buy now', 'buy wide'); buy.href = '/order.html?product=' + encodeURIComponent(p.id); acts.appendChild(buy);
+      // Slide to buy: drag the button across (or tap it) and checkout opens, where they pick how to pay.
+      var href = '/order.html?product=' + encodeURIComponent(p.id), buy = el('div', null, 'buy wide');
+      buy.setAttribute('role', 'button'); buy.tabIndex = 0; buy.setAttribute('aria-label', 'Slide to buy');
+      buy.style.cssText = 'position:relative;overflow:hidden;border-radius:999px;padding:0;height:58px;display:flex;align-items:center;justify-content:center;user-select:none;touch-action:none;cursor:pointer';
+      var lab = el('span', (p.party ? '🎉 Slide to buy at the party price' : 'Slide to buy') + (p.price ? ' · $' + Number(p.price).toFixed(2) : ''));
+      lab.style.cssText = 'font-weight:800;pointer-events:none;padding-left:40px';
+      var knob = el('span', '›'); knob.style.cssText = 'position:absolute;left:5px;top:5px;width:48px;height:48px;border-radius:50%;background:#0B1712;color:#C9A45C;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:900;transition:transform .2s';
+      buy.appendChild(knob); buy.appendChild(lab); acts.appendChild(buy);
+      (function () {
+        var x0 = null, dx = 0, max = 0, done = false;
+        var go = function () { if (done) return; done = true; knob.style.transform = 'translateX(' + max + 'px)'; lab.textContent = 'Opening checkout…'; location.href = href; };
+        buy.addEventListener('pointerdown', function (e) { if (done) return; x0 = e.clientX; dx = 0; max = buy.clientWidth - 58; knob.style.transition = 'none'; try { buy.setPointerCapture(e.pointerId); } catch (er) {} });
+        buy.addEventListener('pointermove', function (e) { if (x0 == null) return; dx = Math.max(0, Math.min(max, e.clientX - x0)); knob.style.transform = 'translateX(' + dx + 'px)'; lab.style.opacity = String(1 - dx / max * 0.7); });
+        buy.addEventListener('pointerup', function () { if (x0 == null) return; x0 = null; knob.style.transition = 'transform .2s'; if (dx > max * 0.8 || dx < 4) go(); else { knob.style.transform = 'translateX(0)'; lab.style.opacity = '1'; } });
+        buy.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+      })();
       if (!p.party) {
         var cart = el('button', '🛒 Add to cart', 'alt'), inCart = false; cart.type = 'button';
         cart.addEventListener('click', function () { if (inCart) { location.href = '/cart.html'; return; } if (!window.V2VCart) return; window.V2VCart.add({ id: p.id, name: p.name, price: p.price, ship: p.ship, calc: !!p.calc, photo: p.photo, seller: p.seller, sellerName: p.sellerName, left: p.left, nft: p.nft, qty: 1 }); inCart = true; cart.textContent = '✓ In cart · View ›'; });
