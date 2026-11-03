@@ -48,7 +48,7 @@ td small{display:block;color:#DADDE8}
     <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between">
       <div class="tabs">
         <button type="button" class="ghost" id="tOrders" aria-pressed="true">Orders</button>
-        <button type="button" class="ghost" id="tPeople" aria-pressed="false">Customers</button>
+        <button type="button" class="ghost" id="tPeople" aria-pressed="false">Buyers</button>
         <button type="button" class="ghost" id="tItems" aria-pressed="false">Products</button>
         <button type="button" class="ghost" id="tSec">🔐 Two-step</button>
         <button type="button" class="ghost" id="out">Sign out</button>
@@ -178,7 +178,9 @@ td small{display:block;color:#DADDE8}
       var tr = el('tr');
       tr.appendChild(el('td', p.name || '-'));
       var e = el('td'); if (p.email) { var a = el('a', p.email); a.href = 'mailto:' + p.email; e.appendChild(a); } tr.appendChild(e);
-      tr.appendChild(el('td', String(p.orders), 'num'));
+      var oc = el('td', null, 'num'), ob = el('button', 'See ' + p.orders + ' order' + (p.orders === 1 ? '' : 's')); ob.type = 'button'; ob.className = 'ghost'; ob.style.cssText = 'padding:4px 10px;min-height:0;font-size:13px;white-space:nowrap';
+      ob.addEventListener('click', function () { $('find').value = p.email || p.name || ''; $('viewBy').value = 'all'; tab = 'orders'; draw(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+      oc.appendChild(ob); tr.appendChild(oc);
       tr.appendChild(el('td', String(p.units), 'num'));
       tr.appendChild(el('td', usd(p.total), 'num'));
       tr.appendChild(el('td', when(p.last)));
