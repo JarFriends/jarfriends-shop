@@ -120,6 +120,26 @@
   function row(label, value) { var r = el('div', 'row'); r.appendChild(el('span', 'dim', label)); r.appendChild(el('span', null, value)); return r; }
   function money(v) { return v === '' ? '-' : '$' + Number(v).toLocaleString('en-US', { minimumFractionDigits: 2 }); }
 
+  // ⭐ Rate a shipped order from a seller: stars and a few words, right on the order.
+  function reviews() {
+    fetch('/api/market?do=reviewable&t=' + encodeURIComponent(token), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (r) {
+      (r.orders || []).forEach(function (x) {
+        var box = document.querySelector('[data-rv="' + x.n + '"]'); if (!box) return;
+        box.style.cssText = 'display:flex;flex-direction:column;gap:8px;border:1px solid #C9A45C;border-radius:10px;padding:10px 12px;margin-top:8px';
+        box.appendChild(el('b', null, x.review ? 'Your rating for ' + x.sellerName : '⭐ Rate your order from ' + x.sellerName));
+        var stars = x.review ? x.review.stars : 0, sr = el('div'); sr.style.cssText = 'display:flex;gap:4px;font-size:30px;cursor:pointer';
+        var paint = function () { Array.prototype.forEach.call(sr.children, function (b, i) { b.textContent = i < stars ? '★' : '☆'; b.style.color = '#C9A45C'; }); };
+        for (var i = 1; i <= 5; i++) (function (k) { var b = document.createElement('button'); b.type = 'button'; b.setAttribute('aria-label', k + ' stars'); b.style.cssText = 'background:none!important;border:0!important;padding:0!important;min-height:0!important;font-size:30px;line-height:1'; b.onclick = function () { stars = k; paint(); }; sr.appendChild(b); })(i);
+        paint(); box.appendChild(sr);
+        var tx = document.createElement('textarea'); tx.maxLength = 1000; tx.rows = 2; tx.placeholder = 'How was it? (optional)'; tx.value = x.review ? x.review.text : ''; box.appendChild(tx);
+        var sv = document.createElement('button'); sv.type = 'button'; sv.className = 'solid'; sv.textContent = x.review ? 'Update rating' : 'Submit rating'; sv.style.alignSelf = 'flex-start';
+        var m = el('div', 'small', ''); box.appendChild(sv); box.appendChild(m);
+        sv.onclick = function () { if (!stars) { m.textContent = 'Tap the stars first.'; return; } sv.disabled = true; m.textContent = 'Saving…';
+          fetch('/api/market', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ do: 'review', t: token, n: x.n, stars: stars, text: tx.value }) }).then(function (q) { return q.json(); }).then(function (q) { sv.disabled = false; m.textContent = q.error || 'Thanks! Your rating is saved.'; sv.textContent = 'Update rating'; }); };
+        if (x.review && x.review.reply) box.appendChild(el('div', 'small', 'Seller replied: ' + x.review.reply));
+      });
+    }).catch(function () {});
+  }
   function show(data) {
     $('signin').hidden = true;
     if (window.V2V2FA && token) { $('tfa').hidden = false; V2V2FA.box($('tfa'), function (b) { return fetch('/api/auth', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(Object.assign(b, { t: token })) }).then(function (r) { return r.json(); }); }); }
@@ -150,6 +170,7 @@
       rows.appendChild(row('Balance due', money(o.balance)));
       if (o.ship) rows.appendChild(row('Ships to', o.ship));
       card.appendChild(rows);
+      var rvb = el('div'); rvb.setAttribute('data-rv', o.invoice); card.appendChild(rvb);
       if (o.edit) card.appendChild(addrForm(o));
       // Unpaid, paying by hand: where to send it, and a way to switch to another method.
       if (o.payWay && o.payWay.options && o.payWay.options.length) {
@@ -178,7 +199,7 @@
       if (o.proof) { var a = el('a', null, 'View proof of payment'); a.href = o.proof; a.target = '_blank'; a.rel = 'noopener'; card.appendChild(a); }
       list.appendChild(card);
     });
-    list.hidden = false; $('foot').hidden = false; $('foot').style.display = 'flex';
+    list.hidden = false; reviews(); $('foot').hidden = false; $('foot').style.display = 'flex';
     jarsCard(); jfOrders();
   }
 
