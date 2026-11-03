@@ -46,7 +46,8 @@
     if (!g.mine && open) {
       if (!tok) { var si = el('a', 'Sign in to enter', 'solid'); si.href = '/me.html'; row.appendChild(si); }
       else if (g.entered) { row.appendChild(el('span', '✓ You are in', 'small')); row.appendChild(btn('Leave', 'ghost', act({ do: 'leave' }))); }
-      else row.appendChild(btn('Enter', 'solid', act({ do: 'enter' })));
+      else { var xi = el('input'); xi.placeholder = 'Your X @ (optional, for the shout-out)'; xi.maxLength = 16; xi.style.maxWidth = '240px'; try { xi.value = localStorage.getItem('v2vX') || ''; } catch (e) {}
+        row.appendChild(xi); row.appendChild(btn('Enter', 'solid', function () { try { localStorage.setItem('v2vX', xi.value.trim()); } catch (e) {} act({ do: 'enter', x: xi.value })(); })); }
     }
     if (g.mine && g.status === 'open') {
       if (!open) row.appendChild(btn('🎲 Draw a random winner', 'solid', act({ do: 'draw' })));
@@ -66,6 +67,16 @@
       var tr = el('input'); tr.placeholder = 'Tracking number'; tr.value = g.tracking; tr.style.maxWidth = '220px';
       var tw = el('div'); tw.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap'; tw.appendChild(tr); tw.appendChild(btn('Save tracking', 'ghost', function () { act({ do: 'track', tracking: tr.value })(); })); w.appendChild(tw);
       b.appendChild(w);
+    }
+    if (g.status === 'drawn' && g.mine) {
+      // 📣 Announce the winner on X, with a photo: the phone's share sheet sends the photo to the X app; on a computer X opens with the post written.
+      var who = g.winnerX ? '@' + g.winnerX : g.winnerName, msg = '🎉 Congrats ' + who + '! You won ' + g.title + ' in the VeeFam giveaway. Thanks to everyone who entered!', url2 = location.origin + '/giveaway.html';
+      var pic = el('input'); pic.type = 'file'; pic.accept = 'image/*'; pic.hidden = true; b.appendChild(pic);
+      var ab = btn('📣 Announce winner on X' + (g.winnerX ? ' (tags ' + who + ')' : ''), 'solid', function () { if (navigator.canShare) pic.click(); else window.open('https://x.com/intent/post?text=' + encodeURIComponent(msg) + '&url=' + encodeURIComponent(url2), '_blank'); });
+      pic.addEventListener('change', function () { var f = pic.files[0]; var data = { text: msg + ' ' + url2 }; if (f && navigator.canShare({ files: [f] })) data.files = [f];
+        navigator.share(data).catch(function () { window.open('https://x.com/intent/post?text=' + encodeURIComponent(msg) + '&url=' + encodeURIComponent(url2), '_blank'); }); });
+      b.appendChild(ab);
+      if (!g.winnerX) b.appendChild(el('div', 'The winner did not add an X handle, so the post uses their name.', 'small dim'));
     }
     if (g.won) {
       var y = el('div', null, 'small'); y.style.cssText = 'display:flex;flex-direction:column;gap:4px;padding:8px;border-radius:8px;background:#11261C;border:1px solid #C9A45C';

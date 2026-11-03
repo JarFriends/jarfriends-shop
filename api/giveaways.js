@@ -27,6 +27,7 @@ function view(g, me) {
     shipPaid: !!g.shipPaid, tracking: g.tracking || '', label: mine ? g.labelPdf || '' : '' };
   if (won) o.pay = g.hostPay || null;
   if (mine && g.winner) { o.winnerEmail = g.winner; o.winnerAddress = g.winnerAddress || null; }
+  if (g.winner) o.winnerX = (g.xh || {})[M.hashOf ? M.hashOf(g.winner) : g.winner] || '';
   return o;
 }
 module.exports = async (req, res) => {
@@ -66,6 +67,9 @@ module.exports = async (req, res) => {
     if (g.host === me) return res.status(400).json({ error: 'You cannot enter your own giveaway.' });
     if (g.status !== 'open' || Date.now() > g.endsAt) return res.status(400).json({ error: 'This giveaway has ended.' });
     g.entries = (g.entries || []).filter((e) => e !== me); if (b.do === 'enter') g.entries.push(me);
+    // Their X handle (optional), so the host can tag the winner when announcing.
+    const xh = String(b.x || '').trim().replace(/^@/, '').replace(/[^A-Za-z0-9_]/g, '').slice(0, 15);
+    g.xh = g.xh || {}; if (b.do === 'enter' && xh) g.xh[M.hashOf ? M.hashOf(me) : me] = xh;
     return save();
   }
   if (g.host !== me) return res.status(403).json({ error: 'Only the person who started this giveaway can do that.' });
