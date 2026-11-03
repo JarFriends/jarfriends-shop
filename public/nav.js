@@ -2,7 +2,7 @@
 // sold archive and seller portal. Added to each page at build time (marketpages.js).
 (function () {
   if (window.__jfNav) return; window.__jfNav = 1;
-  var links = [['Market', '/market.html'], ['Auctions', '/market.html?view=auctions'], ['Live shows', '/live.html'], ['Messages', '/messages.html'], ['My wishlist', '/wishlist.html'], ['Giveaway and vote', '/giveaway.html'], ['Terms of Service', '/terms.html'], ['Sold prices', '/sold.html'], ['My account', '/me.html'], ['My orders', '/account.html'], ['Seller Hub', '/seller.html']];
+  var links = [['Market', '/market.html'], ['Auctions', '/market.html?view=auctions'], ['Messages', '/messages.html'], ['My wishlist', '/wishlist.html'], ['Giveaway and vote', '/giveaway.html'], ['Terms of Service', '/terms.html'], ['Sold prices', '/sold.html'], ['My account', '/me.html'], ['My orders', '/account.html'], ['Seller Hub', '/seller.html']];
   var css = '.jfn-btn{position:fixed;left:16px;bottom:16px;z-index:2147483000;background:#C9A45C;color:#0B1A13;border:0;border-radius:999px;padding:12px 18px;font:700 15px Archivo,system-ui,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.35);cursor:pointer}'
     + '.jfn-btn:focus-visible{outline:2px solid #F7F2E6;outline-offset:3px}'
     + '.jfn-panel{position:fixed;left:16px;bottom:72px;z-index:2147483000;background:#0B1A13;border:1px solid #C9A45C;min-width:220px;padding:8px 0;box-shadow:0 10px 30px rgba(0,0,0,.45);font:16px Archivo,system-ui,sans-serif}'
@@ -486,11 +486,17 @@
     document.head.appendChild(st);
     var bar = document.createElement('nav'); bar.className = 'v2v-tb'; bar.setAttribute('aria-label', 'Main');
     var p = location.pathname, here = p === '/' || p === '/index.html' ? '/' : p;
-    [['🏠', 'Home', '/', /^\/$/], ['👤', 'Account', '/me.html', /^\/(me|account|wishlist|messages|cart)\.html/], ['🔍', 'Search', '/market.html', /^\/(market|shop|piece|sold)\.html/], ['📡', 'Live', '/live.html', /^\/live\.html/], ['🏷️', 'Selling', '/seller.html', /^\/seller\.html/]].forEach(function (x) {
+    [['🏠', 'Home', '/', /^\/$/], ['👤', 'Account', '/me.html', /^\/(me|account|wishlist|messages|cart)\.html/], ['🔍', 'Search', '/market.html', /^\/(market|shop|piece|sold)\.html/], ['🏷️', 'Selling', '/seller.html', /^\/seller\.html/]].forEach(function (x) {
       var a = document.createElement('a'); a.href = x[2]; var i = document.createElement('i'); i.textContent = x[0]; a.appendChild(i); a.appendChild(document.createTextNode(x[1]));
       if (x[3].test(here)) a.setAttribute('aria-current', 'page'); bar.appendChild(a);
     });
     document.body.appendChild(bar);
   }
   if (document.body) add(); else document.addEventListener('DOMContentLoaded', add);
+})();
+
+// Live shows are paused: every link to them is hidden, and the live page says so.
+(function () {
+  var st = document.createElement('style'); st.textContent = 'a[href^="/live.html"],#liveNow{display:none!important}'; (document.head || document.documentElement).appendChild(st);
+  if (/^\/live\.html/.test(location.pathname)) document.addEventListener('DOMContentLoaded', function () { var m = document.querySelector('main') || document.body; m.innerHTML = '<div style="max-width:560px;margin:60px auto;padding:0 16px;text-align:center"><h1>Live shows are paused</h1><p>They are coming back soon. In the meantime, <a href="/market.html">shop the market</a> or <a href="/market.html?view=auctions">bid on auctions</a>.</p></div>'; });
 })();
