@@ -58,9 +58,9 @@
       var ad = g.winnerAddress; w.appendChild(el('div', ad ? 'Ship to: ' + [ad.name, ad.street, ad.line2, ad.city + ', ' + ad.state + ' ' + ad.zip].filter(Boolean).join(', ') : 'No ship-to address on their account yet. We emailed them to add it.'));
       if (!ad) { w.appendChild(btn('Check for their address', 'ghost', act({ do: 'address' }))); w.appendChild(btn('✉️ Email them to add their address', 'ghost', function () { m.textContent = 'Sending…'; post({ do: 'nudge', id: g.id }).then(function (r) { m.textContent = r.error || 'Sent. They were asked to add their address soon.'; }); })); }
       if (g.label) { var lk = el('a', '🖨️ Print the label'); lk.href = g.label; lk.target = '_blank'; lk.rel = 'noopener'; lk.className = 'solid'; w.appendChild(lk); }
-      else if (ad && !g.tracking) w.appendChild(btn('📦 Buy shipping label', 'solid', function () { var b0 = this; b0.disabled = true; m.textContent = 'Getting a price…';
+      else if (ad && !g.tracking) w.appendChild(btn('📦 Buy shipping label', 'solid', function () { var b0 = this; if (b0.dataset.q) return; b0.disabled = true; m.textContent = 'Getting a price…';
         post({ do: 'label', id: g.id }).then(function (q) { b0.disabled = false; if (q.error) { m.textContent = q.error; return; }
-          m.textContent = ''; b0.textContent = 'Buy label for ' + money(q.cents) + ' (' + q.service + (q.days ? ', ' + q.days + ' days' : '') + ')';
+          m.textContent = ''; b0.dataset.q = '1'; b0.textContent = 'Buy label for ' + money(q.cents) + ' (' + q.service + (q.days ? ', ' + q.days + ' days' : '') + ')';
           b0.onclick = null; b0.addEventListener('click', function () { b0.disabled = true; m.textContent = 'Buying…'; post({ do: 'label', id: g.id, rate: q.rate }).then(function (z) { b0.disabled = false; if (z.error) { m.textContent = z.error; return; } if (z.label) window.open(z.label, '_blank'); load(); }); }, { once: true }); }); }));
       if (g.shipBy === 'winner') w.appendChild(g.shipPaid ? el('div', '✓ Shipping paid') : btn('✓ Mark shipping paid (' + money(g.ship) + ')', 'ghost', act({ do: 'shippaid' })));
       var tr = el('input'); tr.placeholder = 'Tracking number'; tr.value = g.tracking; tr.style.maxWidth = '220px';
