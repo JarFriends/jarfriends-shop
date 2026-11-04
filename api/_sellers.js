@@ -303,8 +303,22 @@ function paidOf(d, m) { return !/payment due/i.test(d.status || '') || !!(m.paid
 // Every sale of a seller's pieces with the fee and what the seller gets. slug null = every seller.
 async function ledger(slug) {
   const mine = {};
-  (await listings()).forEach((p) => { if (!slug || p.seller === slug) mine[p.id] = p; });
-  const sales = (await store.sales()).filter((s) => mine[s.pid]);
+  const allL = await listings(), known = {};
+  allL.forEach((p) => { known[p.id] = 1; if (!slug || p.seller === slug) mine[p.id] = p; });
+  const sales0 = await store.sales();
+  // A sale whose listing file is gone (removed before sold pieces were kept): it still belongs to the shop that
+  // was paid for it (meta.directPay.seller) or, failing that, to the owner's own shop, so it never drops out.
+  const lost = sales0.filter((x) => isSellerPid(x.pid) && !known[x.pid]);
+  if (lost.length) {
+    const metas = await Promise.all(lost.map((x) => store.read('meta/' + x.n + '.json').catch(() => null)));
+    const recs = await Promise.all(lost.map((x) => store.read(x.path).catch(() => null)));
+    const owner = slug ? await bySlug(slug) : null;
+    lost.forEach((x, i) => {
+      const m = metas[i] || {}, d = recs[i] || {}, who = (m.directPay && m.directPay.seller) || d.seller || (owner && isProtected(owner.slug, owner.email) ? owner.slug : '');
+      if (who && (!slug || who === slug)) mine[x.pid] = { id: x.pid, seller: who, name: d.product || x.pid, stock: 0, gone: true };
+    });
+  }
+  const sales = sales0.filter((s) => mine[s.pid]);
   const abroad = {}; (await all()).forEach((x) => { if (x.based === 'intl') abroad[x.slug] = 1; });
   const rows = await Promise.all(sales.map(async (s) => {
     const got = await Promise.all([store.read(s.path), store.read('meta/' + s.n + '.json'), store.read('fees/' + s.n + '.json')]);
