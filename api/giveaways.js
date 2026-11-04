@@ -24,10 +24,18 @@ function view(g, me) {
   const mine = g.host === me, won = !!me && g.winner === me;
   const o = { id: g.id, title: g.title, desc: g.desc, photo: g.photo ? '/api/photo?id=' + g.id + '&v=' + g.photo : '', hostName: g.hostName, hostShop: g.hostShop || '', endsAt: g.endsAt, at: g.at,
     shipBy: g.shipBy, ship: g.ship, count: (g.entries || []).length, status: g.status, winnerName: g.winnerName || '', entered: !!me && (g.entries || []).indexOf(me) >= 0, mine: mine, won: won,
-    shipPaid: !!g.shipPaid, tracking: g.tracking || '', label: mine ? g.labelPdf || '' : '' };
+    shipPaid: !!g.shipPaid, shipSent: g.shipSent ? g.shipSent.how || 'yes' : '', tracking: g.tracking || '', label: mine ? g.labelPdf || '' : '' };
   if (won) o.pay = g.hostPay || null;
   if (mine && g.winner) { o.winnerEmail = g.winner; o.winnerAddress = g.winnerAddress || null; }
   if (g.winner) o.winnerX = (g.xh || {})[M.hashOf ? M.hashOf(g.winner) : g.winner] || '';
+  return o;
+}
+// How the winner can pay shipping: every way the host takes. The owner's own giveaways also take card and crypto
+// (paid to V2V), plus V2V's Zelle, Venmo and Cash App.
+async function payOpts(g) {
+  const shop = g.hostShop ? await M.bySlug(g.hostShop).catch(() => null) : null, dp = (shop && shop.directPay) || {}, own = M.isProtected(g.hostShop, g.host);
+  const E = process.env, o = { zelle: dp.zelle || (own ? E.ZELLE_TO || '' : ''), venmo: dp.venmo || (own ? E.VENMO_TO || '' : ''), cashapp: dp.cashapp || (own ? E.CASHAPP_TO || '' : ''), paypal: dp.paypal || '', preferred: dp.preferred || '', email: g.host };
+  o.card = own && require('./_stripe').ready(); o.crypto = own;
   return o;
 }
 module.exports = async (req, res) => {
@@ -47,7 +55,9 @@ module.exports = async (req, res) => {
   if (req.method === 'GET') {
     const cut = Date.now() - 30 * 864e5;
     const list = (await all()).filter((g) => g.status !== 'cancelled' && (g.endsAt > cut || g.host === me || g.winner === me)).sort((a, c) => (a.status === 'open' ? 0 : 1) - (c.status === 'open' ? 0 : 1) || a.endsAt - c.endsAt);
-    return res.json({ me: me || '', list: list.map((g) => view(g, me)) });
+    const out = list.map((g) => view(g, me));
+    await Promise.all(out.map(async (o, i) => { if (o.won && o.shipBy === 'winner' && !o.shipPaid) o.pay = await payOpts(list[i]); }));
+    return res.json({ me: me || '', list: out });
   }
   if (req.method !== 'POST') return res.status(405).json({ error: 'Use GET or POST.' });
   if (!me) return res.status(401).json({ error: 'Sign in first.' });
@@ -79,6 +89,34 @@ module.exports = async (req, res) => {
     // Their X handle (optional), so the host can tag the winner when announcing.
     const xh = String(b.x || '').trim().replace(/^@/, '').replace(/[^A-Za-z0-9_]/g, '').slice(0, 15);
     g.xh = g.xh || {}; if (b.do === 'enter' && xh) g.xh[M.hashOf ? M.hashOf(me) : me] = xh;
+    return save();
+  }
+  // The winner pays shipping: by card (Stripe), by crypto (pay page), or marks that they sent it another way.
+  if (/^pay-(card|check|crypto|sent)$/.test(String(b.do || ''))) {
+    if (g.winner !== me) return res.status(403).json({ error: 'Only the winner can pay this shipping.' });
+    if (g.shipBy !== 'winner' || !(g.ship > 0)) return res.status(400).json({ error: 'Shipping is free for this giveaway.' });
+    if (g.shipPaid && b.do !== 'pay-check') return res.json({ ok: true, giveaway: view(g, me) });
+    const P = await payOpts(g), back = host() + '/giveaway.html';
+    if (b.do === 'pay-card') {
+      if (!P.card) return res.status(400).json({ error: 'Card payment is not available for this giveaway.' });
+      const r = await require('./_stripe').call('POST', '/checkout/sessions', { mode: 'payment', 'line_items[0][quantity]': '1', 'line_items[0][price_data][currency]': 'usd', 'line_items[0][price_data][unit_amount]': String(g.ship), 'line_items[0][price_data][product_data][name]': 'Shipping for your giveaway prize: ' + g.title,
+        customer_email: me, 'metadata[gw]': g.id, success_url: back + '?gwpaid=' + g.id + '&cs={CHECKOUT_SESSION_ID}#' + g.id, cancel_url: back + '#' + g.id }, 'gw-card-' + g.id + '-' + Math.floor(Date.now() / 6e5));
+      return r.ok && r.body.url ? res.json({ url: r.body.url }) : res.status(503).json({ error: 'Card payment could not start. Try again or pick another way.' });
+    }
+    if (b.do === 'pay-check') {
+      const r = await require('./_stripe').call('GET', '/checkout/sessions/' + encodeURIComponent(String(b.cs || '').replace(/[^A-Za-z0-9_]/g, '')));
+      if (r.ok && r.body.payment_status === 'paid' && r.body.metadata && r.body.metadata.gw === g.id) { g.shipPaid = true; g.shipPaidHow = 'card'; g.shipPaidAt = Date.now();
+        await mail(g.host, 'Giveaway shipping paid: ' + g.title, [g.winnerName + ' paid $' + (g.ship / 100).toFixed(2) + ' shipping by card for "' + g.title + '". You can ship it now.'], 'gw-paid-' + g.id).catch(() => null); return save(); }
+      return res.status(400).json({ error: 'That card payment is not finished yet.' });
+    }
+    if (b.do === 'pay-crypto') {
+      if (!P.crypto) return res.status(400).json({ error: 'Crypto is not available for this giveaway.' });
+      const r = await require('./_lib').createInvoice({ no: 'GW' + Date.now().toString(36).toUpperCase(), item: 'Shipping for giveaway prize: ' + g.title, qty: '1', buyer: g.winnerName || me, terms: '', email: me, cents: g.ship, hours: 48, extra: { gw: g.id } });
+      return r.error ? res.status(503).json({ error: 'Crypto payment is not available right now. Pick another way.' }) : res.json({ url: host() + '/pay.html?inv=' + r.token });
+    }
+    // pay-sent: they paid by Zelle, Venmo, Cash App or PayPal; the host is told to look for it and mark it paid.
+    g.shipSent = { how: String(b.how || '').slice(0, 20), at: Date.now() };
+    await mail(g.host, 'Giveaway winner says they paid shipping: ' + g.title, [g.winnerName + ' says they sent $' + (g.ship / 100).toFixed(2) + ' by ' + (g.shipSent.how || 'another way') + ' for "' + g.title + '".', 'Check for it, then press Mark shipping paid on the giveaway:', back + '#' + g.id], 'gw-sent-' + g.id + '-' + g.shipSent.how).catch(() => null);
     return save();
   }
   if (g.host !== me) return res.status(403).json({ error: 'Only the person who started this giveaway can do that.' });

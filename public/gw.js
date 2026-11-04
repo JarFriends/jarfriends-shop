@@ -63,6 +63,7 @@
         post({ do: 'label', id: g.id }).then(function (q) { b0.disabled = false; if (q.error) { m.textContent = q.error; return; }
           m.textContent = ''; b0.dataset.q = '1'; b0.textContent = 'Buy label for ' + money(q.cents) + ' (' + q.service + (q.days ? ', ' + q.days + ' days' : '') + ')';
           b0.onclick = null; b0.addEventListener('click', function () { b0.disabled = true; m.textContent = 'Buying…'; post({ do: 'label', id: g.id, rate: q.rate }).then(function (z) { b0.disabled = false; if (z.error) { m.textContent = z.error; return; } if (z.label) window.open(z.label, '_blank'); load(); }); }, { once: true }); }); }));
+      if (g.shipBy === 'winner' && g.shipSent && !g.shipPaid) w.appendChild(el('div', '💬 Winner says they sent it by ' + g.shipSent + '. Check, then mark it paid.'));
       if (g.shipBy === 'winner') w.appendChild(g.shipPaid ? el('div', '✓ Shipping paid') : btn('✓ Mark shipping paid (' + money(g.ship) + ')', 'ghost', act({ do: 'shippaid' })));
       var tr = el('input'); tr.placeholder = 'Tracking number'; tr.value = g.tracking; tr.style.maxWidth = '220px';
       var tw = el('div'); tw.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap'; tw.appendChild(tr); tw.appendChild(btn('Save tracking', 'ghost', function () { act({ do: 'track', tracking: tr.value })(); })); w.appendChild(tw);
@@ -84,8 +85,20 @@
       y.appendChild(el('b', '🎉 You won!'));
       if (g.shipBy === 'winner') {
         y.appendChild(el('div', g.shipPaid ? '✓ Your shipping payment was received.' : 'Pay ' + money(g.ship) + ' for shipping to ' + g.hostName + ':'));
-        if (!g.shipPaid && g.pay) [['zelle', 'Zelle'], ['venmo', 'Venmo'], ['cashapp', 'Cash App'], ['paypal', 'PayPal']].forEach(function (x) { if (g.pay[x[0]]) y.appendChild(el('div', x[1] + ': ' + g.pay[x[0]] + (g.pay.preferred === x[0] ? ' (preferred)' : ''))); });
-        if (!g.shipPaid && g.pay && !g.pay.zelle && !g.pay.venmo && !g.pay.cashapp && !g.pay.paypal) y.appendChild(el('div', 'Message ' + g.hostName + ' (' + g.pay.email + ') to pay.'));
+        if (!g.shipPaid && g.pay) {
+          var pm = el('div', '', 'small'), pr = el('div'); pr.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-top:4px';
+          var go = function (what) { return function () { pm.textContent = 'Opening…'; post({ do: what, id: g.id }).then(function (r) { if (r.url) location.href = r.url; else pm.textContent = r.error || 'Try again.'; }); }; };
+          if (g.pay.card) pr.appendChild(btn('💳 Pay ' + money(g.ship) + ' by card', 'solid', go('pay-card')));
+          if (g.pay.crypto) pr.appendChild(btn('🪙 Pay ' + money(g.ship) + ' with crypto (ETH, USDC, USDT)', 'solid', go('pay-crypto')));
+          [['zelle', 'Zelle'], ['venmo', 'Venmo'], ['cashapp', 'Cash App'], ['paypal', 'PayPal']].forEach(function (x) { if (!g.pay[x[0]]) return;
+            var r1 = el('div'); r1.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;border:1px solid #2E4A3B;border-radius:8px;padding:8px';
+            r1.appendChild(el('span', x[1] + ': ' + g.pay[x[0]] + (g.pay.preferred === x[0] ? ' (preferred)' : '')));
+            r1.appendChild(btn('I sent it', 'ghost', function () { pm.textContent = 'Telling ' + g.hostName + '…'; post({ do: 'pay-sent', id: g.id, how: x[1] }).then(function (r) { pm.textContent = r.error || 'Thanks! ' + g.hostName + ' will confirm it and ship your prize.'; }); }));
+            pr.appendChild(r1); });
+          if (!pr.children.length) pr.appendChild(el('div', 'Message ' + g.hostName + ' (' + g.pay.email + ') to pay.'));
+          if (g.shipSent) pr.appendChild(el('div', '✓ You said you sent it by ' + g.shipSent + '. Waiting for ' + g.hostName + ' to confirm.', 'small'));
+          y.appendChild(pr); y.appendChild(pm);
+        }
       } else y.appendChild(el('div', 'Shipping is free.'));
       y.appendChild(el('div', g.tracking ? 'Tracking: ' + g.tracking : 'Make sure your ship-to address is on your account (My account > Ship to).'));
       b.appendChild(y);
@@ -107,5 +120,6 @@
       if (/^#gw/.test(location.hash)) { var t = document.getElementById(location.hash.slice(1)); if (t) t.scrollIntoView({ block: 'center' }); }
     }).catch(function () { box.textContent = 'Giveaways did not load. Refresh to try again.'; });
   }
-  load();
+  var qp = new URLSearchParams(location.search);
+  if (qp.get('gwpaid') && qp.get('cs') && tok) post({ do: 'pay-check', id: qp.get('gwpaid'), cs: qp.get('cs') }).then(function () { history.replaceState(null, '', location.pathname + location.hash); load(); }); else load();
 })();

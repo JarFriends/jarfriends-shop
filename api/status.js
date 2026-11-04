@@ -44,5 +44,10 @@ module.exports = async (req, res) => {
     const ST = require('./_store'), mk = 'feepaid/' + inv.n + '.json';
     if (!(await ST.read(mk).catch(() => null))) { await ST.write(mk, { at: Date.now(), tx: found.explorer || '' }); await require('./_sellers').addPayout(String(inv.fee), inv.u, 'Crypto', 'Fees paid to VeeFam ' + inv.n, 'fee'); }
   }
+  // Giveaway shipping paid in crypto (see giveaways.js pay-crypto): the giveaway is marked paid.
+  if (status === 'confirmed' && inv.gw) {
+    const ST = require('./_store'), gk = 'giveaways/' + String(inv.gw).replace(/[^a-z0-9]/g, '') + '.json', g = await ST.read(gk).catch(() => null);
+    if (g && !g.shipPaid) { g.shipPaid = true; g.shipPaidHow = 'crypto'; g.shipPaidAt = Date.now(); g.shipTx = found.explorer || ''; await ST.write(gk, g); }
+  }
   res.json({ invoice: invoice, now: now, coin: coin, status: status, tx: found, email: email });
 };
