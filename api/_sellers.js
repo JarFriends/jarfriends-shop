@@ -533,4 +533,17 @@ async function directFor(pid, way) {
   const to = s && s.directPay && String(s.directPay[way] || '').trim();
   return to ? { slug: s.slug, name: s.name, way: way, to: to } : null;
 }
-module.exports = { isProtected, promoFor, promoUsed, directFor, removeShop, bankFrom, bankOf, safe, routingOk, profit, setCost, giveawayPct, sellerOf, offerTo, notifySale, reviews, saveReview, removeReview, stats, statsAll, statsFrom, shortName, completed, VERIFY_AFTER, posts, addPost, removePost, feePct, autoApprove, all, bySlug, byEmail, save, apply, pub, listings, products, isSellerPid, saveListing, setListing, removeListing, ledger, payouts, addPayout, totals, hashOf, SECTIONS, sectionOf, forget };
+// Deal of the Day vaults (the owner's own pieces only): listings with a deal number (1, 2, 3...) sell one at a time,
+// in that order. The first one not sold out is open; the ones after it stay locked; sold-out ones are claimed.
+async function dealVaults() {
+  const raw = (await listings()).filter((p) => Number(p.deal) > 0 && !p.removed && isProtected(p.seller)).sort((a, b) => Number(a.deal) - Number(b.deal));
+  let sold = {}, held = {}; try { sold = await store.soldBy(); } catch (e) { sold = {}; } try { held = await require('./_holds').byProduct(); } catch (e) { held = {}; }
+  let opened = false; const state = {};
+  const out = raw.map((p) => {
+    const left = Math.max(0, Number(p.stock || 0) - (sold[p.id] || 0) - (held[p.id] || 0));
+    const st = left <= 0 ? 'claimed' : opened ? 'locked' : 'open'; if (st === 'open') opened = true; state[p.id] = st;
+    return { n: Number(p.deal), id: p.id, state: st, left: left, name: p.name, price: Number(p.price).toFixed(2), photo: p.photo ? '/api/photo?id=' + p.id + '&v=' + p.photo : '', desc: p.desc || '', ship: p.shipping === 'free' || !Number(p.shipping) ? '0.00' : Number(p.shipping).toFixed(2) };
+  });
+  return { list: out, state: state };
+}
+module.exports = { dealVaults, isProtected, promoFor, promoUsed, directFor, removeShop, bankFrom, bankOf, safe, routingOk, profit, setCost, giveawayPct, sellerOf, offerTo, notifySale, reviews, saveReview, removeReview, stats, statsAll, statsFrom, shortName, completed, VERIFY_AFTER, posts, addPost, removePost, feePct, autoApprove, all, bySlug, byEmail, save, apply, pub, listings, products, isSellerPid, saveListing, setListing, removeListing, ledger, payouts, addPayout, totals, hashOf, SECTIONS, sectionOf, forget };

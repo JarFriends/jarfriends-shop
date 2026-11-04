@@ -1144,6 +1144,19 @@
   function listings(pane) {
     if (pendingEdit) { var pe0 = D.listings.filter(function (x) { return x.id === pendingEdit; })[0]; pendingEdit = ''; if (pe0) { editing = pe0; adding = false; } }
     if (editing) { pane.appendChild(listingForm(editing)); return; }
+    // 🔐 Deal of the Day vaults (owner's shop only): number pieces 1, 2, 3... They sell one at a time in that order.
+    if (D.seller && (D.seller.slug === 'jarfriends' || D.ownerShop) && !adding && !bulkOn) {
+      var dv = el('details', null, 'card'); dv.style.gap = '8px'; var ds = el('summary', '🔐 Deal of the Day vaults'); ds.style.cssText = 'cursor:pointer;font-weight:800;font-size:18px'; dv.appendChild(ds);
+      dv.appendChild(el('div', 'Give pieces a vault number: 1 opens first. When it sells out, vault 2 unlocks, and so on. Vault pieces leave the regular market and show only in the vaults. 0 or blank takes a piece out.', 'small dim'));
+      (D.listings || []).filter(function (x) { return !x.removed && !x.auction; }).forEach(function (x) {
+        var r = el('div'); r.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap';
+        var n = el('input'); n.type = 'number'; n.min = '0'; n.max = '999'; n.value = Number(x.deal) > 0 ? x.deal : ''; n.placeholder = '-'; n.style.width = '70px';
+        var sv = el('button', 'Save', 'ghost'); sv.type = 'button'; sv.style.cssText = 'padding:4px 10px;min-height:0'; var mm = el('span', '', 'small');
+        sv.addEventListener('click', function () { mm.textContent = '…'; JF.api('/api/market', { do: 'deal-set', t: tok, id: x.id, n: n.value }).then(function (q) { mm.textContent = q.error || (q.deal ? '✓ Vault ' + q.deal : '✓ Out of the vaults'); if (!q.error) x.deal = q.deal; }); });
+        r.appendChild(n); r.appendChild(el('span', x.name + ' · ' + JF.usd(x.price))); r.appendChild(sv); r.appendChild(mm); dv.appendChild(r);
+      });
+      pane.appendChild(dv);
+    }
     if (adding) { pane.appendChild(listingForm(null)); return; }
     if (bulkOn) { pane.appendChild(bulkPanel()); return; }
     // Your pieces come first; the form only opens when you press Add a product.

@@ -53,7 +53,8 @@ async function shopItems() {
   let sold = {}, held = {};
   try { sold = await store.soldBy(); } catch (e) { sold = {}; }
   try { held = await require('./_holds').byProduct(); } catch (e) { held = {}; }
-  return all.filter((p) => !p.draft && !(Number(p.deal) > 0) && !/^MPARTY/.test(p.id) && !p.buyers).map((p) => {
+  let vs = {}; try { vs = (await M.dealVaults()).state; } catch (e) { vs = {}; }
+  return all.filter((p) => !p.draft && (!(Number(p.deal) > 0) || (/^S[0-9A-Z]{5,19}$/.test(p.id) && vs[p.id] === 'open')) && !/^MPARTY/.test(p.id) && !p.buyers).map((p) => {
     const left = Math.max(0, Number(p.stock || 0) - (sold[p.id] || 0) - (held[p.id] || 0));
     const free = p.shipping === 'free' || !Number(p.shipping);
     return { id: p.id, name: p.name, price: Number(p.price).toFixed(2), left: left, ship: free ? '0.00' : Number(p.shipping).toFixed(2), calc: p.shipMode === 'calc', returns: p.returns || 'no', section: p.section || '', desc: p.desc || '',
@@ -119,6 +120,19 @@ module.exports = async (req, res) => {
       // The giveaway wallet: GIVEAWAY_PERCENT (2) of every paid sale (pieces plus shipping), in cents.
       const wallet = await walletCents();
       return res.json({ fee: M.feePct(), products: items, sellers: sellers, seller: one || null, sections: M.SECTIONS, wallet: wallet, giveaway: M.giveawayPct() });
+    }
+    // Deal of the Day vaults: the open one in full; locked ones show only their number; claimed ones what they were.
+    if (req.method === 'GET' && what === 'deals') {
+      const v = await M.dealVaults();
+      return res.json({ deals: v.list.map((d) => d.state === 'locked' ? { n: d.n, state: 'locked' } : d) });
+    }
+    // The owner sets a piece's vault number (0 takes it out of the vaults).
+    if (req.method === 'POST' && what === 'deal-set') {
+      const me0 = gate.emailOf(b.t), sh = me0 ? await M.byEmail(me0) : null;
+      if (!sh || !M.isProtected(sh.slug, sh.email)) return res.status(403).json({ error: 'Deal of the Day is for the V2V owner’s shop.' });
+      const n = Math.max(0, Math.min(999, Math.floor(Number(b.n) || 0)));
+      const r = await M.setListing(sh, String(b.id || ''), { deal: n });
+      return r ? res.json({ ok: true, deal: n }) : res.status(404).json({ error: 'That listing was not found.' });
     }
     // Which seller a piece belongs to, for "Sold by" on checkout.
     if (req.method === 'GET' && what === 'item') {
@@ -720,7 +734,7 @@ module.exports = async (req, res) => {
         views.days[day] = Object.keys(v).reduce((t, k2) => t + (Number(v[k2]) || 0), 0);
         if (i < 30) Object.keys(v).forEach((k2) => { views.byPid[k2] = (views.byPid[k2] || 0) + (Number(v[k2]) || 0); });
       }));
-      return res.json({ email: me, seller: M.safe(seller), fee: M.feePct(), sections: M.SECTIONS, listings: listings, orders: orders, profit: prof, views: views, payouts: outs, totals: M.totals(rows, outs), posts: feed, stripe: st, stats: myStats, reviews: myReviews, presets: require('./_ship').PRESETS, labelsOn: require('./_ship').ready(), zelleTo: (process.env.ZELLE_TO || '').trim(), venmoTo: (process.env.VENMO_TO || '').trim(), cashappTo: (process.env.CASHAPP_TO || '').trim(), paypalTo: (process.env.PAYPAL_TO || '').trim(), cleanOn: !!((process.env.PHOTOROOM_API_KEY || '').trim() || (process.env.REMOVEBG_API_KEY || '').trim()) });
+      return res.json({ ownerShop: M.isProtected(seller.slug, seller.email), email: me, seller: M.safe(seller), fee: M.feePct(), sections: M.SECTIONS, listings: listings, orders: orders, profit: prof, views: views, payouts: outs, totals: M.totals(rows, outs), posts: feed, stripe: st, stats: myStats, reviews: myReviews, presets: require('./_ship').PRESETS, labelsOn: require('./_ship').ready(), zelleTo: (process.env.ZELLE_TO || '').trim(), venmoTo: (process.env.VENMO_TO || '').trim(), cashappTo: (process.env.CASHAPP_TO || '').trim(), paypalTo: (process.env.PAYPAL_TO || '').trim(), cleanOn: !!((process.env.PHOTOROOM_API_KEY || '').trim() || (process.env.REMOVEBG_API_KEY || '').trim()) });
     }
     // Offers on my pieces. A pending one carries its answer key (t) for /api/offer: accept, counter or decline.
     // A shipping label the seller bought, ready to print: on a half sheet (the default) or as a 4 x 6 label,

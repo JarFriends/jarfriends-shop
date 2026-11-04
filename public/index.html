@@ -105,6 +105,7 @@
     </div>
     <div class="v-fan" aria-hidden="true"><i></i><i></i><i></i></div>
   </section>
+  <div id="dealBox"></div>
   <a class="v-live" id="liveNow" href="/live.html" hidden></a>
   <div class="v-bar" role="group" aria-label="Filter and sort">
     <div class="v-search">
@@ -302,5 +303,6 @@ fetch('/api/market?do=live', { cache: 'no-store' }).then(function (r) { return r
 // Party pieces count down on their cards.
 setInterval(function () { Array.prototype.forEach.call(document.querySelectorAll('[data-ends]'), function (n) { var l = Math.max(0, Number(n.dataset.ends) - Date.now()), d = Math.floor(l / 864e5), h = Math.floor(l / 36e5) % 24, m = Math.floor(l / 6e4) % 60, sc = Math.floor(l / 1e3) % 60; n.textContent = l ? '⏳ Ends in ' + (d ? d + 'd ' + h + 'h' : h + 'h ' + m + 'm ' + sc + 's') : 'Party ended'; }); }, 1000);
 </script>
+<script src="/vaults.js" defer></script>
 </body>
 </html>
