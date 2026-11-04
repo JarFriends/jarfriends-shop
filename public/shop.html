@@ -67,7 +67,7 @@
   $('tRev').addEventListener('click', function () { tab('reviews'); });
   if (location.hash === '#posts' || location.hash === '#reviews') tab(location.hash.slice(1));
   function draw() {
-    var g = $('grid'); g.textContent = '';
+    var g = $('grid'); g.textContent = ''; items = items.filter(function (p) { return !(p.auction && !(p.auction.ends > Date.now())); });
     $('count').textContent = items.length ? items.length + (items.length === 1 ? ' piece' : ' pieces') : '';
     if (!items.length) { var e = el('div', 'No pieces listed right now. Check the community posts for what is coming.', 'jf-empty'); e.style.gridColumn = '1/-1'; g.appendChild(e); return; }
     items.forEach(function (p) {

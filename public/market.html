@@ -73,6 +73,7 @@
       if (q && !JF.matches(p, q)) return false;
       if (who && p.seller !== who) return false;
       if (view === 'auctions' && !p.auction) return false;
+      if (p.auction && !(p.auction.ends > Date.now())) return false;
       if (view === 'buy' && p.auction) return false;
       if (section && String(p.section).toLowerCase().indexOf(section.toLowerCase()) < 0) return false;
       return true;
