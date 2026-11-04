@@ -190,6 +190,7 @@
       a.appendChild(JF.picture(p));
       if (p.auction) a.appendChild(el('span', 'AUCTION', 'jf-tag')); else if (p.party) a.appendChild(el('span', '🎉 Party · up to ' + p.party.top + '% off', 'jf-pty')); else if (p.left === 1) a.appendChild(el('span', 'LAST ONE', 'jf-tag'));
       a.appendChild(el('div', p.name, 'jf-name'));
+      if (p.auction && p.auction.ends) { var ae = el('div', '', 'jf-ends'); ae.setAttribute('data-aends', p.auction.ends); a.appendChild(ae); }
       var m = el('div', null, 'jf-meta');
       m.appendChild(el('span', (p.auction ? 'Bid ' : '') + JF.usd(p.price), 'jf-price'));
       if (p.party) { var cd = el('div', '', 'small'); cd.style.cssText = 'color:#FF8A8E;font-weight:700'; cd.dataset.ends = p.party.ends; a.appendChild(cd); }

@@ -500,3 +500,11 @@
   var st = document.createElement('style'); st.textContent = 'a[href^="/live.html"],#liveNow{display:none!important}'; (document.head || document.documentElement).appendChild(st);
   if (/^\/live\.html/.test(location.pathname)) document.addEventListener('DOMContentLoaded', function () { var m = document.querySelector('main') || document.body; m.innerHTML = '<div style="max-width:560px;margin:60px auto;padding:0 16px;text-align:center"><h1>Live shows are paused</h1><p>They are coming back soon. In the meantime, <a href="/market.html">shop the market</a> or <a href="/market.html?view=auctions">bid on auctions</a>.</p></div>'; });
 })();
+
+// Auction cards: "⏱ Ends in 2d 4h" under the name, kept up to date (red in the last hour).
+(function () {
+  var st = document.createElement('style'); st.textContent = '.jf-ends{font-size:13px;font-weight:700;color:#C9A45C;margin:2px 0 0}.jf-ends.soon{color:#FF6B6B}.jf-ends.over{color:#9AA;font-weight:500}'; (document.head || document.documentElement).appendChild(st);
+  function fmt(ms) { var m = Math.floor(ms / 60000), h = Math.floor(m / 60), d = Math.floor(h / 24); return d >= 1 ? d + 'd ' + (h % 24) + 'h' : h >= 1 ? h + 'h ' + (m % 60) + 'm' : Math.max(1, m) + 'm'; }
+  function tick() { Array.prototype.forEach.call(document.querySelectorAll('[data-aends]'), function (e) { var left = Number(e.getAttribute('data-aends')) - Date.now(); var end = new Date(Number(e.getAttribute('data-aends'))); var c = 'jf-ends' + (left <= 0 ? ' over' : left < 3600e3 ? ' soon' : ''), t = left <= 0 ? 'Auction ended' : '⏱ Ends in ' + fmt(left) + ' · ' + end.toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' }); if (e.className !== c) e.className = c; if (e.textContent !== t) e.textContent = t; }); }
+  setInterval(tick, 30000); new MutationObserver(function () { clearTimeout(tick.t); tick.t = setTimeout(tick, 100); }).observe(document.documentElement, { childList: true, subtree: true }); tick();
+})();

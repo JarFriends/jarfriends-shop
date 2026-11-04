@@ -75,6 +75,7 @@
       a.appendChild(JF.picture(p));
       if (p.left <= 0 && !p.auction) a.appendChild(el('span', 'SOLD OUT', 'jf-tag out')); else if (p.party) a.appendChild(el('span', '🎉 Party · up to ' + p.party.top + '% off', 'jf-pty')); else if (p.left === 1) a.appendChild(el('span', 'LAST ONE', 'jf-tag'));
       a.appendChild(el('div', p.name, 'jf-name'));
+      if (p.auction && p.auction.ends) { var ae = el('div', '', 'jf-ends'); ae.setAttribute('data-aends', p.auction.ends); a.appendChild(ae); }
       var m = el('div', null, 'jf-meta'); m.appendChild(el('span', JF.usd(p.price), 'jf-price')); a.appendChild(m);
       var h = el('button', wish[p.id] ? '♥' : '♡', 'jf-heart'); h.type = 'button'; h.setAttribute('aria-pressed', wish[p.id] ? 'true' : 'false'); h.setAttribute('aria-label', (wish[p.id] ? 'Remove from' : 'Save to') + ' wishlist: ' + p.name);
       h.addEventListener('click', function (ev) {
