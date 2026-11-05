@@ -130,7 +130,7 @@ module.exports = async (req, res) => {
       const to = p ? H + (p.auction ? '/auction.html?id=' : '/piece.html?id=') + encodeURIComponent(p.id) : H + '/market.html';
       const title = p ? p.name + (p.auction ? ' · Auction' : ' · $' + p.price) : 'VeeFam collectors market';
       const desc = p ? (p.auction ? 'Bid now' : 'Buy now') + ' from ' + (p.sellerName || 'a VeeFam seller') + ' on VeeFam.' + (p.desc ? ' ' + String(p.desc).slice(0, 140) : '') : 'Collectibles from collectors you can trust.';
-      const img = p && p.photo ? (/^https?:/.test(p.photo) ? p.photo : H + p.photo) : H + '/hero-banner.jpg';
+      const img = p ? H + '/api/ogimg?id=' + encodeURIComponent(p.id) + '&v=' + Math.floor(Date.now() / 3e5) : H + '/hero-banner.jpg';
       res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.setHeader('Cache-Control', 'public, max-age=300');
       return res.send('<!doctype html><html><head><meta charset="utf-8"><title>' + esc(title) + '</title><meta property="og:type" content="product"><meta property="og:site_name" content="VeeFam"><meta property="og:title" content="' + esc(title) + '"><meta property="og:description" content="' + esc(desc) + '"><meta property="og:image" content="' + esc(img) + '"><meta property="og:url" content="' + esc(to) + '"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="' + esc(title) + '"><meta name="twitter:image" content="' + esc(img) + '"><meta http-equiv="refresh" content="0;url=' + esc(to) + '"></head><body><a href="' + esc(to) + '">See it on VeeFam</a></body></html>');
     }
