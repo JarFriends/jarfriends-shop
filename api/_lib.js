@@ -105,6 +105,14 @@ async function rpc(url, method, params) {
 }
 
 // Look for the token transfer in the node's own event logs.
+// A stablecoin payment counts if it is the exact amount shown, or the order's dollar amount sent without the
+// small random tail (11.67 USDC for an 11.67xxxx invoice): people often round it off. status.js makes sure one
+// payment is only ever used for one order.
+function amtOk(v, units, c) {
+  const want = BigInt(units); if (v === want) return true;
+  if (!c || !c.contract || c.dec !== 6) return false;
+  const base = want - (want % 10000n); return v >= base && v <= want + 10000n;
+}
 async function checkLogs(url, addr, units, from, to, c) {
   const now = Math.floor(Date.now() / 1000);
   const latest = Number(await rpc(url, 'eth_blockNumber', []));
@@ -115,7 +123,7 @@ async function checkLogs(url, addr, units, from, to, c) {
     const lo = Math.max(0, hi - Math.min(CHUNK, left) + 1);
     const logs = await rpc(url, 'eth_getLogs', [{ address: c.contract, fromBlock: hex(lo), toBlock: hex(hi), topics: [TRANSFER, null, topic] }]);
     for (const l of logs.slice().reverse()) {
-      if (l.removed || BigInt(l.data).toString() !== units) continue;
+      if (l.removed || !amtOk(BigInt(l.data), units, c)) continue;
       const blk = await rpc(url, 'eth_getBlockByNumber', [l.blockNumber, false]);
       const t = Number(blk.timestamp);
       if (t < from || t > to) continue;
@@ -141,7 +149,7 @@ async function checkEVM(addr, units, from, to, c) {
   if (!Array.isArray(j.result) && j.status !== '0') throw new Error('Unexpected reply from Ethereum data source');
   for (const tx of list) {
     if (String(tx.to || '').toLowerCase() !== addr.toLowerCase()) continue;
-    if (String(tx.value) !== units) continue;
+    if (!amtOk(BigInt(tx.value || 0), units, c)) continue;
     if (!contract && tx.isError && tx.isError !== '0') continue;
     const t = Number(tx.timeStamp);
     if (t < from || t > to) continue;

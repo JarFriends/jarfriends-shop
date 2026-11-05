@@ -34,6 +34,12 @@ module.exports = async (req, res) => {
     return res.json({ invoice: invoice, now: now, coin: coin, status: 'unknown', note: 'Could not reach the ' + COINS[coin].network + ' data source just now. It will be tried again.' });
   }
   let status = 'awaiting';
+  // One blockchain payment pays one order: if this transaction was already used for another order, it does not count.
+  if (found && found.hash) {
+    const ST0 = require('./_store'), uk = 'txused/' + String(found.hash).toLowerCase().replace(/[^0-9a-z]/g, '').slice(0, 90) + '.json', used = await ST0.read(uk).catch(() => null);
+    if (used && used.n !== inv.n) found = null;
+    else if (!used && found.confs >= COINS[coin].confs) await ST0.write(uk, { n: inv.n, at: Date.now() }).catch(() => null);
+  }
   if (found) status = found.confs >= COINS[coin].confs ? 'confirmed' : 'detected';
   else if (now > inv.d) status = 'expired';
   const email = status === 'confirmed' ? await sendPaidEmail(inv, coin, found) : null;
