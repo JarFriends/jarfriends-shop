@@ -241,7 +241,22 @@
     var a = D.address || {};
     var c = el('section', null, 'card'); c.style.gap = '12px';
     c.appendChild(el('h2', 'Ship to'));
-    c.appendChild(el('div', 'Checkout fills this in for you. US addresses only.', 'small dim'));
+    c.appendChild(el('div', 'Checkout fills in your default address, and you can pick any saved one when you check out.', 'small dim'));
+    // Saved addresses: make one the default, or delete it.
+    var L = D.addresses || [], lst = el('div'); lst.style.cssText = 'display:flex;flex-direction:column;gap:8px';
+    var line = function (x) { return [x.name, x.street, x.line2, x.city + ', ' + x.state + ' ' + x.zip].filter(Boolean).join(', '); };
+    var isDef = function (x) { var d = D.address || {}; return x.street === d.street && x.zip === d.zip && (x.line2 || '') === (d.line2 || ''); };
+    L.forEach(function (x, i) {
+      var r = el('div'); r.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;border:1px solid #2E4A3B;border-radius:10px;padding:8px 10px';
+      r.appendChild(el('span', line(x), 'small')); if (isDef(x)) r.appendChild(el('span', 'DEFAULT', 'jf-badge ok'));
+      var act = function (what) { return function () { post({ do: what, i: i }).then(function (q) { if (q.error) { alert(q.error); return; } D.address = q.address; D.addresses = q.addresses; draw(); }); }; };
+      if (!isDef(x)) { var dm = el('button', 'Make default', 'ghost'); dm.type = 'button'; dm.style.cssText = 'padding:4px 10px;min-height:0;font-size:13px'; dm.onclick = act('address-default'); r.appendChild(dm); }
+      var dl = el('button', 'Delete', 'ghost'); dl.type = 'button'; dl.style.cssText = 'padding:4px 10px;min-height:0;font-size:13px'; dl.onclick = function () { if (confirm('Delete this address?')) act('address-del')(); }; r.appendChild(dl);
+      lst.appendChild(r);
+    });
+    if (L.length) c.appendChild(lst);
+    c.appendChild(el('b', L.length ? 'Add another address' : 'Add your address'));
+    a = {};
     var f = el('form');
     var n = input(a.name || D.name, { maxlength: '80', autocomplete: 'name' }), st = input(a.street, { maxlength: '120', autocomplete: 'address-line1' }), l2 = input(a.line2, { maxlength: '60', autocomplete: 'address-line2' });
     var ci = input(a.city, { maxlength: '60', autocomplete: 'address-level2' }), sa = input(a.state, { maxlength: '30', autocomplete: 'address-level1' }), z = input(a.zip, { maxlength: '10', autocomplete: 'postal-code', inputmode: 'numeric' });
@@ -249,7 +264,7 @@
     var two = el('div', null, 'two'); two.appendChild(field('Street address', st)); two.appendChild(field('Apt or unit', l2, 'Optional.')); f.appendChild(two);
     var three = el('div', null, 'two'); three.appendChild(field('City', ci)); three.appendChild(field('State', sa)); three.appendChild(field('ZIP code', z)); f.appendChild(three);
     var go = el('button', 'Save address', 'solid'); go.type = 'submit'; var m = status(); f.appendChild(go); f.appendChild(m);
-    f.addEventListener('submit', function (ev) { ev.preventDefault(); go.disabled = true; post({ do: 'address', name: n.value, street: st.value, line2: l2.value, city: ci.value, state: sa.value, zip: z.value }).then(function (x) { go.disabled = false; m.textContent = x.error || 'Saved.'; }); });
+    f.addEventListener('submit', function (ev) { ev.preventDefault(); go.disabled = true; post({ do: 'address', add: true, def: !(D.addresses || []).length, name: n.value, street: st.value, line2: l2.value, city: ci.value, state: sa.value, zip: z.value }).then(function (x) { go.disabled = false; if (x.error) { m.textContent = x.error; return; } D.address = x.address; D.addresses = x.addresses; draw(); }); });
     c.appendChild(f);
     return c;
   }

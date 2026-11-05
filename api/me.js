@@ -110,7 +110,7 @@ module.exports = async (req, res) => {
     if (req.method === 'GET') {
       const seller = await M.byEmail(me);
       const c = await cards(u).catch(() => ({ cards: [], def: '' }));
-      return res.json({ email: me, name: u.name || '', mode: u.mode === 'seller' ? 'seller' : 'buyer', prefer: u.prefer || '', address: u.address || null,
+      return res.json({ email: me, name: u.name || '', mode: u.mode === 'seller' ? 'seller' : 'buyer', prefer: u.prefer || '', address: u.address || null, addresses: (u.addresses && u.addresses.length ? u.addresses : (u.address ? [u.address] : [])),
         cards: c.cards, defaultCard: c.def, cardsOn: stripe.ready(), cardTest: stripe.ready() && stripe.test(),
         seller: seller ? { slug: seller.slug, name: seller.name, status: seller.status } : null });
     }
@@ -130,8 +130,24 @@ module.exports = async (req, res) => {
       if (a.city.length < 2 || a.state.length < 2) return res.status(400).json({ error: 'Enter the city and state.' });
       // US ZIP codes, or a postal code with letters from outside the US (Canada, the UK and so on).
       if (!/^[0-9]{5}(-[0-9]{4})?$/.test(a.zip) && !/^[A-Za-z0-9][A-Za-z0-9 -]{1,9}$/.test(a.zip)) return res.status(400).json({ error: 'Enter your ZIP or postal code.' });
-      u = await U.put(me, { address: a });
-      return res.json({ ok: true, address: u.address });
+      // Saved addresses: up to 10. The one marked default is what checkout fills in first; the buyer can pick another.
+      const list = (u.addresses && u.addresses.length ? u.addresses : (u.address ? [u.address] : [])).slice();
+      const same = (x) => x && x.street === a.street && x.zip === a.zip && x.line2 === a.line2 && x.name === a.name;
+      let at = list.findIndex(same);
+      if (b.add || !list.length) { if (at < 0) { if (list.length >= 10) return res.status(400).json({ error: 'You can save up to 10 addresses. Delete one first.' }); list.push(a); at = list.length - 1; } }
+      else { const d0 = u.address || {}; at = Math.max(0, list.findIndex((x) => x && x.street === d0.street && x.zip === d0.zip)); list[at] = a; }
+      const def = b.add && !b.def && u.address ? u.address : a;
+      u = await U.put(me, { addresses: list, address: def });
+      return res.json({ ok: true, address: u.address, addresses: u.addresses });
+    }
+    if (what === 'address-del' || what === 'address-default') {
+      const list = (u.addresses && u.addresses.length ? u.addresses : (u.address ? [u.address] : [])).slice(), i = Math.floor(Number(b.i));
+      if (!(i >= 0 && i < list.length)) return res.status(400).json({ error: 'That address was not found.' });
+      let def = u.address;
+      if (what === 'address-default') def = list[i];
+      else { const gone = list.splice(i, 1)[0]; if (def && gone && def.street === gone.street && def.zip === gone.zip) def = list[0] || null; }
+      u = await U.put(me, { addresses: list, address: def });
+      return res.json({ ok: true, address: u.address, addresses: u.addresses });
     }
 
     // ---- Cards (Stripe) ----

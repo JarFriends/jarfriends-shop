@@ -15,6 +15,21 @@
     var a = m.address || {};
     fill('name', a.name || m.name); fill('email', m.email);
     fill('street', a.street); fill('line2', a.line2); fill('city', a.city); fill('state', a.state); fill('zip', a.zip);
+    // More than one saved address: a picker at the top of Ship to; choosing one fills the address in.
+    var AL = m.addresses || [], sb = document.getElementById('shipBox');
+    if (AL.length > 1 && sb && !document.getElementById('addrPick')) {
+      var lab = document.createElement('label'); lab.textContent = 'Ship to which saved address?'; lab.style.cssText = 'display:flex;flex-direction:column;gap:6px;font-weight:700;margin-bottom:8px';
+      var sel = document.createElement('select'); sel.id = 'addrPick'; sel.className = 'jf-sel';
+      AL.forEach(function (x, i) { var o2 = document.createElement('option'); o2.value = i; o2.textContent = [x.name, x.street + (x.line2 ? ' ' + x.line2 : ''), x.city + ', ' + x.state + ' ' + x.zip].filter(Boolean).join(' · '); if (a.street === x.street && a.zip === x.zip) o2.selected = true; sel.appendChild(o2); });
+      var nw = document.createElement('option'); nw.value = 'new'; nw.textContent = '+ Ship somewhere else'; sel.appendChild(nw);
+      sel.addEventListener('change', function () {
+        var set = function (k, v) { var i = f.elements[k]; if (!i) return; i.value = v || ''; i.dispatchEvent(new Event('input', { bubbles: true })); i.dispatchEvent(new Event('change', { bubbles: true })); };
+        var co = sb.querySelector('.co-addr button'); if (co) co.click();
+        if (sel.value === 'new') { ['street', 'line2', 'city', 'state', 'zip'].forEach(function (k) { set(k, ''); }); var st0 = f.elements.street; if (st0) st0.focus(); return; }
+        var x = AL[Number(sel.value)]; set('name', x.name || m.name); set('street', x.street); set('line2', x.line2); set('city', x.city); set('state', x.state); set('zip', x.zip);
+      });
+      lab.appendChild(sel); var lg = sb.querySelector('legend'); sb.insertBefore(lab, lg ? lg.nextSibling : sb.firstChild);
+    }
     var want = m.prefer === 'card' || (m.cards && m.cards.length && !m.prefer) ? 'card' : m.prefer;
     // The page may still be showing or hiding pay options; pick the favorite once its option is visible.
     var tries = 0, pick = function () {

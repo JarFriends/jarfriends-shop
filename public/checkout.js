@@ -136,7 +136,7 @@
     setTimeout(function () {
       var e = f.elements;
       if (!sb || !e.street || !e.street.value || !e.city.value || !e.zip.value) return;
-      var parts = Array.prototype.filter.call(sb.children, function (c) { return c.tagName !== 'LEGEND' && c.id !== 'taxNote' && c.id !== 'intlNote'; });
+      var parts = Array.prototype.filter.call(sb.children, function (c) { return c.tagName !== 'LEGEND' && c.id !== 'taxNote' && c.id !== 'intlNote' && !(c.querySelector && c.querySelector('#addrPick')); });
       parts.forEach(function (c) { c.dataset.coWas = c.style.display || ''; c.style.display = 'none'; });
       var line = el('div', null, 'co-addr');
       line.appendChild(el('span', e.street.value + (e.line2.value ? ', ' + e.line2.value : '') + ', ' + e.city.value + ', ' + e.state.value + ' ' + e.zip.value));
