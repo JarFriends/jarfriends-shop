@@ -25,7 +25,8 @@ async function quote(id, q) {
   const p = await piece(id); if (!p) return { error: 'This piece is not in a party.' };
   const st = await state(p);
   if (st.ended) return Object.assign({ error: 'This party has ended.' }, { state: st });
-  q = Math.max(1, Math.min(10, Math.floor(Number(q) || 1)));
+  const room = Math.max(0, (st.stock || 0) - st.sold); if (st.stock && room <= 0) return Object.assign({ error: 'This piece is sold out.' }, { state: st });
+  q = Math.max(1, Math.min(10, st.stock ? room : 10, Math.floor(Number(q) || 1)));
   const off = offAt(p.party.tiers, st.sold + q), c = each(p, off);
   return { state: st, qty: q, off: off, each: c, key: lib.sign({ oa: 1, n: 'PTY' + off, pid: p.id, q: q, c: c, x: Math.floor(Date.now() / 1000) + 1800 }) };
 }
