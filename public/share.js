@@ -12,9 +12,14 @@
     var b = function (t, fn) { var x = el('button', t, 'ghost'); x.type = 'button'; x.style.cssText = 'padding:8px 14px;min-height:0;border-radius:999px;font-size:14px'; x.addEventListener('click', fn); r.appendChild(x); return x; };
     var a = function (t, href) { var x = el('a', t, 'ghost'); x.href = href; x.target = '_blank'; x.rel = 'noopener'; x.style.cssText = 'padding:8px 14px;border-radius:999px;font-size:14px;text-decoration:none;border:1px solid #4E7A63;color:#F7F2E6'; r.appendChild(x); return x; };
     b('🔗 Copy link', function () { var ok = function () { m.textContent = 'Link copied. Paste it on Instagram, Discord, anywhere. It shows the photo and price.'; }; if (navigator.clipboard) navigator.clipboard.writeText(url).then(ok, function () { prompt('Copy this link:', url); }); else prompt('Copy this link:', url); });
-    a('𝕏 Post', 'https://x.com/intent/post?text=' + encodeURIComponent(txt) + '&url=' + encodeURIComponent(url));
+    // On phones the picture (photo + price) is attached to the post through the share sheet; on a computer X opens
+    // with the post written and shows the picture as the link's preview.
+    var file = null;
+    if (navigator.canShare) fetch('/api/ogimg?id=' + encodeURIComponent(p.id)).then(function (r) { return r.ok ? r.blob() : null; }).then(function (bl) { if (!bl) return; var f = new File([bl], 'veefam-' + p.id + '.png', { type: bl.type || 'image/png' }); if (navigator.canShare({ files: [f] })) file = f; }).catch(function () {});
+    var xi = 'https://x.com/intent/post?text=' + encodeURIComponent(txt) + '&url=' + encodeURIComponent(url);
+    b('𝕏 Post with picture', function () { if (file) navigator.share({ files: [file], text: txt + ' ' + url }).catch(function () { window.open(xi, '_blank'); }); else window.open(xi, '_blank'); });
     a('WhatsApp', 'https://wa.me/?text=' + encodeURIComponent(txt + ' ' + url));
-    if (navigator.share) b('📤 Share (Instagram, Discord, texts…)', function () { navigator.share({ title: p.name, text: txt, url: url }).catch(function () {}); });
+    if (navigator.share) b('📤 Share (Instagram, Discord, texts…)', function () { var d = { title: p.name, text: txt, url: url }; if (file) { d = { files: [file], text: txt + ' ' + url }; } navigator.share(d).catch(function () {}); });
     host.appendChild(w);
   };
 })();
