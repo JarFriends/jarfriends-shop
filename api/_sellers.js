@@ -462,8 +462,12 @@ function statsFrom(seller, rows, revs) {
   return { rating: revs.length ? Math.round(sum / revs.length * 10) / 10 : 0, reviews: revs.length, completed: done.length, clean: clean, issues: issues,
     verified: verified, need: VERIFY_AFTER(), override: seller.verify === 'on' || seller.verify === 'off' ? seller.verify : '' };
 }
+// A seller's rating and checkmark, kept for 5 minutes when worked out from scratch (it reads every sale of theirs).
+const statsMemo = new Map();
 async function stats(seller, rows) {
-  return statsFrom(seller, rows || (await ledger(seller.slug)), await reviews(seller.slug));
+  if (rows) return statsFrom(seller, rows, await reviews(seller.slug));
+  const m = statsMemo.get(seller.slug); if (m && Date.now() - m.at < 300000) return m.v;
+  const v = statsFrom(seller, await ledger(seller.slug), await reviews(seller.slug)); statsMemo.set(seller.slug, { at: Date.now(), v: v }); return v;
 }
 // Stats for many sellers at once (one ledger read).
 async function statsAll(sellers) {

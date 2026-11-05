@@ -48,7 +48,14 @@ async function walletCents() {
 
 
 // Every piece that is for sale now, with what is left. Same stock rule as the shop: start, less sold, less held.
+// The shop list is built from several stores (products, sales, holds, vaults, auction clocks), so it is kept for a
+// few seconds: opening a piece right after the market reuses it instead of rebuilding everything.
+let itemsMemo = null;
 async function shopItems() {
+  if (itemsMemo && Date.now() - itemsMemo.at < 15000) return itemsMemo.v;
+  const v = await shopItems0(); itemsMemo = { at: Date.now(), v: v }; return v;
+}
+async function shopItems0() {
   const all = await edits.apply(PRODUCTS);
   let sold = {}, held = {};
   try { sold = await store.soldBy(); } catch (e) { sold = {}; }
