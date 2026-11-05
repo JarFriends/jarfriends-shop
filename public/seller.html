@@ -1463,6 +1463,26 @@
     return box;
   }
   function orders(pane) {
+    // ⏳ Card or crypto checkouts on my pieces that are not paid yet: check the blockchain, or (owner) mark paid.
+    var pw = el('div'); pane.appendChild(pw);
+    JF.api('/api/market', { do: 'pending-list', t: tok, as: AS || undefined }).then(function (r) {
+      var L = (r && r.pending) || []; if (!L.length) return;
+      var c0 = el('section', null, 'card'); c0.style.gap = '8px'; c0.appendChild(el('h2', '⏳ Awaiting payment (' + L.length + ')'));
+      c0.appendChild(el('div', 'Checkouts started by card or crypto that are not paid yet. A paid one moves to your orders by itself.', 'small dim'));
+      L.forEach(function (x) {
+        var r1 = el('div'); r1.style.cssText = 'display:flex;flex-direction:column;gap:6px;border:1px solid #2E4A3B;border-radius:10px;padding:10px';
+        r1.appendChild(el('b', x.product + (x.q > 1 ? ' × ' + x.q : '') + ' · $' + x.total));
+        r1.appendChild(el('div', x.buyer + ' · ' + (x.how === 'card' ? 'card' : 'crypto') + ' · order ' + x.n + ' · ' + new Date(x.at).toLocaleString(), 'small'));
+        var row = el('div'); row.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;align-items:center'; var mm = el('span', '', 'small');
+        if (x.how === 'crypto') { var ck = el('button', 'Check for payment', 'ghost'); ck.type = 'button'; ck.onclick = function () { mm.textContent = 'Looking on the blockchain…'; fetch('/api/status?inv=' + encodeURIComponent(x.t), { cache: 'no-store' }).then(function (q) { return q.json(); }).then(function (q) { if (q.status === 'confirmed') { mm.textContent = 'Paid! It is now in your orders.'; load(); } else mm.textContent = q.status === 'detected' ? 'Payment seen, still confirming. Check again in a few minutes.' : 'No matching payment found yet (it has to be the exact amount, on the coin and network the buyer picked).'; }, function () { mm.textContent = 'Could not check. Try again.'; }); }; row.appendChild(ck); }
+        if (r.canMark) { var mk = el('button', '✓ Mark paid', 'solid'); mk.type = 'button'; mk.onclick = function () {
+          var pr = prompt('Mark order ' + x.n + ' ($' + x.total + ') paid? Only if the money is in your wallet or Stripe.' + (x.how === 'crypto' ? ' Paste the transaction link or hash (optional):' : ''), ''); if (pr === null) return;
+          pr = pr.trim(); if (/^0x[0-9a-fA-F]{64}$/.test(pr)) pr = 'https://etherscan.io/tx/' + pr;
+          mk.disabled = true; JF.api('/api/market', { do: 'pending-paid', t: tok, n: x.n, proof: pr }).then(function (q) { mk.disabled = false; if (q.error) { mm.textContent = q.error; return; } mm.textContent = 'Marked paid.'; load(); }); }; row.appendChild(mk); }
+        row.appendChild(mm); r1.appendChild(row); c0.appendChild(r1);
+      });
+      pw.appendChild(c0);
+    });
     if (!D.orders.length) { pane.appendChild(el('div', 'No orders yet. When someone buys one of your pieces it shows here.', 'jf-empty')); return; }
     D.orders.forEach(function (o) {
       var c = el('section', null, 'card'); c.style.gap = '10px';

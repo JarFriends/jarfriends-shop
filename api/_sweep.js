@@ -403,6 +403,16 @@ async function reviewNudge(now, mail) {
     if (m.revNudge || m.brevNudge) await store.write(mk, m);
   }
 }
+// Crypto checkouts the buyer left before the payment confirmed: look on the blockchain for them, so a paid one
+// becomes a paid order by itself (api/status.js records it), without anyone pressing Check for payment.
+async function cryptoCheck(now) {
+  const { list } = await import('@vercel/blob'), r = await list({ prefix: 'pending/', limit: 1000 });
+  const recent = (r.blobs || []).filter((b) => now - new Date(b.uploadedAt).getTime() < 3 * 86400000);
+  const have = {}; (await store.sales()).forEach((s) => { have[s.n] = 1; });
+  const todo = (await Promise.all(recent.filter((b) => !have[b.pathname.slice(8, -5)]).map((b) => store.read(b.pathname).catch(() => null)))).filter((p) => p && p.how === 'crypto' && p.t).slice(0, 12);
+  const host = 'https://' + (process.env.SITE_HOST || 'veefam.io');
+  for (const p of todo) await fetch(host + '/api/status?inv=' + encodeURIComponent(p.t), { cache: 'no-store' }).catch(() => null);
+}
 async function run() {
   const now = Date.now();
   if (process.env.VERCEL_ENV === 'production' && store.on()) await oneOff().catch((e) => { once = false; console.error('ONEOFF_FAIL', String(e && e.message || e)); });
@@ -415,6 +425,7 @@ async function run() {
   await carts(now, mail).catch((e) => console.error('SWEEP_CARTS_FAIL', String(e && e.message || e)));
   await offers(now, mail).catch((e) => console.error('SWEEP_OFFERS_FAIL', String(e && e.message || e)));
   await unpaid(now, mail).catch((e) => console.error('SWEEP_UNPAID_FAIL', String(e && e.message || e)));
+  await cryptoCheck(now).catch((e) => console.error('SWEEP_CRYPTO_FAIL', String(e && e.message || e)));
   // Sent on their own: a safe opening (including a new round) and party pricing opening. New pieces, price drops and
   // auctions go out together when the owner presses the daily update button in the back office (see _digest.js).
   // A queued round of safes goes live the moment the last safe on the site is bought (then safes() emails it).

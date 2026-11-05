@@ -812,6 +812,26 @@ module.exports = async (req, res) => {
     }
     // The buyer of an accepted offer paid the seller some other way (DMs, in person): the seller records it here.
     // It becomes a paid order, paid straight to the seller, so the piece comes off stock and VeeFam's fee is owed.
+    // Checkouts started on this shop's pieces with card or crypto and not paid yet (the last 14 days).
+    if (what === 'pending-list') {
+      const mine = {}; (await M.listings()).forEach((p) => { if (p.seller === seller.slug) mine[p.id] = 1; });
+      const { list } = await import('@vercel/blob'), r0 = await list({ prefix: 'pending/', limit: 1000 }), have = {};
+      (await store.sales()).forEach((x) => { have[x.n] = 1; });
+      const rows = (await Promise.all((r0.blobs || []).filter((b0) => !have[b0.pathname.slice(8, -5)] && Date.now() - new Date(b0.uploadedAt).getTime() < 14 * 864e5).map((b0) => store.read(b0.pathname).catch(() => null))))
+        .filter((p) => p && mine[p.pid]).sort((a, c) => c.at - a.at).map((p) => ({ n: p.n, t: p.t, how: p.how, product: p.product, q: p.q, buyer: p.buyer, total: p.total, at: p.at, ship: p.ship }));
+      return res.json({ pending: rows, canMark: M.isProtected(seller.slug, seller.email) });
+    }
+    // The owner's shop marks a started card or crypto checkout paid by hand, when the money is in their wallet or Stripe
+    // (other shops' card and crypto money goes to V2V, so only V2V can confirm it).
+    if (what === 'pending-paid' && req.method === 'POST') {
+      if (!M.isProtected(seller.slug, seller.email)) return res.status(403).json({ error: 'Ask V2V to confirm this payment.' });
+      const n = String(b.n || '').replace(/[^A-Za-z0-9-]/g, ''), pe = await store.read('pending/' + n + '.json').catch(() => null);
+      if (!pe) return res.status(404).json({ error: 'That checkout was not found.' });
+      const inv = require('./_lib').verify(pe.t); if (!inv) return res.status(400).json({ error: 'That checkout could not be read.' });
+      const proof = /^https:\/\/[^\s"<>]+$/.test(String(b.proof || '')) ? String(b.proof) : '';
+      const off = require('./_offline'), out = await off.record(inv, 'Paid in full (marked paid by you)', { paid: true, proof: proof, label: off.labelLink('https://' + req.headers.host, pe.t, inv) });
+      return out === 'ok' || out === 'duplicate' ? res.json({ ok: true }) : res.status(503).json({ error: 'Could not save that just now. Try again.' });
+    }
     if (what === 'offer-paid' && req.method === 'POST') {
       if (!seller) return res.status(403).json({ error: 'Open a seller shop first.' });
       const n = String(b.n || '').replace(/[^A-Za-z0-9-]/g, '').slice(0, 30), o = n && await store.read('offers/' + n + '.json');
