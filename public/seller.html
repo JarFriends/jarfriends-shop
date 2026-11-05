@@ -1071,7 +1071,7 @@
     f.appendChild(field('How it sells', mode));
     var priceL = field('Price (USD)', price), stockL = field('How many you have', stock);
     var two = el('div', null, 'two'); two.appendChild(priceL); two.appendChild(stockL); f.appendChild(two);
-    var hoursL = field('Auction length', hours, live ? 'Ends ' + new Date(p.auction.ends).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) + '. Last-minute bids add 2 minutes.' : 'Last-minute bids add 2 minutes, so nobody wins by sniping.');
+    var hoursL = field('Auction length', hours, live ? 'Ends ' + new Date(p.auction.ends).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) + '. A bid in the last 60 seconds resets the clock to 60 seconds.' : 'A bid in the last 60 seconds resets the clock to 60 seconds, so nobody wins by sniping.');
     var minL = field('Lowest offer you will look at (USD)', minOffer, 'Offers under this are declined for you automatically. You answer the rest in the Offers tab.');
     hoursL.appendChild(endAt); f.appendChild(hoursL); f.appendChild(minL);
     var cost = input('number', p && p.cost != null ? p.cost : '', { min: '0', step: '0.01', inputmode: 'decimal', placeholder: 'Optional' });

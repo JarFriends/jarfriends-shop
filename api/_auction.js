@@ -1,9 +1,9 @@
 // Auctions. A product with an "auction" setting ({ start: dollars, ends: ISO time }) is sold to the highest bidder.
 // Bids are files under auction/<id>/bids/, one per bid, so two bids at once never overwrite each other.
-// auction/<id>/state.json holds a later end time (a bid in the last 2 minutes adds 2 minutes) and what happened
+// auction/<id>/state.json holds a later end time (extended bidding: a bid in the last 60 seconds resets the clock to 60 seconds) and what happened
 // after it ended (who was offered the piece, and when).
 const store = require('./_store');
-const EXTEND = 2 * 60000;
+const EXTEND = 60000;
 // How much the next bid must add: 25 cents under $5, 50 cents under $25, $1 under $100, then $2.50.
 const inc = (c) => (c < 500 ? 25 : c < 2500 ? 50 : c < 10000 ? 100 : 250);
 async function list() {
