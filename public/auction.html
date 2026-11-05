@@ -95,7 +95,7 @@
         <button type="button" class="linkb" id="forgot" style="align-self:flex-start;font-size:13px;text-align:left">Forgot your password? Email me a sign-in link instead</button>
       </form>
       <div class="small2" id="ship"></div>
-      <div class="small2">The highest bid when the clock runs out wins. Extended bidding: a bid in the last 60 seconds resets the clock to 60 seconds. The winner gets an email with a link to pay within 24 hours.</div>
+      <div class="small2">The highest bid when the clock runs out wins. <span id="extNote" hidden>Extended bidding is on: a bid in the last 60 seconds resets the clock to 60 seconds.</span> The winner gets an email with a link to pay within 24 hours.</div>
       <div>
         <div class="mono gold" style="font-size:12px;letter-spacing:.12em;margin-bottom:4px">BIDS</div>
         <div class="hist" id="hist"><span class="small2">No bids yet. Be the first.</span></div>
@@ -192,7 +192,7 @@
     $('minNote').textContent = pick < next ? 'Bid ' + money(next) + ' or more.' : 'Next bid must be ' + money(next) + ' or more.';
   }
   function draw(a) {
-    A = a;
+    A = a; if ($('extNote')) $('extNote').hidden = !a.extend;
     var t = title(a.name); $('name').textContent = t[0]; $('sub').textContent = t[1];
     document.title = 'Auction: ' + t[0];
     $('cur').textContent = '$' + a.current;

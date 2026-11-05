@@ -20,7 +20,7 @@ module.exports = async (req, res) => {
   const host = 'https://' + req.headers.host;
   if (req.method === 'GET') {
     const s = await A.state(p);
-    const out = Object.assign({ id: p.id, name: p.name }, A.pub(s));
+    const out = Object.assign({ id: p.id, name: p.name, extend: !!p.auction.extend }, A.pub(s));
     const me = gate.bidderOf(req.query && req.query.t);
     if (me) {
       const mine = s.list.filter((x) => x.e === me);
@@ -43,7 +43,8 @@ module.exports = async (req, res) => {
   if (METHODS.indexOf(b.method) >= 0) await store.write(prefKey(me), { method: b.method, at: now });
   await store.write('auction/' + p.id + '/bids/' + now + '-' + Math.random().toString(36).slice(2, 8) + '.json', { e: me, amt: amt, at: now });
   // A bid in the last 2 minutes keeps the auction open 2 more minutes, so nobody wins by bidding at the last second.
-  if (s.ends - now < A.EXTEND) await store.write('auction/' + p.id + '/state.json', Object.assign({}, s.st, { ends: now + A.EXTEND }));
+  // Extended bidding (only when the seller turned it on for this auction): a bid in the last 60 seconds resets the clock to 60 seconds.
+  if (p.auction.extend && s.ends - now < A.EXTEND) await store.write('auction/' + p.id + '/state.json', Object.assign({}, s.st, { ends: now + A.EXTEND }));
   // The bidder who was on top hears they have been outbid.
   if (s.top && s.top.e !== me) {
     const link = host + '/auction.html?id=' + encodeURIComponent(p.id);

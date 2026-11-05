@@ -251,9 +251,9 @@ async function saveListing(seller, f) {
   if (f.mode === 'auction') {
     const hrs = Number(f.hours);
     const live = was && was.auction && Date.parse(was.auction.ends) > Date.now();
-    if (f.hours === '' || f.hours == null) { if (!live) return { error: 'Pick how long the auction runs.' }; auction = { start: price, ends: was.auction.ends }; }
+    if (f.hours === '' || f.hours == null) { if (!live) return { error: 'Pick how long the auction runs.' }; auction = { start: price, ends: was.auction.ends, extend: !!f.extend }; }
     else if (!(hrs >= 1 && hrs <= 336)) return { error: 'An auction runs from 1 hour to 14 days.' };
-    else auction = { start: price, ends: new Date(Date.now() + hrs * 3600000).toISOString() };
+    else auction = { start: price, ends: new Date(Date.now() + hrs * 3600000).toISOString(), extend: !!f.extend };
   }
   // Party pricing (Buy now only): the more that sell before the countdown ends, the lower the price for everyone.
   // tiers: [units sold, % off], up to 4 levels. When it ends, anyone who paid more than the final level is owed the
