@@ -162,6 +162,7 @@
     if (!P) return;
     if (P.photo) { $('pic').src = P.photo; $('pic').alt = P.name; $('pic').hidden = false; }
     $('desc').textContent = P.desc || '';
+    if (window.V2VShare) V2VShare($('desc').parentNode, { id: P.id, name: P.name, auction: true });
     $('ship').textContent = P.calc ? 'Shipping is priced for your address when you pay.' : Number(P.ship) > 0 ? 'Shipping $' + P.ship + '.' : 'Free shipping.';
   }).catch(function () {});
   function title(n) {
@@ -323,5 +324,6 @@
   });
 })();
 </script>
+<script src="/share.js"></script>
 </body>
 </html>

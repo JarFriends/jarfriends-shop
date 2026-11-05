@@ -100,6 +100,7 @@
     // An odd one out at the end spans the full width, so the buttons stay tidy.
     if ((acts.children.length - 1) % 2 === 1) acts.lastChild.classList.add('wide');
     info.appendChild(acts);
+    if (window.V2VShare) V2VShare(info, { id: p.id, name: p.name, price: p.price });
     if (p.desc) { info.appendChild(el('h3', 'About this piece')); info.appendChild(el('div', p.desc, 'pc-desc')); }
     // The shop it comes from.
     if (p.sellerName) {
@@ -113,5 +114,6 @@
   }).catch(function () { box.textContent = 'This piece did not load. Refresh to try again.'; });
 })();
 </script>
+<script src="/share.js"></script>
 </body>
 </html>

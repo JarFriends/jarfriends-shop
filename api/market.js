@@ -120,6 +120,17 @@ module.exports = async (req, res) => {
       const wallet = await walletCents();
       return res.json({ fee: M.feePct(), products: items, sellers: sellers, seller: one || null, sections: M.SECTIONS, wallet: wallet, giveaway: M.giveawayPct() });
     }
+    // A share link for a piece: its photo, name and price as the preview (X, Instagram, Discord, WhatsApp, texts), then on to it.
+    if (req.method === 'GET' && what === 'og') {
+      const p = (await shopItems()).filter((x) => x.id === String(q.id || ''))[0], H = 'https://' + req.headers.host;
+      const esc = (v) => String(v || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+      const to = p ? H + (p.auction ? '/auction.html?id=' : '/piece.html?id=') + encodeURIComponent(p.id) : H + '/market.html';
+      const title = p ? p.name + (p.auction ? ' · Auction' : ' · $' + p.price) : 'VeeFam collectors market';
+      const desc = p ? (p.auction ? 'Bid now' : 'Buy now') + ' from ' + (p.sellerName || 'a VeeFam seller') + ' on VeeFam.' + (p.desc ? ' ' + String(p.desc).slice(0, 140) : '') : 'Collectibles from collectors you can trust.';
+      const img = p && p.photo ? (/^https?:/.test(p.photo) ? p.photo : H + p.photo) : H + '/hero-banner.jpg';
+      res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.setHeader('Cache-Control', 'public, max-age=300');
+      return res.send('<!doctype html><html><head><meta charset="utf-8"><title>' + esc(title) + '</title><meta property="og:type" content="product"><meta property="og:site_name" content="VeeFam"><meta property="og:title" content="' + esc(title) + '"><meta property="og:description" content="' + esc(desc) + '"><meta property="og:image" content="' + esc(img) + '"><meta property="og:url" content="' + esc(to) + '"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="' + esc(title) + '"><meta name="twitter:image" content="' + esc(img) + '"><meta http-equiv="refresh" content="0;url=' + esc(to) + '"></head><body><a href="' + esc(to) + '">See it on VeeFam</a></body></html>');
+    }
     // Which seller a piece belongs to, for "Sold by" on checkout.
     if (req.method === 'GET' && what === 'item') {
       const p = (await shopItems()).filter((x) => x.id === String(q.id || ''))[0];
