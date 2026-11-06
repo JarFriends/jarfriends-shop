@@ -32,6 +32,8 @@ const wishKey = (e) => 'wish/' + M.hashOf(e) + '.json';
 const photoHits = new Map();
 // The giveaway wallet in cents: GIVEAWAY_PERCENT (2) of every paid sale. Worked out at most once a minute.
 let walletMemo = null;
+// A listing's extra photos, as links.
+function morePhotos(p) { return ((p && p.more) || []).map((k) => '/api/photo?id=' + p.id + '-' + k); }
 async function walletCents() {
   if (walletMemo && Date.now() - walletMemo.at < 60000) return walletMemo.v;
   // The wallet was set to $30.00 on Oct 27 2026 (3:31 PM Chicago). From then on, each paid sale adds its 2% on top.
@@ -72,7 +74,7 @@ async function shopItems0() {
     const left = Math.max(0, Number(p.stock || 0) - (sold[p.id] || 0) - (held[p.id] || 0));
     const free = p.shipping === 'free' || !Number(p.shipping);
     return { id: p.id, name: p.name, price: Number(p.price).toFixed(2), left: left, ship: free ? '0.00' : Number(p.shipping).toFixed(2), calc: p.shipMode === 'calc', returns: p.returns || 'no', section: p.section || '', desc: p.desc || '',
-      photo: photoOf(p), reserved: !!(p.reservedFor && p.reservedFor.length), seller: p.seller || '', sellerName: p.sellerName || 'JarFriends', auction: p.auction && p.auction.ends ? { ends: Date.parse(p.auction.ends) || 0, start: Number(p.auction.start) || 0 } : null, nft: !!(p.nft && p.nft !== 'no') || !!(p.seller && M.sectionOf(p) === 'NFTs'), added: p.created || p.updated || 0, party: p.party && p.party.ends > Date.now() ? { ends: p.party.ends, top: Math.max.apply(null, p.party.tiers.map((t) => t[1])) } : null };
+      photo: photoOf(p), more: morePhotos(p), reserved: !!(p.reservedFor && p.reservedFor.length), seller: p.seller || '', sellerName: p.sellerName || 'JarFriends', auction: p.auction && p.auction.ends ? { ends: Date.parse(p.auction.ends) || 0, start: Number(p.auction.start) || 0 } : null, nft: !!(p.nft && p.nft !== 'no') || !!(p.seller && M.sectionOf(p) === 'NFTs'), added: p.created || p.updated || 0, party: p.party && p.party.ends > Date.now() ? { ends: p.party.ends, top: Math.max.apply(null, p.party.tiers.map((t) => t[1])) } : null };
   });
   // Extended bidding pushes an auction's end later (auction/<id>/state.json): cards count down to the real end.
   await Promise.all(out.filter((p) => p.auction).map(async (p) => { const st = await store.read('auction/' + p.id + '/state.json').catch(() => null); if (st && st.ends > p.auction.ends) p.auction.ends = st.ends; }));
@@ -154,7 +156,7 @@ module.exports = async (req, res) => {
       const p = (await shopItems()).filter((x) => x.id === String(q.id || ''))[0];
       if (!p) return res.status(404).json({ error: 'Not found.' });
       const s = p.seller ? await M.bySlug(p.seller) : null, st = s ? await M.stats(s) : null;
-      return res.json({ reserved: !!p.reserved, party: !!p.party, id: p.id, name: p.name, price: p.price, ship: p.ship, calc: !!p.calc, returns: p.returns || 'no', left: p.left, photo: p.photo, desc: p.desc || '', auction: p.auction, nft: p.nft, section: p.section || '', seller: p.seller, sellerName: p.sellerName, rating: st ? st.rating : 0, reviews: st ? st.reviews : 0, verified: st ? st.verified : false });
+      return res.json({ morePhotos: p.more || [], reserved: !!p.reserved, party: !!p.party, id: p.id, name: p.name, price: p.price, ship: p.ship, calc: !!p.calc, returns: p.returns || 'no', left: p.left, photo: p.photo, desc: p.desc || '', auction: p.auction, nft: p.nft, section: p.section || '', seller: p.seller, sellerName: p.sellerName, rating: st ? st.rating : 0, reviews: st ? st.reviews : 0, verified: st ? st.verified : false });
     }
     // A shop's rating, checkmark and reviews (newest first). Reviewers show as first name and initial.
     if (req.method === 'GET' && what === 'reviews') {
@@ -725,7 +727,7 @@ module.exports = async (req, res) => {
       const sold = {};
       rows.forEach((r) => { sold[r.pid] = (sold[r.pid] || 0) + r.q; });
       const listings = all.filter((p) => p.seller === seller.slug).sort((a, b2) => (b2.created || 0) - (a.created || 0))
-        .map((p) => Object.assign({}, p, { sold: sold[p.id] || 0, left: Math.max(0, p.stock - (sold[p.id] || 0)), photoUrl: photoOf(p) }));
+        .map((p) => Object.assign({}, p, { sold: sold[p.id] || 0, left: Math.max(0, p.stock - (sold[p.id] || 0)), photoUrl: photoOf(p), morePhotos: morePhotos(p) }));
       // The seller ships their own orders, so they see the ship-to address, but only once the order is paid.
       const orders = rows.map((r) => Object.assign({}, r, r.paid ? {} : { ship: '', email: '' }));
       // Buyer ratings: which orders this seller already rated, and each buyer's average from every seller.
@@ -1113,6 +1115,20 @@ const r = await fetch(require('./_ai').url(), {
       await put('photos/' + id + '.jpg', buf, { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'image/jpeg' });
       const p = await M.setListing(seller, id, { photo: Date.now() });
       return res.json({ ok: true, photo: photoOf(p) });
+    }
+    // Extra photos for a listing (up to 7 more): photos/<id>-<key>.jpg, kept in order in listing.more.
+    if (what === 'photo-more' || what === 'photo-more-del') {
+      const id = String(b.id || ''); if (!M.isSellerPid(id)) return res.status(400).json({ error: 'Save the listing first.' });
+      const was = await store.read('market/' + seller.slug + '/' + id + '.json'); if (!was || was.seller !== seller.slug) return res.status(404).json({ error: 'That listing was not found.' });
+      const more = (was.more || []).slice();
+      if (what === 'photo-more-del') { more.splice(Math.floor(Number(b.i)), 1); const p0 = await M.setListing(seller, id, { more: more }); return res.json({ ok: true, morePhotos: morePhotos(p0) }); }
+      if (more.length >= 7) return res.status(400).json({ error: 'Up to 8 photos per piece.' });
+      const buf = Buffer.from(String(b.data || '').replace(/^data:image\/jpeg;base64,/, ''), 'base64');
+      if (buf.length < 1000 || buf.length > 1500000 || buf[0] !== 0xFF || buf[1] !== 0xD8) return res.status(400).json({ error: 'That photo could not be used. Try another one.' });
+      const k = Date.now().toString(36).slice(-6), { put } = await import('@vercel/blob');
+      await put('photos/' + id + '-' + k + '.jpg', buf, { access: 'private', addRandomSuffix: false, allowOverwrite: true, contentType: 'image/jpeg' });
+      more.push(k); const p0 = await M.setListing(seller, id, { more: more });
+      return res.json({ ok: true, morePhotos: morePhotos(p0) });
     }
     if (what === 'post') {
       let photo = 0, buf = null;

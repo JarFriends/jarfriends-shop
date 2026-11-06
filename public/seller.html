@@ -1133,6 +1133,18 @@
     shipMode.addEventListener('change', showShip); showShip();
     f.appendChild(field('Category (buyers filter by this)', sec));
     f.appendChild(field('Photo', photo, p && p.photoUrl ? 'Pick a new one to replace the current photo.' : 'A clear, square-ish photo works best.'));
+    // More photos (up to 8 in all): back, corners, label, close-ups. New ones upload when you press Save.
+    var moreQ = [], mw = el('div'); mw.style.cssText = 'display:flex;flex-direction:column;gap:8px';
+    var mlist = el('div'); mlist.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px';
+    var thumb = function (src, onX) { var t = el('div'); t.style.cssText = 'position:relative;width:78px;height:78px'; var im = el('img'); im.src = src; im.alt = ''; im.style.cssText = 'width:78px;height:78px;object-fit:cover;border-radius:8px;border:1px solid #2E4A3B'; t.appendChild(im); var x = el('button', '×'); x.type = 'button'; x.setAttribute('aria-label', 'Remove photo'); x.style.cssText = 'position:absolute;top:-6px;right:-6px;width:24px;height:24px;min-height:0;padding:0;border-radius:50%;background:#0B1712;color:#F7F2E6;border:1px solid #C9A45C;font-size:15px;line-height:1'; x.onclick = onX; t.appendChild(x); return t; };
+    var drawMore = function () { mlist.textContent = '';
+      ((p && p.morePhotos) || []).forEach(function (u, i) { mlist.appendChild(thumb(u, function () { if (!confirm('Remove this photo?')) return; JF.api('/api/market', { do: 'photo-more-del', t: tok, as: AS, ak: AK, id: p.id, i: i }).then(function (x) { if (x.error) { alert(x.error); return; } p.morePhotos = x.morePhotos; drawMore(); }); })); });
+      moreQ.forEach(function (fl, i) { mlist.appendChild(thumb(URL.createObjectURL(fl), function () { moreQ.splice(i, 1); drawMore(); })); }); };
+    var mpick = input('file'); mpick.accept = 'image/*'; mpick.multiple = true; mpick.setAttribute('data-nopaste', '1');
+    mpick.addEventListener('change', function () { var room = 7 - ((p && p.morePhotos) || []).length - moreQ.length; Array.prototype.slice.call(mpick.files || [], 0, Math.max(0, room)).forEach(function (fl) { moreQ.push(fl); }); mpick.value = ''; drawMore(); });
+    mw.appendChild(mlist); mw.appendChild(mpick); drawMore();
+    f.appendChild(field('More photos (optional, up to 7 more)', mw, 'Back, corners, the label, close-ups. Buyers swipe through them on the piece page.'));
+    var upMore = function (id) { var ch = Promise.resolve(); moreQ.forEach(function (fl) { ch = ch.then(function () { return shrink(fl).then(function (data) { return JF.api('/api/market', { do: 'photo-more', t: tok, as: AS, ak: AK, id: id, data: data }); }); }); }); return ch.then(function () { moreQ = []; }, function () { moreQ = []; }); };
     f.appendChild(photoPrev);
     f.appendChild(hl);
     var price2 = el('div', '', 'small dim');
@@ -1147,11 +1159,11 @@
       JF.api('/api/market', { do: 'listing', t: tok, as: AS, ak: AK, id: p ? p.id : '', cost: cost.value, name: name.value, desc: desc.value, price: price.value, stock: mode.value === 'auction' ? 1 : stock.value, shipping: ship.value, shipMode: shipMode.value, returns: returns.value, pkgPreset: pf.read().preset, pkgOz: pf.read().oz, pkgL: pf.read().l, pkgW: pf.read().w, pkgH: pf.read().h, section: sec.value, hidden: hidden.checked, mode: mode.value, hours: hoursOut(), extend: extB.checked, reserve: resIn.value, minOffer: mode.value === 'auction' ? '' : minOffer.value, party: partyVal() }).then(function (r) {
         if (r.error) { go.disabled = false; m.textContent = r.error; return; }
         var file = photo.files && photo.files[0];
-        if (!file) return finish();
+        if (!file) { if (moreQ.length) m.textContent = 'Uploading the photos…'; return upMore(r.listing.id).then(finish); }
         m.textContent = 'Uploading the photo…';
         return shrink(file).then(function (data) { return JF.api('/api/market', { do: 'photo', t: tok, as: AS, ak: AK, id: r.listing.id, data: data }); }).then(function (x) {
           if (x.error) { go.disabled = false; m.textContent = 'Saved, but the photo did not upload: ' + x.error; return; }
-          finish();
+          upMore(r.listing.id).then(finish);
         }).catch(function (e) { go.disabled = false; m.textContent = 'Saved, but the photo did not upload: ' + e.message; });
       });
       function finish() { editing = null; adding = false; load(); }
