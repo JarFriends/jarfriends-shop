@@ -9,7 +9,7 @@ window.__css = '.vi{background:#060D09;overflow:hidden}'
 + '@keyframes vbSpin{from{transform:rotate(-200deg)}to{transform:rotate(0)}}@keyframes vbHide{to{opacity:0;transform:scale(.8)}}'
 + '.vb-in{display:flex;flex-direction:column;align-items:center;gap:14px;opacity:0;animation:vbShow .9s 2.3s ease forwards}.vb-in b{font:700 48px "Playfair Display",Georgia,serif;letter-spacing:.3em;color:#F3E7C8}.vb-in b i{font-style:normal;color:#C9A45C}.vb-in span{font:500 11px "IBM Plex Mono",monospace;letter-spacing:.4em;color:#C9A45C}'
 + '@keyframes vbShow{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:none}}@media(max-width:480px){.vb-in b{font-size:34px}}';
-window.__html = '<div class="vb-in"><b>VEEFAM<i>.</i></b><span>THE VAULT IS OPEN</span></div><div class="vb-l"></div><div class="vb-r"></div><div class="vb-dial"></div>';
+window.__html = '<div class="vb-in"><b>VEEFAM<i>.</i></b><span>V2V</span></div><div class="vb-l"></div><div class="vb-r"></div><div class="vb-dial"></div>';
 (function () {
   try { if (sessionStorage.getItem('v2vIntro')) return; sessionStorage.setItem('v2vIntro', '1'); } catch (e) {}
   if (!/^\/(index\.html)?$/.test(location.pathname)) return;
