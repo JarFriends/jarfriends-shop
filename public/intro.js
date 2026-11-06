@@ -1,6 +1,6 @@
 // The opening on veefam.io (option B, the vault): a gold dial spins into place, the doors slide open on VEEFAM.
 // Once per visit, home page only; tap to skip; a quick fade for people who prefer less motion.
-window.__ms = 3200;
+window.__ms = 3800;
 window.__css = '.vi{background:#060D09;overflow:hidden}'
 + '.vb-l,.vb-r{position:absolute;top:0;bottom:0;width:50%;background:linear-gradient(90deg,#0E2219,#13301F);animation:vbOpen 1s 2s cubic-bezier(.7,0,.2,1) forwards}.vb-l{left:0;border-right:1px solid #C9A45C}.vb-r{right:0;border-left:1px solid #C9A45C;background:linear-gradient(270deg,#0E2219,#13301F)}'
 + '.vb-r{animation-name:vbOpenR}@keyframes vbOpen{to{transform:translateX(-100%)}}@keyframes vbOpenR{to{transform:translateX(100%)}}'
