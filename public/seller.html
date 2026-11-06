@@ -1089,6 +1089,8 @@
     var extB = input('checkbox'); extB.checked = !!(p && p.auction && p.auction.extend);
     var extL = el('label'); extL.style.cssText = 'display:flex;gap:8px;align-items:center;font-weight:600'; extL.appendChild(extB); extL.appendChild(document.createTextNode('⏱ Extended bidding: a bid in the last 60 seconds resets the clock to 60 seconds (stops last-second sniping)'));
     hoursL.appendChild(endAt); hoursL.appendChild(extL); f.appendChild(hoursL); f.appendChild(minL);
+    var resIn = input('text'); resIn.placeholder = 'buyer@email.com, another@email.com'; resIn.value = (p && p.reservedFor || []).join(', ');
+    f.appendChild(field('🔒 Reserve for specific buyers (optional)', resIn, 'Only these buyers can buy it, signed in with this email. It stays off the market; send them the link to the piece.'));
     var cost = input('number', p && p.cost != null ? p.cost : '', { min: '0', step: '0.01', inputmode: 'decimal', placeholder: 'Optional' });
     f.appendChild(field('What you paid for it (USD, each)', cost, 'Private: only you see this. When it sells, the Profit tab shows what you made.'));
     // Party pricing: the more that sell before the countdown ends, the lower the price for everyone (api/_partyS.js).
@@ -1142,7 +1144,7 @@
     c.appendChild(f);
     f.addEventListener('submit', function (ev) {
       ev.preventDefault(); go.disabled = true; m.textContent = 'Saving…';
-      JF.api('/api/market', { do: 'listing', t: tok, as: AS, ak: AK, id: p ? p.id : '', cost: cost.value, name: name.value, desc: desc.value, price: price.value, stock: mode.value === 'auction' ? 1 : stock.value, shipping: ship.value, shipMode: shipMode.value, returns: returns.value, pkgPreset: pf.read().preset, pkgOz: pf.read().oz, pkgL: pf.read().l, pkgW: pf.read().w, pkgH: pf.read().h, section: sec.value, hidden: hidden.checked, mode: mode.value, hours: hoursOut(), extend: extB.checked, minOffer: mode.value === 'auction' ? '' : minOffer.value, party: partyVal() }).then(function (r) {
+      JF.api('/api/market', { do: 'listing', t: tok, as: AS, ak: AK, id: p ? p.id : '', cost: cost.value, name: name.value, desc: desc.value, price: price.value, stock: mode.value === 'auction' ? 1 : stock.value, shipping: ship.value, shipMode: shipMode.value, returns: returns.value, pkgPreset: pf.read().preset, pkgOz: pf.read().oz, pkgL: pf.read().l, pkgW: pf.read().w, pkgH: pf.read().h, section: sec.value, hidden: hidden.checked, mode: mode.value, hours: hoursOut(), extend: extB.checked, reserve: resIn.value, minOffer: mode.value === 'auction' ? '' : minOffer.value, party: partyVal() }).then(function (r) {
         if (r.error) { go.disabled = false; m.textContent = r.error; return; }
         var file = photo.files && photo.files[0];
         if (!file) return finish();

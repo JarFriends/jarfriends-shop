@@ -64,7 +64,7 @@ async function shopItems0() {
     const left = Math.max(0, Number(p.stock || 0) - (sold[p.id] || 0) - (held[p.id] || 0));
     const free = p.shipping === 'free' || !Number(p.shipping);
     return { id: p.id, name: p.name, price: Number(p.price).toFixed(2), left: left, ship: free ? '0.00' : Number(p.shipping).toFixed(2), calc: p.shipMode === 'calc', returns: p.returns || 'no', section: p.section || '', desc: p.desc || '',
-      photo: photoOf(p), seller: p.seller || '', sellerName: p.sellerName || 'JarFriends', auction: p.auction && p.auction.ends ? { ends: Date.parse(p.auction.ends) || 0, start: Number(p.auction.start) || 0 } : null, nft: !!(p.nft && p.nft !== 'no') || !!(p.seller && M.sectionOf(p) === 'NFTs'), added: p.created || p.updated || 0, party: p.party && p.party.ends > Date.now() ? { ends: p.party.ends, top: Math.max.apply(null, p.party.tiers.map((t) => t[1])) } : null };
+      photo: photoOf(p), reserved: !!(p.reservedFor && p.reservedFor.length), seller: p.seller || '', sellerName: p.sellerName || 'JarFriends', auction: p.auction && p.auction.ends ? { ends: Date.parse(p.auction.ends) || 0, start: Number(p.auction.start) || 0 } : null, nft: !!(p.nft && p.nft !== 'no') || !!(p.seller && M.sectionOf(p) === 'NFTs'), added: p.created || p.updated || 0, party: p.party && p.party.ends > Date.now() ? { ends: p.party.ends, top: Math.max.apply(null, p.party.tiers.map((t) => t[1])) } : null };
   });
   // Extended bidding pushes an auction's end later (auction/<id>/state.json): cards count down to the real end.
   await Promise.all(out.filter((p) => p.auction).map(async (p) => { const st = await store.read('auction/' + p.id + '/state.json').catch(() => null); if (st && st.ends > p.auction.ends) p.auction.ends = st.ends; }));
@@ -117,7 +117,7 @@ module.exports = async (req, res) => {
         + '<meta http-equiv="refresh" content="0;url=' + esc(to) + '"><script>location.replace(' + JSON.stringify(to) + ')</script></head><body style="background:#0B1A13;color:#F7F2E6;font-family:sans-serif;padding:24px"><a style="color:#C9A45C" href="' + esc(to) + '">Open ' + esc(title) + '</a></body></html>');
     }
     if (req.method === 'GET' && what === 'shop') {
-      let items = await shopItems();
+      let items = (await shopItems()).filter((p) => !p.reserved);
       const open = (await M.all()).filter((s) => s.status === 'approved');
       const st = await M.statsAll(open);
       // Each shop with its rating and checkmark; pieces carry their seller's checkmark for the cards.
