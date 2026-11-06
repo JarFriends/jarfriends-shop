@@ -37,10 +37,18 @@ async function walletCents() {
   // The wallet was set to $30.00 on Oct 27 2026 (3:31 PM Chicago). From then on, each paid sale adds its 2% on top.
   // It only ever goes up: a cancelled label, refund or edited order never takes money back out of it.
   const BASE = 3000, SINCE = 1793133000000;
-  const live = BASE + Math.round((await M.ledger(null)).filter((r) => r.paid && (r.at || 0) >= SINCE).reduce((t, r) => t + (r.items || 0), 0) * M.giveawayPct() / 100);
-  const fl = (await store.read('settings/wallet-floor-2.json').catch(() => null)) || { v: BASE };
-  const v = Math.max(live, fl.v || 0);
-  if (v > (fl.v || 0)) await store.write('settings/wallet-floor-2.json', { v: v, at: Date.now() }).catch(() => null);
+  // Each paid sale is added once, on top of what the wallet already shows (settings/wallet-floor-2.json keeps the
+  // amount and which orders are in it), so later fee corrections can never freeze or lower it.
+  const rows = (await M.ledger(null)).filter((r) => r.paid && (r.at || 0) >= SINCE);
+  const fl = (await store.read('settings/wallet-floor-2.json').catch(() => null)) || { v: BASE, at: 0 };
+  let counted = fl.counted, v = fl.v || BASE;
+  if (!Array.isArray(counted)) counted = rows.filter((r) => (r.at || 0) <= (fl.at || 0)).map((r) => r.n);
+  const seen = {}; counted.forEach((n) => { seen[n] = 1; });
+  const add = rows.filter((r) => !seen[r.n]);
+  if (add.length || !Array.isArray(fl.counted)) {
+    v += Math.round(add.reduce((t, r) => t + (r.items || 0), 0) * M.giveawayPct() / 100);
+    await store.write('settings/wallet-floor-2.json', { v: v, at: Date.now(), counted: counted.concat(add.map((r) => r.n)) }).catch(() => null);
+  }
   walletMemo = { at: Date.now(), v: v };
   return v;
 }
