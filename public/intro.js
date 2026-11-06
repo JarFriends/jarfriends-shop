@@ -17,7 +17,6 @@ window.__html = '<div class="vb-in"><b>VEEFAM<i>.</i></b><span>THE VAULT IS OPEN
   var css = window.__css, html = window.__html, ms = calm ? 700 : (window.__ms || 3000);
   var st = document.createElement('style'); st.textContent = '.vi{position:fixed;inset:0;z-index:2147483600;display:flex;align-items:center;justify-content:center;flex-direction:column;cursor:pointer;transition:opacity .7s ease}.vi.out{opacity:0;pointer-events:none}.vi .skip{position:absolute;bottom:28px;font:500 11px "IBM Plex Mono",monospace;letter-spacing:.2em;color:rgba(243,231,200,.35)}' + css + (calm ? '.vi *{animation-duration:.01s!important;animation-delay:0s!important}' : ''); document.head.appendChild(st);
   var w = document.createElement('div'); w.className = 'vi'; w.setAttribute('aria-hidden', 'true'); w.innerHTML = html + '<div class="skip">TAP TO ENTER</div>';
-  var go = function () { (document.body || document.documentElement).appendChild(w); };
-  if (document.body) go(); else document.addEventListener('DOMContentLoaded', go);
+  document.documentElement.appendChild(w);
   var done = false, end = function () { if (done) return; done = true; w.classList.add('out'); setTimeout(function () { w.remove(); }, 800); }; w.onclick = end; setTimeout(end, ms);
 })();
