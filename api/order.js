@@ -66,7 +66,7 @@ module.exports = async (req, res) => {
   const p = products.filter((x) => x.id === id)[0];
   if (!p) return res.status(400).json({ error: 'Choose a product.' });
   if ((await offline.deals(products)).state[p.id] === 'locked') return res.status(400).json({ error: 'This deal is still locked. It opens when the one before it is claimed.' });
-  if (p.reservedFor && p.reservedFor.length && p.reservedFor.indexOf(String(acct || '').toLowerCase()) < 0) return res.status(403).json({ error: acct ? 'This piece is reserved for another buyer.' : 'This piece is reserved. Sign in with the email it was reserved for.' });
+  if (p.reservedFor && p.reservedFor.length && p.reservedFor.indexOf(String(acct || '').toLowerCase()) < 0 && !(acct && await (async () => { const u0 = await require('./_users').get(acct).catch(() => null), nm0 = u0 && u0.name ? 'name:' + String(u0.name).trim().replace(/\s+/g, ' ').toLowerCase() : ''; return !!nm0 && p.reservedFor.indexOf(nm0) >= 0; })())) return res.status(403).json({ error: acct ? 'This piece is reserved for another buyer.' : 'This piece is reserved. Sign in with the email it was reserved for.' });
   const qty = Number(b.qty);
   if (!Number.isInteger(qty) || qty < p.min) return res.status(400).json({ error: 'Quantity must be a whole number of at least ' + p.min + '.' });
   if (qty > p.stock) return res.status(409).json({ error: p.stock > 0 ? 'Only ' + p.stock + (p.stock === 1 ? ' unit is' : ' units are') + ' in stock right now.' : 'This product is sold out right now.' });

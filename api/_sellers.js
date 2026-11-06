@@ -275,7 +275,12 @@ async function saveListing(seller, f) {
   }
   const p = Object.assign({}, was || {}, { id: id, seller: seller.slug, name: name, desc: tidy(f.desc, 1200), price: price, min: 1, stock: auction ? 1 : stock, shipping: ship, section: section, sectionSet: !!section, cost: cost, hidden: !!f.hidden, minOffer: auction ? 0 : minOffer, auction: auction, party: party, shipMode: shipMode, returns: ['no', '14', '30'].indexOf(String(f.returns)) >= 0 ? String(f.returns) : ((was && was.returns) || 'no'), pkg: pkg, updated: Date.now() }, was ? {} : { created: Date.now() });
   // Reserved: only these buyers (by the email they sign in with) can buy it; it stays off the market lists.
-  if (f.reserve !== undefined) { const em = String(f.reserve || '').toLowerCase().split(/[\s,;]+/).filter((e) => /^[^@\s]+@[^@\s]+\.[a-z]{2,}$/.test(e)).slice(0, 10); if (em.length) p.reservedFor = em; else delete p.reservedFor; }
+  // Each entry is an email or a buyer's name (as on their V2V account); commas separate them.
+  if (f.reserve !== undefined) {
+    const parts = String(f.reserve || '').split(/[,;\n]+/).map((x) => x.trim()).filter(Boolean).slice(0, 10);
+    const em = parts.filter((e) => /^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(e)).map((e) => e.toLowerCase()), nm = parts.filter((e) => e.indexOf('@') < 0).map((e) => e.replace(/\s+/g, ' ').slice(0, 60));
+    if (em.length || nm.length) { p.reservedFor = em.concat(nm.map((x) => 'name:' + x.toLowerCase())); p.reservedShow = parts.join(', '); } else { delete p.reservedFor; delete p.reservedShow; }
+  }
   await store.write('market/' + seller.slug + '/' + id + '.json', p);
   forget();
   return { listing: p };

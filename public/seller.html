@@ -1089,8 +1089,8 @@
     var extB = input('checkbox'); extB.checked = !!(p && p.auction && p.auction.extend);
     var extL = el('label'); extL.style.cssText = 'display:flex;gap:8px;align-items:center;font-weight:600'; extL.appendChild(extB); extL.appendChild(document.createTextNode('⏱ Extended bidding: a bid in the last 60 seconds resets the clock to 60 seconds (stops last-second sniping)'));
     hoursL.appendChild(endAt); hoursL.appendChild(extL); f.appendChild(hoursL); f.appendChild(minL);
-    var resIn = input('text'); resIn.placeholder = 'buyer@email.com, another@email.com'; resIn.value = (p && p.reservedFor || []).join(', ');
-    f.appendChild(field('🔒 Reserve for specific buyers (optional)', resIn, 'Only these buyers can buy it, signed in with this email. It stays off the market; send them the link to the piece.'));
+    var resIn = input('text'); resIn.placeholder = 'buyer@email.com or Jay Johnson'; resIn.value = (p && (p.reservedShow || (p.reservedFor || []).join(', '))) || '';
+    f.appendChild(field('🔒 Reserve for specific buyers (optional)', resIn, 'Type their email or their name as it is on their V2V account (commas between several). Only they can buy it, signed in. It stays off the market; send them the link to the piece. Email is the safest.'));
     var cost = input('number', p && p.cost != null ? p.cost : '', { min: '0', step: '0.01', inputmode: 'decimal', placeholder: 'Optional' });
     f.appendChild(field('What you paid for it (USD, each)', cost, 'Private: only you see this. When it sells, the Profit tab shows what you made.'));
     // Party pricing: the more that sell before the countdown ends, the lower the price for everyone (api/_partyS.js).
