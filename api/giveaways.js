@@ -148,7 +148,7 @@ module.exports = async (req, res) => {
     if (!g.winnerAddress) return res.status(400).json({ error: 'The winner has not added their address yet.' });
     const shop = await M.byEmail(me).catch(() => null); if (!shop) return res.status(400).json({ error: 'Labels are for sellers: open your shop first.' });
     if (g.labelPdf) return res.json({ ok: true, label: g.labelPdf, tracking: g.tracking });
-    const r = await require('./_ship').giftLabel(shop, g, b.rate);
+    const r = await require('./_ship').giftLabel(shop, g, b.rate, { preset: b.preset, oz: b.oz, l: b.l, w: b.w, h: b.h });
     if (r.error || !r.ok) return res.status(r.error ? 400 : 200).json(r);
     g.labelPdf = r.label; g.labelCost = r.cents; g.tracking = r.tracking || g.tracking; await store.write(key(g.id), g);
     if (g.tracking && !r.test) await mail(g.winner, 'Your giveaway prize shipped: ' + g.title, [g.hostName + ' shipped "' + g.title + '".', 'Tracking: ' + g.tracking], 'gw-ship-' + g.id + '-' + g.tracking).catch(() => null);

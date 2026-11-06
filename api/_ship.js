@@ -249,13 +249,16 @@ async function buyLabel(seller, n, rateId, host) {
 const money = (c) => '$' + (c / 100).toFixed(2);
 // A giveaway prize (api/giveaways.js): price a label to the winner (no rateId), or buy it (rateId). The owner's shop
 // is billed by Shippo directly; any other host pays by their saved card, before anything is bought.
-async function giftLabel(seller, g, rateId) {
+async function giftLabel(seller, g, rateId, q) {
   if (!ready()) return { error: 'Shipping labels are not switched on yet. Ship it yourself and add the tracking number.' };
   const from = fromOf(seller); if (!from) return { error: 'Add your ship-from address in Seller Hub > Settings first.' };
   const a = g.winnerAddress; if (!a || !a.street) return { error: 'The winner has not added their address yet.' };
   const to = { name: a.name || g.winnerName || 'Winner', street1: a.street, street2: a.line2 || '', city: a.city, state: a.state || '', zip: a.zip, country: 'US', email: g.winner || '' };
   if (!rateId) {
-    try { const r = await cheapest(from, to, packageOf({}, 1)); return { rate: r.id, cents: r.cents, service: r.service, days: r.days || '' }; }
+    // The package, like any other label: a preset with its weight, or a custom size.
+    if (q && q.preset === 'custom' && ![q.l, q.w, q.h].every((v) => Number(v) > 0 && Number(v) <= 108)) return { error: 'Custom package: type the length, width and height in inches.' };
+    const parcel = packageOf(q && (q.preset || q.oz) ? { pkg: { preset: q.preset, oz: q.oz, length: q.l, width: q.w, height: q.h } } : {}, 1);
+    try { const r = await cheapest(from, to, parcel); return { rate: r.id, cents: r.cents, service: r.service, days: r.days || '', parcel: parcel }; }
     catch (e) { return { error: 'Could not price the label: ' + String(e && e.message || e).slice(0, 160) }; }
   }
   if (!/^[a-f0-9]{32}$/i.test(String(rateId))) return { error: 'Price the label first.' };
