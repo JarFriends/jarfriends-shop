@@ -72,6 +72,7 @@
     var acts = el('div', null, 'pc-acts');
     if (p.left > 0) {
       // Slide to buy: drag the button across (or tap it) and checkout opens, where they pick how to pay.
+      if (p.reserved) { var rv = el('div', '🔒 Reserved for a buyer. Only the buyer it was reserved for can buy it.', 'small'); rv.style.cssText = 'border:1px solid #C9A45C;border-radius:10px;padding:8px 12px;color:#C9A45C;font-weight:700'; acts.appendChild(rv); }
       var href = '/order.html?product=' + encodeURIComponent(p.id), buy = el('div', null, 'buy wide');
       buy.setAttribute('role', 'button'); buy.tabIndex = 0; buy.setAttribute('aria-label', 'Slide to buy');
       buy.style.cssText = 'position:relative;overflow:hidden;border-radius:999px;padding:0;height:58px;display:flex;align-items:center;justify-content:center;user-select:none;touch-action:none;cursor:pointer';

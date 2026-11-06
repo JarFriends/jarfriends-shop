@@ -117,7 +117,7 @@ module.exports = async (req, res) => {
         + '<meta http-equiv="refresh" content="0;url=' + esc(to) + '"><script>location.replace(' + JSON.stringify(to) + ')</script></head><body style="background:#0B1A13;color:#F7F2E6;font-family:sans-serif;padding:24px"><a style="color:#C9A45C" href="' + esc(to) + '">Open ' + esc(title) + '</a></body></html>');
     }
     if (req.method === 'GET' && what === 'shop') {
-      let items = (await shopItems()).filter((p) => !p.reserved);
+      let items = await shopItems();
       const open = (await M.all()).filter((s) => s.status === 'approved');
       const st = await M.statsAll(open);
       // Each shop with its rating and checkmark; pieces carry their seller's checkmark for the cards.
@@ -146,7 +146,7 @@ module.exports = async (req, res) => {
       const p = (await shopItems()).filter((x) => x.id === String(q.id || ''))[0];
       if (!p) return res.status(404).json({ error: 'Not found.' });
       const s = p.seller ? await M.bySlug(p.seller) : null, st = s ? await M.stats(s) : null;
-      return res.json({ party: !!p.party, id: p.id, name: p.name, price: p.price, ship: p.ship, calc: !!p.calc, returns: p.returns || 'no', left: p.left, photo: p.photo, desc: p.desc || '', auction: p.auction, nft: p.nft, section: p.section || '', seller: p.seller, sellerName: p.sellerName, rating: st ? st.rating : 0, reviews: st ? st.reviews : 0, verified: st ? st.verified : false });
+      return res.json({ reserved: !!p.reserved, party: !!p.party, id: p.id, name: p.name, price: p.price, ship: p.ship, calc: !!p.calc, returns: p.returns || 'no', left: p.left, photo: p.photo, desc: p.desc || '', auction: p.auction, nft: p.nft, section: p.section || '', seller: p.seller, sellerName: p.sellerName, rating: st ? st.rating : 0, reviews: st ? st.reviews : 0, verified: st ? st.verified : false });
     }
     // A shop's rating, checkmark and reviews (newest first). Reviewers show as first name and initial.
     if (req.method === 'GET' && what === 'reviews') {
