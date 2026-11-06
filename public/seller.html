@@ -840,10 +840,23 @@
     top.appendChild(el('h2', '📸 Bulk list from photos'));
     var back = el('button', '‹ Back to my pieces', 'ghost'); back.type = 'button'; back.addEventListener('click', function () { bulkOn = false; BULK = BULK.filter(function (x) { return x.status !== 'done'; }); dash(); }); top.appendChild(back);
     c.appendChild(top);
-    c.appendChild(el('div', 'Pick a photo of each piece (one piece per photo, as many as you like). AI writes the title, description and category, and guesses a price. Each one is saved as a draft that only you can see. Check them below, fix anything, then press Go live, or keep them as drafts for later.', 'small dim'));
+    c.appendChild(el('div', 'Pick, paste or drag in a photo of each piece (one piece per photo, as many as you like). AI writes the title, description and category, and guesses a price. Each one is saved as a draft that only you can see. Check them below, fix anything, then press Go live, or keep them as drafts for later.', 'small dim'));
     var pick = el('input'); pick.type = 'file'; pick.accept = 'image/*'; pick.multiple = true; pick.setAttribute('data-nopaste', '1'); pick.style.display = 'none';
     var pb = el('button', '＋ Choose photos', 'solid'); pb.type = 'button'; pb.addEventListener('click', function () { pick.click(); });
     var row = el('div'); row.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;align-items:center'; row.appendChild(pb); row.appendChild(pick);
+    // Paste photos (Ctrl/Cmd+V, or long-press > Paste on a phone) or drag them in: same as choosing them, AI and all.
+    var feed = function (list) { var imgs = Array.prototype.filter.call(list || [], function (f) { return f && /^image\//.test(f.type); }); if (!imgs.length) return false; try { var dt = new DataTransfer(); imgs.forEach(function (f, i) { dt.items.add(f.name && f.name !== 'image.png' ? f : new File([f], 'pasted-' + Date.now() + '-' + i + '.' + ((f.type.split('/')[1] || 'png').replace('jpeg', 'jpg')), { type: f.type })); }); pick.files = dt.files; pick.dispatchEvent(new Event('change')); return true; } catch (e) { return false; } };
+    var pz = el('div', '📋 Or paste photos here (Ctrl/Cmd+V), or drag them in', 'small'); pz.tabIndex = 0; pz.setAttribute('contenteditable', 'true'); pz.setAttribute('inputmode', 'none');
+    pz.style.cssText = 'flex:1 1 260px;min-height:44px;border:1px dashed #C9A45C;border-radius:10px;padding:10px 12px;display:flex;align-items:center;color:#C9A45C;cursor:text;outline:none;caret-color:transparent';
+    pz.addEventListener('beforeinput', function (e) { if (e.inputType !== 'insertFromPaste') e.preventDefault(); });
+    var onPaste = function (e) { var cd = e.clipboardData; if (!cd || !bulkOn) return; var fs = cd.files && cd.files.length ? cd.files : Array.prototype.map.call(cd.items || [], function (it) { return it.kind === 'file' ? it.getAsFile() : null; }).filter(Boolean); if (feed(fs)) { e.preventDefault(); pz.textContent = '✓ Pasted. Paste more any time'; } else if (e.target === pz) { e.preventDefault(); pz.textContent = 'No photo in what you copied. Copy a photo, then paste here.'; } };
+    pz.addEventListener('paste', onPaste);
+    window.__bulkOnPaste = onPaste;
+    if (!window.__bulkPaste) { window.__bulkPaste = 1; document.addEventListener('paste', function (e) { if (!bulkOn || (e.target && e.target.closest && e.target.closest('input,textarea,[contenteditable]'))) return; window.__bulkOnPaste(e); }); }
+    ['dragover', 'dragenter'].forEach(function (k) { c.addEventListener(k, function (e) { e.preventDefault(); pz.style.background = 'rgba(201,164,92,.12)'; }); });
+    c.addEventListener('dragleave', function () { pz.style.background = ''; });
+    c.addEventListener('drop', function (e) { e.preventDefault(); pz.style.background = ''; feed(e.dataTransfer && e.dataTransfer.files); });
+    row.appendChild(pz);
     var allLive = el('button', '✅ Make all checked ones live', 'ghost'); allLive.type = 'button'; row.appendChild(allLive);
     c.appendChild(row);
     var prog = el('div', '', 'small'); prog.setAttribute('role', 'status'); c.appendChild(prog);
