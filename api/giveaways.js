@@ -138,6 +138,7 @@ module.exports = async (req, res) => {
   if (b.do === 'track') {
     if (!g.winner) return res.status(400).json({ error: 'Draw a winner first.' });
     g.tracking = String(b.tracking || '').trim().slice(0, 60); if (g.winnerAddress == null) { const wu = await U.get(g.winner).catch(() => null); g.winnerAddress = (wu && wu.address) || null; }
+    if (g.tracking) await require('./_discord').shipped({ what: g.title, n: g.id, giveaway: true, tracking: g.tracking, from: g.hostName, photo: g.photo ? '/api/photo?id=' + g.id + '&v=' + g.photo : '' });
     if (g.tracking) await mail(g.winner, 'Your giveaway prize shipped: ' + g.title, [g.hostName + ' shipped "' + g.title + '".', 'Tracking: ' + g.tracking], 'gw-ship-' + g.id + '-' + g.tracking).catch(() => null);
     return save();
   }
@@ -151,6 +152,7 @@ module.exports = async (req, res) => {
     const r = await require('./_ship').giftLabel(shop, g, b.rate, { preset: b.preset, oz: b.oz, l: b.l, w: b.w, h: b.h });
     if (r.error || !r.ok) return res.status(r.error ? 400 : 200).json(r);
     g.labelPdf = r.label; g.labelCost = r.cents; g.tracking = r.tracking || g.tracking; await store.write(key(g.id), g);
+    await require('./_discord').shipped({ what: g.title, n: g.id, giveaway: true, tracking: g.tracking, from: g.hostName, photo: g.photo ? '/api/photo?id=' + g.id + '&v=' + g.photo : '', test: !!r.test });
     if (g.tracking && !r.test) await mail(g.winner, 'Your giveaway prize shipped: ' + g.title, [g.hostName + ' shipped "' + g.title + '".', 'Tracking: ' + g.tracking], 'gw-ship-' + g.id + '-' + g.tracking).catch(() => null);
     return res.json({ ok: true, label: r.label, tracking: g.tracking, giveaway: view(g, me) });
   }

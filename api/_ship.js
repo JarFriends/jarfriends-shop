@@ -240,6 +240,8 @@ async function buyLabel(seller, n, rateId, host) {
   const meta = (await store.read('meta/' + n + '.json')) || {};
   await store.write('meta/' + n + '.json', Object.assign(meta, { tracking: tracking, labelPdf: t.label_url, labelTx: t.object_id || '', testLabel: isTest(), shippedAt: Date.now(), shippedBy: seller.slug,
     labelCost: cents, labelFromEarnings: plan.fromEarnings, labelFromCard: plan.fromCard, labelOwed: plan.owed || 0, labelCardPi: pi || '', customsPdf: t.commercial_invoice_url || '' }));
+  const li = (await M.listings()).filter((x) => x.id === o.row.pid)[0] || {};
+  await require('./_discord').shipped({ what: o.row.product, n: n, tracking: tracking, track: t.tracking_url_provider || '', from: seller.name, to: (o.to && o.to.name) || '', photo: li.photo ? '/api/photo?id=' + li.id + '&v=' + li.photo : '', test: isTest() });
   if (!isTest() && o.row.email && tracking) {
     const { mail } = require('./_lib');
     await mail(o.row.email, 'Your order ' + n + ' has shipped', ['Your ' + o.row.product + ' (order ' + n + ') is on its way from ' + seller.name + ' by USPS.', '', 'Tracking number: ' + tracking].concat(t.tracking_url_provider ? ['Track it here:', t.tracking_url_provider] : []).concat(['', 'Once it arrives, rate ' + seller.name + ' in My account: ' + host + '/me.html']), 'seller-label-' + n).catch(() => null);

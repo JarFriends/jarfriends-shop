@@ -88,6 +88,7 @@ module.exports = async (req, res) => {
     if (t.status !== 'SUCCESS' || !t.label_url) return res.status(502).json({ error: 'Shippo did not make the label. ' + notes(t) });
     const out = { label: t.label_url, tracking: t.tracking_number || '', track: t.tracking_url_provider || '', test: isTest() };
     console.log('LABEL', JSON.stringify({ invoice: inv.n, tracking: out.tracking, test: out.test }));
+    await require('./_discord').shipped({ what: (inv.i || 'Order') + (inv.q > 1 ? ' x ' + inv.q : ''), n: inv.n, tracking: out.tracking, track: out.track, from: 'JarFriends', to: to.name || '', test: out.test });
     const jobs = [sheetPost({ tab: 'Labels', key: 'label-' + inv.n + '-' + (out.tracking || Date.now()), headers: ['When', 'Invoice', 'Status', 'Tracking', 'Label'], row: [new Date().toISOString(), inv.n, out.test ? 'Test label' : 'Bought', out.tracking, out.label] })];
     // Real labels only: tell the buyer it is on the way.
     if (!out.test && inv.e && out.tracking) jobs.push(mail(inv.e, 'Your order ' + inv.n + ' is on its way', [

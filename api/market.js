@@ -1245,6 +1245,7 @@ const r = await fetch(require('./_ai').url(), {
       if (!row.paid) return res.status(400).json({ error: 'Wait until this order is paid before you ship it.' });
       const was = (await store.read('meta/' + n + '.json')) || {};
       await store.write('meta/' + n + '.json', Object.assign(was, { tracking: tracking, shippedAt: Date.now(), shippedBy: seller.slug }));
+      { const li = (await M.listings()).filter((x) => x.id === row.pid)[0]; await require('./_discord').shipped({ what: row.product, n: n, tracking: tracking, from: seller.name, to: row.buyer || '', photo: li ? photoOf(li) : '' }); }
       if (row.email) {
         // USPS numbers are all digits (20 to 22 long); other carriers get the number alone.
         const link = /^9\d{19,21}$/.test(tracking) ? 'https://tools.usps.com/go/TrackConfirmAction?tLabels=' + tracking : '';
