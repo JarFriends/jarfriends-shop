@@ -46,7 +46,8 @@
     if (!g.mine && open) {
       if (!tok) { var si = el('a', 'Sign in to enter', 'solid'); si.href = '/me.html'; row.appendChild(si); }
       else if (g.entered) { row.appendChild(el('span', '✓ You are in', 'small')); row.appendChild(btn('Leave', 'ghost', act({ do: 'leave' }))); }
-      else { var xi = el('input'); xi.placeholder = 'Your X @ (optional, for the shout-out)'; xi.maxLength = 16; xi.style.maxWidth = '240px'; try { xi.value = localStorage.getItem('v2vX') || ''; } catch (e) {}
+      else { var nt = el('div', '📦 To enter you need a shipping address on your account, so your prize can ship if you win. ', 'small'); var na = el('a', 'Add or check it'); na.href = '/me.html'; nt.appendChild(na); nt.style.width = '100%'; row.appendChild(nt);
+        var xi = el('input'); xi.placeholder = 'Your X @ (optional, for the shout-out)'; xi.maxLength = 16; xi.style.maxWidth = '240px'; try { xi.value = localStorage.getItem('v2vX') || ''; } catch (e) {}
         row.appendChild(xi); row.appendChild(btn('Enter', 'solid', function () { try { localStorage.setItem('v2vX', xi.value.trim()); } catch (e) {} act({ do: 'enter', x: xi.value })(); })); }
     }
     if (g.mine && g.status === 'open') {

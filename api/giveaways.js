@@ -85,6 +85,11 @@ module.exports = async (req, res) => {
   if (b.do === 'enter' || b.do === 'leave') {
     if (g.host === me) return res.status(400).json({ error: 'You cannot enter your own giveaway.' });
     if (g.status !== 'open' || Date.now() > g.endsAt) return res.status(400).json({ error: 'This giveaway has ended.' });
+    // Entering needs a full ship-to address on the account, so a winner can be shipped to right away.
+    if (b.do === 'enter') {
+      const u = await U.get(me).catch(() => null), ad = u && (u.address || (u.addresses || [])[0]);
+      if (!ad || !ad.street || !ad.city || !ad.state || !ad.zip) return res.status(400).json({ error: 'Add your shipping address first (My account > Ship to), then enter. Every entry needs one so the prize can ship if you win.', needAddress: true });
+    }
     g.entries = (g.entries || []).filter((e) => e !== me); if (b.do === 'enter') g.entries.push(me);
     // Their X handle (optional), so the host can tag the winner when announcing.
     const xh = String(b.x || '').trim().replace(/^@/, '').replace(/[^A-Za-z0-9_]/g, '').slice(0, 15);
