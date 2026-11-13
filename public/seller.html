@@ -274,7 +274,7 @@
   function pct(now, before) { if (!before) return now ? '' : ''; var p = Math.round((now - before) * 100 / before); return (p >= 0 ? '▲ ' : '▼ ') + Math.abs(p) + '%'; }
   // A link to #orders, #offers, #owe and so on (the 🔔 bell) opens that tab, even when Seller Hub is already open.
   // #order-<n>: open Orders and jump to that order (the 🔔 "Send NFT" link).
-  var jumpTo = function () { var m2 = /^order-([A-Za-z0-9]+)$/.exec(location.hash.slice(1)); if (!m2 || !D) return false; tab = 'orders'; dash(); setTimeout(function () { var t2 = document.getElementById('ord-' + m2[1]); if (t2) { t2.scrollIntoView({ behavior: 'smooth', block: 'start' }); t2.style.outline = '3px solid #C9A45C'; } }, 150); return true; };
+  var jumpTo = function () { var m2 = /^order-([A-Za-z0-9]+)$/.exec(location.hash.slice(1)); if (!m2 || !D) return false; tab = 'orders'; dash(); setTimeout(function () { if (window.V2VOpenOrder) window.V2VOpenOrder(m2[1]); var t2 = document.getElementById('ord-' + m2[1]); if (t2) { t2.scrollIntoView({ behavior: 'smooth', block: 'start' }); t2.style.outline = '3px solid #C9A45C'; } }, 150); return true; };
   window.addEventListener('hashchange', jumpTo);
   window.V2VJump = jumpTo;
   window.addEventListener('hashchange', function () { var h = location.hash.slice(1); if (D && (/^(owe|orders|offers|payouts|trades|messages|listings|settings|overview|live|marketing|reviews|profit|research)$/.test(h) || (h === '' || h === 'menu') && window.V2VMenu && V2VMenu.phone())) { tab = h && h !== 'menu' ? h : 'menu'; editing = null; adding = false; bulkOn = false; dash(); window.scrollTo(0, 0); } });
@@ -1511,6 +1511,10 @@
       pw.appendChild(c0);
     });
     if (!D.orders.length) { pane.appendChild(el('div', 'No orders yet. When someone buys one of your pieces it shows here.', 'jf-empty')); return; }
+    // Orders in three lists: ready to ship, waiting for payment, shipped. Each order is one line; tap it for everything.
+    var G = { ship: ['📦 Ready to ship', []], pay: ['💳 Waiting for payment', []], done: ['✅ Shipped', []] }, gTabs = el('div'), gBox = el('div');
+    gTabs.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 10px'; gBox.style.cssText = 'display:flex;flex-direction:column;gap:8px';
+    pane.appendChild(gTabs); pane.appendChild(gBox);
     D.orders.forEach(function (o) {
       var c = el('section', null, 'card'); c.style.gap = '10px';
       var top = el('div'); top.style.cssText = 'display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px';
@@ -1601,8 +1605,29 @@
         }
       } else c.appendChild(el('div', (o.directPay ? 'The buyer is paying you directly by ' + (o.pay || 'hand') + '. Press Mark as paid above once it arrives. ' : /zelle|venmo|cash ?app|paypal/i.test(o.pay || '') ? 'The buyer is paying by ' + o.pay + '. That money goes to VeeFam, and VeeFam marks the order paid once it arrives. ' : '') + 'You get a "Paid, ship it" email, and the address and the Buy label button show here, once it is paid. Do not ship before then.', 'small dim'));
       if (!o.tracking && !o.shippedAt && !o.labelPdf && !o.bundleLead) c.appendChild(cancelBox(o));
-      pane.appendChild(c);
+      // Who bought it, at the top of the details.
+      var bi = el('div', null, 'addr'); bi.textContent = '👤 Buyer: ' + (o.buyer || 'not given') + (o.email ? ' · ' + o.email : '') + (o.paid && o.ship ? ' · ' + o.ship : (o.paid ? '' : ' · address shows once paid'));
+      c.insertBefore(bi, c.children[1] || null);
+      var k = o.cancelled ? 'done' : !o.paid ? 'pay' : (o.tracking || o.shippedAt) ? 'done' : 'ship';
+      var sum = el('button'); sum.type = 'button'; sum.style.cssText = 'display:flex;gap:10px;align-items:center;width:100%;text-align:left;background:#11261C;border:1px solid #2E4A3B;border-radius:12px;padding:8px 10px;color:inherit;cursor:pointer;font:inherit';
+      var sl = (D.listings || []).filter(function (l) { return l.id === o.pid; })[0];
+      if (sl && sl.photoUrl) { var si = el('img'); si.src = sl.photoUrl; si.alt = ''; si.loading = 'lazy'; si.style.cssText = 'width:48px;height:48px;object-fit:cover;border-radius:8px;flex:none'; sum.appendChild(si); }
+      var st = el('div'); st.style.cssText = 'flex:1;min-width:0'; var sn = el('b', o.product + (o.q > 1 ? ' × ' + o.q : '')); sn.style.cssText = 'display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'; st.appendChild(sn);
+      st.appendChild(el('div', (o.buyer || 'Buyer') + ' · ' + JF.cents(o.gross) + ' · ' + new Date(o.at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + (o.cancelled ? ' · cancelled' : ''), 'small dim')); sum.appendChild(st);
+      var chev = el('span', '▸'); sum.appendChild(chev);
+      c.hidden = true; sum.addEventListener('click', function () { c.hidden = !c.hidden; chev.textContent = c.hidden ? '▸' : '▾'; });
+      var wrap = el('div'); wrap.style.cssText = 'display:flex;flex-direction:column;gap:6px'; wrap.appendChild(sum); wrap.appendChild(c); wrap.dataset.n = o.n; G[k][1].push(wrap);
+      wrap.open = function () { c.hidden = false; chev.textContent = '▾'; };
     });
+    var pick = function (k) {
+      window.__ordTab = k; gTabs.textContent = ''; gBox.textContent = '';
+      Object.keys(G).forEach(function (g) { var b = el('button', G[g][0] + ' (' + G[g][1].length + ')', 'pill'); b.type = 'button'; b.setAttribute('aria-pressed', g === k ? 'true' : 'false'); b.addEventListener('click', function () { pick(g); }); gTabs.appendChild(b); });
+      if (!G[k][1].length) gBox.appendChild(el('div', k === 'ship' ? 'Nothing to ship right now.' : k === 'pay' ? 'No orders waiting for payment.' : 'Nothing shipped yet.', 'jf-empty'));
+      G[k][1].forEach(function (w) { gBox.appendChild(w); });
+    };
+    pick(window.__ordTab && G[window.__ordTab] ? window.__ordTab : G.ship[1].length ? 'ship' : G.pay[1].length ? 'pay' : 'done');
+    // Opening an order from a link (#order-N): switch to its list and open it.
+    window.V2VOpenOrder = function (n) { Object.keys(G).forEach(function (g) { G[g][1].forEach(function (w) { if (w.dataset.n === n) { pick(g); w.open(); } }); }); };
   }
   // Cancel an order that has not shipped: the piece goes back on sale and the buyer is refunded.
   function cancelBox(o) {
