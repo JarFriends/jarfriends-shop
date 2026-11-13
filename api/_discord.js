@@ -1,10 +1,11 @@
 // Posts one message to a Discord channel through its webhook address. Two channels:
 //   orders (default): DISCORD_ORDERS_WEBHOOK_URL (or the older DISCORD_WEBHOOK_URL): new orders, payments, offers
 //   sellers: DISCORD_SELLERS_WEBHOOK_URL: every new seller shop
+//   drops: DISCORD_DROPS_WEBHOOK_URL: each new 1/1 listing, once, with its photo, price and link
 //   shipped: DISCORD_SHIPPED_WEBHOOK_URL: every shipped order or giveaway prize, with tracking and the item's photo (see .shipped)
 // Without the address nothing is sent. A failure here never stops an order, an offer or a sign-up.
 const send = module.exports = async (text, channel, embed) => {
-  const url = (channel === 'sellers' ? process.env.DISCORD_SELLERS_WEBHOOK_URL || '' : channel === 'shipped' ? process.env.DISCORD_SHIPPED_WEBHOOK_URL || '' : process.env.DISCORD_ORDERS_WEBHOOK_URL || process.env.DISCORD_WEBHOOK_URL || '').trim();
+  const url = (channel === 'sellers' ? process.env.DISCORD_SELLERS_WEBHOOK_URL || '' : channel === 'shipped' ? process.env.DISCORD_SHIPPED_WEBHOOK_URL || '' : channel === 'drops' ? process.env.DISCORD_DROPS_WEBHOOK_URL || '' : process.env.DISCORD_ORDERS_WEBHOOK_URL || process.env.DISCORD_WEBHOOK_URL || '').trim();
   if (!url) return 'off';
   try {
     const body = { content: String(text || '').slice(0, 1900), allowed_mentions: { parse: [] } };

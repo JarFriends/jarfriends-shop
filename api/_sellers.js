@@ -283,17 +283,34 @@ async function saveListing(seller, f) {
     const em = parts.filter((e) => /^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(e)).map((e) => e.toLowerCase()), nm = parts.filter((e) => e.indexOf('@') < 0).map((e) => e.replace(/\s+/g, ' ').slice(0, 60));
     if (em.length || nm.length) { p.reservedFor = em.concat(nm.map((x) => 'name:' + x.toLowerCase())); p.reservedShow = parts.join(', '); } else { delete p.reservedFor; delete p.reservedShow; }
   }
+  const drop = dropDue(p);
   await store.write('market/' + seller.slug + '/' + id + '.json', p);
   forget();
+  if (drop) await dropAlert(seller, p);
   return { listing: p };
+}
+// A 1/1 goes out once to the drops channel, as soon as it is public and has its photo.
+function dropDue(p) {
+  if (p.alert11 || p.hidden || p.removed || !p.photo || sectionOf(p) !== '1/1') return false;
+  p.alert11 = Date.now(); return true;
+}
+async function dropAlert(seller, p) {
+  const a = p.auction && p.auction.ends, img = 'https://veefam.io/api/photo?id=' + p.id + '&v=' + p.photo;
+  const e = { title: ('💎 New 1/1: ' + p.name).slice(0, 250), url: 'https://veefam.io/piece.html?id=' + encodeURIComponent(p.id), color: 0xd4af37,
+    fields: [{ name: a ? 'Auction starts at' : 'Price', value: '$' + Number(a ? p.auction.start : p.price).toFixed(2), inline: true }, { name: 'Seller', value: String(seller.name || seller.slug).slice(0, 100), inline: true }],
+    image: { url: img }, timestamp: new Date().toISOString() };
+  if (p.desc) e.description = String(p.desc).slice(0, 300);
+  await require('./_discord')('', 'drops', e).catch(() => null);
 }
 async function setListing(seller, id, fields) {
   const was = await store.read('market/' + seller.slug + '/' + id + '.json');
   if (!was || was.seller !== seller.slug) return null;
   const p0 = Number(was.price), p = Object.assign(was, fields, { updated: Date.now() });
   if (fields && fields.price != null && Number(fields.price) !== p0) p.bumped = Date.now();
+  const drop = dropDue(p);
   await store.write('market/' + seller.slug + '/' + id + '.json', p);
   forget();
+  if (drop) await dropAlert(seller, p);
   return p;
 }
 async function removeListing(seller, id) {
