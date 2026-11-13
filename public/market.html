@@ -58,6 +58,15 @@
   function views() {
     var box = $('views'); box.textContent = '';
     var opts = [['all', 'Everything'], ['buy', 'Buy now'], ['auctions', 'Auctions']].concat(D.sections.filter(function (s) { return s === section || D.products.some(function (p) { return String(p.section).toLowerCase().indexOf(s.toLowerCase()) >= 0; }); }).map(function (s) { return ['s:' + s, s]; }));
+    if (section === '1/1') {
+      var bell = el('button', '🔔 Email me new 1/1s', 'pill'); bell.type = 'button'; box.appendChild(bell);
+      if (!tok) bell.addEventListener('click', function () { location.href = '/me.html'; });
+      else {
+        var on11 = false, paint = function () { bell.textContent = on11 ? '✓ 1/1 alerts on (tap to stop)' : '🔔 Email me new 1/1s'; bell.setAttribute('aria-pressed', on11 ? 'true' : 'false'); };
+        fetch('/api/market?do=alerts11&t=' + encodeURIComponent(tok)).then(function (r) { return r.json(); }).then(function (r) { on11 = !!r.on; paint(); }).catch(function () {});
+        bell.addEventListener('click', function () { fetch('/api/market', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ do: 'alerts11', t: tok, on: !on11 }) }).then(function (r) { return r.json(); }).then(function (r) { if (r.error) { alert(r.error); return; } on11 = !!r.on; paint(); }); });
+      }
+    }
     opts.forEach(function (o) {
       var b = el('button', o[1], 'pill'); b.type = 'button';
       var on = o[0].indexOf('s:') === 0 ? section === o[0].slice(2) : (!section && view === o[0]);

@@ -102,6 +102,23 @@ module.exports = async (req, res) => {
   if (!store.on()) return res.status(503).json({ error: 'The shop storage is not connected yet.' });
   try {
     // ---------- Anyone ----------
+    // Email alerts for new 1/1s: buyers opt in (and out) themselves; every email has a one-click unsubscribe link.
+    if (what === 'alerts11') {
+      const who = gate.emailOf(String(req.method === 'POST' ? b.t : q.t || ''));
+      if (!who) return res.status(401).json({ error: 'Sign in to get 1/1 alerts.' });
+      const L = (await store.read('alerts/1of1.json')) || { emails: [] }, me11 = String(who).toLowerCase(), had = L.emails.indexOf(me11) >= 0;
+      if (req.method === 'POST') {
+        L.emails = L.emails.filter((e) => e !== me11); if (b.on) L.emails.push(me11);
+        await store.write('alerts/1of1.json', L); return res.json({ on: !!b.on });
+      }
+      return res.json({ on: had });
+    }
+    if (what === 'unsub11') {
+      const v = require('./_lib').verify(String(q.u || ''));
+      if (v && v.k === 'u11' && v.e) { const L = (await store.read('alerts/1of1.json')) || { emails: [] }; L.emails = L.emails.filter((e) => e !== v.e); await store.write('alerts/1of1.json', L); }
+      res.setHeader('content-type', 'text/html; charset=utf-8');
+      return res.send('<!doctype html><meta name="viewport" content="width=device-width"><body style="font-family:system-ui;background:#0B1A12;color:#F7F2E6;text-align:center;padding:60px 16px"><h2>' + (v ? 'You are unsubscribed from 1/1 alerts.' : 'That link did not work.') + '</h2><p><a style="color:#d4af37" href="/market.html?section=1/1">See the 1/1s</a></p>');
+    }
     // A seller's short link, veefam.io/s/<shop>: a small page with the shop's name, blurb and a photo for social
     // previews (Facebook, X, iMessage and the rest read these tags), which then opens the shop page.
     // Public: the exact sales tax for a ship-to address at checkout (only where VeeFam collects; see _tax.js quote).

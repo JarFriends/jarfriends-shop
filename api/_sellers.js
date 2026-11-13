@@ -301,6 +301,17 @@ async function dropAlert(seller, p) {
     image: { url: img }, timestamp: new Date().toISOString() };
   if (p.desc) e.description = String(p.desc).slice(0, 300);
   await require('./_discord')('', 'drops', e).catch(() => null);
+  // Email everyone who turned on 1/1 alerts, a few at a time.
+  const L = (await store.read('alerts/1of1.json').catch(() => null)) || { emails: [] }, lib = require('./_lib');
+  const link = 'https://veefam.io/piece.html?id=' + encodeURIComponent(p.id), price = e.fields[0].name + ': ' + e.fields[0].value;
+  const list = L.emails.filter((x) => x !== String(seller.email || '').toLowerCase());
+  for (let i = 0; i < list.length; i += 5) {
+    await Promise.all(list.slice(i, i + 5).map((to) => {
+      const un = 'https://veefam.io/api/market?do=unsub11&u=' + encodeURIComponent(lib.sign({ k: 'u11', e: to }));
+      const h = '<div style="font-family:system-ui,sans-serif;max-width:520px"><h2 style="margin:0 0 8px">💎 New 1/1: ' + lib.esc(p.name) + '</h2><a href="' + link + '"><img src="' + img + '" alt="" style="width:100%;border-radius:10px"></a><p><b>' + lib.esc(price) + '</b> · from ' + lib.esc(seller.name || seller.slug) + '</p>' + (p.desc ? '<p>' + lib.esc(String(p.desc).slice(0, 300)) + '</p>' : '') + '<p><a href="' + link + '" style="background:#d4af37;color:#111;padding:10px 18px;border-radius:999px;text-decoration:none;font-weight:700">See it on VeeFam</a></p><p style="font-size:12px;color:#888">You get these because you turned on 1/1 alerts. <a href="' + un + '">Unsubscribe</a></p></div>';
+      return lib.mail(to, '💎 New 1/1 on VeeFam: ' + p.name, ['A new 1/1 just listed on VeeFam: ' + p.name, price + ' · from ' + (seller.name || seller.slug), '', link, '', 'Unsubscribe: ' + un], 'drop11-' + p.id + '-' + to, h).catch(() => null);
+    }));
+  }
 }
 async function setListing(seller, id, fields) {
   const was = await store.read('market/' + seller.slug + '/' + id + '.json');
