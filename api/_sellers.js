@@ -22,7 +22,7 @@ const autoApprove = () => /^(1|yes|true)$/i.test((process.env.SELLER_AUTO_APPROV
 const hashOf = (e) => crypto.createHash('sha1').update(String(e).trim().toLowerCase()).digest('hex').slice(0, 24);
 const slugify = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30);
 // Categories a seller can put a piece in, and buyers can filter by. Made for VeeFriends collectors.
-const SECTIONS = ['Collectibles', 'Cards', 'Graded', 'NFTs', 'Pins', 'Stickers', 'Plush & Toys', 'Figures', 'Books', 'Comics', 'Apparel', 'Art & Prints', 'Signed', 'Mystery Boxes', 'Event Tickets'];
+const SECTIONS = ['Collectibles', '1/1', 'Cards', 'Graded', 'NFTs', 'Pins', 'Stickers', 'Plush & Toys', 'Figures', 'Books', 'Comics', 'Apparel', 'Art & Prints', 'Signed', 'Mystery Boxes', 'Event Tickets'];
 // A best guess from the name and description, for pieces with no category (or an old one that was removed).
 const GUESS = [['Graded', /\b(psa|bgs|cgc|sgc|ngc|graded|slabs?)\b/i], ['NFTs', /\bnft\b|\btoken\b/i], ['Pins', /\bpins?\b/i], ['Stickers', /\bstickers?\b|\bdecals?\b/i],
   ['Comics', /comic/i], ['Mystery Boxes', /mystery|blind box|\bwax\b|booster|\bbox(es)?\b/i], ['Plush & Toys', /plush|toy|stuffed/i], ['Figures', /figure|figurine|vinyl|statue/i], ['Books', /\bbooks?\b/i],

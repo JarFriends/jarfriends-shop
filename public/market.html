@@ -36,7 +36,7 @@
 (function () {
   var $ = function (id) { return document.getElementById(id); }, el = JF.el;
   var qs = new URLSearchParams(location.search);
-  var D = null, wish = {}, view = qs.get('view') || 'all', section = '';
+  var D = null, wish = {}, view = qs.get('view') || 'all', section = qs.get('section') || '';
   var tok = JF.token();
   $('who').value = '';
   function load() {
@@ -57,7 +57,7 @@
   }
   function views() {
     var box = $('views'); box.textContent = '';
-    var opts = [['all', 'Everything'], ['buy', 'Buy now'], ['auctions', 'Auctions']].concat(D.sections.filter(function (s) { return D.products.some(function (p) { return String(p.section).toLowerCase().indexOf(s.toLowerCase()) >= 0; }); }).map(function (s) { return ['s:' + s, s]; }));
+    var opts = [['all', 'Everything'], ['buy', 'Buy now'], ['auctions', 'Auctions']].concat(D.sections.filter(function (s) { return s === section || D.products.some(function (p) { return String(p.section).toLowerCase().indexOf(s.toLowerCase()) >= 0; }); }).map(function (s) { return ['s:' + s, s]; }));
     opts.forEach(function (o) {
       var b = el('button', o[1], 'pill'); b.type = 'button';
       var on = o[0].indexOf('s:') === 0 ? section === o[0].slice(2) : (!section && view === o[0]);
