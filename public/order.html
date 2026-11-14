@@ -17,6 +17,7 @@ legend{font-size:15px;font-weight:700;padding:0 0 8px}
 .plan strong{display:block;font-size:17px;color:#F7F2E6}
 .plan.on{border-color:#C9A45C;background:#101726}
 .sums{font-size:15px;max-width:460px}
+@media (min-width:1100px){section.card.has-piece{position:relative}section.card.has-piece #pieceTop{position:absolute;top:32px;right:32px;width:clamp(220px,calc(100% - 760px),440px);flex-direction:column;align-items:stretch!important;margin:0!important}section.card.has-piece #pieceImg{width:100%!important;height:auto!important;aspect-ratio:1/1;object-fit:contain!important}section.card.has-piece #pieceName{font-size:16px!important}}
 fieldset[hidden]{display:none}
 .offering #methods,.offering #promoBox,.offering .sums,.offering #shipBox,.offering #nftBox,.offering #go,.offering #msg{display:none!important}
 .offering main{display:flex;flex-direction:column}
@@ -193,6 +194,8 @@ fieldset[hidden]{display:none}
   }
   // The piece's photo and name at the top: the photo shows right away from the link, the name once the list loads.
   var showPiece = function (id, name) { if (!id) { $('pieceTop').style.display = 'none'; return; } $('pieceTop').style.display = 'flex'; var im = $('pieceImg'); if (im.dataset.id !== id) { im.dataset.id = id; im.style.display = ''; im.onerror = function () { im.style.display = 'none'; }; im.src = '/api/photo?id=' + encodeURIComponent(id); } $('pieceName').textContent = name || ''; };
+  // On a wide screen the photo sits in the empty space on the right of the form.
+  (function () { var card = $('f').closest('section'); if (card && window.matchMedia('(min-width:1100px)').matches) { card.classList.add('has-piece'); card.appendChild($('pieceTop')); } })();
   showPiece(new URLSearchParams(location.search).get('product') || '', '');
   $('product').addEventListener('change', function () { var p = products.filter(function (x) { return x.id === $('product').value; })[0]; showPiece(p ? p.id : '', p ? p.name : ''); });
   var dealP = offerTok ? fetch('/api/offer?a=' + encodeURIComponent(offerTok), { cache: 'no-store' }).then(function (r) { return r.json(); }).catch(function () { return {}; }) : Promise.resolve({});
