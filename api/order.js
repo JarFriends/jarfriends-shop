@@ -7,6 +7,8 @@ const offline = require('./_offline');
 
 module.exports = async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
+  // The plain product list (no query) is the same for everyone: let the edge keep it 15 seconds so checkout opens fast. The order itself is still checked on POST.
+  if (req.method === 'GET' && !Object.keys(req.query || {}).length) res.setHeader('Cache-Control', 'public, s-maxage=15, stale-while-revalidate=120');
   res.setHeader('Access-Control-Allow-Origin', '*');
   if (req.method === 'GET') {
     // ?promo=CODE checks one promo code for the order page.

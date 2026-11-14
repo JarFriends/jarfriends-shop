@@ -29,12 +29,13 @@ fieldset[hidden]{display:none}
   <div class="stack-s">
     <div class="mono gold">ORDER ONLINE</div>
     <h1 id="h1">Place an order</h1>
+    <div id="pieceTop" style="display:none;gap:14px;align-items:center;margin:6px 0 4px"><img id="pieceImg" alt="" style="width:110px;height:110px;object-fit:cover;border-radius:12px;background:#0B1712;flex:none"><b id="pieceName" style="font-size:18px"></b></div>
     <div class="small" id="lead">Choose your piece, quantity and how you want to pay. We email you the invoice.</div>
   </div>
   <section class="card">
     <form id="f">
       <div class="two">
-        <label>Item<select name="product" id="product" required></select></label>
+        <label>Item<select name="product" id="product" required><option value="">Loading…</option></select></label>
         <label>Quantity in units<input name="qty" id="qty" type="number" step="1" value="1" required inputmode="numeric"></label>
       </div>
       <div class="small" id="unit"></div>
@@ -190,6 +191,10 @@ fieldset[hidden]{display:none}
     var upd = function () { var t = $('sShip') && $('sShip').textContent; sh.textContent = t ? '+ ' + (/^(\$0\.00|free)/i.test(t.replace('+', '').trim()) ? 'Free shipping' : t.replace('+', '').trim() + ' shipping') : ''; };
     setTimeout(upd, 800); $('f').addEventListener('input', function () { setTimeout(upd, 600); });
   }
+  // The piece's photo and name at the top: the photo shows right away from the link, the name once the list loads.
+  var showPiece = function (id, name) { if (!id) { $('pieceTop').style.display = 'none'; return; } $('pieceTop').style.display = 'flex'; var im = $('pieceImg'); if (im.dataset.id !== id) { im.dataset.id = id; im.style.display = ''; im.onerror = function () { im.style.display = 'none'; }; im.src = '/api/photo?id=' + encodeURIComponent(id); } $('pieceName').textContent = name || ''; };
+  showPiece(new URLSearchParams(location.search).get('product') || '', '');
+  $('product').addEventListener('change', function () { var p = products.filter(function (x) { return x.id === $('product').value; })[0]; showPiece(p ? p.id : '', p ? p.name : ''); });
   var dealP = offerTok ? fetch('/api/offer?a=' + encodeURIComponent(offerTok), { cache: 'no-store' }).then(function (r) { return r.json(); }).catch(function () { return {}; }) : Promise.resolve({});
   Promise.all([fetch('/api/order', { cache: 'no-store' }).then(function (r) { return r.json(); }), dealP]).then(function (both) {
     var r = both[0], d = both[1].deal;
@@ -220,12 +225,14 @@ fieldset[hidden]{display:none}
       $('oBack').href = '/order.html?' + back.toString(); $('oBack').hidden = false;
     }
     if (r.promos && !deal) $('promoBox').hidden = false;
+    $('product').textContent = '';
     products.forEach(function (p) {
       var o = document.createElement('option'); o.value = p.id; o.textContent = 'Item ' + p.id + ': ' + p.name; $('product').appendChild(o);
     });
     if (products[0]) $('qty').value = products[0].min;
     var qs = new URLSearchParams(location.search);
     var want = products.filter(function (p) { return p.id === qs.get('product'); })[0];
+    showPiece(want ? want.id : (products[0] && products[0].id) || '', want ? want.name : (products[0] && products[0].name) || '');
     if (want) {
       $('product').value = want.id;
       var n = Math.floor(Number(qs.get('qty')));
