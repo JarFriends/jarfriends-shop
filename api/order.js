@@ -102,9 +102,11 @@ module.exports = async (req, res) => {
   const fee = card ? offline.cardFee(list - cut + ship) : 0;
   const total = list - cut + ship + fee;
   if (total <= 0) return res.status(400).json({ error: 'This piece is free with that code and has no shipping, so there is nothing to pay. Message the seller to get it.' });
+  // Pay-by timers: these buyers get this many hours to pay, see a countdown, and the order cancels if it is not paid in time.
+  const PAY_TIMERS = { 'guzmanc777@gmail.com': 12 }, timerH = PAY_TIMERS[String(email || '').trim().toLowerCase()] || 0, payBy = timerH ? Date.now() + timerH * 3600000 : 0;
   const r = await createInvoice({
     no: 'W' + Date.now().toString(36).toUpperCase(), item: p.name, qty: String(qty), buyer: company ? company + ' (' + name + ')' : name, terms: '', email: email,
-    cents: total, hours: ORDER_HOURS, noCoins: cash || card,
+    cents: total, hours: timerH || ORDER_HOURS, noCoins: cash || card,
     extra: Object.assign({ p: 'shop', pid: p.id, L: list, T: total, sh: ship, a: isNft ? [name, company, '', '', '', '', ''] : [name, company, street, line2, city, state, zip] }, isNft ? { wa: wallet } : {}, promo ? { pc: promo.code, pd: cut } : {}, fee ? { cf: fee, cp: offline.cardFeeLabel() } : {}, cash ? (way ? { m: 'cash', w: way } : { m: 'cash' }) : card ? { m: 'card' } : {})
   });
   if (r.error) return res.status(503).json({ error: 'Online payment is not available right now. Please contact us.' });
@@ -114,10 +116,11 @@ module.exports = async (req, res) => {
   if (cash) {
     const by = offline.payWith(r.inv);
     const out = await Promise.all([offline.record(r.inv, 'Placed, payment due by ' + by + tail, { label: label }), offline.sendEmail(r.inv), offline.notifyOwner(r.inv, label, by + ' payment due')]);
-    return res.json({ link: host + '/placed.html?inv=' + r.token, emailed: out[1] });
+    if (payBy) await require('./_store').write('meta/' + r.inv.n + '.json', { payBy: payBy, payTimerH: timerH }).catch(() => null);
+    return res.json({ link: host + '/placed.html?inv=' + r.token + (payBy ? '&by=' + payBy : ''), emailed: out[1] });
   }
   // Crypto and card orders go on the sheet once the payment is confirmed.
-  const link = host + (card ? (stripe.ready() ? '/api/stripe?inv=' : '/card.html?inv=') : '/pay.html?inv=') + r.token;
+  const link = host + (card ? (stripe.ready() ? '/api/stripe?inv=' : '/card.html?inv=') : '/pay.html?inv=') + r.token + (payBy && !(card && stripe.ready()) ? '&by=' + payBy : '');
   const out = await Promise.all([(card ? sendLinkEmail(r.inv, link) : offline.sendPayLinkEmail(r.inv, link)), offline.notifyOwner(r.inv, label, card ? 'card, waiting for payment' : 'crypto, waiting for payment')]);
   res.json({ link: link, emailed: out[0] });
 };

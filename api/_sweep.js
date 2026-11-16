@@ -403,6 +403,22 @@ async function reviewNudge(now, mail) {
     if (m.revNudge || m.brevNudge) await store.write(mk, m);
   }
 }
+// Pay-by timers (api/order.js PAY_TIMERS): an order placed by one of those buyers that is still unpaid when its time
+// is up is cancelled, the piece goes back on sale, and the buyer and the owner are told.
+async function payTimers(now, mail) {
+  for (const s of (await store.sales()).filter((x) => !x.gone && now - x.at < 3 * 86400000)) {
+    const m = (await store.read('meta/' + s.n + '.json')) || {};
+    if (!m.payBy || m.payBy > now || m.paidAt || m.cancelledAt) continue;
+    const d = await store.read(s.path); if (!d || !/payment due/i.test(d.status || '')) continue;
+    await store.write('cancelled/' + s.pid + '/' + s.n + '~' + s.q + '.json', Object.assign({}, d, { at: d.at || s.at }));
+    const { del } = await import('@vercel/blob'); await del(s.path);
+    await store.write('meta/' + s.n + '.json', Object.assign(m, { cancelledAt: Date.now(), wasPaid: false, cancelledBy: 'timer', cancelReason: 'Not paid within ' + (m.payTimerH || 12) + ' hours', refund: 'none' }));
+    if (d.email) await mail(d.email, 'Your order ' + s.n + ' was cancelled', ['Your order ' + s.n + ' (' + (d.product || 'your order') + (s.q > 1 ? ' x ' + s.q : '') + ') was cancelled because it was not paid within ' + (m.payTimerH || 12) + ' hours.', 'Nothing is due, and you were not charged.'], 'timer-cancel-' + s.n).catch(() => null);
+    const owner = (process.env.OWNER_EMAIL || '').trim();
+    if (owner) await mail(owner, 'Order ' + s.n + ' cancelled: not paid in time', ['Order ' + s.n + ' (' + (d.product || '') + ' x ' + s.q + ') by ' + (d.buyer || '') + ' (' + (d.email || '') + ') was not paid within ' + (m.payTimerH || 12) + ' hours, so it was cancelled and the piece is back on sale.'], 'timer-cancel-owner-' + s.n).catch(() => null);
+  }
+}
+
 // Crypto checkouts the buyer left before the payment confirmed: look on the blockchain for them, so a paid one
 // becomes a paid order by itself (api/status.js records it), without anyone pressing Check for payment.
 async function cryptoCheck(now) {
@@ -425,6 +441,7 @@ async function run() {
   await carts(now, mail).catch((e) => console.error('SWEEP_CARTS_FAIL', String(e && e.message || e)));
   await offers(now, mail).catch((e) => console.error('SWEEP_OFFERS_FAIL', String(e && e.message || e)));
   await unpaid(now, mail).catch((e) => console.error('SWEEP_UNPAID_FAIL', String(e && e.message || e)));
+  await payTimers(now, mail).catch((e) => console.error('SWEEP_TIMER_FAIL', String(e && e.message || e)));
   await cryptoCheck(now).catch((e) => console.error('SWEEP_CRYPTO_FAIL', String(e && e.message || e)));
   // Sent on their own: a safe opening (including a new round) and party pricing opening. New pieces, price drops and
   // auctions go out together when the owner presses the daily update button in the back office (see _digest.js).
