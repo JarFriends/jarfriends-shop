@@ -158,7 +158,18 @@
         mid.appendChild(el('span', t.status === 'pending' ? 'WAITING FOR THE SELLER' : t.status === 'accepted' ? 'ACCEPTED' : t.status === 'declined' ? 'PASSED' : 'WITHDRAWN', 'jf-badge ' + (t.status === 'accepted' ? 'ok' : t.status === 'pending' ? 'wait' : 'off')));
         mid.appendChild(el('div', t.text + ' · ' + money(t), 'small'));
         if (t.reply) mid.appendChild(el('div', 'Seller: ' + t.reply, 'small'));
-        if (t.status === 'accepted') mid.appendChild(el('div', 'Check your email for the seller\'s address to arrange the swap.', 'small dim'));
+        if (t.status === 'accepted') {
+          if (t.tracking) mid.appendChild(el('div', '📦 The seller shipped your piece. Tracking: ' + t.tracking, 'small'));
+          else mid.appendChild(el('div', 'The seller ships to the address on your account, so make sure it is up to date.', 'small dim'));
+          mid.appendChild(el('div', t.sendTo ? 'Send your side to: ' + t.sendTo : 'Check your email for the seller\'s address to send your side.', 'small'));
+          if (t.backTracking) mid.appendChild(el('div', '✅ You shipped your side. Tracking: ' + t.backTracking, 'small'));
+          else {
+            var bw = el('div'); bw.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;align-items:center';
+            var bi = document.createElement('input'); bi.type = 'text'; bi.maxLength = 40; bi.placeholder = 'Your tracking number'; bi.style.cssText = 'flex:1 1 180px;font:inherit;padding:8px 10px;background:#0E0F13;border:1px solid #4A4F5E;color:#F7F2E6;border-radius:2px';
+            var bs = el('button', 'Save tracking', 'ghost'); bs.type = 'button'; bw.appendChild(bi); bw.appendChild(bs); mid.appendChild(bw);
+            bs.addEventListener('click', function () { bs.disabled = true; JF.api('/api/market', { do: 'trade-back', t: tok, slug: t.slug, id: t.id, tracking: bi.value }).then(function (x) { bs.disabled = false; if (x.error) { alert(x.error); return; } bw.replaceWith(el('div', '✅ You shipped your side. Tracking: ' + bi.value, 'small')); }); });
+          }
+        }
         if (t.status === 'pending') {
           var w = el('button', 'Withdraw', 'ghost'); w.type = 'button'; w.style.alignSelf = 'flex-start';
           w.addEventListener('click', function () { if (!confirm('Withdraw this trade request?')) return; w.disabled = true; JF.api('/api/market', { do: 'trade-withdraw', t: tok, slug: t.slug, id: t.id }).then(function (x) { if (x.error) { alert(x.error); w.disabled = false; return; } location.reload(); }); });

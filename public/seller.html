@@ -1316,6 +1316,29 @@
           });
           acts.appendChild(m); mid.appendChild(acts);
         }
+        // Accepted: ship your side like an order (package, weight, price, label), or type the tracking.
+        if (t.status === 'accepted') {
+          var sb = el('div'); sb.style.cssText = 'display:flex;flex-direction:column;gap:8px;border-top:1px solid #2E4A3B;padding-top:10px';
+          if (t.backTracking) sb.appendChild(el('div', '📥 They shipped their side. Tracking: ' + t.backTracking, 'small'));
+          if (t.tracking) {
+            sb.appendChild(el('div', '✅ You shipped it. Tracking: ' + t.tracking, 'small'));
+            if (t.labelPdf) { var lp = el('a', 'Print the label again'); lp.href = t.labelPdf; lp.target = '_blank'; lp.rel = 'noopener'; sb.appendChild(lp); }
+          } else {
+            sb.appendChild(el('b', '📦 Ship your piece to them'));
+            var pf = pkgFields(null, 1), sm = status(), qv = null; sb.appendChild(pf.node);
+            var ba = el('div'); ba.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap';
+            var gp = el('button', 'Get the price', 'solid'), bb = el('button', '', 'solid'); gp.type = bb.type = 'button'; bb.hidden = true; ba.appendChild(gp); ba.appendChild(bb); sb.appendChild(ba); sb.appendChild(sm);
+            pf.node.addEventListener('change', function () { qv = null; bb.hidden = true; });
+            gp.addEventListener('click', function () { gp.disabled = true; sm.textContent = 'Getting the price…';
+              JF.api('/api/market', Object.assign({ do: 'trade-ship', t: tok, as: AS, ak: AK, id: t.id }, pf.read())).then(function (y) { gp.disabled = false; if (y.error) { sm.textContent = y.error; return; } qv = y; sm.textContent = ''; bb.hidden = false; bb.textContent = 'Buy label for ' + JF.cents(y.cents) + ' (' + y.service + ')'; }); });
+            bb.addEventListener('click', function () { if (!qv) return; bb.disabled = true; sm.textContent = 'Buying the label…';
+              JF.api('/api/market', Object.assign({ do: 'trade-ship', t: tok, as: AS, ak: AK, id: t.id, rate: qv.rate }, pf.read())).then(function (y) { bb.disabled = false; if (y.error) { sm.textContent = y.error; return; } if (y.label) window.open(y.label, '_blank'); pane.textContent = ''; trades(pane); }); });
+            var tw = el('div'); tw.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;align-items:center';
+            var ti = input('text', '', { maxlength: '40', placeholder: 'Or type a tracking number' }), tb = el('button', 'Save tracking', 'ghost'); tb.type = 'button'; ti.style.flex = '1 1 200px'; tw.appendChild(ti); tw.appendChild(tb); sb.appendChild(tw);
+            tb.addEventListener('click', function () { tb.disabled = true; JF.api('/api/market', { do: 'trade-ship', t: tok, as: AS, ak: AK, id: t.id, tracking: ti.value }).then(function (y) { tb.disabled = false; if (y.error) { sm.textContent = y.error; return; } pane.textContent = ''; trades(pane); }); });
+          }
+          mid.appendChild(sb);
+        }
         row.appendChild(mid); list.appendChild(row);
       });
     }).catch(function () { list.textContent = 'Could not load trades. Try again.'; });

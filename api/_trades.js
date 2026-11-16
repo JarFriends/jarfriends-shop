@@ -48,7 +48,12 @@ async function create(email, f, photo) {
 }
 
 const forSeller = async (slug) => (await read('trades/' + slug + '/')).map(pub);
-const forBuyer = async (email) => (await read('trades/')).filter((t) => t.email === email).map((t) => pub(Object.assign({}, t, { email: undefined })));
+// The trader sees where to send their side once the trade is accepted (the seller's ship-from address).
+const forBuyer = async (email) => Promise.all((await read('trades/')).filter((t) => t.email === email).map(async (t) => {
+  const o = Object.assign({}, t, { email: undefined, toAddress: undefined, labelPdf: undefined });
+  if (t.status === 'accepted') { const s = await M.bySlug(t.slug).catch(() => null), f = s && s.shipFrom; if (f && f.street1) o.sendTo = [f.name || s.name, f.street1 + (f.street2 ? ' ' + f.street2 : ''), f.city + ', ' + f.state + ' ' + f.zip].join(', '); }
+  return pub(o);
+}));
 
 async function answer(slug, id, yes, reply) {
   const p = 'trades/' + slug + '/' + String(id || '').replace(/[^A-Za-z0-9]/g, '') + '.json';

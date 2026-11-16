@@ -732,6 +732,17 @@ module.exports = async (req, res) => {
       await mail(r.seller.email, 'Trade request: ' + t.product, ['Someone wants to trade for your ' + t.product + '.', '', 'Their offer: ' + t.text, 'Money: ' + T.terms(t) + '.', '', 'See their photo and answer in your Seller Hub, Trades tab:', host + '/seller.html'], 'trade-new-' + t.id).catch(() => null);
       return res.json({ ok: true, trade: t });
     }
+    // The trader ships their side and adds the tracking; the seller is emailed.
+    if (what === 'trade-back' && req.method === 'POST') {
+      const tp = 'trades/' + String(b.slug || '').replace(/[^a-z0-9-]/g, '') + '/' + String(b.id || '').replace(/[^A-Za-z0-9]/g, '') + '.json', t = await store.read(tp);
+      if (!t || t.email !== me || t.status !== 'accepted') return res.status(404).json({ error: 'That accepted trade was not found.' });
+      const tr = String(b.tracking || '').replace(/\s+/g, '').slice(0, 40);
+      if (tr.length < 6) return res.status(400).json({ error: 'Type the full tracking number.' });
+      Object.assign(t, { backTracking: tr, backShippedAt: Date.now() }); await store.write(tp, t);
+      const sl = await M.bySlug(t.slug);
+      if (sl) await mail(sl.email, 'Trade piece on the way to you', [(t.name || 'The trader') + ' shipped their side of the trade for ' + t.product + '.', 'Tracking: ' + tr], 'trade-back-' + t.id + '-' + tr).catch(() => null);
+      return res.json({ ok: true });
+    }
     if (what === 'trade-withdraw' && req.method === 'POST') { const r = await require('./_trades').withdraw(me, b.slug, b.id); return res.status(r.error ? 400 : 200).json(r); }
     let seller = await M.byEmail(me);
     // The owner's own shops (SEED_SELLERS) open only from the back office or an emailed sign-in link, never from a
@@ -1176,6 +1187,36 @@ const r = await fetch(require('./_ai').url(), {
         await mail(seller.email, 'You accepted a trade: ' + t.product, ['You accepted a trade for ' + t.product + ' (' + T.terms(t) + ').', '', 'Their offer: ' + t.text, '', 'Write to them to agree how you will swap and send the pieces: ' + t.email], 'trade-yes-s-' + t.id).catch(() => null);
       } else await mail(t.email, 'About your trade for ' + t.product, [seller.name + ' passed on your trade for ' + t.product + '.', t.reply ? 'Their message: ' + t.reply : '', '', 'You can still buy it or make an offer on the site.'], 'trade-no-' + t.id).catch(() => null);
       return res.json({ ok: true });
+    }
+    // Ship your side of an accepted trade, the same way as an order: package and weight, get the price, buy the label
+    // (or type the tracking yourself). The label goes to the address on the trader's account.
+    if (what === 'trade-ship' && req.method === 'POST') {
+      const tp = 'trades/' + seller.slug + '/' + String(b.id || '').replace(/[^A-Za-z0-9]/g, '') + '.json', t = await store.read(tp);
+      if (!t || t.status !== 'accepted') return res.status(404).json({ error: 'That accepted trade was not found.' });
+      const tellTrader = async () => {
+        await mail(t.email, 'Your trade piece is on the way: ' + t.product, [seller.name + ' shipped ' + t.product + ' to you for your trade.', 'Tracking: ' + t.tracking, '', 'Send your side to them and add your tracking in My account > Trades.'], 'trade-ship-' + t.id + '-' + t.tracking).catch(() => null);
+        const li = (await M.listings()).filter((x) => x.id === t.pid)[0];
+        await require('./_discord').shipped({ what: t.product + ' (trade)', n: t.id, tracking: t.tracking, from: seller.name, to: t.name || '', photo: li ? photoOf(li) : '' });
+      };
+      if (b.tracking != null) {
+        const tr = String(b.tracking).replace(/\s+/g, '').slice(0, 40);
+        if (tr.length < 6) return res.status(400).json({ error: 'Type the full tracking number.' });
+        Object.assign(t, { tracking: tr, shippedAt: Date.now() }); await store.write(tp, t); await tellTrader();
+        return res.json({ ok: true, trade: t });
+      }
+      if (t.tracking) return res.status(400).json({ error: 'This trade already has tracking.' });
+      const u = await require('./_users').get(t.email).catch(() => null), ad = t.toAddress || (u && (u.address || (u.addresses || [])[0]));
+      if (!ad || !ad.street || !ad.city || !ad.zip) {
+        await mail(t.email, 'Add your shipping address for your trade', [seller.name + ' is ready to ship ' + t.product + ' to you.', 'Add your shipping address in My account so they can send it: https://' + req.headers.host + '/me.html#addr'], 'trade-addr-' + t.id).catch(() => null);
+        return res.status(400).json({ error: 'They have not added a shipping address yet. We just emailed them to add one. Try again once they do, or ship it yourself and type the tracking.' });
+      }
+      const g = { id: t.id, winnerAddress: ad, winnerName: t.name || (u && u.name) || '', winner: t.email };
+      const q = { preset: b.preset, oz: b.oz, l: b.l, w: b.w, h: b.h };
+      const r = await require('./_ship').giftLabel(seller, g, b.rate || '', q);
+      if (r.error) return res.status(400).json({ error: r.error.replace('giveaway labels', 'trade labels') });
+      if (!r.ok) return res.json(r);
+      Object.assign(t, { toAddress: ad, labelPdf: r.label, labelCost: r.cents, tracking: r.tracking, shippedAt: Date.now(), testLabel: !!r.test }); await store.write(tp, t); await tellTrader();
+      return res.json({ ok: true, label: r.label, trade: t });
     }
     // Correct the cost on one sale (what was paid for the piece, other costs such as supplies or card fees).
     if (what === 'cost-set') {
