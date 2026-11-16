@@ -53,6 +53,19 @@ module.exports = async (req, res) => {
     return res.send('<!doctype html><html><head><meta charset="utf-8"><title>' + esc(t0) + '</title><meta property="og:title" content="' + esc(t0) + '"><meta property="og:description" content="' + esc(g0 ? 'From ' + g0.hostName + ' on VeeFam' : 'Enter free on VeeFam') + '">' + (img ? '<meta property="og:image" content="' + esc(img) + '"><meta name="twitter:image" content="' + esc(img) + '">' : '') + '<meta name="twitter:card" content="summary_large_image"><meta http-equiv="refresh" content="0;url=' + esc(to) + '"></head><body><a href="' + esc(to) + '">Open the giveaway</a></body></html>');
   }
   if (req.method === 'GET') {
+    // The host's label, ready to print: on the top half of a letter sheet (default) or 4 x 6, like order labels.
+    if ((req.query || {}).label) {
+      const q = req.query, g = await store.read(key(String(q.label).replace(/[^A-Za-z0-9]/g, '')));
+      if (!g || !me || g.host !== me) return res.status(404).send('That label was not found.');
+      if (!/^https:\/\//.test(g.labelPdf || '')) return res.status(404).send('No label has been bought for this giveaway yet.');
+      let src; try { const r = await fetch(g.labelPdf, { signal: AbortSignal.timeout(20000) }); if (!r.ok) throw new Error('status ' + r.status); src = Buffer.from(await r.arrayBuffer()); }
+      catch (e) { return res.status(502).send('The label file could not be fetched. Try again in a minute.'); }
+      const shop = g.hostShop ? await M.bySlug(g.hostShop).catch(() => null) : null;
+      const fmt = q.format === '4x6' || q.format === 'half' ? q.format : ((shop && shop.labelFormat) || 'half');
+      const out = fmt === '4x6' ? src : await require('./_labelpdf').halfSheet(src);
+      res.setHeader('Content-Type', 'application/pdf'); res.setHeader('Content-Disposition', 'inline; filename="label-' + g.id + '.pdf"');
+      return res.send(out);
+    }
     const cut = Date.now() - 30 * 864e5;
     const list = (await all()).filter((g) => g.status !== 'cancelled' && (g.endsAt > cut || g.host === me || g.winner === me)).sort((a, c) => (a.status === 'open' ? 0 : 1) - (c.status === 'open' ? 0 : 1) || a.endsAt - c.endsAt);
     const out = list.map((g) => view(g, me));

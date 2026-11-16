@@ -786,10 +786,10 @@ module.exports = async (req, res) => {
     // as set in Seller Hub > Settings (or ?format=half|4x6 for just this print).
     if (what === 'label-file') {
       if (!seller) return res.status(403).send('Open a seller shop first.');
-      const n = String(q.n || '');
-      const row = (await M.ledger(seller.slug)).filter((r) => r.n === n)[0];
-      if (!row) return res.status(404).send('That order was not found in your shop.');
-      const m = (await store.read('meta/' + n + '.json')) || {};
+      const n = String(q.n || q.trade || '').replace(/[^A-Za-z0-9]/g, '');
+      // A trade's label (Seller Hub > Trades), or an order's.
+      const m = q.trade ? ((await store.read('trades/' + seller.slug + '/' + n + '.json')) || {}) : (await M.ledger(seller.slug)).some((r) => r.n === n) ? ((await store.read('meta/' + n + '.json')) || {}) : null;
+      if (!m) return res.status(404).send('That order was not found in your shop.');
       if (!/^https:\/\//.test(m.labelPdf || '')) return res.status(404).send('No label has been bought for this order yet.');
       let src;
       try { const r = await fetch(m.labelPdf, { signal: AbortSignal.timeout(20000) }); if (!r.ok) throw new Error('status ' + r.status); src = Buffer.from(await r.arrayBuffer()); }

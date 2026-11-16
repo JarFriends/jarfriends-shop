@@ -59,7 +59,7 @@
       w.appendChild(el('b', '🎉 Winner: ' + g.winnerName + ' · ' + g.winnerEmail));
       var ad = g.winnerAddress; w.appendChild(el('div', ad ? 'Ship to: ' + [ad.name, ad.street, ad.line2, ad.city + ', ' + ad.state + ' ' + ad.zip].filter(Boolean).join(', ') : 'No ship-to address on their account yet. We emailed them to add it.'));
       if (!ad) { w.appendChild(btn('Check for their address', 'ghost', act({ do: 'address' }))); w.appendChild(btn('✉️ Email them to add their address', 'ghost', function () { m.textContent = 'Sending…'; post({ do: 'nudge', id: g.id }).then(function (r) { m.textContent = r.error || 'Sent. They were asked to add their address soon.'; }); })); }
-      if (g.label) { var lk = el('a', '🖨️ Print the label'); lk.href = g.label; lk.target = '_blank'; lk.rel = 'noopener'; lk.className = 'solid'; w.appendChild(lk); }
+      if (g.label) { var lk = el('a', '🖨️ Print the label'); lk.href = '/api/giveaways?label=' + encodeURIComponent(g.id) + '&t=' + encodeURIComponent(tok); lk.target = '_blank'; lk.rel = 'noopener'; lk.className = 'solid'; w.appendChild(lk); }
       else if (ad && !g.tracking) {
         // Same as any other shipped order: pick the package, type the weight, get the price, buy the label.
         var PRE = [['envelope', 'Card in a toploader (rigid envelope) · 7 x 5 x 0.5 in'], ['mailer', 'Small padded mailer · 10 x 7 x 1 in'], ['slab', 'Graded slab in a small box · 9 x 6 x 3 in'], ['smallbox', 'Small box · 8 x 6 x 4 in'], ['box', 'Medium box · 12 x 10 x 6 in'], ['custom', 'Custom size (type it in)']];
@@ -73,7 +73,7 @@
         lf.appendChild(pre); lf.appendChild(dims); lf.appendChild(wt); lf.appendChild(el('div', 'Weigh it if you can. A wrong size or weight can bring a USPS charge later.', 'small dim'));
         var read = function () { var t = (Number(lb.value) || 0) * 16 + (Number(oz.value) || 0), r = { do: 'label', id: g.id, preset: pre.value, oz: t > 0 ? String(Math.round(t * 10) / 10) : '' }; if (pre.value === 'custom') { r.l = L.value; r.w = W.value; r.h = H.value; } return r; };
         var q0 = null, gp = btn('Get the price', 'solid', function () { m.textContent = 'Getting a price…'; gp.disabled = true; post(read()).then(function (q) { gp.disabled = false; if (q.error) { m.textContent = q.error; return; } q0 = q; m.textContent = ''; bl.textContent = 'Buy label for ' + money(q.cents) + ' (' + q.service + (q.days ? ', ' + q.days + ' days' : '') + ')'; bl.style.display = ''; }); });
-        var bl = btn('Buy label', 'solid', function () { if (!q0) return; bl.disabled = true; m.textContent = 'Buying…'; var r = read(); r.rate = q0.rate; post(r).then(function (z) { bl.disabled = false; if (z.error) { m.textContent = z.error; return; } if (z.label) window.open(z.label, '_blank'); load(); }); }); bl.style.display = 'none';
+        var bl = btn('Buy label', 'solid', function () { if (!q0) return; bl.disabled = true; m.textContent = 'Buying…'; var r = read(); r.rate = q0.rate; post(r).then(function (z) { bl.disabled = false; if (z.error) { m.textContent = z.error; return; } if (z.label) window.open('/api/giveaways?label=' + encodeURIComponent(g.id) + '&t=' + encodeURIComponent(tok), '_blank'); load(); }); }); bl.style.display = 'none';
         [pre, lb, oz, L, W, H].forEach(function (x) { x.addEventListener('input', function () { q0 = null; bl.style.display = 'none'; }); });
         var br = el('div'); br.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap'; br.appendChild(gp); br.appendChild(bl); lf.appendChild(br);
         w.appendChild(lf);
