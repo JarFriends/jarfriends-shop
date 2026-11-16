@@ -115,7 +115,7 @@ async function apply(email, f) {
   // a seller can open a shop and list straight away, and add where to send their earnings later (Seller Hub >
   // Payments). Earnings wait until they do.
   const based = f.region === 'intl' ? 'intl' : 'us';
-  const hasBank = ['routing', 'account', 'iban', 'swift'].some((k) => String(f[k] || '').trim());
+  const hasBank = based !== 'intl' && ['routing', 'account', 'iban', 'swift'].some((k) => String(f[k] || '').trim());
   const bank = hasBank ? bankFrom(Object.assign({}, f, { region: based })) : { fields: { payHow: '', payTo: '' } };
   if (bank.error) return bank;
   // Who can vouch for them: required; the owner reads every answer in the back office (Sellers > Vouches).
@@ -201,7 +201,7 @@ async function products() {
   const sellers = {};
   (await all()).forEach((s) => { sellers[s.slug] = s; });
   return (await listings()).filter((p) => sellers[p.seller] && sellers[p.seller].status === 'approved' && !p.hidden)
-    .map((p) => { const o = Object.assign({}, p, { section: sectionOf(p), sellerName: sellers[p.seller].name, shelf: false, paypal: !!String((sellers[p.seller].directPay || {}).paypal || '').trim(), prefPay: (sellers[p.seller].directPay || {}).preferred || '' }); delete o.cost; return o; }); // cost is private to the seller
+    .map((p) => { const o = Object.assign({}, p, { section: sectionOf(p), sellerName: sellers[p.seller].name, shelf: false, paypal: sellers[p.seller].based !== 'intl' && !!String((sellers[p.seller].directPay || {}).paypal || '').trim(), prefPay: sellers[p.seller].based === 'intl' ? '' : (sellers[p.seller].directPay || {}).preferred || '' }); delete o.cost; return o; }); // cost is private to the seller
 }
 const isSellerPid = (id) => /^S[0-9A-Z]{5,19}$/.test(String(id || ''));
 // One listing saved by its seller. New listings get an id starting with S.
@@ -572,7 +572,8 @@ async function promoUsed(slug, code) { const s = await bySlug(slug); const x = s
 async function directFor(pid, way) {
   if (!way || !isSellerPid(pid)) return null;
   const p = (await listings()).filter((x) => x.id === pid)[0], s = p && (await bySlug(p.seller));
-  const to = s && s.directPay && String(s.directPay[way] || '').trim();
+  // Sellers outside the US are never paid directly: those buyers pay VeeFam.
+  const to = s && s.based !== 'intl' && s.directPay && String(s.directPay[way] || '').trim();
   return to ? { slug: s.slug, name: s.name, way: way, to: to } : null;
 }
 module.exports = { isProtected, promoFor, promoUsed, directFor, removeShop, bankFrom, bankOf, safe, routingOk, profit, setCost, giveawayPct, sellerOf, offerTo, notifySale, reviews, saveReview, removeReview, stats, statsAll, statsFrom, shortName, completed, VERIFY_AFTER, posts, addPost, removePost, feePct, autoApprove, all, bySlug, byEmail, save, apply, pub, listings, products, isSellerPid, saveListing, setListing, removeListing, ledger, payouts, addPayout, totals, hashOf, SECTIONS, sectionOf, forget };

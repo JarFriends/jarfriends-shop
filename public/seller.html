@@ -123,6 +123,10 @@
     var c = el('section', null, 'card'); c.style.gap = '12px';
     c.appendChild(el('h2', 'Payout details'));
     c.appendChild(el('div', s.based === 'intl' ? 'Based outside the US' + (s.country ? ' (' + s.country + ')' : '') + '. Earnings are sent by international wire.' : 'Based in the United States. Earnings are sent to your bank account.', 'small dim'));
+    if (s.based === 'intl' && !AS) {
+      c.appendChild(el('div', '🌍 You are based outside the US, so buyers of your pieces pay VeeFam directly and VeeFam pays you out. There is nothing to set up here. ' + (s.bankHint ? 'On file: ' + bankLine(s) + '. ' : '') + 'Message us if you have questions about a payout.', 'small'));
+      pane.appendChild(c); return;
+    }
     var f = bankFields(s.based), m = status(), open = !s.bankHint;
     var line = el('div'); line.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;align-items:center';
     line.appendChild(el('span', s.bankHint ? bankLine(s) : 'No payout details yet. You can sell now; add these whenever you are ready and your earnings will be sent. Until then they wait safely for you.', s.bankHint ? '' : 'alert small'));
@@ -230,7 +234,7 @@
     var bp = el('div', null, 'jf-filters'); bp.setAttribute('role', 'group');
     var rUS = el('button', 'United States', 'pill'), rIn = el('button', 'International (outside the US)', 'pill'); rUS.type = rIn.type = 'button'; bp.appendChild(rUS); bp.appendChild(rIn);
     var ctryIn = input('text', '', { maxlength: '60', autocomplete: 'country-name', placeholder: 'e.g. Canada' }), ctryL = field('Which country?', ctryIn);
-    var intlNote = el('div', '🌍 Sellers outside the US are paid by international wire (SWIFT). You add your bank details later, in Seller Hub > Payments. Shipping from abroad may cost buyers more, so set your shipping prices to match.', 'small');
+    var intlNote = el('div', '🌍 For sellers outside the US, buyers pay VeeFam directly and VeeFam pays you out, so there are no payout details to add. Shipping from abroad may cost buyers more, so set your shipping prices to match.', 'small');
     var rShow = function () { rUS.setAttribute('aria-pressed', region === 'us' ? 'true' : 'false'); rIn.setAttribute('aria-pressed', region === 'intl' ? 'true' : 'false'); ctryL.hidden = intlNote.hidden = region !== 'intl'; };
     rUS.addEventListener('click', function () { region = 'us'; rShow(); }); rIn.addEventListener('click', function () { region = 'intl'; rShow(); }); rShow();
     var al = el('div', null, 'small dim');
@@ -1830,13 +1834,15 @@
     f.appendChild(bk);
     // Where packages ship from: needed for calculated shipping and for buying labels.
     // Get paid directly: buyers who pick Zelle, Venmo, Cash App or crypto pay the seller, who then owes VeeFam its fee.
-    var dp = s.directPay || {};
+    var dp = s.directPay || {}, intlS = s.based === 'intl' && !AS, dHold = intlS ? el('div') : null, fReal = f;
+    if (intlS) { f.appendChild(el('div', '🌍 Buyers of your pieces pay VeeFam directly, and VeeFam pays you out.', 'small')); f = dHold; }
     f.appendChild(el('h2', 'Get paid directly by buyers'));
     f.appendChild(el('div', 'Optional. Fill in any of these and buyers who pay that way send the money straight to you. You then owe VeeFam its ' + D.fee + '% fee on those sales: you will see it under Sales, and can pay it in crypto (it marks itself paid) or by Zelle. Leave a box empty to keep that way paid to VeeFam.', 'small dim'));
     var dz = input('text', dp.zelle || '', { maxlength: '80', placeholder: 'Email or phone' }), dv = input('text', dp.venmo || '', { maxlength: '40', placeholder: '@you' }), dc = input('text', dp.cashapp || '', { maxlength: '40', placeholder: '$you' }), dpp = input('text', dp.paypal || '', { maxlength: '80', placeholder: 'PayPal email or @name' }), dw = input('text', dp.crypto || '', { maxlength: '42', placeholder: '0x… (Ethereum and Base)', autocomplete: 'off', spellcheck: 'false' });
     var g1 = el('div', null, 'two'); g1.appendChild(field('Zelle', dz)); g1.appendChild(field('Venmo', dv)); f.appendChild(g1);
     var g2 = el('div', null, 'two'); g2.appendChild(field('Cash App', dc)); g2.appendChild(field('PayPal', dpp, 'Works for buyers in any country.')); g2.appendChild(field('Crypto wallet', dw, 'ETH, USDC and USDT, on Ethereum or Base. Payments to it are checked automatically.')); f.appendChild(g2);
     var pps = select([['', 'No preference'], ['zelle', 'Zelle'], ['venmo', 'Venmo'], ['cashapp', 'Cash App'], ['paypal', 'PayPal'], ['crypto', 'Crypto'], ['card', 'Card']], dp.preferred || ''); pps.id = 'prefPaySel'; f.appendChild(field('⭐ Your preferred payment method', pps, 'Buyers see this at checkout and can pick it if it works for them.'));
+    if (intlS) f = fReal;
     var sf = s.shipFrom || {};
     f.appendChild(el('h2', 'Ship from'));
     f.appendChild(el('div', 'Used for calculated shipping prices and printed on your labels as the return address.', 'small dim'));

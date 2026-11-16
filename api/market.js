@@ -956,6 +956,12 @@ module.exports = async (req, res) => {
     }
     if (what === 'profile') {
       const tidy = (v, n) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n);
+      // Sellers based outside the US do not set where they get paid: buyers pay VeeFam and the owner pays them out.
+      // Only the owner (acting as the seller from the back office) can change it.
+      if (seller.based === 'intl' && !actAs) {
+        if (b.region != null || b.routing != null || b.account != null || b.iban != null || b.swift != null || b.wallet != null) return res.status(400).json({ error: 'Sellers outside the US are paid out by VeeFam directly, so payout details are set by VeeFam. Message us if you have questions.' });
+        delete b.directPay; delete b.payHow;
+      }
       if (b.about != null) seller.about = tidy(b.about, 400);
       if (b.labelFormat === 'half' || b.labelFormat === '4x6') seller.labelFormat = b.labelFormat;
       if (b.shipIntl != null) seller.shipIntl = !!b.shipIntl;
