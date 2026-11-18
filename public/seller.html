@@ -1326,6 +1326,16 @@
             if (t.labelPdf) { var lp = el('a', '🖨️ Print the label'); lp.href = tUrl; lp.target = '_blank'; lp.rel = 'noopener'; sb.appendChild(lp); }
           } else {
             sb.appendChild(el('b', '📦 Ship your piece to them'));
+            // Where it goes: the address you typed for this trade, or else the one on their account.
+            var ta = t.toAddress, adl = el('div', ta ? 'Ships to: ' + [ta.name, ta.street + (ta.line2 ? ' ' + ta.line2 : ''), ta.city + ', ' + ta.state + ' ' + ta.zip].join(', ') : 'Ships to the address on their account.', 'small');
+            var eb = el('button', ta ? '✏️ Change the address' : '✏️ Type their address myself', 'ghost'); eb.type = 'button'; eb.style.alignSelf = 'flex-start';
+            var af = el('div'); af.hidden = true; af.style.cssText = 'display:flex;flex-direction:column;gap:8px';
+            var ai = {}; [['name', 'Full name'], ['street', 'Street address'], ['line2', 'Apt, suite (optional)'], ['city', 'City'], ['state', 'State (2 letters)'], ['zip', 'ZIP code']].forEach(function (x) { ai[x[0]] = input('text', ta ? ta[x[0]] || '' : '', { placeholder: x[1], maxlength: x[0] === 'state' ? '2' : '120' }); af.appendChild(field(x[1], ai[x[0]])); });
+            var as2 = el('button', 'Save address', 'solid'), am = status(); as2.type = 'button'; as2.style.alignSelf = 'flex-start'; af.appendChild(as2); af.appendChild(am);
+            eb.addEventListener('click', function () { af.hidden = !af.hidden; });
+            as2.addEventListener('click', function () { var p = { do: 'trade-addr', t: tok, as: AS, ak: AK, id: t.id }; Object.keys(ai).forEach(function (k) { p[k] = ai[k].value; }); as2.disabled = true;
+              JF.api('/api/market', p).then(function (y) { as2.disabled = false; if (y.error) { am.textContent = y.error; return; } pane.textContent = ''; trades(pane); }); });
+            sb.appendChild(adl); sb.appendChild(eb); sb.appendChild(af);
             var pf = pkgFields(null, 1), sm = status(), qv = null; sb.appendChild(pf.node);
             var ba = el('div'); ba.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap';
             var gp = el('button', 'Get the price', 'solid'), bb = el('button', '', 'solid'); gp.type = bb.type = 'button'; bb.hidden = true; ba.appendChild(gp); ba.appendChild(bb); sb.appendChild(ba); sb.appendChild(sm);

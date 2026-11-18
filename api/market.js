@@ -1218,6 +1218,16 @@ const r = await fetch(require('./_ai').url(), {
       Object.assign(t, { toAddress: ad, labelPdf: r.label, labelCost: r.cents, tracking: r.tracking, shippedAt: Date.now(), testLabel: !!r.test }); await store.write(tp, t); await tellTrader();
       return res.json({ ok: true, label: r.label, trade: t });
     }
+    // The seller types the trader's ship-to address by hand (used instead of the one on their account).
+    if (what === 'trade-addr' && req.method === 'POST') {
+      const tp = 'trades/' + seller.slug + '/' + String(b.id || '').replace(/[^A-Za-z0-9]/g, '') + '.json', t = await store.read(tp);
+      if (!t || t.status !== 'accepted') return res.status(404).json({ error: 'That accepted trade was not found.' });
+      const tidy = (v, n) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n);
+      const a = { name: tidy(b.name, 80), street: tidy(b.street, 120), line2: tidy(b.line2, 60), city: tidy(b.city, 60), state: tidy(b.state, 30).toUpperCase(), zip: tidy(b.zip, 10) };
+      if (!a.name || !/[0-9]/.test(a.street) || !a.city || !/^[A-Z]{2}$/.test(a.state) || !/^\d{5}(-\d{4})?$/.test(a.zip)) return res.status(400).json({ error: 'Fill in the name, street with its number, city, 2-letter state and 5-digit zip.' });
+      t.toAddress = a; await store.write(tp, t);
+      return res.json({ ok: true, trade: t });
+    }
     // Correct the cost on one sale (what was paid for the piece, other costs such as supplies or card fees).
     if (what === 'cost-set') {
       const n = String(b.n || '');
