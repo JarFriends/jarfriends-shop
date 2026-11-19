@@ -19,7 +19,7 @@ module.exports = async (req, res) => {
       const A = require('./_auction'), s = await A.state(p).catch(() => null);
       if (s) { price = usd(s.current); sub = s.count ? 'CURRENT BID · ' + s.count + ' bid' + (s.count === 1 ? '' : 's') : 'STARTING BID'; }
     }
-    const photo = p.photo ? host + '/api/photo?id=' + p.id + '&v=' + p.photo : '';
+    const photo = p.blind ? '' : p.photo ? host + '/api/photo?id=' + p.id + '&v=' + p.photo : '';
     const { ImageResponse } = await import('@vercel/og');
     const el = h('div', { width: '100%', height: '100%', display: 'flex', background: '#0B1712', color: '#F7F2E6', fontFamily: 'sans-serif' }, [
       photo ? h('div', { width: 630, height: 630, display: 'flex', background: '#11261C' }, [{ type: 'img', props: { src: photo, width: 630, height: 630, style: { objectFit: 'cover' } } }]) : h('div', { width: 630, height: 630, display: 'flex', background: '#11261C' }, ''),

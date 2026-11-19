@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800">
+<defs>
+ <radialGradient id="bg" cx="50%" cy="38%" r="80%"><stop offset="0" stop-color="#24402F"/><stop offset="1" stop-color="#06100A"/></radialGradient>
+ <filter id="paper" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="3" seed="4" result="n"/>
+  <feDiffuseLighting in="n" lighting-color="#fff" surfaceScale="1.2" result="l"><feDistantLight azimuth="235" elevation="55"/></feDiffuseLighting>
+  <feComposite in="l" in2="SourceGraphic" operator="in" result="t"/><feBlend in="SourceGraphic" in2="t" mode="multiply"/></filter>
+ <filter id="soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="22"/></filter>
+ <filter id="soft2" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="6"/></filter>
+ <linearGradient id="L" x1="0" y1="0" x2="1" y2=".25"><stop offset="0" stop-color="#245A3C"/><stop offset="1" stop-color="#163C28"/></linearGradient>
+ <linearGradient id="R" x1="0" y1="0" x2="1" y2="-.2"><stop offset="0" stop-color="#173D29"/><stop offset="1" stop-color="#0D2618"/></linearGradient>
+ <linearGradient id="T" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2F6B48"/><stop offset="1" stop-color="#1E4C33"/></linearGradient>
+ <linearGradient id="rb" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#7A5E18"/><stop offset=".35" stop-color="#D9B44A"/><stop offset=".55" stop-color="#fff8dc"/><stop offset=".7" stop-color="#D9B44A"/><stop offset="1" stop-color="#9C7A22"/></linearGradient>
+ <linearGradient id="rbv" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#D9B44A"/><stop offset="1" stop-color="#9C7A22"/></linearGradient>
+ <radialGradient id="bow" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#fff3c8"/><stop offset=".4" stop-color="#D9B44A"/><stop offset="1" stop-color="#7A5E18"/></radialGradient>
+ <radialGradient id="gl" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#F3D58A" stop-opacity=".75"/><stop offset="1" stop-color="#F3D58A" stop-opacity="0"/></radialGradient>
+ <linearGradient id="shade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".35"/></linearGradient>
+</defs>
+<rect width="800" height="800" fill="url(#bg)"/>
+<ellipse cx="400" cy="300" rx="300" ry="230" fill="url(#gl)"/>
+<g opacity=".28" fill="#F3D58A"><path d="M400 300 L280 20 L330 10 Z"/><path d="M400 300 L400 0 L450 0 Z"/><path d="M400 300 L540 15 L585 35 Z"/><path d="M400 300 L700 140 L715 180 Z"/><path d="M400 300 L95 150 L80 190 Z"/></g>
+<ellipse cx="400" cy="690" rx="270" ry="40" fill="#000" opacity=".55" filter="url(#soft)"/>
+<ellipse cx="400" cy="672" rx="215" ry="16" fill="#000" opacity=".6" filter="url(#soft2)"/>
+<!-- body -->
+<g filter="url(#paper)">
+ <path d="M170 380 L400 445 L400 680 L170 615 Z" fill="url(#L)"/>
+ <path d="M400 445 L630 380 L630 615 L400 680 Z" fill="url(#R)"/>
+</g>
+<path d="M170 380 L400 445 L400 680 L170 615 Z" fill="url(#shade)" opacity=".5"/>
+<path d="M400 445 L630 380 L630 615 L400 680 Z" fill="url(#shade)"/>
+<path d="M400 445 V680" stroke="#fff" stroke-opacity=".18" stroke-width="2"/>
+<!-- body ribbons -->
+<path d="M268 408 L300 417 L300 653 L268 644 Z" fill="url(#rbv)"/><path d="M272 409 L280 411 L280 647 L272 645 Z" fill="#fff8dc" opacity=".45"/>
+<path d="M500 417 L532 408 L532 644 L500 653 Z" fill="url(#rbv)" opacity=".8"/>
+<!-- lid -->
+<g transform="translate(0,-38) rotate(-7 400 360)">
+ <g filter="url(#paper)">
+  <path d="M150 352 L400 285 L650 352 L400 420 Z" fill="url(#T)"/>
+  <path d="M150 352 L400 420 L400 462 L150 394 Z" fill="url(#L)"/>
+  <path d="M400 420 L650 352 L650 394 L400 462 Z" fill="url(#R)"/>
+ </g>
+ <path d="M400 420 L650 352 L650 394 L400 462 Z" fill="#000" opacity=".22"/>
+ <path d="M150 352 L400 285 L650 352" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="2"/>
+ <!-- lid ribbons -->
+ <path d="M255 324 L290 315 L545 384 L510 393 Z" fill="url(#rb)"/>
+ <path d="M510 315 L545 324 L290 393 L255 384 Z" fill="url(#rb)" opacity=".92"/>
+ <path d="M255 384 L290 393 L290 435 L255 426 Z" fill="#9C7A22"/>
+ <path d="M510 393 L545 384 L545 426 L510 435 Z" fill="#7A5E18"/>
+ <!-- bow -->
+ <g>
+  <path d="M400 350 C340 255 250 270 285 330 C305 365 360 362 400 350 Z" fill="url(#bow)"/>
+  <path d="M400 350 C355 300 305 300 300 325" fill="none" stroke="#7A5E18" stroke-opacity=".6" stroke-width="3"/>
+  <path d="M400 350 C460 255 550 270 515 330 C495 365 440 362 400 350 Z" fill="url(#bow)"/>
+  <path d="M400 350 C445 300 495 300 500 325" fill="none" stroke="#7A5E18" stroke-opacity=".6" stroke-width="3"/>
+  <path d="M400 352 C380 390 360 420 335 448 L362 455 C380 425 392 395 400 365 Z" fill="#9C7A22"/>
+  <path d="M400 352 C420 390 440 420 465 448 L438 455 C420 425 408 395 400 365 Z" fill="#7A5E18"/>
+  <ellipse cx="400" cy="347" rx="25" ry="18" fill="url(#bow)"/>
+  <ellipse cx="393" cy="341" rx="9" ry="5" fill="#fff" opacity=".55"/>
+ </g>
+</g>
+<text x="400" y="760" text-anchor="middle" font-family="Archivo,system-ui,sans-serif" font-size="38" font-weight="800" letter-spacing="12" fill="#F6DE9A">BLIND BOX</text>
+</svg>

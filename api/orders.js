@@ -77,6 +77,8 @@ module.exports = async (req, res) => {
       try { await require('./_discord')('**ADDRESS CHANGED** order ' + x.s.n + ' · ' + (x.d.product || '') + '\nNew: ' + line + '\nWas: ' + (x.d.ship || '-')); } catch (e) { /* the ping is extra */ }
       return res.json({ ok: true, ship: line });
     }
+    // A Blind Box shows what was inside once it is paid.
+    const BL = {}; ((await require('./_sellers').listings().catch(() => [])) || []).forEach((l) => { if (l.blind) BL[l.id] = l.name; });
     const orders = list.map((x) => {
       const d = x.d, m = x.m, due = /payment due/i.test(d.status || '');
       const paidNow = !due || m.paidAt || m.shippedAt || m.labelPdf || (m.tracking && !m.testLabel);
@@ -86,7 +88,7 @@ module.exports = async (req, res) => {
       return {
         at: d.at || x.s.at || 0,
         invoice: s(x.s.n), placed: s(d.placed || new Date(d.at || x.s.at).toLocaleString('en-US', { timeZone: 'America/Chicago', dateStyle: 'medium', timeStyle: 'short' })),
-        product: s(d.product || x.s.pid), productNo: s(x.s.pid), units: s(x.s.q), plan: s(d.pay),
+        product: s((BL[x.s.pid] && paidNow ? '🎁 ' + BL[x.s.pid] + ' (from your Blind Box)' : d.product) || x.s.pid), productNo: s(x.s.pid), units: s(x.s.q), plan: s(d.pay),
         total: total.toFixed(2), paid: (paidNow ? total : num(d.paid)).toFixed(2), balance: (paidNow ? 0 : Math.max(0, total - num(d.paid))).toFixed(2),
         status: status, proof: /^https:\/\//.test(s(d.proof)) ? s(d.proof) : '', ship: s(d.ship),
         // Not shipped yet and going to a mailing address: the address can still change.

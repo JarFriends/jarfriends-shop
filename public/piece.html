@@ -112,7 +112,13 @@
     if ((acts.children.length - 1) % 2 === 1) acts.lastChild.classList.add('wide');
     info.appendChild(acts);
     if (window.V2VShare) V2VShare(info, { id: p.id, name: p.name, price: p.price });
-    if (p.desc) { info.appendChild(el('h3', 'About this piece')); info.appendChild(el('div', p.desc, 'pc-desc')); }
+    if (p.blind) {
+      // Blind Box: the clues, one per line, and what happens after paying.
+      var bt = el('div', '🎁 BLIND BOX'); bt.style.cssText = 'align-self:flex-start;border:1px solid #d4af37;color:#d4af37;border-radius:999px;padding:4px 10px;font:700 12px/1.2 monospace;letter-spacing:.12em'; info.appendChild(bt);
+      info.appendChild(el('h3', 'The clues'));
+      (p.clues || []).forEach(function (c, i) { var li = el('div'); li.style.cssText = 'background:#11261C;border:1px solid #2E4A3B;border-left:4px solid #d4af37;border-radius:10px;padding:10px 12px'; var cb = el('b', 'Clue ' + (i + 1) + ' '); cb.style.color = '#d4af37'; li.appendChild(cb); li.appendChild(document.createTextNode(c)); info.appendChild(li); });
+      var bn = el('div', 'What\'s inside stays a surprise until you pay. Your order page shows the piece as soon as the payment goes through. Check the seller\'s rating to see how their boxes have gone.', 'small'); bn.style.cssText = 'border:1px dashed #2E4A3B;border-radius:10px;padding:10px 12px'; info.appendChild(bn);
+    } else if (p.desc) { info.appendChild(el('h3', 'About this piece')); info.appendChild(el('div', p.desc, 'pc-desc')); }
     // The shop it comes from.
     if (p.sellerName) {
       var sl = el(p.seller ? 'a' : 'div', null, 'pc-seller'); if (p.seller) sl.href = '/shop.html?s=' + encodeURIComponent(p.seller);

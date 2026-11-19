@@ -1093,6 +1093,32 @@
     var extB = input('checkbox'); extB.checked = !!(p && p.auction && p.auction.extend);
     var extL = el('label'); extL.style.cssText = 'display:flex;gap:8px;align-items:center;font-weight:600'; extL.appendChild(extB); extL.appendChild(document.createTextNode('⏱ Extended bidding: a bid in the last 60 seconds resets the clock to 60 seconds (stops last-second sniping)'));
     hoursL.appendChild(endAt); hoursL.appendChild(extL); f.appendChild(hoursL); f.appendChild(minL);
+    // Blind Box: buyers see the box picture and these clues, not the title or photos, until they pay.
+    var bbWrap = el('div'); bbWrap.style.cssText = 'display:flex;flex-direction:column;gap:8px;border:1px solid #d4af37;border-radius:10px;padding:12px;background:#0E2016';
+    var bbB = input('checkbox'); bbB.checked = !!(p && p.blind); bbB.style.cssText = 'width:22px;height:22px;accent-color:#d4af37';
+    var bbL = el('label'); bbL.style.cssText = 'display:flex;gap:10px;align-items:center;font-weight:700'; bbL.appendChild(bbB); bbL.appendChild(document.createTextNode('🎁 Make this a Blind Box'));
+    bbWrap.appendChild(bbL); bbWrap.appendChild(el('div', 'Buyers see a gift box picture and your clues, not the title or photos. They see what they got once they pay.', 'small dim'));
+    var bbClues = [0, 1, 2].map(function (i) { var c = input('text', p && p.clues ? p.clues[i] || '' : '', { maxlength: '140', placeholder: i === 0 ? 'Example: a VeeFriends comic from 2025' : i === 1 ? 'Example: last 3 sold for over $60' : 'Optional' }); return c; });
+    var bbF = el('div'); bbF.style.cssText = 'display:flex;flex-direction:column;gap:8px'; bbClues.forEach(function (c, i) { bbF.appendChild(field('Clue ' + (i + 1) + (i === 2 ? ' (optional)' : ''), c)); });
+    bbWrap.appendChild(bbF); bbF.hidden = !bbB.checked;
+    bbB.addEventListener('change', function () {
+      if (!bbB.checked) { bbF.hidden = true; return; }
+      bbB.checked = false;
+      var ov = el('div'); ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px';
+      var bx = el('div'); bx.setAttribute('role', 'dialog'); bx.setAttribute('aria-modal', 'true'); bx.style.cssText = 'max-width:520px;background:#11261C;border:2px solid #d4af37;border-radius:16px;padding:20px 22px;display:flex;flex-direction:column;gap:10px';
+      var hh = el('h2', '🎁 Before you make a Blind Box'); hh.style.color = '#d4af37'; bx.appendChild(hh);
+      var p1 = el('p'); p1.style.margin = '0'; var s1 = el('b', 'A blind box should be worth more than its price.'); p1.appendChild(s1); p1.appendChild(document.createTextNode(' Buyers are trusting you without seeing what\'s inside, so set the price below the fair market value (FMV) of what you put in it.')); bx.appendChild(p1);
+      var p2 = el('p', 'When people open your box and feel they won, they leave good reviews and come back for your next one. Boxes that feel like a loss hurt your rating.'); p2.style.margin = '0'; bx.appendChild(p2);
+      bx.appendChild(el('div', 'Your clues must be true. Don\'t describe something that isn\'t in the box.', 'small dim'));
+      var row = el('div'); row.style.cssText = 'display:flex;gap:10px;flex-wrap:wrap';
+      var ok = el('button', 'Got it, make it a Blind Box', 'solid'), no = el('button', 'Not now', 'ghost'); ok.type = no.type = 'button'; row.appendChild(ok); row.appendChild(no); bx.appendChild(row);
+      ov.appendChild(bx); document.body.appendChild(ov); ok.focus();
+      var close = function () { ov.remove(); bbB.focus(); };
+      ok.addEventListener('click', function () { bbB.checked = true; bbF.hidden = false; close(); bbClues[0].focus(); });
+      no.addEventListener('click', close); ov.addEventListener('click', function (e) { if (e.target === ov) close(); });
+      ov.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+    });
+    f.appendChild(bbWrap);
     var resIn = input('text'); resIn.placeholder = 'buyer@email.com or Jay Johnson'; resIn.value = (p && (p.reservedShow || (p.reservedFor || []).join(', '))) || '';
     f.appendChild(field('🔒 Reserve for specific buyers (optional)', resIn, 'Type their email or their name as it is on their V2V account (commas between several). Only they can buy it, signed in. It stays off the market; send them the link to the piece. Email is the safest.'));
     var cost = input('number', p && p.cost != null ? p.cost : '', { min: '0', step: '0.01', inputmode: 'decimal', placeholder: 'Optional' });
@@ -1160,7 +1186,7 @@
     c.appendChild(f);
     f.addEventListener('submit', function (ev) {
       ev.preventDefault(); go.disabled = true; m.textContent = 'Saving…';
-      JF.api('/api/market', { do: 'listing', t: tok, as: AS, ak: AK, id: p ? p.id : '', cost: cost.value, name: name.value, desc: desc.value, price: price.value, stock: mode.value === 'auction' ? 1 : stock.value, shipping: ship.value, shipMode: shipMode.value, returns: returns.value, pkgPreset: pf.read().preset, pkgOz: pf.read().oz, pkgL: pf.read().l, pkgW: pf.read().w, pkgH: pf.read().h, section: sec.value, hidden: hidden.checked, mode: mode.value, hours: hoursOut(), extend: extB.checked, reserve: resIn.value, minOffer: mode.value === 'auction' ? '' : minOffer.value, party: partyVal() }).then(function (r) {
+      JF.api('/api/market', { do: 'listing', t: tok, as: AS, ak: AK, id: p ? p.id : '', cost: cost.value, name: name.value, desc: desc.value, price: price.value, stock: mode.value === 'auction' ? 1 : stock.value, shipping: ship.value, shipMode: shipMode.value, returns: returns.value, pkgPreset: pf.read().preset, pkgOz: pf.read().oz, pkgL: pf.read().l, pkgW: pf.read().w, pkgH: pf.read().h, section: sec.value, hidden: hidden.checked, mode: mode.value, hours: hoursOut(), extend: extB.checked, reserve: resIn.value, blind: bbB.checked, clues: bbClues.map(function (c) { return c.value; }), minOffer: mode.value === 'auction' ? '' : minOffer.value, party: partyVal() }).then(function (r) {
         if (r.error) { go.disabled = false; m.textContent = r.error; return; }
         var file = photo.files && photo.files[0];
         if (!file) { if (moreQ.length) m.textContent = 'Uploading the photos…'; return upMore(r.listing.id).then(finish); }
@@ -1650,7 +1676,7 @@
       var sum = el('button'); sum.type = 'button'; sum.style.cssText = 'display:flex;gap:10px;align-items:center;width:100%;text-align:left;background:#11261C;border:1px solid #2E4A3B;border-radius:12px;padding:8px 10px;color:inherit;cursor:pointer;font:inherit';
       var sl = (D.listings || []).filter(function (l) { return l.id === o.pid; })[0];
       if (sl && sl.photoUrl) { var si = el('img'); si.src = sl.photoUrl; si.alt = ''; si.loading = 'lazy'; si.style.cssText = 'width:48px;height:48px;object-fit:cover;border-radius:8px;flex:none'; sum.appendChild(si); }
-      var st = el('div'); st.style.cssText = 'flex:1;min-width:0'; var sn = el('b', o.product + (o.q > 1 ? ' × ' + o.q : '')); sn.style.cssText = 'display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'; st.appendChild(sn);
+      var st = el('div'); st.style.cssText = 'flex:1;min-width:0'; var sn = el('b', (sl && sl.blind ? '🎁 ' + sl.name + ' (Blind Box)' : o.product) + (o.q > 1 ? ' × ' + o.q : '')); sn.style.cssText = 'display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'; st.appendChild(sn);
       st.appendChild(el('div', (o.buyer || 'Buyer') + ' · ' + JF.cents(o.gross) + ' · ' + new Date(o.at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + (o.cancelled ? ' · cancelled' : ''), 'small dim')); sum.appendChild(st);
       var chev = el('span', '▸'); sum.appendChild(chev);
       c.hidden = true; sum.addEventListener('click', function () { c.hidden = !c.hidden; chev.textContent = c.hidden ? '▸' : '▾'; });

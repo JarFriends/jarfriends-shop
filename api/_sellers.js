@@ -201,7 +201,12 @@ async function products() {
   const sellers = {};
   (await all()).forEach((s) => { sellers[s.slug] = s; });
   return (await listings()).filter((p) => sellers[p.seller] && sellers[p.seller].status === 'approved' && !p.hidden)
-    .map((p) => { const o = Object.assign({}, p, { section: sectionOf(p), sellerName: sellers[p.seller].name, shelf: false, paypal: sellers[p.seller].based !== 'intl' && !!String((sellers[p.seller].directPay || {}).paypal || '').trim(), prefPay: sellers[p.seller].based === 'intl' ? '' : (sellers[p.seller].directPay || {}).preferred || '' }); delete o.cost; return o; }); // cost is private to the seller
+    .map((p) => { const o = Object.assign({}, p, { section: sectionOf(p), sellerName: sellers[p.seller].name, shelf: false, paypal: sellers[p.seller].based !== 'intl' && !!String((sellers[p.seller].directPay || {}).paypal || '').trim(), prefPay: sellers[p.seller].based === 'intl' ? '' : (sellers[p.seller].directPay || {}).preferred || '' }); delete o.cost; if (p.blind) blindMask(o); return o; }); // cost is private to the seller
+}
+// What the public sees of a Blind Box: the box, the clues and the price. The real title and photos stay with the seller.
+function blindMask(o) {
+  Object.assign(o, { name: 'Blind Box from ' + o.sellerName, desc: (o.clues || []).map((c, i) => 'Clue ' + (i + 1) + ': ' + c).join('\n'), photo: '', more: [], blind: true });
+  return o;
 }
 const isSellerPid = (id) => /^S[0-9A-Z]{5,19}$/.test(String(id || ''));
 // One listing saved by its seller. New listings get an id starting with S.
@@ -283,6 +288,15 @@ async function saveListing(seller, f) {
     const em = parts.filter((e) => /^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(e)).map((e) => e.toLowerCase()), nm = parts.filter((e) => e.indexOf('@') < 0).map((e) => e.replace(/\s+/g, ' ').slice(0, 60));
     if (em.length || nm.length) { p.reservedFor = em.concat(nm.map((x) => 'name:' + x.toLowerCase())); p.reservedShow = parts.join(', '); } else { delete p.reservedFor; delete p.reservedShow; }
   }
+  // Blind Box: buyers see the box picture and the seller's clues, not the title or photos, until they have paid.
+  if (f.blind !== undefined) {
+    const clues = [].concat(f.clues || []).map((x) => tidy(x, 140)).filter(Boolean).slice(0, 3);
+    if (f.blind && f.blind !== 'false') {
+      if (clues.length < 1) return { error: 'Give your Blind Box at least one clue.' };
+      p.blind = true; p.clues = clues;
+    } else { delete p.blind; delete p.clues; }
+    await store.write('blind/' + id + '.json', { on: !!p.blind });
+  }
   const drop = dropDue(p);
   await store.write('market/' + seller.slug + '/' + id + '.json', p);
   forget();
@@ -291,7 +305,7 @@ async function saveListing(seller, f) {
 }
 // A 1/1 goes out once to the drops channel, as soon as it is public and has its photo.
 function dropDue(p) {
-  if (p.alert11 || p.hidden || p.removed || !p.photo || sectionOf(p) !== '1/1') return false;
+  if (p.alert11 || p.blind || p.hidden || p.removed || !p.photo || sectionOf(p) !== '1/1') return false;
   p.alert11 = Date.now(); return true;
 }
 async function dropAlert(seller, p) {
